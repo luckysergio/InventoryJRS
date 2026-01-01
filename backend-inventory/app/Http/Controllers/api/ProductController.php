@@ -223,7 +223,9 @@ class ProductController extends Controller
             'kode'       => 'required|string|max:50|unique:products,kode,' . $id,
             'jenis_id'   => 'required|exists:jenis_products,id',
             'type_id'    => 'nullable|exists:type_products,id',
+            'type_nama'  => 'nullable|string|max:100', // ✅ Tambahkan ini
             'bahan_id'   => 'nullable|exists:bahan_products,id',
+            'bahan_nama' => 'nullable|string|max:100', // opsional, jika perlu
             'ukuran'     => 'required|string|max:20',
             'keterangan' => 'nullable|string',
         ]);
@@ -236,26 +238,62 @@ class ProductController extends Controller
             ], 422);
         }
 
-        if ($request->type_id) {
-            $type = TypeProduct::where('id', $request->type_id)
-                ->where('jenis_id', $request->jenis_id)
-                ->first();
+        DB::beginTransaction();
+        try {
+            $jenis_id = $request->jenis_id;
 
-            if (!$type) {
-                return response()->json([
-                    'status'  => false,
-                    'message' => 'Type tidak sesuai dengan jenis product'
-                ], 422);
+            $type_id = null;
+
+            if (!empty($request->type_nama)) {
+                $namaType = trim($request->type_nama);
+                $namaTypeNormalized = Str::title(strtolower($namaType));
+
+                $existingType = TypeProduct::where('jenis_id', $jenis_id)
+                    ->whereRaw('LOWER(nama) = ?', [strtolower($namaType)])
+                    ->first();
+
+                if ($existingType) {
+                    $type_id = $existingType->id;
+                } else {
+                    $type = TypeProduct::create([
+                        'nama' => $namaTypeNormalized,
+                        'jenis_id' => $jenis_id
+                    ]);
+                    $type_id = $type->id;
+                }
+            } elseif (!empty($request->type_id)) {
+                $type = TypeProduct::where('id', $request->type_id)
+                    ->where('jenis_id', $jenis_id)
+                    ->first();
+
+                if (!$type) {
+                    throw new \Exception('Type tidak sesuai dengan jenis product');
+                }
+                $type_id = $type->id;
             }
+            $product->update([
+                'kode'       => $request->kode,
+                'jenis_id'   => $jenis_id,
+                'type_id'    => $type_id,
+                'bahan_id'   => $request->bahan_id,
+                'ukuran'     => $request->ukuran,
+                'keterangan' => $request->keterangan,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Product berhasil diperbarui',
+                'data'    => $product->load(['jenis', 'type', 'bahan'])
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status'  => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        $product->update($validator->validated());
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Product berhasil diperbarui',
-            'data'    => $product->load(['jenis', 'type', 'bahan'])
-        ]);
     }
 
     public function destroy($id)
