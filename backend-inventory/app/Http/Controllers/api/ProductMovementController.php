@@ -18,6 +18,7 @@ class ProductMovementController extends Controller
             'inventory.place',
             'inventory.product.jenis',
             'inventory.product.type',
+            'inventory.product.bahan'
         )
             ->orderBy('created_at', 'desc')
             ->get();

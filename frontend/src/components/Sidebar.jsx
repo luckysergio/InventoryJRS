@@ -29,7 +29,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     const productionRoutes = [
       "/production",
       "/RiwayatProduction",
-      "/ProductMovement",
     ];
     const isProductionRoute = productionRoutes.some((route) =>
       path === route || path.startsWith(route + "/")
@@ -61,7 +60,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     );
 
     // === INVENTORY ===
-    const inventoryRoutes = ["/inventory", "/Place"];
+    const inventoryRoutes = ["/inventory", "/ProductMovement"];
     const isInventoryRoute = inventoryRoutes.some((route) =>
       path === route || path.startsWith(route + "/")
     );
@@ -175,13 +174,13 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
             <Dropdown title="Inventory" open={inventoryOpen} setOpen={setInventoryOpen} icon={Warehouse}>
               <SubNavLink to="/inventory">Inventory</SubNavLink>
-              <SubNavLink to="/Place">Place</SubNavLink>
+              <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
+              {/* <SubNavLink to="/Place">Place</SubNavLink> */}
             </Dropdown>
 
             <Dropdown title="Production" open={productionOpen} setOpen={setProductionOpen} icon={Factory}>
               <SubNavLink to="/production">Production</SubNavLink>
               <SubNavLink to="/RiwayatProduction">Riwayat Production</SubNavLink>
-              <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
             </Dropdown>
 
             <Dropdown title="Stok Opname" open={stokOpnameOpen} setOpen={setStokOpnameOpen} icon={ClipboardCheck}>
@@ -242,13 +241,13 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
             <Dropdown title="Inventory" open={inventoryOpen} setOpen={setInventoryOpen} icon={Warehouse}>
               <SubNavLink to="/inventory">Inventory</SubNavLink>
-              <SubNavLink to="/Place">Place</SubNavLink>
+              <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
+              {/* <SubNavLink to="/Place">Place</SubNavLink> */}
             </Dropdown>
 
             <Dropdown title="Production" open={productionOpen} setOpen={setProductionOpen} icon={Factory}>
               <SubNavLink to="/production">Production</SubNavLink>
               <SubNavLink to="/RiwayatProduction">Riwayat Production</SubNavLink>
-              <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
             </Dropdown>
 
             <Dropdown title="Stok Opname" open={stokOpnameOpen} setOpen={setStokOpnameOpen} icon={ClipboardCheck}>

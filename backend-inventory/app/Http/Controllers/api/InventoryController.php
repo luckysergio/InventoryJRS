@@ -10,7 +10,7 @@ class InventoryController extends Controller
 {
     public function index()
     {
-        $inventories = Inventory::with(['product.jenis', 'product.type', 'place'])
+        $inventories = Inventory::with(['product.jenis', 'product.type','product.bahan', 'place'])
             ->orderBy('place_id')
             ->orderBy('product_id')
             ->get();

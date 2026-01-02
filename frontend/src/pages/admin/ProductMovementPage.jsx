@@ -1,14 +1,13 @@
 import { useEffect, useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import api from "../../services/api";
-import { ArrowDown, ArrowUp, Repeat, Factory } from "lucide-react";
+import { ArrowDown, ArrowUp, Repeat, Factory, Calendar } from "lucide-react";
 
-// Helper function — konsisten dengan Inventory & Pesanan
 const formatProductName = (product) => {
   if (!product) return "-";
-  return [product.jenis?.nama, product.type?.nama, product.ukuran]
+  return [product.jenis?.nama, product.type?.nama, product.bahan?.nama,product.ukuran]
     .filter(Boolean)
-    .join(" | ");
+    .join(" ");
 };
 
 const badgeType = {
@@ -38,10 +37,9 @@ const ProductMovementPage = () => {
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Filter state
-  const [selectedYear, setSelectedYear] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedType, setSelectedType] = useState(""); // '' = semua
+  const [filterDari, setFilterDari] = useState("");
+  const [filterSampai, setFilterSampai] = useState("");
+  const [selectedType, setSelectedType] = useState("");
 
   const fetchData = async () => {
     try {
@@ -60,23 +58,6 @@ const ProductMovementPage = () => {
     fetchData();
   }, []);
 
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 6 }, (_, i) => currentYear - i + 5); // 5 tahun ke belakang + sekarang + 1 ke depan
-  const months = [
-    { value: "1", label: "Januari" },
-    { value: "2", label: "Februari" },
-    { value: "3", label: "Maret" },
-    { value: "4", label: "April" },
-    { value: "5", label: "Mei" },
-    { value: "6", label: "Juni" },
-    { value: "7", label: "Juli" },
-    { value: "8", label: "Agustus" },
-    { value: "9", label: "September" },
-    { value: "10", label: "Oktober" },
-    { value: "11", label: "November" },
-    { value: "12", label: "Desember" },
-  ];
-
   const movementTypes = [
     { value: "in", label: "IN" },
     { value: "out", label: "OUT" },
@@ -87,22 +68,28 @@ const ProductMovementPage = () => {
   const filteredMovements = useMemo(() => {
     return movements.filter((m) => {
       const date = new Date(m.created_at);
-      const movementYear = date.getFullYear().toString();
-      const movementMonth = (date.getMonth() + 1).toString();
+      const dari = filterDari ? new Date(filterDari) : null;
+      const sampai = filterSampai ? new Date(filterSampai) : null;
 
-      if (selectedYear && movementYear !== selectedYear) return false;
-      if (selectedMonth && movementMonth !== selectedMonth) return false;
+      if (dari && date < dari) return false;
+      if (sampai && date > sampai) return false;
       if (selectedType && m.tipe !== selectedType) return false;
       return true;
     });
-  }, [movements, selectedYear, selectedMonth, selectedType]);
+  }, [movements, filterDari, filterSampai, selectedType]);
+
+  const handleReset = () => {
+    setFilterDari("");
+    setFilterSampai("");
+    setSelectedType("");
+  };
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Product Movement</h1>
-          <p className="text-gray-500 text-sm">Riwayat perubahan stok produk</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Product Movement</h1>
+          <p className="text-gray-600 mt-1">Riwayat perubahan stok produk</p>
         </div>
         <div className="text-center py-12">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-purple-600 border-t-transparent"></div>
@@ -113,51 +100,53 @@ const ProductMovementPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
       {/* HEADER */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Product Movement</h1>
-        <p className="text-gray-500 text-sm">Riwayat perubahan stok produk</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Product Movement</h1>
+          <p className="text-gray-600 mt-1">Riwayat perubahan stok produk</p>
+        </div>
       </div>
 
-      {/* FILTERS: TAHUN, BULAN, TIPE */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-center items-center flex-wrap">
-        {/* Tahun */}
-        <div className="w-full sm:w-36">
-          <select
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none text-center"
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
-          >
-            <option value="">Semua Tahun</option>
-            {years.map((year) => (
-              <option key={year} value={year.toString()}>
-                {year}
-              </option>
-            ))}
-          </select>
+      {/* FILTERS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-xl shadow-sm">
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">
+            Dari Tanggal
+          </label>
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="date"
+              value={filterDari}
+              onChange={(e) => setFilterDari(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-200 focus:outline-none"
+            />
+          </div>
         </div>
 
-        {/* Bulan */}
-        <div className="w-full sm:w-40">
-          <select
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none text-center"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-          >
-            <option value="">Semua Bulan</option>
-            {months.map((month) => (
-              <option key={month.value} value={month.value}>
-                {month.label}
-              </option>
-            ))}
-          </select>
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">
+            Sampai Tanggal
+          </label>
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="date"
+              value={filterSampai}
+              onChange={(e) => setFilterSampai(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-200 focus:outline-none"
+            />
+          </div>
         </div>
 
-        {/* Tipe Mutasi */}
-        <div className="w-full sm:w-44">
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">
+            Tipe Mutasi
+          </label>
           <select
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none text-center"
+            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-purple-200 focus:outline-none"
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
           >
@@ -171,15 +160,10 @@ const ProductMovementPage = () => {
         </div>
       </div>
 
-      {/* RESET BUTTON (opsional tapi berguna) */}
       <div className="flex justify-center">
         <button
-          onClick={() => {
-            setSelectedYear("");
-            setSelectedMonth("");
-            setSelectedType("");
-          }}
-          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium"
+          onClick={handleReset}
+          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm font-medium"
         >
           Reset Filter
         </button>
@@ -187,70 +171,59 @@ const ProductMovementPage = () => {
 
       {/* CONTENT */}
       {filteredMovements.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">
-            Tidak ada data mutasi pada periode ini.
-          </p>
+        <div className="text-center py-12 text-gray-500">
+          Tidak ada data mutasi pada periode ini.
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredMovements.map((m) => {
-            const badge = badgeType[m.tipe] || {
-              label: m.tipe?.toUpperCase() || "–",
-              className: "bg-gray-100 text-gray-800",
-              icon: null,
-            };
-            const product = m.inventory?.product || null;
+        <div className="space-y-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {filteredMovements.map((m) => {
+              const badge = badgeType[m.tipe] || {
+                label: m.tipe?.toUpperCase() || "–",
+                className: "bg-gray-100 text-gray-800",
+                icon: null,
+              };
+              const product = m.inventory?.product || null;
 
-            return (
-              <div
-                key={m.id}
-                className="bg-white p-5 rounded-2xl shadow border border-gray-200 space-y-4"
-              >
-                {/* HEADER: BADGE + TANGGAL */}
-                <div className="flex justify-between items-start">
-                  <span
-                    className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${badge.className}`}
-                  >
-                    {badge.icon}
-                    {badge.label}
-                  </span>
-                  <span className="text-xs text-gray-500 whitespace-nowrap">
-                    {new Date(m.created_at).toLocaleString("id-ID", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
+              return (
+                <div
+                  key={m.id}
+                  className="bg-white border border-gray-200 rounded-lg p-3 hover:border-purple-300 hover:shadow-sm transition"
+                >
+                  {/* Badge & Tanggal */}
+                  <div className="flex justify-between items-start mb-2">
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full ${badge.className}`}>
+                      {badge.icon}
+                      {badge.label}
+                    </span>
+                    <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                      {new Date(m.created_at).toLocaleDateString("id-ID")}
+                    </span>
+                  </div>
 
-                {/* PRODUCT INFO */}
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">Kode:</span> {product?.kode || "–"}
-                  </p>
-                  <p className="text-sm font-medium text-gray-800">
+                  {/* Produk */}
+                  <p className="text-[10px] font-medium text-gray-800 line-clamp-2 min-h-[28px] text-center">
                     {formatProductName(product)}
                   </p>
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">Tempat:</span> {m.inventory?.place?.nama || "–"}
+                  <p className="text-[12px] text-gray-600 mt-1 text-center">
+                    {m.inventory?.place?.nama || "–"}
                   </p>
-                  <p className="text-lg font-bold text-purple-700">
+
+                  {/* Qty */}
+                  <p className="text-lg font-bold text-purple-700 mt-2 text-center">
                     {m.qty} {m.tipe === "out" || m.tipe === "transfer" ? "–" : "+"}
                   </p>
-                </div>
 
-                {/* KETERANGAN */}
-                {m.keterangan && (
-                  <div className="pt-2 border-t border-gray-100">
-                    <p className="text-xs italic text-gray-600">{m.keterangan}</p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  {/* Keterangan */}
+                  {m.keterangan && (
+                    <p className="text-[10px] italic text-gray-500 mt-2 line-clamp-2 text-center">
+                      "{m.keterangan}"
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

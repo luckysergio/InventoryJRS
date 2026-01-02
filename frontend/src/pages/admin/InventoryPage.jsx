@@ -4,11 +4,13 @@ import api from "../../services/api";
 
 const formatProductName = (p) => {
   if (!p) return "-";
-  return [p.jenis?.nama, p.type?.nama, p.ukuran].filter(Boolean).join(" | ");
+  const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
+    .filter(Boolean);
+  return parts.join(" ");
 };
 
 const InventoryPage = () => {
-  const [inventories, setInventories] = useState([]);
+  const [allInventories, setAllInventories] = useState([]);
   const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,20 +23,18 @@ const InventoryPage = () => {
     keterangan: "",
   });
 
-  // === Filter & Search State ===
-  const [selectedPlaceId, setSelectedPlaceId] = useState("");
-  const [selectedJenisId, setSelectedJenisId] = useState(""); // ✅ Baru
-  const [selectedTypeId, setSelectedTypeId] = useState(""); // ✅ Baru
+  const [selectedJenisId, setSelectedJenisId] = useState("");
+  const [selectedTypeId, setSelectedTypeId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const inv = await api.get("/inventories");
-      const pl = await api.get("/places");
+      const invRes = await api.get("/inventories");
+      const placeRes = await api.get("/places");
 
-      setInventories(inv.data.data);
-      setPlaces(pl.data.data);
+      setAllInventories(invRes.data.data);
+      setPlaces(placeRes.data.data);
     } catch {
       Swal.fire("Error", "Gagal mengambil data inventory", "error");
     } finally {
@@ -46,13 +46,51 @@ const InventoryPage = () => {
     fetchData();
   }, []);
 
-  // === Kumpulkan daftar unik Jenis & Type dari inventories ===
+  // ✅ Group inventory per produk
+  const produkWithInventori = useMemo(() => {
+    const productMap = new Map();
+
+    allInventories.forEach((inv) => {
+      if (!inv.product || !inv.place) return;
+
+      const productId = inv.product.id;
+      if (!productMap.has(productId)) {
+        productMap.set(productId, {
+          product: inv.product,
+          inventories: [],
+        });
+      }
+
+      productMap.get(productId).inventories.push(inv);
+    });
+
+    return Array.from(productMap.values());
+  }, [allInventories]);
+
+  const placeToko = useMemo(() => places.find(p => p.kode === 'TOKO'), [places]);
+  const placeBengkel = useMemo(() => places.find(p => p.kode === 'BENGKEL'), [places]);
+
+  const produkLengkap = useMemo(() => {
+    return produkWithInventori.map(item => {
+      const inventoriToko = item.inventories.find(inv => inv.place_id === placeToko?.id);
+      const inventoriBengkel = item.inventories.find(inv => inv.place_id === placeBengkel?.id);
+
+      return {
+        ...item,
+        stok_toko: inventoriToko?.qty || 0,
+        stok_bengkel: inventoriBengkel?.qty || 0,
+        inv_toko: inventoriToko,
+        inv_bengkel: inventoriBengkel,
+      };
+    });
+  }, [produkWithInventori, placeToko, placeBengkel]);
+
   const { jenisList, typeList } = useMemo(() => {
     const jenisMap = new Map();
     const typeMap = new Map();
 
-    inventories.forEach((inv) => {
-      const product = inv.product;
+    produkLengkap.forEach((item) => {
+      const product = item.product;
       if (!product) return;
 
       if (product.jenis?.id) {
@@ -60,7 +98,6 @@ const InventoryPage = () => {
       }
 
       if (product.type?.id) {
-        // Hanya tampilkan type yang sesuai dengan jenis yang dipilih (jika ada)
         if (!selectedJenisId || product.jenis?.id === Number(selectedJenisId)) {
           typeMap.set(product.type.id, product.type);
         }
@@ -71,45 +108,43 @@ const InventoryPage = () => {
       jenisList: Array.from(jenisMap.values()).sort((a, b) => a.nama.localeCompare(b.nama)),
       typeList: Array.from(typeMap.values()).sort((a, b) => a.nama.localeCompare(b.nama)),
     };
-  }, [inventories, selectedJenisId]);
+  }, [produkLengkap, selectedJenisId]);
 
-  // === FILTERED INVENTORIES ===
-  const filteredInventories = useMemo(() => {
-    let result = [...inventories];
+  const filteredProducts = useMemo(() => {
+    let result = [...produkLengkap];
 
-    // Filter by place
-    if (selectedPlaceId) {
-      result = result.filter((inv) => inv.place_id === Number(selectedPlaceId));
-    }
-
-    // Filter by jenis
     if (selectedJenisId) {
-      result = result.filter((inv) => inv.product?.jenis?.id === Number(selectedJenisId));
+      result = result.filter(item => 
+        item.product?.jenis?.id === Number(selectedJenisId)
+      );
     }
 
-    // Filter by type
     if (selectedTypeId) {
-      result = result.filter((inv) => inv.product?.type?.id === Number(selectedTypeId));
+      result = result.filter(item => 
+        item.product?.type?.id === Number(selectedTypeId)
+      );
     }
 
-    // Search by product kode or formatted name
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      result = result.filter((inv) => {
-        const product = inv.product;
+      result = result.filter(item => {
+        const product = item.product;
         if (!product) return false;
-        const kodeMatch = product.kode?.toLowerCase().includes(term);
-        const nameMatch = formatProductName(product)
-          .toLowerCase()
-          .includes(term);
-        return kodeMatch || nameMatch;
+        return (
+          product.kode?.toLowerCase().includes(term) ||
+          formatProductName(product).toLowerCase().includes(term)
+        );
       });
     }
 
     return result;
-  }, [inventories, selectedPlaceId, selectedJenisId, selectedTypeId, searchTerm]);
+  }, [produkLengkap, selectedJenisId, selectedTypeId, searchTerm]);
 
   const openModal = (type, inventory) => {
+    if (!inventory) {
+      Swal.fire("Error", "Inventory tidak ditemukan", "error");
+      return;
+    }
     setSelectedInventory(inventory);
     setModal(type);
     setForm({ qty: 1, to_place_id: "", keterangan: "" });
@@ -164,29 +199,11 @@ const InventoryPage = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-800">Inventory</h1>
+    <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
+      <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Inventory</h1>
 
       {/* FILTERS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Tempat */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Tempat</label>
-          <select
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-            value={selectedPlaceId}
-            onChange={(e) => setSelectedPlaceId(e.target.value)}
-          >
-            <option value="">Semua Tempat</option>
-            {places.map((place) => (
-              <option key={place.id} value={place.id}>
-                {place.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Jenis */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-white p-4 rounded-xl shadow-sm">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Jenis</label>
           <select
@@ -194,7 +211,7 @@ const InventoryPage = () => {
             value={selectedJenisId}
             onChange={(e) => {
               setSelectedJenisId(e.target.value);
-              setSelectedTypeId(""); // Reset type saat jenis berubah
+              setSelectedTypeId("");
             }}
           >
             <option value="">Semua Jenis</option>
@@ -206,14 +223,13 @@ const InventoryPage = () => {
           </select>
         </div>
 
-        {/* Type */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
           <select
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
             value={selectedTypeId}
             onChange={(e) => setSelectedTypeId(e.target.value)}
-            disabled={!selectedJenisId} // Hanya aktif jika jenis dipilih
+            disabled={!selectedJenisId}
           >
             <option value="">Semua Type</option>
             {typeList.map((t) => (
@@ -224,7 +240,6 @@ const InventoryPage = () => {
           </select>
         </div>
 
-        {/* Pencarian */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Kode Product</label>
           <input
@@ -238,46 +253,83 @@ const InventoryPage = () => {
       </div>
 
       {/* CARD LIST */}
-      {filteredInventories.length === 0 ? (
+      {filteredProducts.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">Tidak ada inventory ditemukan.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredInventories.map((inv) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredProducts.map((item) => (
             <div
-              key={inv.id}
-              className="bg-white p-6 rounded-2xl shadow border border-gray-200 space-y-4"
+              key={item.product.id}
+              className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-4"
             >
-              <div className="text-center">
-                <p className="text-sm text-gray-500">Kode: {inv.product?.kode || "–"}</p>
-                <p className="font-semibold text-gray-800 mt-1 text-base">
-                  {formatProductName(inv.product)}
+              {/* Info Produk */}
+              <div className="text-center mb-3">
+                <p className="text-sm text-gray-500 font-medium">Kode: {item.product.kode}</p>
+                <p className="font-medium text-gray-800 mt-1 text-sm min-h-[40px]">
+                  {formatProductName(item.product)}
                 </p>
-                <p className="text-sm text-gray-600 mt-1">Tempat: {inv.place?.nama || "–"}</p>
-                <p className="text-2xl font-bold text-purple-700 mt-2">{inv.qty}</p>
-                <p className="text-xs text-gray-500">Stok Tersedia</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 pt-2">
-                <button
-                  onClick={() => openModal("in", inv)}
-                  className="bg-green-100 hover:bg-green-200 text-green-700 rounded-lg py-2 text-xs font-medium transition"
-                >
-                  + IN
-                </button>
-                <button
-                  onClick={() => openModal("out", inv)}
-                  className="bg-red-100 hover:bg-red-200 text-red-700 rounded-lg py-2 text-xs font-medium transition"
-                >
-                  - OUT
-                </button>
-                <button
-                  onClick={() => openModal("transfer", inv)}
-                  className="bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg py-2 text-xs font-medium transition"
-                >
-                  TRANSFER
-                </button>
+              {/* === TOKO === */}
+              <div className="border border-green-200 rounded-lg p-3 mb-4 bg-green-50">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-xs font-medium text-green-800">TOKO</span>
+                    <p className="font-bold text-lg text-green-700 mt-1">{item.stok_toko}</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => openModal("in", item.inv_toko)}
+                      className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
+                    >
+                      IN
+                    </button>
+                    <button
+                      onClick={() => openModal("out", item.inv_toko)}
+                      className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
+                    >
+                      OUT
+                    </button>
+                    <button
+                      onClick={() => openModal("transfer", item.inv_toko)}
+                      className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
+                    >
+                      TF
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* === BENGKEL === */}
+              <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-xs font-medium text-blue-800">BENGKEL</span>
+                    <p className="font-bold text-lg text-blue-700 mt-1">{item.stok_bengkel}</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => openModal("in", item.inv_bengkel)}
+                      className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
+                    >
+                      IN
+                    </button>
+                    <button
+                      onClick={() => openModal("out", item.inv_bengkel)}
+                      className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
+                    >
+                      OUT
+                    </button>
+                    <button
+                      onClick={() => openModal("transfer", item.inv_bengkel)}
+                      className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
+                    >
+                      TF
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ))}
