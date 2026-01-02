@@ -13,10 +13,11 @@ return new class extends Migration
     {
         Schema::create('harga_products', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
+            $table->foreignId('product_id')->constrained()->onDelete('cascade');
             $table->integer('harga');
             $table->date('tanggal_berlaku')->nullable();
             $table->string('keterangan')->nullable();
+            $table->foreignId('customer_id')->nullable()->constrained()->onDelete('cascade');
             $table->timestamps();
         });
     }

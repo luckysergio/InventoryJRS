@@ -1,8 +1,8 @@
 import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
-import axios from "axios"
 import Swal from "sweetalert2"
+import api from "../services/api"
 
 const Login = () => {
   const navigate = useNavigate()
@@ -17,42 +17,42 @@ const Login = () => {
     setLoading(true)
 
     try {
-      const response = await axios.post("http://127.0.0.1:8000/api/login", {
+      const response = await api.post("/login", {
         email,
         password,
       })
 
-      if (response.data.status === true) {
-        const token = response.data.token
-        const user = response.data.user
+      const { status, token, user, message } = response.data
 
-        localStorage.setItem("token", token)
-        localStorage.setItem("user", JSON.stringify(user))
-
-        Swal.fire({
-          icon: "success",
-          title: "Login Berhasil",
-          text: "Selamat datang kembali!",
-          timer: 1500,
-          showConfirmButton: false,
-        })
-
-        setTimeout(() => {
-          navigate("/dashboard-admin")
-        }, 1500)
+      if (!status) {
+        throw new Error(message || "Login gagal")
       }
 
-    } catch (err) {
-      if (err.response) {
+      localStorage.setItem("token", token)
+      localStorage.setItem("user", JSON.stringify(user))
+
+      await Swal.fire({
+        icon: "success",
+        title: "Login Berhasil",
+        text: "Selamat datang kembali!",
+        timer: 1500,
+        showConfirmButton: false,
+      })
+
+      navigate("/dashboard-admin")
+    } catch (error) {
+      if (error.response) {
         Swal.fire({
           icon: "error",
           title: "Login Gagal",
-          text: err.response.data.message,
+          text:
+            error.response.data?.message ||
+            "Email atau password salah",
         })
       } else {
         Swal.fire({
           icon: "error",
-          title: "Server Error",
+          title: "Koneksi Gagal",
           text: "Tidak dapat terhubung ke server",
         })
       }
@@ -79,6 +79,7 @@ const Login = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
           </div>
 
@@ -93,6 +94,7 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
               />
 
               <button
@@ -113,9 +115,9 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl transition duration-300"
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white py-2 rounded-xl transition duration-300"
           >
-            {loading ? "Loading..." : "Masuk"}
+            {loading ? "Memproses..." : "Masuk"}
           </button>
         </form>
 

@@ -1,11 +1,12 @@
 <?php
 
-namespace App\Http\Controllers\api;
+namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\HargaProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class HargaProductController extends Controller
 {
@@ -15,6 +16,7 @@ class HargaProductController extends Controller
             'product.jenis',
             'product.type',
             'product.bahan',
+            'customer' // ✅ Tambahkan relasi customer
         ])->get();
 
         return response()->json([
@@ -25,7 +27,8 @@ class HargaProductController extends Controller
 
     public function getByProduct($productId)
     {
-        $data = HargaProduct::where('product_id', $productId)
+        $data = HargaProduct::with('customer')
+            ->where('product_id', $productId)
             ->orderBy('tanggal_berlaku', 'desc')
             ->get();
 
@@ -38,10 +41,11 @@ class HargaProductController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'product_id' => 'required|exists:products,id',
-            'harga'      => 'required|integer|min:1',
+            'product_id'      => 'required|exists:products,id',
+            'customer_id'     => 'nullable|exists:customers,id',
+            'harga'           => 'required|integer|min:1',
             'tanggal_berlaku' => 'nullable|date',
-            'keterangan' => 'nullable|string'
+            'keterangan'      => 'nullable|string|max:255'
         ]);
 
         if ($validator->fails()) {
@@ -52,18 +56,33 @@ class HargaProductController extends Controller
             ], 422);
         }
 
-        $data = HargaProduct::create($request->all());
+        // ✅ Cek duplikasi: kombinasi product + customer harus unik
+        $exists = HargaProduct::where('product_id', $request->product_id)
+            ->where('customer_id', $request->customer_id) // null untuk harga umum
+            ->exists();
+
+        if ($exists) {
+            $customerMsg = $request->customer_id 
+                ? ' untuk customer ini' 
+                : ' umum';
+            return response()->json([
+                'status' => false,
+                'message' => 'Harga' . $customerMsg . ' sudah ada'
+            ], 422);
+        }
+
+        $data = HargaProduct::create($validator->validated());
 
         return response()->json([
             'status' => true,
             'message' => 'Harga berhasil ditambahkan',
-            'data' => $data
+            'data' => $data->load('customer')
         ], 201);
     }
 
     public function show($id)
     {
-        $data = HargaProduct::with('product')->find($id);
+        $data = HargaProduct::with(['product', 'customer'])->find($id);
 
         if (!$data) {
             return response()->json([
@@ -90,10 +109,11 @@ class HargaProductController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'product_id' => 'required|exists:products,id',
-            'harga'      => 'required|integer|min:1',
+            'product_id'      => 'required|exists:products,id',
+            'customer_id'     => 'nullable|exists:customers,id',
+            'harga'           => 'required|integer|min:1',
             'tanggal_berlaku' => 'nullable|date',
-            'keterangan' => 'nullable|string'
+            'keterangan'      => 'nullable|string|max:255'
         ]);
 
         if ($validator->fails()) {
@@ -104,12 +124,28 @@ class HargaProductController extends Controller
             ], 422);
         }
 
-        $data->update($request->all());
+        // ✅ Cek duplikasi (kecuali diri sendiri)
+        $exists = HargaProduct::where('product_id', $request->product_id)
+            ->where('customer_id', $request->customer_id)
+            ->where('id', '!=', $id)
+            ->exists();
+
+        if ($exists) {
+            $customerMsg = $request->customer_id 
+                ? ' untuk customer ini' 
+                : ' umum';
+            return response()->json([
+                'status' => false,
+                'message' => 'Harga' . $customerMsg . ' sudah ada'
+            ], 422);
+        }
+
+        $data->update($validator->validated());
 
         return response()->json([
             'status' => true,
             'message' => 'Harga berhasil diupdate',
-            'data' => $data
+            'data' => $data->load('customer')
         ]);
     }
 

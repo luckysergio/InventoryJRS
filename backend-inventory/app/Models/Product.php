@@ -13,6 +13,9 @@ class Product extends Model
         'bahan_id',
         'status_id',
         'qty',
+        'foto_depan',
+        'foto_samping',
+        'foto_atas',
         'ukuran',
         'keterangan'
     ];
@@ -32,9 +35,19 @@ class Product extends Model
         return $this->belongsTo(BahanProduct::class, 'bahan_id');
     }
 
-    public function status()
+    public function getFotoDepanUrlAttribute()
     {
-        return $this->belongsTo(StatusProduct::class, 'status_id');
+        return $this->foto_depan ? asset('storage/' . $this->foto_depan) : null;
+    }
+
+    public function getFotoSampingUrlAttribute()
+    {
+        return $this->foto_samping ? asset('storage/' . $this->foto_samping) : null;
+    }
+
+    public function getFotoAtasUrlAttribute()
+    {
+        return $this->foto_atas ? asset('storage/' . $this->foto_atas) : null;
     }
 
     public function hargaProducts()

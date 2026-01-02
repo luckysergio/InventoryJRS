@@ -2,7 +2,8 @@ import axios from "axios"
 import Swal from "sweetalert2"
 
 const api = axios.create({
-  baseURL: "http://localhost:8000/api",
+  baseURL: import.meta.env.VITE_API_URL,
+  withCredentials: false,
 })
 
 api.interceptors.request.use(
@@ -13,27 +14,35 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`
     }
 
+    config.headers.Accept = "application/json"
+
     return config
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
 api.interceptors.response.use(
-  (response) => response, 
+  (response) => response,
   async (error) => {
+    if (!error.response) {
+      await Swal.fire({
+        icon: "error",
+        title: "Koneksi Gagal",
+        text: "Tidak dapat terhubung ke server.",
+      })
+      return Promise.reject(error)
+    }
 
-    if (error.response && (error.response.status === 401 || error.response.status === 419)) {
+    const status = error.response.status
 
-      // hapus token
+    if (status === 401 || status === 419) {
       localStorage.removeItem("token")
 
       await Swal.fire({
         icon: "warning",
-        title: "Sesi Anda Berakhir",
+        title: "Sesi Berakhir",
         text: "Silakan login kembali.",
-        confirmButtonText: "Login Ulang"
+        confirmButtonText: "Login Ulang",
       })
 
       window.location.href = "/login"

@@ -32,6 +32,9 @@ return new class extends Migration
 
             $table->string('ukuran');
 
+            $table->string('foto_depan')->nullable();
+            $table->string('foto_samping')->nullable();
+            $table->string('foto_atas')->nullable();
             $table->text('keterangan')->nullable();
 
             $table->timestamps();

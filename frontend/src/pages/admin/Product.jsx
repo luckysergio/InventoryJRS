@@ -1,6 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Swal from "sweetalert2";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Image as ImageIcon,
+  X,
+  Camera,
+} from "lucide-react";
 import api from "../../services/api";
 
 const ProductPage = () => {
@@ -21,6 +29,10 @@ const ProductPage = () => {
     keterangan: "",
   });
 
+  const [fotoDepan, setFotoDepan] = useState(null);
+  const [fotoSamping, setFotoSamping] = useState(null);
+  const [fotoAtas, setFotoAtas] = useState(null);
+
   const [jenisInputBaru, setJenisInputBaru] = useState("");
   const [typeInputBaru, setTypeInputBaru] = useState("");
   const [bahanInputBaru, setBahanInputBaru] = useState("");
@@ -28,12 +40,22 @@ const ProductPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
+  const [fotoModal, setFotoModal] = useState(null);
 
   const [jenis, setJenis] = useState([]);
   const [allTypes, setAllTypes] = useState([]);
   const [filteredTypes, setFilteredTypes] = useState([]);
   const [bahan, setBahan] = useState([]);
   const [filteredTypesForFilter, setFilteredTypesForFilter] = useState([]);
+
+  // ✅ Ref untuk input kamera (per foto)
+  const cameraInputDepan = useRef(null);
+  const cameraInputSamping = useRef(null);
+  const cameraInputAtas = useRef(null);
+
+  const fileInputDepan = useRef(null);
+  const fileInputSamping = useRef(null);
+  const fileInputAtas = useRef(null);
 
   const fetchData = async (params = {}) => {
     try {
@@ -66,7 +88,7 @@ const ProductPage = () => {
   }, [search, filterJenis, filterType, currentPage]);
 
   useEffect(() => {
-    setCurrentPage(1); // Reset ke halaman 1 saat filter berubah
+    setCurrentPage(1);
   }, [search, filterJenis, filterType]);
 
   useEffect(() => {
@@ -82,7 +104,7 @@ const ProductPage = () => {
 
   useEffect(() => {
     if (!form.jenis_id || form.jenis_id === "new") {
-      setFilteredTypes([]); // Kosongkan opsi tipe lama
+      setFilteredTypes([]);
       setForm((prev) => ({ ...prev, type_id: "" }));
       return;
     }
@@ -102,6 +124,9 @@ const ProductPage = () => {
       ukuran: "",
       keterangan: "",
     });
+    setFotoDepan(null);
+    setFotoSamping(null);
+    setFotoAtas(null);
     setJenisInputBaru("");
     setTypeInputBaru("");
     setBahanInputBaru("");
@@ -119,6 +144,21 @@ const ProductPage = () => {
       ukuran: item.ukuran,
       keterangan: item.keterangan || "",
     });
+    setFotoDepan(
+      item.foto_depan
+        ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`
+        : null
+    );
+    setFotoSamping(
+      item.foto_samping
+        ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`
+        : null
+    );
+    setFotoAtas(
+      item.foto_atas
+        ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`
+        : null
+    );
     setJenisInputBaru("");
     setTypeInputBaru("");
     setBahanInputBaru("");
@@ -135,30 +175,46 @@ const ProductPage = () => {
       return;
     }
 
+    const formData = new FormData();
+    formData.append("kode", form.kode);
+    formData.append("ukuran", form.ukuran);
+    if (form.keterangan) {
+      formData.append("keterangan", form.keterangan);
+    }
+
+    if (form.jenis_id && form.jenis_id !== "new") {
+      formData.append("jenis_id", form.jenis_id);
+    }
+    if (form.jenis_id === "new") {
+      formData.append("jenis_nama", jenisInputBaru.trim());
+    }
+
+    if (form.type_id && form.type_id !== "new") {
+      formData.append("type_id", form.type_id);
+    }
+    if (form.type_id === "new") {
+      formData.append("type_nama", typeInputBaru.trim());
+    }
+
+    if (form.bahan_id && form.bahan_id !== "new") {
+      formData.append("bahan_id", form.bahan_id);
+    }
+    if (form.bahan_id === "new") {
+      formData.append("bahan_nama", bahanInputBaru.trim());
+    }
+
+    if (fotoDepan instanceof File) formData.append("foto_depan", fotoDepan);
+    if (fotoSamping instanceof File)
+      formData.append("foto_samping", fotoSamping);
+    if (fotoAtas instanceof File) formData.append("foto_atas", fotoAtas);
+
     try {
-      const payload = { ...form };
-
-      if (form.jenis_id === "new") {
-        payload.jenis_nama = jenisInputBaru.trim();
-        delete payload.jenis_id;
-      }
-
-      if (form.type_id === "new") {
-        payload.type_nama = typeInputBaru.trim();
-        delete payload.type_id;
-      }
-
-      if (form.bahan_id === "new") {
-        payload.bahan_nama = bahanInputBaru.trim();
-        delete payload.bahan_id;
-      }
-
       if (isEdit) {
-        await api.put(`/products/${selectedId}`, payload);
-        Swal.fire("Berhasil", "Produk berhasil diperbarui", "success");
+        await api.post(`/products/${selectedId}?_method=PUT`, formData);
+        Swal.fire("Berhasil", "Product berhasil diperbarui", "success");
       } else {
-        await api.post("/products", payload);
-        Swal.fire("Berhasil", "Produk berhasil ditambahkan", "success");
+        await api.post("/products", formData);
+        Swal.fire("Berhasil", "Product berhasil ditambahkan", "success");
       }
 
       setIsModalOpen(false);
@@ -171,14 +227,14 @@ const ProductPage = () => {
           .join("<br>");
         Swal.fire("Validasi Gagal", msg, "warning");
       } else {
-        Swal.fire("Error", "Terjadi kesalahan", "error");
+        Swal.fire("Error", "Terjadi kesalahan saat menyimpan data", "error");
       }
     }
   };
 
   const handleDelete = async (id) => {
     const confirm = await Swal.fire({
-      title: "Hapus produk?",
+      title: "Hapus Product?",
       text: "Data akan dihapus permanen",
       icon: "warning",
       showCancelButton: true,
@@ -189,10 +245,10 @@ const ProductPage = () => {
     if (confirm.isConfirmed) {
       try {
         await api.delete(`/products/${id}`);
-        Swal.fire("Berhasil", "Produk dihapus", "success");
+        Swal.fire("Berhasil", "Product dihapus", "success");
         fetchData({ search, jenis_id: filterJenis, type_id: filterType });
       } catch {
-        Swal.fire("Error", "Gagal menghapus produk", "error");
+        Swal.fire("Error", "Gagal menghapus Product", "error");
       }
     }
   };
@@ -203,6 +259,34 @@ const ProductPage = () => {
       (part) => part != null && part !== ""
     );
     return parts.length > 0 ? parts.join(" ") : "-";
+  };
+
+  const handleFileChange = (e, setFile) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        Swal.fire("Error", "Ukuran file maksimal 5MB", "error");
+        return;
+      }
+      if (!["image/jpeg", "image/jpg", "image/png"].includes(file.type)) {
+        Swal.fire("Error", "Hanya file JPG/PNG yang diizinkan", "error");
+        return;
+      }
+      setFile(file);
+    }
+  };
+
+  const handleRemoveFoto = (setFile) => {
+    setFile(null);
+  };
+
+  // ✅ Buka modal foto
+  const openFotoModal = (fotoUrl) => {
+    setFotoModal(fotoUrl);
+  };
+
+  const closeFotoModal = () => {
+    setFotoModal(null);
   };
 
   const renderPagination = () => {
@@ -273,13 +357,81 @@ const ProductPage = () => {
     );
   };
 
+  // ✅ Updated renderFotoPreview: dengan dua opsi (galeri & kamera)
+  const renderFotoPreview = (
+    foto,
+    setFoto,
+    label,
+    fileInputRef,
+    cameraInputRef
+  ) => (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-medium text-gray-600 text-center">
+        {label}
+      </label>
+      <div className="flex flex-col items-center gap-1.5">
+        {foto ? (
+          <div className="relative">
+            <img
+              src={foto instanceof File ? URL.createObjectURL(foto) : foto}
+              alt={label}
+              className="w-12 h-12 object-cover rounded border"
+            />
+            <button
+              type="button"
+              onClick={() => handleRemoveFoto(setFoto)}
+              className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px]"
+            >
+              ×
+            </button>
+          </div>
+        ) : (
+          <div className="w-12 h-12 border border-dashed border-gray-300 rounded flex items-center justify-center">
+            <ImageIcon size={14} className="text-gray-400" />
+          </div>
+        )}
+        <div className="flex flex-col items-center gap-1">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-[10px] text-indigo-600 hover:text-indigo-800"
+          >
+            Galeri
+          </button>
+          <button
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
+            className="text-[10px] text-green-600 hover:text-green-800 flex items-center gap-0.5"
+          >
+            <Camera size={10} />
+            Kamera
+          </button>
+        </div>
+      </div>
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        onChange={(e) => handleFileChange(e, setFoto)}
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={cameraInputRef}
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => handleFileChange(e, setFoto)}
+        className="hidden"
+      />
+    </div>
+  );
+
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-            Produk
+            Product
           </h1>
         </div>
         <button
@@ -287,11 +439,10 @@ const ProductPage = () => {
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition"
         >
           <Plus size={18} />
-          Tambah Produk
+          Tambah Product
         </button>
       </div>
 
-      {/* FILTERS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-4 rounded-xl shadow-sm">
         <div>
           <label className="text-sm font-medium text-gray-700 block mb-1">
@@ -366,7 +517,7 @@ const ProductPage = () => {
         </div>
       ) : products.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
-          Tidak ada produk ditemukan
+          Tidak ada Product ditemukan
         </div>
       ) : (
         <>
@@ -376,6 +527,64 @@ const ProductPage = () => {
                 key={item.id}
                 className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-5 flex flex-col"
               >
+                <div className="flex justify-center gap-2 mb-3">
+                  {item.foto_depan && (
+                    <img
+                      src={`${import.meta.env.VITE_ASSET_URL}/storage/${
+                        item.foto_depan
+                      }`}
+                      alt="Foto Depan"
+                      className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
+                      onClick={() =>
+                        openFotoModal(
+                          `${import.meta.env.VITE_ASSET_URL}/storage/${
+                            item.foto_depan
+                          }`
+                        )
+                      }
+                    />
+                  )}
+                  {item.foto_samping && (
+                    <img
+                      src={`${import.meta.env.VITE_ASSET_URL}/storage/${
+                        item.foto_samping
+                      }`}
+                      alt="Foto Samping"
+                      className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
+                      onClick={() =>
+                        openFotoModal(
+                          `${import.meta.env.VITE_ASSET_URL}/storage/${
+                            item.foto_samping
+                          }`
+                        )
+                      }
+                    />
+                  )}
+                  {item.foto_atas && (
+                    <img
+                      src={`${import.meta.env.VITE_ASSET_URL}/storage/${
+                        item.foto_atas
+                      }`}
+                      alt="Foto Atas"
+                      className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
+                      onClick={() =>
+                        openFotoModal(
+                          `${import.meta.env.VITE_ASSET_URL}/storage/${
+                            item.foto_atas
+                          }`
+                        )
+                      }
+                    />
+                  )}
+                  {!item.foto_depan &&
+                    !item.foto_samping &&
+                    !item.foto_atas && (
+                      <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
+                        <ImageIcon className="text-gray-400" size={24} />
+                      </div>
+                    )}
+                </div>
+
                 <div className="text-center mb-2">
                   <p className="font-bold text-xl text-gray-800">{item.kode}</p>
                 </div>
@@ -413,13 +622,13 @@ const ProductPage = () => {
         </>
       )}
 
-      {/* MODAL */}
+      {/* MODAL TAMBAH/EDIT */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="p-5 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800">
-                {isEdit ? "Edit Produk" : "Tambah Produk"}
+                {isEdit ? "Edit Product" : "Tambah Product"}
               </h2>
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-5">
@@ -470,7 +679,6 @@ const ProductPage = () => {
                 )}
               </div>
 
-              {/* ✅ Perbaikan: Dropdown tipe AKTIF meski jenis baru */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tipe
@@ -483,11 +691,8 @@ const ProductPage = () => {
                     setForm({ ...form, type_id: val });
                     if (val !== "new") setTypeInputBaru("");
                   }}
-                  // ✅ Aktifkan meski jenis baru — karena user bisa pilih "Tambah Tipe Baru"
-                  disabled={false}
                 >
                   <option value="">Pilih Tipe</option>
-                  {/* Hanya tampilkan tipe lama jika jenis_id valid (bukan "new") */}
                   {form.jenis_id &&
                   form.jenis_id !== "new" &&
                   filteredTypes.length > 0
@@ -557,6 +762,31 @@ const ProductPage = () => {
                 />
               </div>
 
+              {/* === FOTO SECTION - SEBARIS DI SEMUA UKURAN === */}
+              <div className="grid grid-cols-3 gap-3 pt-2">
+                {renderFotoPreview(
+                  fotoDepan,
+                  setFotoDepan,
+                  "Depan",
+                  fileInputDepan,
+                  cameraInputDepan
+                )}
+                {renderFotoPreview(
+                  fotoSamping,
+                  setFotoSamping,
+                  "Samping",
+                  fileInputSamping,
+                  cameraInputSamping
+                )}
+                {renderFotoPreview(
+                  fotoAtas,
+                  setFotoAtas,
+                  "Atas",
+                  fileInputAtas,
+                  cameraInputAtas
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Keterangan
@@ -587,6 +817,28 @@ const ProductPage = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal tampil foto besar */}
+      {fotoModal && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={closeFotoModal}
+        >
+          <div className="relative">
+            <img
+              src={fotoModal}
+              alt="Foto Produk"
+              className="max-w-full max-h-[90vh] object-contain rounded"
+            />
+            <button
+              onClick={closeFotoModal}
+              className="absolute -top-12 right-0 bg-white rounded-full p-2 shadow-lg"
+            >
+              <X size={20} className="text-gray-700" />
+            </button>
           </div>
         </div>
       )}

@@ -30,7 +30,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       "/production",
       "/RiwayatProduction",
       "/ProductMovement",
-      "/product-terlaris",
     ];
     const isProductionRoute = productionRoutes.some((route) =>
       path === route || path.startsWith(route + "/")
@@ -40,11 +39,10 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     const productRoutes = [
       "/product",
       "/harga-product",
-      "/foto-product",
       "/jenis",
       "/type",
       "/bahan",
-      "/status-product",
+      "/product-terlaris",
     ];
     const isProductRoute = productRoutes.some((route) =>
       path === route || path.startsWith(route + "/")
@@ -160,8 +158,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
             <Dropdown title="Product" open={productOpen} setOpen={setProductOpen} icon={Boxes}>
               <SubNavLink to="/product">Product</SubNavLink>
+              <SubNavLink to="/product-terlaris">Product Terlaris</SubNavLink>
               <SubNavLink to="/harga-product">Harga Product</SubNavLink>
-              <SubNavLink to="/foto-product">Foto Product</SubNavLink>
               <SubNavLink to="/jenis">Jenis Product</SubNavLink>
               <SubNavLink to="/type">Type Product</SubNavLink>
               <SubNavLink to="/bahan">Bahan Product</SubNavLink>
@@ -184,7 +182,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               <SubNavLink to="/production">Production</SubNavLink>
               <SubNavLink to="/RiwayatProduction">Riwayat Production</SubNavLink>
               <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
-              <SubNavLink to="/product-terlaris">Product Terlaris</SubNavLink>
             </Dropdown>
 
             <Dropdown title="Stok Opname" open={stokOpnameOpen} setOpen={setStokOpnameOpen} icon={ClipboardCheck}>
@@ -229,10 +226,10 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             <Dropdown title="Product" open={productOpen} setOpen={setProductOpen} icon={Boxes}>
               <SubNavLink to="/product">Product</SubNavLink>
               <SubNavLink to="/harga-product">Harga Product</SubNavLink>
-              <SubNavLink to="/foto-product">Foto Product</SubNavLink>
               <SubNavLink to="/jenis">Jenis Product</SubNavLink>
               <SubNavLink to="/type">Type Product</SubNavLink>
               <SubNavLink to="/bahan">Bahan Product</SubNavLink>
+              <SubNavLink to="/product-terlaris">Product Terlaris</SubNavLink>
             </Dropdown>
 
             <Dropdown title="Transaksi" open={transaksiOpen} setOpen={setTransaksiOpen} icon={Receipt}>
@@ -252,7 +249,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               <SubNavLink to="/production">Production</SubNavLink>
               <SubNavLink to="/RiwayatProduction">Riwayat Production</SubNavLink>
               <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
-              <SubNavLink to="/product-terlaris">Product Terlaris</SubNavLink>
             </Dropdown>
 
             <Dropdown title="Stok Opname" open={stokOpnameOpen} setOpen={setStokOpnameOpen} icon={ClipboardCheck}>
