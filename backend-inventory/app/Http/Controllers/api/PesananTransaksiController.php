@@ -283,14 +283,22 @@ class PesananTransaksiController extends Controller
         ]);
     }
 
-    public function generatePdf($id)
+    public function printNota($id)
     {
-        $pesanan = Transaksi::with(['customer', 'details.product.jenis', 'details.product.type', 'details.product.bahan'])
-            ->findOrFail($id);
+        $transaksi = Transaksi::with([
+            'customer',
+            'details.product.jenis',
+            'details.product.type',
+            'details.product.bahan',
+            'details.pembayarans',
+            'details.statusTransaksi'
+        ])
+        ->where('jenis_transaksi', 'pesanan')
+        ->findOrFail($id);
 
-        $pdf = Pdf::loadView('pdf.pesanan', compact('pesanan'))
-            ->setPaper('a4', 'portrait');
+        $pdf = Pdf::loadView('pdf.nota-pesanan', compact('transaksi'))
+                  ->setPaper('a4', 'portrait');
 
-        return $pdf->stream("Pesanan_{$pesanan->id}.pdf");
+        return $pdf->stream("Nota_Pesanan_{$transaksi->id}.pdf");
     }
 }

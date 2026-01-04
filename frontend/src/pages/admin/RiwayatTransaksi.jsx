@@ -290,15 +290,11 @@ const RiwayatTransaksi = () => {
                               <p className="text-right">
                                 Diskon: Rp {formatRupiah(d.discount)}
                               </p>
-                              <p className="font-medium">Tagihan</p>
-                              <p className="font-medium text-right">
-                                Rp {formatRupiah(d.subtotal)}
-                              </p>
                             </div>
 
                             {d.pembayarans?.length > 0 && (
                               <div className="mt-3 pt-2 border-t border-gray-200">
-                                <p className="text-[10px] font-medium text-gray-700 flex items-center gap-1">
+                                <p className="text-[10px] font-medium text-gray-700 flex justify-center gap-1">
                                   <Wallet size={10} /> Riwayat Pembayaran
                                 </p>
                                 <ul className="mt-1 space-y-1">

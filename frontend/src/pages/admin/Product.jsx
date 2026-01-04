@@ -48,7 +48,6 @@ const ProductPage = () => {
   const [bahan, setBahan] = useState([]);
   const [filteredTypesForFilter, setFilteredTypesForFilter] = useState([]);
 
-  // ✅ Ref untuk input kamera (per foto)
   const cameraInputDepan = useRef(null);
   const cameraInputSamping = useRef(null);
   const cameraInputAtas = useRef(null);
@@ -91,6 +90,7 @@ const ProductPage = () => {
     setCurrentPage(1);
   }, [search, filterJenis, filterType]);
 
+  // Filter untuk filter dropdown (di bagian atas)
   useEffect(() => {
     if (!filterJenis) {
       setFilteredTypesForFilter([]);
@@ -102,18 +102,28 @@ const ProductPage = () => {
     setFilterType("");
   }, [filterJenis, allTypes]);
 
+  // Filter untuk form modal (tambah/edit)
   useEffect(() => {
+    if (allTypes.length === 0) return; // jangan proses jika data master belum siap
+
     if (!form.jenis_id || form.jenis_id === "new") {
       setFilteredTypes([]);
-      setForm((prev) => ({ ...prev, type_id: "" }));
+      if (!isEdit) {
+        setForm((prev) => ({ ...prev, type_id: "" }));
+      }
       return;
     }
+
     const filtered = allTypes.filter(
       (t) => t.jenis_id === Number(form.jenis_id)
     );
     setFilteredTypes(filtered);
-    setForm((prev) => ({ ...prev, type_id: "" }));
-  }, [form.jenis_id, allTypes]);
+
+    // Hanya reset type_id saat mode TAMBAH, bukan EDIT
+    if (!isEdit) {
+      setForm((prev) => ({ ...prev, type_id: "" }));
+    }
+  }, [form.jenis_id, allTypes, isEdit]);
 
   const handleTambah = () => {
     setForm({
@@ -136,6 +146,12 @@ const ProductPage = () => {
   };
 
   const handleEdit = (item) => {
+    // 🔒 Cegah edit saat data master belum selesai dimuat
+    if (loading) {
+      Swal.fire("Tunggu...", "Data master sedang dimuat", "info");
+      return;
+    }
+
     setForm({
       kode: item.kode,
       jenis_id: item.jenis_id,
@@ -280,7 +296,6 @@ const ProductPage = () => {
     setFile(null);
   };
 
-  // ✅ Buka modal foto
   const openFotoModal = (fotoUrl) => {
     setFotoModal(fotoUrl);
   };
@@ -357,7 +372,6 @@ const ProductPage = () => {
     );
   };
 
-  // ✅ Updated renderFotoPreview: dengan dua opsi (galeri & kamera)
   const renderFotoPreview = (
     foto,
     setFoto,
@@ -627,7 +641,7 @@ const ProductPage = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="p-5 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800">
+              <h2 className="text-xl font-bold text-gray-800 text-center">
                 {isEdit ? "Edit Product" : "Tambah Product"}
               </h2>
             </div>
@@ -762,7 +776,6 @@ const ProductPage = () => {
                 />
               </div>
 
-              {/* === FOTO SECTION - SEBARIS DI SEMUA UKURAN === */}
               <div className="grid grid-cols-3 gap-3 pt-2">
                 {renderFotoPreview(
                   fotoDepan,
@@ -801,7 +814,7 @@ const ProductPage = () => {
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-center gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}

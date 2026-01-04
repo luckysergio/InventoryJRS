@@ -97,7 +97,6 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::get('/pesanan/aktif', [PesananTransaksiController::class, 'aktif']);
     Route::post('/pesanan', [PesananTransaksiController::class, 'store']);
     Route::delete('/pesanan/{id}', [PesananTransaksiController::class, 'destroy']);
-    Route::get('/pesanan/{id}/pdf', [PesananTransaksiController::class, 'generatePdf'])->name('pesanan.pdf');
 
     // Pembayaran
     Route::get('/pembayaran', [PembayaranController::class, 'index']);

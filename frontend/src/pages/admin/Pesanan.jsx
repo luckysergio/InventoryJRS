@@ -456,28 +456,48 @@ const PesananPage = () => {
 
   const getStatusInfo = (statusId) => {
     const status = statusList.find((s) => s.id === statusId);
+
     if (!status)
       return { text: "–", bg: "bg-gray-100", textClass: "text-gray-800" };
+
     if (status.nama === "Di pesan")
       return {
         text: "Di Pesan",
         bg: "bg-blue-100",
         textClass: "text-blue-800",
       };
+
     if (status.nama === "Di buat")
       return {
         text: "Di Buat",
         bg: "bg-yellow-100",
         textClass: "text-yellow-800",
       };
+
     if (status.nama === "Siap")
-      return { text: "Siap", bg: "bg-green-100", textClass: "text-green-800" };
-    return { text: status.nama, bg: "bg-gray-100", textClass: "text-gray-800" };
+      return {
+        text: "Siap",
+        bg: "bg-green-100",
+        textClass: "text-green-800",
+      };
+
+    if (status.nama === "Selesai")
+      return {
+        text: "Selesai",
+        bg: "bg-emerald-100",
+        textClass: "text-emerald-800",
+      };
+
+    return {
+      text: status.nama,
+      bg: "bg-gray-100",
+      textClass: "text-gray-800",
+    };
   };
 
   const handleChangeDetailStatus = async (detailId, currentStatusId) => {
     const allowedStatuses = statusList.filter((s) =>
-      ["Di pesan", "Di buat", "Siap"].includes(s.nama)
+      ["Di pesan", "Di buat", "Siap", "Selesai"].includes(s.nama)
     );
     const { value: statusId } = await Swal.fire({
       title: "Ubah Status Detail",
@@ -592,11 +612,10 @@ const PesananPage = () => {
                         {formatTanggal(d.tanggal)}
                       </p>
                       {d.catatan && (
-                            <p>
-                              <span className="font-semibold"></span>{" "}
-                              {d.catatan}
-                            </p>
-                          )}
+                        <p>
+                          <span className="font-semibold"></span> {d.catatan}
+                        </p>
+                      )}
                       <div className="mt-2 pt-2 border-t border-gray-200">
                         <div className="flex justify-between items-center">
                           <p className="text-sm">

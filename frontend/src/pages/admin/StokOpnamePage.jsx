@@ -254,20 +254,60 @@ const StokOpnamePage = () => {
     const statusLabel = "Draft (Belum Selesai)";
     const printWindow = window.open("", "_blank");
     const content = `
+      <!DOCTYPE html>
       <html>
         <head>
           <title>Stok Opname #${opname.id}</title>
           <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #333; }
-            h1 { text-align: center; color: #4f46e5; margin-bottom: 20px; }
-            .header { margin-bottom: 30px; padding-bottom: 15px; border-bottom: 2px solid #eee; }
-            .card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-            .card-title { font-weight: 600; color: #1f2937; margin-bottom: 8px; }
-            .card-row { display: flex; justify-content: space-between; margin: 4px 0; }
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              padding: 20px;
+              color: #333;
+              width: 210mm;
+              margin: 0 auto;
+            }
+            @media print {
+              body { padding: 10mm; }
+              .no-print { display: none !important; }
+            }
+            h1 {
+              text-align: center;
+              color: #4f46e5;
+              margin-bottom: 20px;
+            }
+            .header {
+              margin-bottom: 30px;
+              padding-bottom: 15px;
+              border-bottom: 2px solid #eee;
+            }
+            .card {
+              background: #f9fafb;
+              border: 1px solid #e5e7eb;
+              border-radius: 12px;
+              padding: 16px;
+              margin-bottom: 12px;
+            }
+            .card-title {
+              font-weight: 600;
+              color: #1f2937;
+              margin-bottom: 8px;
+            }
+            .card-row {
+              display: flex;
+              justify-content: space-between;
+              margin: 4px 0;
+            }
             .label { color: #6b7280; }
             .value { font-weight: 500; }
             .selisih.pos { color: #10b981; }
             .selisih.neg { color: #ef4444; }
+
+            /* Print layout: 4 columns */
+            .print-grid {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 12px;
+            }
           </style>
         </head>
         <body>
@@ -281,38 +321,37 @@ const StokOpnamePage = () => {
               opname.user?.name || "–"
             }</span></div>
           </div>
-          ${opname.details
-            .map(
-              (d) => `
-              <div class="card">
-                <div class="card-title">${formatProductName(
-                  d.inventory?.product
-                )} | ${d.inventory?.place?.nama || "–"}</div>
-                <div class="card-row"><span class="label">Kode:</span> <span>${
-                  d.inventory?.product?.kode || "–"
+          <div class="print-grid">
+            ${opname.details
+              .map(
+                (d) => `
+                <div class="card">
+                  <div class="card-title">${formatProductName(
+                    d.inventory?.product
+                  )} | ${d.inventory?.place?.nama || "–"}</div>
+                  <div class="card-row"><span class="label">Stok Sistem:</span> <span>${
+                    d.stok_sistem
+                  }</span></div>
+                  <div class="card-row"><span class="label">Stok Fisik:</span> <span>${
+                    d.stok_real !== null && d.stok_real !== undefined
+                      ? d.stok_real
+                      : "–"
+                  }</span></div>
+                  <div class="card-row"><span class="label">Selisih:</span> <span class="selisih ${
+                    d.selisih > 0 ? "pos" : d.selisih < 0 ? "neg" : ""
+                  }">${
+                  d.selisih !== null && d.selisih !== undefined ? d.selisih : "–"
                 }</span></div>
-                <div class="card-row"><span class="label">Stok Sistem:</span> <span>${
-                  d.stok_sistem
-                }</span></div>
-                <div class="card-row"><span class="label">Stok Fisik:</span> <span>${
-                  d.stok_real !== null && d.stok_real !== undefined
-                    ? d.stok_real
-                    : "–"
-                }</span></div>
-                <div class="card-row"><span class="label">Selisih:</span> <span class="selisih ${
-                  d.selisih > 0 ? "pos" : d.selisih < 0 ? "neg" : ""
-                }">${
-                d.selisih !== null && d.selisih !== undefined ? d.selisih : "–"
-              }</span></div>
-                ${
-                  d.keterangan
-                    ? `<div class="card-row"><span class="label">Keterangan:</span> <span>${d.keterangan}</span></div>`
-                    : ""
-                }
-              </div>
-            `
-            )
-            .join("")}
+                  ${
+                    d.keterangan
+                      ? `<div class="card-row"><span class="label">Keterangan:</span> <span>${d.keterangan}</span></div>`
+                      : ""
+                  }
+                </div>
+              `
+              )
+              .join("")}
+          </div>
         </body>
       </html>
     `;
@@ -396,19 +435,19 @@ const StokOpnamePage = () => {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => handlePrint(op)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-white text-xs rounded-lg hover:bg-gray-800 transition"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-white text-xs rounded-lg hover:bg-gray-800 transition no-print"
                   >
                     <Printer size={14} /> Cetak
                   </button>
                   <button
                     onClick={() => handleSelesaiOpname(op.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition no-print"
                   >
                     <CheckCircle size={14} /> Selesai
                   </button>
                   <button
                     onClick={() => handleBatalkanOpname(op.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition no-print"
                   >
                     <XCircle size={14} /> Batal
                   </button>
@@ -606,6 +645,7 @@ const StokOpnamePage = () => {
                     Tidak ada inventory ditemukan.
                   </p>
                 ) : (
+                  // ✅ Sama: responsive di modal juga
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {filteredInventories.map((inv) => (
                       <div
