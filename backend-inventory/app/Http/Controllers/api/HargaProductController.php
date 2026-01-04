@@ -38,6 +38,21 @@ class HargaProductController extends Controller
         ]);
     }
 
+    public function byProduct($productId, Request $request)
+{
+    $customerId = $request->query('customer_id');
+
+    $harga = HargaProduct::where('product_id', $productId)
+        ->where(function ($q) use ($customerId) {
+            $q->whereNull('customer_id')
+              ->orWhere('customer_id', $customerId);
+        })
+        ->orderBy('tanggal_berlaku', 'DESC')
+        ->get();
+
+    return response()->json(['data' => $harga]);
+}
+
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [

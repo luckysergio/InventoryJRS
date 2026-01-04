@@ -7,9 +7,6 @@ use Illuminate\Support\Facades\DB;
 
 class StatusTransaksi extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
         $statuses = [
@@ -18,6 +15,7 @@ class StatusTransaksi extends Seeder
             ['nama' => 'Di buat'],
             ['nama' => 'Siap'],
             ['nama' => 'Selesai'],
+            ['nama' => 'Dibatalkan'],
         ];
 
         DB::table('status_transaksis')->insert($statuses);

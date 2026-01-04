@@ -21,13 +21,15 @@ class TransaksiController extends Controller
     {
         $data = Transaksi::with([
             'customer',
-            'details.product',
+            'details.product.jenis',
+            'details.product.type',
+            'details.product.bahan',
             'details.statusTransaksi',
             'details.pembayarans'
         ])
             ->where('jenis_transaksi', 'daily')
             ->whereHas('details', function ($query) {
-                $query->where('status_transaksi_id', '!=', 2);
+                $query->where('status_transaksi_id', 1);
             })
             ->orderBy('id', 'DESC')
             ->get();
@@ -63,7 +65,7 @@ class TransaksiController extends Controller
             'details.pembayarans',
         ])
             ->whereHas('details', function ($q) {
-                $q->where('status_transaksi_id', 5);
+                $q->whereIn('status_transaksi_id', [5, 6]);
             })
             ->orderBy('id', 'DESC');
 
@@ -186,6 +188,7 @@ class TransaksiController extends Controller
             'details.*.qty' => 'required|integer|min:1',
             'details.*.tanggal' => 'required|date',
             'details.*.discount' => 'nullable|integer|min:0',
+            'details.*.catatan' => 'nullable|string',
             'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
         ]);
 
@@ -240,7 +243,6 @@ class TransaksiController extends Controller
             $total_transaksi = 0;
 
             foreach ($request->details as $d) {
-
                 if (!empty($d['product_id'])) {
                     $product = Product::findOrFail($d['product_id']);
                 } else {
@@ -250,6 +252,7 @@ class TransaksiController extends Controller
                 if (!empty($d['harga_baru'])) {
                     $hp = HargaProduct::create([
                         'product_id' => $product->id,
+                        'customer_id' => $customer_id,
                         'harga' => $d['harga_baru']['harga'],
                         'tanggal_berlaku' => $d['harga_baru']['tanggal_berlaku'] ?? now(),
                         'keterangan' => $d['harga_baru']['keterangan'] ?? null,
@@ -260,9 +263,24 @@ class TransaksiController extends Controller
                         ->firstOrFail();
                 } else {
                     $hp = HargaProduct::where('product_id', $product->id)
+                        ->where('customer_id', $customer_id)
+                        ->where('tanggal_berlaku', '<=', now())
                         ->orderBy('tanggal_berlaku', 'DESC')
                         ->orderBy('id', 'DESC')
-                        ->firstOrFail();
+                        ->first();
+
+                    if (!$hp) {
+                        $hp = HargaProduct::where('product_id', $product->id)
+                            ->whereNull('customer_id')
+                            ->where('tanggal_berlaku', '<=', now())
+                            ->orderBy('tanggal_berlaku', 'DESC')
+                            ->orderBy('id', 'DESC')
+                            ->first();
+                    }
+
+                    if (!$hp) {
+                        throw new \Exception("Harga untuk produk {$product->kode} tidak ditemukan.");
+                    }
                 }
 
                 $harga = $hp->harga;
@@ -303,6 +321,7 @@ class TransaksiController extends Controller
                     'harga' => $harga,
                     'subtotal' => $subtotal,
                     'discount' => $discount,
+                    'catatan' => $d['catatan'] ?? null,
                 ]);
             }
 
@@ -318,6 +337,88 @@ class TransaksiController extends Controller
             DB::rollBack();
             return response()->json([
                 'error' => 'Gagal membuat transaksi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function cancelDetail($detailId)
+    {
+        $detail = TransaksiDetail::with([
+            'transaksi',
+            'transaksi.customer',
+            'product'
+        ])->findOrFail($detailId);
+
+        if ($detail->transaksi->jenis_transaksi !== 'daily') {
+            return response()->json([
+                'status' => false,
+                'message' => 'Hanya transaksi harian yang bisa dibatalkan per detail.'
+            ], 422);
+        }
+
+        if ($detail->pembayarans->isNotEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tidak dapat membatalkan detail yang sudah memiliki pembayaran.'
+            ], 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $tokoPlace = Place::where('kode', 'TOKO')->first();
+            if (!$tokoPlace) {
+                throw new \Exception('Place TOKO tidak ditemukan.');
+            }
+
+            $inventory = Inventory::where('product_id', $detail->product_id)
+                ->where('place_id', $tokoPlace->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$inventory) {
+                $inventory = Inventory::create([
+                    'product_id' => $detail->product_id,
+                    'place_id' => $tokoPlace->id,
+                    'qty' => 0,
+                ]);
+            }
+
+            $inventory->increment('qty', $detail->qty);
+
+            $customerName = $detail->transaksi->customer
+                ? $detail->transaksi->customer->name
+                : 'Customer Umum';
+
+            ProductMovement::create([
+                'inventory_id' => $inventory->id,
+                'tipe'         => 'in',
+                'qty'          => $detail->qty,
+                'keterangan'   => "Pembatalan Detail Transaksi Daily #{$detail->transaksi->id} (Detail ID: {$detail->id}) oleh {$customerName}"
+            ]);
+
+            $detail->update([
+                'status_transaksi_id' => 6,
+                'subtotal' => 0,
+                'discount' => 0,
+            ]);
+
+            $totalBaru = $detail->transaksi->details()
+                ->where('status_transaksi_id', '!=', 6)
+                ->sum('subtotal');
+            $detail->transaksi->update(['total' => $totalBaru]);
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Detail transaksi berhasil dibatalkan. Stok telah dikembalikan.'
+            ], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal membatalkan detail transaksi: ' . $e->getMessage()
             ], 500);
         }
     }

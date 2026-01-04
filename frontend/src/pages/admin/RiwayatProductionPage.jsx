@@ -9,15 +9,13 @@ const statusConfig = {
     label: "Selesai",
     bg: "bg-green-100",
     text: "text-green-800",
-    border: "border-green-300",
-    icon: <CheckCircle className="w-4 h-4" />,
+    icon: <CheckCircle size={12} />,
   },
   batal: {
     label: "Dibatalkan",
     bg: "bg-red-100",
     text: "text-red-800",
-    border: "border-red-300",
-    icon: <XCircle className="w-4 h-4" />,
+    icon: <XCircle size={12} />,
   },
 };
 
@@ -25,15 +23,13 @@ const RiwayatProductionPage = () => {
   const [productions, setProductions] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Filter state
-  const [selectedYear, setSelectedYear] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
+  const [filterDari, setFilterDari] = useState("");
+  const [filterSampai, setFilterSampai] = useState("");
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const res = await api.get("/productions");
-      // Hanya ambil status selesai atau batal
       const filtered = res.data.data.filter(
         (p) => p.status === "selesai" || p.status === "batal"
       );
@@ -49,38 +45,6 @@ const RiwayatProductionPage = () => {
     fetchData();
   }, []);
 
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 6 }, (_, i) => currentYear + i).sort(
-    (a, b) => b - a
-  );
-
-  const months = [
-    { value: "1", label: "Januari" },
-    { value: "2", label: "Februari" },
-    { value: "3", label: "Maret" },
-    { value: "4", label: "April" },
-    { value: "5", label: "Mei" },
-    { value: "6", label: "Juni" },
-    { value: "7", label: "Juli" },
-    { value: "8", label: "Agustus" },
-    { value: "9", label: "September" },
-    { value: "10", label: "Oktober" },
-    { value: "11", label: "November" },
-    { value: "12", label: "Desember" },
-  ];
-
-  const filteredProductions = useMemo(() => {
-    return productions.filter((p) => {
-      const date = new Date(p.created_at || p.updated_at || p.tanggal_mulai);
-      const prodYear = date.getFullYear().toString();
-      const prodMonth = (date.getMonth() + 1).toString();
-
-      if (selectedYear && prodYear !== selectedYear) return false;
-      if (selectedMonth && prodMonth !== selectedMonth) return false;
-      return true;
-    });
-  }, [productions, selectedYear, selectedMonth]);
-
   const formatDate = (date) => {
     if (!date) return "-";
     return new Date(date).toLocaleDateString("id-ID", {
@@ -92,77 +56,98 @@ const RiwayatProductionPage = () => {
 
   const formatProductName = (p) => {
     if (!p) return "-";
-    return [p.jenis?.nama, p.type?.nama, p.ukuran].filter(Boolean).join(" | ");
+    return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
+      .filter(Boolean)
+      .join(" ");
+  };
+
+  const filteredProductions = useMemo(() => {
+    return productions.filter((p) => {
+      const date = new Date(p.updated_at || p.tanggal_mulai);
+      const dari = filterDari ? new Date(filterDari) : null;
+      const sampai = filterSampai ? new Date(filterSampai) : null;
+
+      if (dari && date < dari) return false;
+      if (sampai && date > sampai) return false;
+      return true;
+    });
+  }, [productions, filterDari, filterSampai]);
+
+  const handleReset = () => {
+    setFilterDari("");
+    setFilterSampai("");
   };
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Riwayat Produksi
-        </h1>
-        <p className="text-gray-600 mb-6">
-          Riwayat produksi yang telah selesai atau dibatalkan
-        </p>
+      <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+              Riwayat Produksi
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Riwayat produksi yang telah selesai atau dibatalkan
+            </p>
+          </div>
+        </div>
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+    <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
       {/* HEADER */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Riwayat Produksi</h1>
-        <p className="text-gray-600">
-          Riwayat produksi yang telah selesai atau dibatalkan
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+            Riwayat Produksi
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Riwayat produksi yang telah selesai atau dibatalkan
+          </p>
+        </div>
       </div>
 
       {/* FILTERS */}
-      <div className="flex flex-wrap justify-center gap-4">
-        {/* Tahun */}
-        <div className="w-full sm:w-40">
-          <select
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
-          >
-            <option value="">Semua Tahun</option>
-            {years.map((year) => (
-              <option key={year} value={String(year)}>
-                {year}
-              </option>
-            ))}
-          </select>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-xl shadow-sm">
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">
+            Dari Tanggal
+          </label>
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="date"
+              value={filterDari}
+              onChange={(e) => setFilterDari(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:outline-none"
+            />
+          </div>
         </div>
 
-        {/* Bulan */}
-        <div className="w-full sm:w-48">
-          <select
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-          >
-            <option value="">Semua Bulan</option>
-            {months.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">
+            Sampai Tanggal
+          </label>
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="date"
+              value={filterSampai}
+              onChange={(e) => setFilterSampai(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:outline-none"
+            />
+          </div>
         </div>
 
-        {/* Reset */}
-        <div className="w-full sm:w-40 flex items-end">
+        <div className="flex items-end">
           <button
-            onClick={() => {
-              setSelectedYear("");
-              setSelectedMonth("");
-            }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            onClick={handleReset}
+            className="w-full py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition"
           >
             Reset Filter
           </button>
@@ -171,77 +156,56 @@ const RiwayatProductionPage = () => {
 
       {/* CONTENT */}
       {filteredProductions.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="inline-block bg-gray-100 rounded-full p-4 mb-3">
-            <CheckCircle className="w-8 h-8 text-gray-400" />
-          </div>
-          <p className="text-gray-500">
-            Tidak ada riwayat produksi pada periode ini.
-          </p>
+        <div className="text-center py-12 text-gray-500">
+          Tidak ada riwayat produksi pada periode ini.
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProductions.map((p) => {
-            const status = statusConfig[p.status] || statusConfig.selesai;
-            return (
-              <div
-                key={p.id}
-                className={`bg-white border ${status.border} rounded-2xl shadow-sm p-6`}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="font-bold text-lg text-gray-900">
-                      {p.product?.kode || "-"}
-                    </h3>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {formatProductName(p.product)}
-                    </p>
+        <div className="space-y-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {filteredProductions.map((p) => {
+              const status = statusConfig[p.status] || statusConfig.selesai;
+              return (
+                <div
+                  key={p.id}
+                  className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:shadow-sm transition"
+                >
+                  {/* Status */}
+                  <div className="flex justify-center items-center mb-2">
+                    <span
+                      className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full ${status.bg} ${status.text}`}
+                    >
+                      {status.icon}
+                      {status.label}
+                    </span>
                   </div>
-                  <span
-                    className={`${status.bg} ${status.text} text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1`}
-                  >
-                    {status.icon}
-                    {status.label}
-                  </span>
-                </div>
 
-                <div className="flex items-center gap-2 mb-3">
-                  <User className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                  <p className="text-sm text-gray-700 truncate">
-                    {p.jenis_pembuatan === "pesanan"
-                      ? p.transaksi?.customer?.name || "Pesanan"
-                      : "Inventory"}
+                  <p className="text-sm font-bold text-gray-800 line-clamp-1 text-center">
+                    {p.product?.kode || "-"}
                   </p>
-                </div>
+                  <p className="text-[11px] text-gray-600 line-clamp-2 min-h-[28px] text-center">
+                    {formatProductName(p.product)}
+                  </p>
 
-                <div className="flex items-center gap-2 mb-4">
-                  <Package className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                  <p className="text-sm text-gray-700">Qty: {p.qty}</p>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                    <div>
-                      <p className="text-gray-600">Mulai</p>
-                      <p className="font-medium text-gray-900">
-                        {formatDate(p.tanggal_mulai)}
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-center gap-1 mt-2 text-center">
+                    <span className="text-[11px] text-gray-700">
+                      Qty: {p.qty} untuk{" "}
+                      {p.jenis_pembuatan === "pesanan"
+                        ? p.transaksi?.customer?.name || "Pesanan"
+                        : "Inventory"}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                    <div>
-                      <p className="text-gray-600">Selesai</p>
-                      <p className="font-medium text-gray-900">
-                        {formatDate(p.updated_at)}
-                      </p>
-                    </div>
+
+                  <div className="text-[10px] text-gray-500 mt-2 text-center">
+                    <span className="font-medium">
+                      {formatDate(p.tanggal_mulai)}
+                    </span>
+                    {" - "}
+                    {formatDate(p.tanggal_selesai)}
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

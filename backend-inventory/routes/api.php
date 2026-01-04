@@ -37,6 +37,7 @@ Route::group(['middleware' => ['jwt.auth']], function () {
 
     // Products
     Route::get('/products/available', [ProductController::class, 'available']);
+    Route::get('/products/lowStok', [ProductController::class, 'lowStock']);
     Route::get('/products', [ProductController::class, 'index']);
     Route::post('/products', [ProductController::class, 'store']);
     Route::get('/products/{id}', [ProductController::class, 'show']);
@@ -71,7 +72,7 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::get('/harga/{id}', [HargaProductController::class, 'show']);
     Route::put('/harga/{id}', [HargaProductController::class, 'update']);
     Route::delete('/harga/{id}', [HargaProductController::class, 'destroy']);
-    Route::get('/harga/by-product/{id}', [HargaProductController::class, 'getByProduct']);
+    Route::get('/harga/by-product/{id}', [HargaProductController::class, 'byProduct']);
 
     // Status Transaksi
     Route::get('/status-transaksi', [StatusTransaksiController::class, 'index']);
@@ -89,17 +90,14 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::delete('/transaksi/{id}', [TransaksiController::class, 'destroy']);
     Route::patch('/transaksi-detail/{id}/status', [TransaksiController::class, 'updateStatus']);
     Route::put('/transaksi-daily/{id}', [TransaksiController::class, 'update']);
+    Route::post('/transaksi-detail/{detailId}/cancel', [TransaksiController::class, 'cancelDetail']);
 
     // Transaksi Pesanan
-    Route::prefix('pesanan')->group(function () {
-        Route::get('/aktif', [PesananTransaksiController::class, 'aktif']);
-        Route::get('/riwayat', [PesananTransaksiController::class, 'riwayat']);
-        Route::get('/{id}', [PesananTransaksiController::class, 'show']);
-        Route::post('/', [PesananTransaksiController::class, 'store']);
-        Route::put('/{id}', [PesananTransaksiController::class, 'update']);
-        Route::delete('/{id}', [PesananTransaksiController::class, 'destroy']);
-        Route::patch('/{id}/status', [PesananTransaksiController::class, 'updateStatus']);
-    });
+    Route::get('/pesanan', [PesananTransaksiController::class, 'index']);
+    Route::get('/pesanan/aktif', [PesananTransaksiController::class, 'aktif']);
+    Route::post('/pesanan', [PesananTransaksiController::class, 'store']);
+    Route::delete('/pesanan/{id}', [PesananTransaksiController::class, 'destroy']);
+    Route::get('/pesanan/{id}/pdf', [PesananTransaksiController::class, 'generatePdf'])->name('pesanan.pdf');
 
     // Pembayaran
     Route::get('/pembayaran', [PembayaranController::class, 'index']);
@@ -132,7 +130,6 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::get('/inventories/place/{placeId}', [InventoryController::class, 'byPlace']);
     Route::get('/inventories/product/{productId}', [InventoryController::class, 'byProduct']);
     Route::get('/inventories/product/{productId}/total', [InventoryController::class, 'totalProduct']);
-    Route::get('/inventories/low-stock', [InventoryController::class, 'lowStock']);
 
     // Stok Opname
     Route::get('/stok-opname', [StokOpnameController::class, 'index']);

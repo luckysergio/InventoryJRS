@@ -45,13 +45,8 @@ const RiwayatSOPage = () => {
       const opBulan = String(opDate.getMonth() + 1);
       const opTahun = String(opDate.getFullYear());
 
-      // Filter bulan
       if (bulanFilter && opBulan !== bulanFilter) return false;
-
-      // Filter tahun
       if (tahunFilter && opTahun !== tahunFilter) return false;
-
-      // Filter status
       if (statusFilter && op.status !== statusFilter) return false;
 
       return true;
@@ -109,11 +104,15 @@ const RiwayatSOPage = () => {
                   d.stok_sistem
                 }</span></div>
                 <div class="card-row"><span class="label">Stok Fisik:</span> <span>${
-                  d.stok_real
+                  d.stok_real !== null && d.stok_real !== undefined
+                    ? d.stok_real
+                    : "–"
                 }</span></div>
                 <div class="card-row"><span class="label">Selisih:</span> <span class="selisih ${
                   d.selisih > 0 ? "pos" : d.selisih < 0 ? "neg" : ""
-                }">${d.selisih}</span></div>
+                }">${
+                d.selisih !== null && d.selisih !== undefined ? d.selisih : "–"
+              }</span></div>
                 ${
                   d.keterangan
                     ? `<div class="card-row"><span class="label">Keterangan:</span> <span>${d.keterangan}</span></div>`
@@ -133,25 +132,24 @@ const RiwayatSOPage = () => {
 
   if (loading) {
     return (
-      <div className="text-center py-12">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-purple-600 border-t-transparent"></div>
-        <p className="mt-4 text-gray-600">Memuat riwayat stok opname...</p>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center">
+          <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+          <p className="mt-4 text-gray-600">Memuat data riwayat stok opname...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 py-6">
-      <h1 className="text-3xl font-bold text-gray-800">Riwayat Stok Opname</h1>
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-8">
+      <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Riwayat Stok Opname</h1>
 
       {/* Filter Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Bulan */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Bulan
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Bulan</label>
             <select
               value={bulanFilter}
               onChange={(e) => setBulanFilter(e.target.value)}
@@ -160,10 +158,7 @@ const RiwayatSOPage = () => {
               <option value="">Semua Bulan</option>
               {Array.from({ length: 12 }, (_, i) => {
                 const monthNum = i + 1;
-                const monthName = new Date(2000, i, 1).toLocaleDateString(
-                  "id-ID",
-                  { month: "long" }
-                );
+                const monthName = new Date(2000, i, 1).toLocaleDateString("id-ID", { month: "long" });
                 return (
                   <option key={monthNum} value={String(monthNum)}>
                     {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
@@ -173,11 +168,8 @@ const RiwayatSOPage = () => {
             </select>
           </div>
 
-          {/* Tahun */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tahun
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tahun</label>
             <select
               value={tahunFilter}
               onChange={(e) => setTahunFilter(e.target.value)}
@@ -185,18 +177,13 @@ const RiwayatSOPage = () => {
             >
               <option value="">Semua Tahun</option>
               {years.map((year) => (
-                <option key={year} value={String(year)}>
-                  {year}
-                </option>
+                <option key={year} value={String(year)}>{year}</option>
               ))}
             </select>
           </div>
 
-          {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -208,7 +195,6 @@ const RiwayatSOPage = () => {
             </select>
           </div>
 
-          {/* Reset Button */}
           <div className="flex items-end">
             <button
               onClick={() => {
@@ -224,98 +210,114 @@ const RiwayatSOPage = () => {
         </div>
       </div>
 
-      {/* Daftar Riwayat */}
       {filteredOpnames.length === 0 ? (
-        <p className="text-gray-500 text-center py-8">
-          Tidak ada riwayat stok opname yang sesuai filter.
-        </p>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 mb-4">
+            <Printer size={28} />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-800">Tidak Ada Riwayat</h3>
+          <p className="text-gray-600 mt-2">
+            Belum ada stok opname yang telah diselesaikan atau dibatalkan.
+          </p>
+        </div>
       ) : (
         filteredOpnames.map((op) => (
           <div
             key={op.id}
-            className="bg-white rounded-xl shadow-md border border-gray-200 p-6"
+            className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden transition-all hover:shadow-md"
           >
-            <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-5">
-              <div>
-                <h3 className="text-lg font-bold text-gray-800">
-                  {op.keterangan}
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Tanggal: {new Date(op.tgl_opname).toLocaleDateString("id-ID")}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Oleh: {op.user?.name || "–"}
-                </p>
-                <span
-                  className={`inline-block mt-2 px-2.5 py-1 text-xs rounded-full ${
-                    op.status === "selesai"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                  }`}
+            <div className="p-5 border-b border-gray-100 bg-gray-50">
+              <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">
+                    {op.keterangan || `Opname #${op.id}`}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Tanggal:{" "}
+                    <span className="font-medium">
+                      {new Date(op.tgl_opname).toLocaleDateString("id-ID")}
+                    </span>
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Dibuat oleh:{" "}
+                    <span className="font-medium">{op.user?.name || "–"}</span>
+                  </p>
+                  <span
+                    className={`inline-block mt-2 px-2.5 py-1 text-xs rounded-full ${
+                      op.status === "selesai"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {op.status === "selesai" ? "Selesai" : "Dibatalkan"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handlePrint(op)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-white text-xs rounded-lg hover:bg-gray-800 transition"
                 >
-                  {op.status === "selesai" ? "Selesai" : "Dibatalkan"}
-                </span>
+                  <Printer size={14} /> Cetak
+                </button>
               </div>
-              <button
-                onClick={() => handlePrint(op)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gray-700 text-white text-sm rounded-lg hover:bg-gray-800 transition"
-              >
-                <Printer size={14} /> Cetak
-              </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {op.details?.map((d) => (
-                <div
-                  key={d.id}
-                  className="bg-gray-50 rounded-lg p-4 border border-gray-200"
-                >
-                  <div className="font-medium text-gray-800 mb-2">
-                    {formatProductName(d.inventory?.product)} |{" "}
-                    {d.inventory?.place?.nama}
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 text-sm">
-                    <div>
-                      <p className="text-gray-600">
-                        Kode:{" "}
-                        <span className="font-medium">
-                          {d.inventory?.product?.kode || "–"}
-                        </span>
+            <div className="p-5">
+              {op.details?.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">Tidak ada item dalam opname ini.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {op.details.map((d) => (
+                    <div
+                      key={d.id}
+                      className="border border-gray-200 rounded-xl p-4 bg-gray-50"
+                    >
+                      <div className="font-semibold text-gray-800 text-sm mb-2 text-center">
+                        {formatProductName(d.inventory?.product)}
+                      </div>
+                      <p className="text-xs text-center text-gray-600 mb-1">
+                        {d.inventory?.place?.nama || "–"}
                       </p>
-                      <p className="text-gray-600">
-                        Stok Sistem:{" "}
-                        <span className="font-medium">{d.stok_sistem}</span>
-                      </p>
-                      <p className="text-gray-600">
-                        Stok Fisik:{" "}
-                        <span className="font-medium">{d.stok_real}</span>
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">
-                        Selisih:{" "}
-                        <span
-                          className={`font-medium ${
-                            d.selisih > 0
-                              ? "text-green-600"
-                              : d.selisih < 0
-                              ? "text-red-600"
-                              : ""
-                          }`}
-                        >
-                          {d.selisih}
-                        </span>
-                      </p>
+
+                      <div className="space-y-1.5 mt-3 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Stok Sistem</span>
+                          <span className="font-medium">{d.stok_sistem}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Stok Fisik</span>
+                          <span className="font-medium">
+                            {d.stok_real !== null && d.stok_real !== undefined
+                              ? d.stok_real
+                              : "–"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Selisih</span>
+                          <span
+                            className={`font-medium ${
+                              d.selisih > 0
+                                ? "text-green-600"
+                                : d.selisih < 0
+                                ? "text-red-600"
+                                : "text-gray-500"
+                            }`}
+                          >
+                            {d.selisih !== null && d.selisih !== undefined
+                              ? d.selisih
+                              : "–"}
+                          </span>
+                        </div>
+                      </div>
+
                       {d.keterangan && (
-                        <p className="text-gray-600 mt-1">
-                          <span className="font-medium">Keterangan:</span>{" "}
-                          {d.keterangan}
+                        <p className="text-xs text-center text-gray-600 mt-2">
+                          <span className="font-medium"></span> {d.keterangan}
                         </p>
                       )}
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           </div>
         ))

@@ -11,7 +11,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
-
 class StokOpnameController extends Controller
 {
     public function index()
@@ -26,42 +25,42 @@ class StokOpnameController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $data = $request->validate([
-            'tgl_opname' => 'required|date',
-            'keterangan' => 'nullable|string',
-            'inventory_ids' => 'required|array',
-            'inventory_ids.*' => 'exists:inventories,id'
+{
+    $data = $request->validate([
+        'tgl_opname' => 'required|date',
+        'keterangan' => 'nullable|string',
+        'inventory_ids' => 'required|array',
+        'inventory_ids.*' => 'exists:inventories,id'
+    ]);
+
+    DB::beginTransaction();
+    try {
+        $stokOpname = StokOpname::create([
+            'user_id' => Auth::id(),
+            'tgl_opname' => $data['tgl_opname'],
+            'keterangan' => $data['keterangan'] ?? null,
+            'status' => 'draft'
         ]);
 
-        DB::beginTransaction();
-        try {
-            $stokOpname = StokOpname::create([
-                'user_id' => Auth::id(),
-                'tgl_opname' => $data['tgl_opname'],
-                'keterangan' => $data['keterangan'] ?? null,
-                'status' => 'draft'
+        $inventories = Inventory::whereIn('id', $data['inventory_ids'])->get();
+        foreach ($inventories as $inv) {
+            DetailStokOpname::create([
+                'stok_opname_id' => $stokOpname->id,
+                'inventory_id' => $inv->id,
+                'stok_sistem' => $inv->qty,
+                'stok_real' => null,
+                'selisih' => null,
+                'keterangan' => null
             ]);
-
-            $inventories = Inventory::whereIn('id', $data['inventory_ids'])->get();
-            foreach ($inventories as $inv) {
-                DetailStokOpname::create([
-                    'stok_opname_id' => $stokOpname->id,
-                    'inventory_id' => $inv->id,
-                    'stok_sistem' => $inv->qty,
-                    'stok_real' => 0,
-                    'selisih' => 0 - $inv->qty,
-                    'keterangan' => null
-                ]);
-            }
-
-            DB::commit();
-            return response()->json($stokOpname->load('details'), 201);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
         }
+
+        DB::commit();
+        return response()->json($stokOpname->load('details'), 201);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        throw $e;
     }
+}
 
     public function show($id)
     {
@@ -85,7 +84,7 @@ class StokOpnameController extends Controller
 
         $data = $request->validate([
             'inventory_id' => 'required|exists:inventories,id',
-            'stok_real' => 'required|integer|min:0',
+            'stok_real' => 'nullable|integer|min:0',
             'keterangan' => 'nullable|string'
         ]);
 
@@ -93,7 +92,10 @@ class StokOpnameController extends Controller
             ->where('inventory_id', $data['inventory_id'])
             ->firstOrFail();
 
-        $selisih = $data['stok_real'] - $detail->stok_sistem;
+        $selisih = null;
+        if ($data['stok_real'] !== null) {
+            $selisih = $data['stok_real'] - $detail->stok_sistem;
+        }
 
         $detail->update([
             'stok_real' => $data['stok_real'],
@@ -112,11 +114,11 @@ class StokOpnameController extends Controller
             return response()->json(['message' => 'Stok opname sudah diproses'], 422);
         }
 
-        $incomplete = $stokOpname->details->contains(function ($detail) {
-            return $detail->stok_real === 0;
+        $hasUnfilled = $stokOpname->details->contains(function ($detail) {
+            return $detail->stok_real === null;
         });
 
-        if ($incomplete) {
+        if ($hasUnfilled) {
             return response()->json([
                 'message' => 'Masih ada item yang belum diisi stok real-nya'
             ], 422);

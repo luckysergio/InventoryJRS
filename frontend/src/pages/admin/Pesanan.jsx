@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-import { Plus, Trash2, Wallet, Receipt, Pencil } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Wallet,
+  Receipt,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 import api from "../../services/api";
 
 const safeParseFloat = (value) => {
@@ -23,23 +30,18 @@ const unformatRupiah = (str) => {
 const PesananPage = () => {
   const [pesanan, setPesanan] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [statusList, setStatusList] = useState([]);
-
+  const [statusSelesaiId, setStatusSelesaiId] = useState(null);
+  const [statusDiPesanId, setStatusDiPesanId] = useState(null);
   const [jenisProducts, setJenisProducts] = useState([]);
   const [bahanProducts, setBahanProducts] = useState([]);
-  const [statusProducts, setStatusProducts] = useState([]);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-
-  const [jenisBaru, setJenisBaru] = useState({});
-  const [typeBaru, setTypeBaru] = useState({});
-  const [bahanBaru, setBahanBaru] = useState({});
-
   const [typeOptions, setTypeOptions] = useState({});
+  const [showProductBaru, setShowProductBaru] = useState({});
+  const [hargaOptions, setHargaOptions] = useState({});
 
   const initialDetail = {
     id: "",
@@ -47,9 +49,11 @@ const PesananPage = () => {
     product_baru: {
       kode: "",
       jenis_id: "",
+      jenis_nama: "",
       type_id: "",
+      type_nama: "",
       bahan_id: "",
-      status_id: "",
+      bahan_nama: "",
       ukuran: "",
       keterangan: "",
     },
@@ -64,10 +68,8 @@ const PesananPage = () => {
   const [form, setForm] = useState({
     customer_id: "",
     customer_baru: { name: "", phone: "", email: "" },
-    details: [initialDetail],
+    details: [{ ...initialDetail, status_transaksi_id: statusDiPesanId }],
   });
-
-  const [hargaOptions, setHargaOptions] = useState({});
 
   const fetchData = async () => {
     try {
@@ -78,20 +80,26 @@ const PesananPage = () => {
       const customersRes = await api.get("/customers");
       setCustomers(customersRes.data.data || []);
 
-      const productsRes = await api.get("/products?low_stock=1");
+      const productsRes = await api.get("/products/lowStok");
       setProducts(productsRes.data.data || []);
 
       const statusRes = await api.get("/status-transaksi");
-      setStatusList(statusRes.data.data || []);
+      const statuses = statusRes.data.data || [];
+      setStatusList(statuses);
+      const selesai = statuses.find((s) =>
+        s.nama.toLowerCase().includes("selesai")
+      );
+      const dipesan = statuses.find((s) =>
+        s.nama.toLowerCase().includes("di pesan")
+      );
+      setStatusSelesaiId(selesai?.id || null);
+      setStatusDiPesanId(dipesan?.id || null);
 
       const jenisRes = await api.get("/jenis");
       setJenisProducts(jenisRes.data.data || []);
 
       const bahanRes = await api.get("/bahan");
       setBahanProducts(bahanRes.data.data || []);
-
-      const statusProdRes = await api.get("/status");
-      setStatusProducts(statusProdRes.data.data || []);
     } catch (err) {
       console.error("Error fetching data:", err);
       Swal.fire("Error", "Gagal memuat data", "error");
@@ -106,16 +114,16 @@ const PesananPage = () => {
 
   const fetchTypeByJenis = async (jenisId, rowIndex) => {
     if (!jenisId) {
-      setTypeOptions(prev => ({ ...prev, [rowIndex]: [] }));
+      setTypeOptions((prev) => ({ ...prev, [rowIndex]: [] }));
       return;
     }
     try {
       const res = await api.get(`/type/by-jenis/${jenisId}`);
-      setTypeOptions(prev => ({ ...prev, [rowIndex]: res.data.data || [] }));
+      setTypeOptions((prev) => ({ ...prev, [rowIndex]: res.data.data || [] }));
     } catch (err) {
       console.error("Error fetching type:", err);
       Swal.fire("Error", "Gagal memuat tipe produk", "error");
-      setTypeOptions(prev => ({ ...prev, [rowIndex]: [] }));
+      setTypeOptions((prev) => ({ ...prev, [rowIndex]: [] }));
     }
   };
 
@@ -125,7 +133,9 @@ const PesananPage = () => {
       return;
     }
     try {
-      const res = await api.get(`/harga/by-product/${productId}`);
+      const customerId = form.customer_id || null;
+      const params = customerId ? `?customer_id=${customerId}` : "";
+      const res = await api.get(`/harga/by-product/${productId}${params}`);
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: res.data.data || [] }));
     } catch (err) {
       console.error("Error fetching harga:", err);
@@ -136,35 +146,32 @@ const PesananPage = () => {
 
   const addDetailRow = () => {
     const newIndex = form.details.length;
-    setForm({ ...form, details: [...form.details, { ...initialDetail }] });
+    setForm({
+      ...form,
+      details: [
+        ...form.details,
+        { ...initialDetail, status_transaksi_id: statusDiPesanId },
+      ],
+    });
     setHargaOptions((prev) => ({ ...prev, [newIndex]: [] }));
     setTypeOptions((prev) => ({ ...prev, [newIndex]: [] }));
-    setJenisBaru((prev) => ({ ...prev, [newIndex]: "" }));
-    setTypeBaru((prev) => ({ ...prev, [newIndex]: "" }));
-    setBahanBaru((prev) => ({ ...prev, [newIndex]: "" }));
+    setShowProductBaru((prev) => ({ ...prev, [newIndex]: false }));
   };
 
   const removeDetailRow = (index) => {
     const updated = [...form.details];
     updated.splice(index, 1);
     setForm({ ...form, details: updated });
+
     const newHargaOptions = { ...hargaOptions };
     delete newHargaOptions[index];
     setHargaOptions(newHargaOptions);
+
     const newTypeOptions = { ...typeOptions };
     delete newTypeOptions[index];
     setTypeOptions(newTypeOptions);
-    setJenisBaru((prev) => {
-      const newState = { ...prev };
-      delete newState[index];
-      return newState;
-    });
-    setTypeBaru((prev) => {
-      const newState = { ...prev };
-      delete newState[index];
-      return newState;
-    });
-    setBahanBaru((prev) => {
+
+    setShowProductBaru((prev) => {
       const newState = { ...prev };
       delete newState[index];
       return newState;
@@ -178,7 +185,11 @@ const PesananPage = () => {
     if (field === "product_id") {
       fetchHargaByProduct(value, index);
       updated[index].harga_product_id = "";
-      updated[index].harga_baru = { harga: "", tanggal_berlaku: "", keterangan: "" };
+      updated[index].harga_baru = {
+        harga: "",
+        tanggal_berlaku: "",
+        keterangan: "",
+      };
       setForm({ ...form, details: updated });
     }
   };
@@ -189,58 +200,28 @@ const PesananPage = () => {
     setForm({ ...form, details: updated });
 
     if (field === "jenis_id") {
-      fetchTypeByJenis(value, index);
-      updated[index].product_baru.type_id = "";
-      setForm({ ...form, details: updated });
-      setJenisBaru(prev => ({ ...prev, [index]: "" }));
+      const isJenisBaru = value === "new";
+      if (isJenisBaru) {
+        // Kosongkan type_id dan hapus daftar type
+        updated[index].product_baru.type_id = "";
+        updated[index].product_baru.type_nama = "";
+        setTypeOptions((prev) => ({ ...prev, [index]: [] }));
+      } else {
+        fetchTypeByJenis(value, index);
+        updated[index].product_baru.type_nama = "";
+      }
     }
-  };
-
-  const handleJenisBaruChange = (index, value) => {
-    setJenisBaru(prev => ({ ...prev, [index]: value }));
-    const updated = [...form.details];
-    updated[index].product_baru.jenis_id = "";
-    setForm({ ...form, details: updated });
-  };
-
-  const handleTypeBaruChange = (index, value) => {
-    setTypeBaru(prev => ({ ...prev, [index]: value }));
-    const updated = [...form.details];
-    updated[index].product_baru.type_id = "";
-    setForm({ ...form, details: updated });
-  };
-
-  const handleBahanBaruChange = (index, value) => {
-    setBahanBaru(prev => ({ ...prev, [index]: value }));
-    const updated = [...form.details];
-    updated[index].product_baru.bahan_id = "";
-    setForm({ ...form, details: updated });
-  };
-
-  const handleHargaBaruChange = (index, field, value) => {
-    const updated = [...form.details];
-    updated[index].harga_baru[field] = value;
-    setForm({ ...form, details: updated });
-  };
-
-  const handleHargaLamaChange = (index, value) => {
-    const updated = [...form.details];
-    updated[index].harga_product_id = value;
-    updated[index].harga_baru = { harga: "", tanggal_berlaku: "", keterangan: "" };
-    setForm({ ...form, details: updated });
   };
 
   const resetForm = () => {
     setForm({
       customer_id: "",
       customer_baru: { name: "", phone: "", email: "" },
-      details: [{ ...initialDetail }],
+      details: [{ ...initialDetail, status_transaksi_id: statusDiPesanId }],
     });
     setHargaOptions({});
     setTypeOptions({});
-    setJenisBaru({});
-    setTypeBaru({});
-    setBahanBaru({});
+    setShowProductBaru({});
     setEditingId(null);
   };
 
@@ -248,65 +229,91 @@ const PesananPage = () => {
     try {
       e.preventDefault();
 
-      if (!form.customer_id && !form.customer_baru.name.trim()) {
-        Swal.fire("Error", "Nama customer wajib diisi jika membuat customer baru", "warning");
+      if (form.customer_id === "baru" && !form.customer_baru.name.trim()) {
+        Swal.fire("Error", "Nama customer wajib diisi", "warning");
         return;
       }
 
       const hasEmpty = form.details.some((d, i) => {
-        if (d.product_id) {
+        if (d.product_id && d.product_id !== "new") {
           return !d.qty || !d.tanggal || !d.status_transaksi_id;
         } else {
-          const jenisId = d.product_baru.jenis_id;
-          const jenisNama = jenisBaru[i] || "";
-          const bahanId = d.product_baru.bahan_id;
-          const bahanNama = bahanBaru[i] || "";
+          const isJenisBaru = d.product_baru.jenis_id === "new";
+          const isBahanBaru = d.product_baru.bahan_id === "new";
+          const isTypeBaru = d.product_baru.type_id === "new";
 
           return (
             !d.product_baru.kode ||
-            (!jenisId && !jenisNama) ||
+            (!d.product_baru.jenis_id && !isJenisBaru) ||
+            (isJenisBaru && !d.product_baru.jenis_nama) ||
             !d.product_baru.ukuran ||
             !d.tanggal ||
             !d.status_transaksi_id ||
-            (!bahanId && !bahanNama)
+            (!d.product_baru.bahan_id && !isBahanBaru) ||
+            (isBahanBaru && !d.product_baru.bahan_nama) ||
+            (!d.product_baru.type_id && !isTypeBaru) ||
+            (isTypeBaru && !d.product_baru.type_nama)
           );
         }
       });
 
       if (hasEmpty) {
-        Swal.fire("Error", "Lengkapi semua field wajib di detail pesanan", "warning");
+        Swal.fire(
+          "Error",
+          "Lengkapi semua field wajib di detail pesanan",
+          "warning"
+        );
         return;
       }
 
       const cleanedDetails = form.details.map((detail, i) => {
         const cleaned = { ...detail };
-        if (detail.product_id) {
+        if (detail.product_id && detail.product_id !== "new") {
           delete cleaned.product_baru;
         } else {
-          const jenisId = detail.product_baru.jenis_id;
-          const jenisNama = jenisBaru[i] || "";
-          cleaned.product_baru.jenis_id = jenisId || null;
-          cleaned.product_baru.jenis_nama = !jenisId && jenisNama ? jenisNama : undefined;
+          const isJenisBaru = detail.product_baru.jenis_id === "new";
+          const isBahanBaru = detail.product_baru.bahan_id === "new";
+          const isTypeBaru = detail.product_baru.type_id === "new";
 
-          const bahanId = detail.product_baru.bahan_id;
-          const bahanNama = bahanBaru[i] || "";
-          cleaned.product_baru.bahan_id = bahanId || null;
-          cleaned.product_baru.bahan_nama = !bahanId && bahanNama ? bahanNama : undefined;
+          cleaned.product_baru.jenis_id = isJenisBaru
+            ? null
+            : detail.product_baru.jenis_id || null;
+          cleaned.product_baru.jenis_nama = isJenisBaru
+            ? detail.product_baru.jenis_nama || ""
+            : undefined;
 
-          const typeId = detail.product_baru.type_id;
-          const typeName = typeBaru[i] || "";
-          cleaned.product_baru.type_id = typeId || null;
-          cleaned.product_baru.type_nama = !typeId && typeName ? typeName : undefined;
+          cleaned.product_baru.bahan_id = isBahanBaru
+            ? null
+            : detail.product_baru.bahan_id || null;
+          cleaned.product_baru.bahan_nama = isBahanBaru
+            ? detail.product_baru.bahan_nama || ""
+            : undefined;
+
+          cleaned.product_baru.type_id = isTypeBaru
+            ? null
+            : detail.product_baru.type_id || null;
+          cleaned.product_baru.type_nama = isTypeBaru
+            ? detail.product_baru.type_nama || ""
+            : undefined;
         }
-        if (detail.harga_product_id) {
+
+        if (
+          detail.harga_product_id &&
+          detail.harga_product_id !== "tambah_harga_khusus"
+        ) {
           delete cleaned.harga_baru;
         } else if (detail.harga_baru.harga) {
           cleaned.harga_baru.harga = unformatRupiah(detail.harga_baru.harga);
         }
+
         return cleaned;
       });
 
-      const payload = { ...form, details: cleanedDetails };
+      const payload = {
+        ...form,
+        customer_id: form.customer_id === "baru" ? null : form.customer_id,
+        details: cleanedDetails,
+      };
 
       if (editingId) {
         await api.put(`/pesanan/${editingId}`, payload);
@@ -320,9 +327,10 @@ const PesananPage = () => {
       setIsModalOpen(false);
       fetchData();
     } catch (error) {
-      console.error("Error in handleSubmit:", error);
       if (error.response?.status === 422) {
-        const msg = Object.values(error.response.data.errors).flat().join("<br>");
+        const msg = Object.values(error.response.data.errors)
+          .flat()
+          .join("<br>");
         Swal.fire({ title: "Validasi Gagal", html: msg, icon: "warning" });
       } else {
         Swal.fire("Error", "Terjadi kesalahan pada server", "error");
@@ -332,11 +340,12 @@ const PesananPage = () => {
 
   const handleDelete = async (id) => {
     const confirm = await Swal.fire({
-      title: "Hapus Pesanan?",
+      title: "Batalkan Pesanan?",
       text: "Data akan dihapus permanen!",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonText: "Hapus",
+      confirmButtonText: "Ya, Batalkan",
+      confirmButtonColor: "#d33",
     });
     if (confirm.isConfirmed) {
       await api.delete(`/pesanan/${id}`);
@@ -354,53 +363,68 @@ const PesananPage = () => {
     });
   };
 
-  const getTotalHarga = (detail) => {
-    if (!detail) return 0;
-    const harga = safeParseFloat(detail.harga);
-    const qty = parseInt(detail.qty) || 0;
-    return harga * qty;
-  };
-
   const getSisaBayar = (detail) => {
     if (!detail) return 0;
     const subtotal = safeParseFloat(detail.subtotal);
-    const pembayarans = Array.isArray(detail.pembayarans) ? detail.pembayarans : [];
-    const totalBayar = pembayarans.reduce((sum, p) => sum + safeParseFloat(p.jumlah_bayar), 0);
+    const pembayarans = Array.isArray(detail.pembayarans)
+      ? detail.pembayarans
+      : [];
+    const totalBayar = pembayarans.reduce(
+      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+      0
+    );
     return subtotal - totalBayar;
   };
 
   const getTotalBayar = (detail) => {
     if (!detail) return 0;
-    const pembayarans = Array.isArray(detail.pembayarans) ? detail.pembayarans : [];
-    return pembayarans.reduce((sum, p) => sum + safeParseFloat(p.jumlah_bayar), 0);
+    const pembayarans = Array.isArray(detail.pembayarans)
+      ? detail.pembayarans
+      : [];
+    return pembayarans.reduce(
+      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+      0
+    );
   };
 
   const formatProductName = (p) => {
-    if (!p) return "-";
-    return [p.jenis?.nama, p.type?.nama, p.ukuran].filter(Boolean).join(" | ");
+    if (!p) return "Produk tidak ditemukan";
+    return [
+      p.jenis?.nama || "-",
+      p.type?.nama || "-",
+      p.bahan?.nama || "-",
+      p.ukuran || "-",
+    ]
+      .filter(Boolean)
+      .join(" ");
   };
 
   const handleBayar = (detailId) => {
     const allDetails = pesanan.flatMap((t) => t.details);
     const detail = allDetails.find((d) => d.id === detailId);
     if (!detail) return;
-
     const sisa = getSisaBayar(detail);
     Swal.fire({
       title: "Input Pembayaran",
       html: `
         <p>Tagihan: Rp ${formatRupiah(detail.subtotal)}</p>
         <p>Sisa: Rp ${formatRupiah(sisa)}</p>
-        <input type="text" id="jumlahBayar" class="swal2-input" placeholder="Jumlah bayar" value="${formatRupiah(sisa)}">
+        <input type="text" id="jumlahBayar" class="swal2-input" placeholder="Jumlah bayar" value="${formatRupiah(
+          sisa
+        )}">
         <input type="date" id="tanggalBayar" class="swal2-input">
       `,
       preConfirm: () => {
-        const jumlah = unformatRupiah(Swal.getPopup().querySelector("#jumlahBayar").value);
+        const jumlah = unformatRupiah(
+          Swal.getPopup().querySelector("#jumlahBayar").value
+        );
         const tanggal = Swal.getPopup().querySelector("#tanggalBayar").value;
         if (!jumlah || jumlah <= 0) {
           Swal.showValidationMessage("Jumlah bayar harus lebih dari 0");
         } else if (jumlah > sisa) {
-          Swal.showValidationMessage("Jumlah bayar tidak boleh melebihi sisa tagihan");
+          Swal.showValidationMessage(
+            "Jumlah bayar tidak boleh melebihi sisa tagihan"
+          );
         } else if (!tanggal) {
           Swal.showValidationMessage("Tanggal bayar wajib diisi");
         } else {
@@ -430,11 +454,35 @@ const PesananPage = () => {
     });
   };
 
+  const getStatusInfo = (statusId) => {
+    const status = statusList.find((s) => s.id === statusId);
+    if (!status)
+      return { text: "–", bg: "bg-gray-100", textClass: "text-gray-800" };
+    if (status.nama === "Di pesan")
+      return {
+        text: "Di Pesan",
+        bg: "bg-blue-100",
+        textClass: "text-blue-800",
+      };
+    if (status.nama === "Di buat")
+      return {
+        text: "Di Buat",
+        bg: "bg-yellow-100",
+        textClass: "text-yellow-800",
+      };
+    if (status.nama === "Siap")
+      return { text: "Siap", bg: "bg-green-100", textClass: "text-green-800" };
+    return { text: status.nama, bg: "bg-gray-100", textClass: "text-gray-800" };
+  };
+
   const handleChangeDetailStatus = async (detailId, currentStatusId) => {
+    const allowedStatuses = statusList.filter((s) =>
+      ["Di pesan", "Di buat", "Siap"].includes(s.nama)
+    );
     const { value: statusId } = await Swal.fire({
       title: "Ubah Status Detail",
       input: "select",
-      inputOptions: statusList.reduce((acc, status) => {
+      inputOptions: allowedStatuses.reduce((acc, status) => {
         acc[status.id] = status.nama;
         return acc;
       }, {}),
@@ -444,8 +492,24 @@ const PesananPage = () => {
       confirmButtonText: "Simpan",
       cancelButtonText: "Batal",
     });
-
     if (statusId && statusId !== currentStatusId) {
+      const selesaiStatus = statusList.find((s) => s.nama === "Selesai");
+      if (selesaiStatus && statusId == selesaiStatus.id) {
+        const detail = pesanan
+          .flatMap((t) => t.details)
+          .find((d) => d.id == detailId);
+        if (detail) {
+          const sisa = getSisaBayar(detail);
+          if (sisa > 0) {
+            Swal.fire(
+              "Peringatan",
+              "Selesaikan pembayaran terlebih dahulu!",
+              "warning"
+            );
+            return;
+          }
+        }
+      }
       try {
         await api.patch(`/transaksi-detail/${detailId}/status`, {
           status_transaksi_id: statusId,
@@ -460,7 +524,6 @@ const PesananPage = () => {
 
   return (
     <div className="space-y-8">
-      {/* HEADER */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Pesanan</h1>
         <button
@@ -468,69 +531,112 @@ const PesananPage = () => {
             resetForm();
             setIsModalOpen(true);
           }}
-          className="bg-purple-600 text-white px-6 py-3 rounded-xl flex items-center gap-2"
+          className="bg-purple-600 text-white px-6 py-3 rounded-xl flex items-center gap-2 shadow-md hover:bg-purple-700 transition"
         >
-          <Plus size={18} />
-          Tambah Pesanan
+          <Plus size={18} /> Tambah Pesanan
         </button>
       </div>
 
       {loading ? (
         <p className="text-center py-8 text-gray-600">Memuat data...</p>
       ) : pesanan.length === 0 ? (
-        <p className="text-center py-8 text-gray-500">Tidak ada data pesanan.</p>
+        <p className="text-center py-8 text-gray-500">
+          Tidak ada data pesanan.
+        </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {pesanan.map((item) => (
-            <div key={item.id} className="p-6 bg-white rounded-xl shadow space-y-3">
-              <p className="text-gray-700 text-center">
-                Customer: {item.customer?.name || "–"}
+            <div
+              key={item.id}
+              className="p-6 bg-white rounded-xl shadow border border-gray-100 space-y-3"
+            >
+              <p className="text-gray-700 text-center font-medium">
+                Customer: {item.customer?.name || "Umum"}
               </p>
-              <p className="text-gray-700 text-center font-semibold">
+              <p className="text-gray-700 text-center font-bold text-lg">
                 Total: Rp {formatRupiah(item.total)}
               </p>
-              <hr className="my-3" />
+              <hr className="my-3 border-gray-200" />
               <div className="space-y-3">
                 {item.details.map((d) => {
                   const sisaBayar = getSisaBayar(d);
                   const isLunas = sisaBayar <= 0;
                   const totalBayar = getTotalBayar(d);
+                  const status = getStatusInfo(d.status_transaksi_id);
                   return (
-                    <div key={d.id} className="p-3 border rounded-lg bg-gray-50 text-sm">
-                      <p><span className="font-semibold">Produk:</span> {formatProductName(d.product)}</p>
-                      <p><span className="font-semibold">Qty:</span> {d.qty}</p>
-                      <p><span className="font-semibold">Harga Satuan:</span> Rp {formatRupiah(d.harga)}</p>
-                      <p><span className="font-semibold">Diskon:</span> Rp {formatRupiah(d.discount)}</p>
-                      <p><span className="font-semibold">Tagihan:</span> Rp {formatRupiah(d.subtotal)}</p>
-                      <p><span className="font-semibold">Tanggal:</span> {formatTanggal(d.tanggal)}</p>
-
-                      <div className="mt-2 pt-2 border-t">
+                    <div
+                      key={d.id}
+                      className="p-3 border border-gray-200 rounded-lg bg-gray-50 text-sm text-center"
+                    >
+                      <p>
+                        <span className="font-semibold"></span>{" "}
+                        {formatProductName(d.product)}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Qty:</span> {d.qty}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Harga Satuan:</span> Rp{" "}
+                        {formatRupiah(d.harga)}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Diskon:</span> Rp{" "}
+                        {formatRupiah(d.discount)}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Tagihan:</span> Rp{" "}
+                        {formatRupiah(d.subtotal)}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Tanggal:</span>{" "}
+                        {formatTanggal(d.tanggal)}
+                      </p>
+                      {d.catatan && (
+                            <p>
+                              <span className="font-semibold"></span>{" "}
+                              {d.catatan}
+                            </p>
+                          )}
+                      <div className="mt-2 pt-2 border-t border-gray-200">
                         <div className="flex justify-between items-center">
                           <p className="text-sm">
                             <span className="font-semibold">Status:</span>{" "}
-                            <span className="text-blue-600">{d.status_transaksi?.nama || "–"}</span>
+                            <span className={`${status.textClass}`}>
+                              {status.text}
+                            </span>
                           </p>
                           <button
-                            onClick={() => handleChangeDetailStatus(d.id, d.status_transaksi_id)}
+                            onClick={() =>
+                              handleChangeDetailStatus(
+                                d.id,
+                                d.status_transaksi_id
+                              )
+                            }
                             className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
                           >
                             Ubah
                           </button>
                         </div>
-
-                        <div className="mt-3">
+                        <div className="mt-2">
                           <p className="text-sm text-center">
-                            <span className={`font-semibold ${isLunas ? "text-green-600" : "text-orange-600"}`}>
-                              {isLunas ? "✅ Lunas" : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(sisaBayar)})`}
+                            <span
+                              className={`font-semibold ${
+                                isLunas ? "text-green-600" : "text-orange-600"
+                              }`}
+                            >
+                              {isLunas
+                                ? "✅ Lunas"
+                                : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
+                                    sisaBayar
+                                  )})`}
                             </span>
                           </p>
                         </div>
-
                         <p className="text-xs text-gray-600 mt-1 text-center">
-                          Sudah dibayar: Rp {formatRupiah(totalBayar)} dari Rp {formatRupiah(d.subtotal)}
+                          Sudah dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                          {formatRupiah(d.subtotal)}
                         </p>
-
-                        {d.pembayarans && d.pembayarans.length > 0 && (
+                        {d.pembayarans?.length > 0 && (
                           <div className="mt-2 text-xs text-center">
                             <p className="font-medium flex items-center justify-center gap-1">
                               <Receipt size={12} /> Riwayat Pembayaran:
@@ -538,13 +644,13 @@ const PesananPage = () => {
                             <ul className="list-disc list-inside space-y-1 mt-1 inline-block text-left">
                               {d.pembayarans.map((p) => (
                                 <li key={p.id} className="text-gray-700">
-                                  Rp {formatRupiah(p.jumlah_bayar)} - {formatTanggal(p.tanggal_bayar)}
+                                  Rp {formatRupiah(p.jumlah_bayar)} -{" "}
+                                  {formatTanggal(p.tanggal_bayar)}
                                 </li>
                               ))}
                             </ul>
                           </div>
                         )}
-
                         {!isLunas && (
                           <button
                             onClick={() => handleBayar(d.id)}
@@ -558,50 +664,79 @@ const PesananPage = () => {
                   );
                 })}
               </div>
-
               <button
                 onClick={() => handleDelete(item.id)}
-                className="w-full flex justify-center gap-2 bg-red-100 text-red-700 px-3 py-2 rounded-xl hover:bg-red-200"
+                className="w-full flex justify-center gap-2 bg-red-100 text-red-700 px-3 py-2 rounded-xl hover:bg-red-200 mt-2"
               >
-                <Trash2 size={16} /> Hapus
+                <XCircle size={16} /> Batalkan Pesanan
               </button>
             </div>
           ))}
         </div>
       )}
 
-      {/* MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white w-full max-w-4xl p-6 rounded-2xl overflow-y-auto max-h-[90vh]">
-            <h2 className="text-xl font-bold mb-4 text-center">
-              {editingId ? "Edit Pesanan" : "Tambah Pesanan"}
-            </h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">
+                {editingId ? "Edit Pesanan" : "Tambah Pesanan"}
+              </h2>
+              <button
+                onClick={() => {
+                  resetForm();
+                  setIsModalOpen(false);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <XCircle size={24} />
+              </button>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* CUSTOMER */}
-              <div>
-                <label className="font-semibold">Customer</label>
+              {/* CUSTOMER SECTION */}
+              <div className="bg-gray-50 p-4 rounded-xl">
+                <label className="font-semibold block mb-2">Customer *</label>
                 <select
-                  className="w-full border px-3 py-2 rounded-lg mt-1"
+                  className="w-full border px-3 py-2 rounded-lg"
                   value={form.customer_id}
-                  onChange={(e) => setForm({ ...form, customer_id: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm({ ...form, customer_id: val });
+                    if (val !== "baru") {
+                      form.details.forEach((_, i) => {
+                        fetchHargaByProduct(form.details[i].product_id, i);
+                      });
+                    }
+                  }}
+                  required
                 >
-                  <option value="">Pilih Customer (atau isi data baru)</option>
+                  <option value="">Pilih Customer</option>
                   {customers.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
                   ))}
+                  <option value="baru">➕ Buat Customer Baru</option>
                 </select>
 
-                {!form.customer_id && (
-                  <div className="grid grid-cols-3 gap-3 mt-3">
+                {form.customer_id === "baru" && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                     <input
                       type="text"
                       placeholder="Nama *"
                       className="border px-3 py-2 rounded-lg"
                       value={form.customer_baru.name}
                       onChange={(e) =>
-                        setForm({ ...form, customer_baru: { ...form.customer_baru, name: e.target.value } })
+                        setForm({
+                          ...form,
+                          customer_baru: {
+                            ...form.customer_baru,
+                            name: e.target.value,
+                          },
+                        })
                       }
+                      required
                     />
                     <input
                       type="text"
@@ -609,7 +744,13 @@ const PesananPage = () => {
                       className="border px-3 py-2 rounded-lg"
                       value={form.customer_baru.phone}
                       onChange={(e) =>
-                        setForm({ ...form, customer_baru: { ...form.customer_baru, phone: e.target.value } })
+                        setForm({
+                          ...form,
+                          customer_baru: {
+                            ...form.customer_baru,
+                            phone: e.target.value,
+                          },
+                        })
                       }
                     />
                     <input
@@ -618,192 +759,371 @@ const PesananPage = () => {
                       className="border px-3 py-2 rounded-lg"
                       value={form.customer_baru.email}
                       onChange={(e) =>
-                        setForm({ ...form, customer_baru: { ...form.customer_baru, email: e.target.value } })
+                        setForm({
+                          ...form,
+                          customer_baru: {
+                            ...form.customer_baru,
+                            email: e.target.value,
+                          },
+                        })
                       }
                     />
                   </div>
                 )}
               </div>
 
-              <div>
-                <h3 className="font-bold mb-2">Detail Pesanan</h3>
+              {/* DETAIL SECTION */}
+              <div className="space-y-4">
+                <h3 className="font-bold text-lg">Detail Pesanan</h3>
                 {form.details.map((d, i) => (
-                  <div key={i} className="p-4 border rounded-xl mb-4 bg-gray-50 space-y-4">
+                  <div
+                    key={i}
+                    className="p-4 border border-gray-200 rounded-xl bg-gray-50 space-y-4"
+                  >
                     <div>
-                      <label className="block mb-1 font-medium">Produk</label>
+                      <label className="block mb-1 font-medium">Produk *</label>
                       <select
                         className="w-full border px-3 py-2 rounded-lg"
-                        value={d.product_id}
-                        onChange={(e) => handleDetailChange(i, "product_id", e.target.value)}
+                        value={
+                          d.product_id || (showProductBaru[i] ? "new" : "")
+                        }
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === "new") {
+                            setShowProductBaru((prev) => ({
+                              ...prev,
+                              [i]: true,
+                            }));
+                            handleDetailChange(i, "product_id", "");
+                          } else {
+                            setShowProductBaru((prev) => ({
+                              ...prev,
+                              [i]: false,
+                            }));
+                            handleDetailChange(i, "product_id", value);
+                          }
+                        }}
                       >
-                        <option value="">Pilih Produk (atau buat baru di bawah)</option>
+                        <option value="">Pilih Produk</option>
                         {products.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {formatProductName(p)} {p.qty !== undefined ? `(Stok: ${p.qty})` : ""}
+                            {formatProductName(p)}
                           </option>
                         ))}
+                        <option value="new">➕ Buat Product Baru</option>
                       </select>
 
-                      {/* FORM PRODUK BARU */}
-                      {!d.product_id && (
-                        <div className="mt-3 space-y-3">
+                      {showProductBaru[i] && (
+                        <div className="mt-4 space-y-4 p-4 bg-blue-50 rounded-lg">
                           <input
                             type="text"
                             placeholder="Kode Produk *"
                             className="w-full border px-3 py-2 rounded-lg"
                             value={d.product_baru.kode}
-                            onChange={(e) => handleProductBaruChange(i, "kode", e.target.value)}
+                            onChange={(e) =>
+                              handleProductBaruChange(i, "kode", e.target.value)
+                            }
+                            required
                           />
-                          <div className="grid grid-cols-2 gap-3">
-                            {/* Jenis */}
-                            <div>
-                              <label className="text-xs text-gray-500">Jenis Produk *</label>
-                              <select
-                                className="w-full border px-2 py-1 rounded text-sm"
-                                value={d.product_baru.jenis_id}
-                                onChange={(e) => handleProductBaruChange(i, "jenis_id", e.target.value)}
-                              >
-                                <option value="">Pilih dari daftar</option>
-                                {Array.isArray(jenisProducts) && jenisProducts.length > 0 ? (
-                                  jenisProducts.map((j) => (
-                                    <option key={j.id} value={j.id}>{j.nama}</option>
-                                  ))
-                                ) : (
-                                  <option value="">(Loading...)</option>
-                                )}
-                              </select>
-                              <input
-                                type="text"
-                                placeholder="Atau buat baru"
-                                className="w-full border px-2 py-1 rounded text-sm mt-1"
-                                value={jenisBaru[i] || ""}
-                                onChange={(e) => handleJenisBaruChange(i, e.target.value)}
-                              />
-                            </div>
 
-                            {/* Type */}
-                            <div>
-                              <label className="text-xs text-gray-500">Tipe Produk</label>
-                              <select
-                                className="w-full border px-2 py-1 rounded text-sm"
-                                value={d.product_baru.type_id}
-                                onChange={(e) => handleProductBaruChange(i, "type_id", e.target.value)}
-                              >
-                                <option value="">Pilih dari daftar</option>
-                                {Array.isArray(typeOptions[i]) && typeOptions[i].length > 0 ? (
-                                  typeOptions[i].map((t) => (
-                                    <option key={t.id} value={t.id}>{t.nama}</option>
-                                  ))
-                                ) : (
-                                  <option value="">
-                                    {d.product_baru.jenis_id ? "Pilih Jenis Dulu" : "(Pilih Jenis)"}
-                                  </option>
-                                )}
-                              </select>
+                          {/* Jenis */}
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Jenis Produk *
+                            </label>
+                            <select
+                              className="w-full border px-3 py-2 rounded-lg"
+                              value={d.product_baru.jenis_id || ""}
+                              onChange={(e) =>
+                                handleProductBaruChange(
+                                  i,
+                                  "jenis_id",
+                                  e.target.value
+                                )
+                              }
+                              required
+                            >
+                              <option value="">Pilih Jenis</option>
+                              {jenisProducts.map((j) => (
+                                <option key={j.id} value={j.id}>
+                                  {j.nama}
+                                </option>
+                              ))}
+                              <option value="new">➕ Buat Jenis Baru</option>
+                            </select>
+                            {d.product_baru.jenis_id === "new" && (
                               <input
                                 type="text"
-                                placeholder="Atau buat baru"
-                                className="w-full border px-2 py-1 rounded text-sm mt-1"
-                                value={typeBaru[i] || ""}
-                                onChange={(e) => handleTypeBaruChange(i, e.target.value)}
+                                placeholder="Nama Jenis Baru *"
+                                className="w-full border px-3 py-2 rounded-lg mt-2"
+                                value={d.product_baru.jenis_nama || ""}
+                                onChange={(e) =>
+                                  handleProductBaruChange(
+                                    i,
+                                    "jenis_nama",
+                                    e.target.value
+                                  )
+                                }
+                                required
                               />
-                            </div>
+                            )}
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            {/* Bahan */}
-                            <div>
-                              <label className="text-xs text-gray-500">Bahan Produk</label>
-                              <select
-                                className="w-full border px-2 py-1 rounded text-sm"
-                                value={d.product_baru.bahan_id}
-                                onChange={(e) => handleProductBaruChange(i, "bahan_id", e.target.value)}
-                              >
-                                <option value="">Pilih dari daftar</option>
-                                {Array.isArray(bahanProducts) && bahanProducts.length > 0 ? (
-                                  bahanProducts.map((b) => (
-                                    <option key={b.id} value={b.id}>{b.nama}</option>
-                                  ))
-                                ) : (
-                                  <option value="">(Loading...)</option>
-                                )}
-                              </select>
-                              <input
-                                type="text"
-                                placeholder="Atau buat baru"
-                                className="w-full border px-2 py-1 rounded text-sm mt-1"
-                                value={bahanBaru[i] || ""}
-                                onChange={(e) => handleBahanBaruChange(i, e.target.value)}
-                              />
-                            </div>
 
-                            {/* Status */}
-                            <div>
-                              <label className="text-xs text-gray-500">Status Produk</label>
-                              <select
-                                className="w-full border px-2 py-1 rounded text-sm"
-                                value={d.product_baru.status_id}
-                                onChange={(e) => handleProductBaruChange(i, "status_id", e.target.value)}
-                              >
-                                <option value="">Pilih dari daftar</option>
-                                {Array.isArray(statusProducts) && statusProducts.length > 0 ? (
-                                  statusProducts.map((s) => (
-                                    <option key={s.id} value={s.id}>{s.nama}</option>
-                                  ))
-                                ) : (
-                                  <option value="">(Loading...)</option>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Tipe Produk
+                            </label>
+                            {d.product_baru.jenis_id === "new" ? (
+                              <input
+                                type="text"
+                                placeholder="Nama Tipe Baru"
+                                className="w-full border px-3 py-2 rounded-lg"
+                                value={d.product_baru.type_nama || ""}
+                                onChange={(e) =>
+                                  handleProductBaruChange(
+                                    i,
+                                    "type_nama",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            ) : d.product_baru.jenis_id ? (
+                              <>
+                                <select
+                                  className="w-full border px-3 py-2 rounded-lg"
+                                  value={d.product_baru.type_id || ""}
+                                  onChange={(e) =>
+                                    handleProductBaruChange(
+                                      i,
+                                      "type_id",
+                                      e.target.value
+                                    )
+                                  }
+                                >
+                                  <option value="">Pilih Tipe</option>
+                                  {(typeOptions[i] || []).map((t) => (
+                                    <option key={t.id} value={t.id}>
+                                      {t.nama}
+                                    </option>
+                                  ))}
+                                  <option value="new">➕ Buat Tipe Baru</option>
+                                </select>
+                                {d.product_baru.type_id === "new" && (
+                                  <input
+                                    type="text"
+                                    placeholder="Nama Tipe Baru"
+                                    className="w-full border px-3 py-2 rounded-lg mt-2"
+                                    value={d.product_baru.type_nama || ""}
+                                    onChange={(e) =>
+                                      handleProductBaruChange(
+                                        i,
+                                        "type_nama",
+                                        e.target.value
+                                      )
+                                    }
+                                  />
                                 )}
-                              </select>
-                            </div>
+                              </>
+                            ) : (
+                              <p className="text-sm text-gray-500 italic">
+                                Pilih Jenis terlebih dahulu
+                              </p>
+                            )}
                           </div>
+
+                          {/* Bahan */}
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Bahan Produk
+                            </label>
+                            <select
+                              className="w-full border px-3 py-2 rounded-lg"
+                              value={d.product_baru.bahan_id || ""}
+                              onChange={(e) =>
+                                handleProductBaruChange(
+                                  i,
+                                  "bahan_id",
+                                  e.target.value
+                                )
+                              }
+                            >
+                              <option value="">Pilih Bahan</option>
+                              {bahanProducts.map((b) => (
+                                <option key={b.id} value={b.id}>
+                                  {b.nama}
+                                </option>
+                              ))}
+                              <option value="new">➕ Buat Bahan Baru</option>
+                            </select>
+                            {d.product_baru.bahan_id === "new" && (
+                              <input
+                                type="text"
+                                placeholder="Nama Bahan Baru"
+                                className="w-full border px-3 py-2 rounded-lg mt-2"
+                                value={d.product_baru.bahan_nama || ""}
+                                onChange={(e) =>
+                                  handleProductBaruChange(
+                                    i,
+                                    "bahan_nama",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <input
                               type="text"
                               placeholder="Ukuran *"
-                              className="w-full border px-3 py-2 rounded-lg"
+                              className="border px-3 py-2 rounded-lg"
                               value={d.product_baru.ukuran}
-                              onChange={(e) => handleProductBaruChange(i, "ukuran", e.target.value)}
+                              onChange={(e) =>
+                                handleProductBaruChange(
+                                  i,
+                                  "ukuran",
+                                  e.target.value
+                                )
+                              }
+                              required
                             />
-                          <input
-                            type="text"
-                            placeholder="Keterangan"
-                            className="w-full border px-3 py-2 rounded-lg"
-                            value={d.product_baru.keterangan}
-                            onChange={(e) => handleProductBaruChange(i, "keterangan", e.target.value)}
-                          />
+                            <input
+                              type="text"
+                              placeholder="Keterangan"
+                              className="border px-3 py-2 rounded-lg"
+                              value={d.product_baru.keterangan}
+                              onChange={(e) =>
+                                handleProductBaruChange(
+                                  i,
+                                  "keterangan",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
                         </div>
                       )}
 
-                      {/* HARGA */}
-                      {d.product_id && (
-                        <div className="mt-3">
-                          <label className="block mb-1 font-medium">Pilih Harga yang Berlaku</label>
+                      {d.product_id && !showProductBaru[i] && (
+                        <div className="mt-4">
+                          <label className="block mb-1 font-medium">
+                            Pilih Harga
+                          </label>
                           <select
                             className="w-full border px-3 py-2 rounded-lg"
                             value={d.harga_product_id || ""}
-                            onChange={(e) => handleHargaLamaChange(i, e.target.value)}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              const updated = [...form.details];
+                              updated[i].harga_product_id = value;
+                              updated[i].harga_baru = {
+                                harga: "",
+                                tanggal_berlaku: "",
+                                keterangan: "",
+                              };
+                              setForm({ ...form, details: updated });
+                            }}
                           >
-                            <option value="">Ambil harga terbaru</option>
-                            {(hargaOptions[i] || []).map((h) => (
-                              <option key={h.id} value={h.id}>
-                                Rp {formatRupiah(h.harga)} - {h.keterangan || "Tanpa keterangan"} ({formatTanggal(h.tanggal_berlaku)})
-                              </option>
-                            ))}
+                            <option value="">-- Pilih --</option>
+                            <optgroup label="Harga Umum">
+                              {(hargaOptions[i] || [])
+                                .filter((h) => !h.customer_id)
+                                .map((h) => (
+                                  <option key={`umum-${h.id}`} value={h.id}>
+                                    Rp {formatRupiah(h.harga)} -{" "}
+                                    {h.keterangan || "Tanpa keterangan"} (
+                                    {formatTanggal(h.tanggal_berlaku)})
+                                  </option>
+                                ))}
+                            </optgroup>
+                            <optgroup label="Harga Khusus Customer">
+                              {(hargaOptions[i] || [])
+                                .filter((h) => h.customer_id)
+                                .map((h) => (
+                                  <option key={`khusus-${h.id}`} value={h.id}>
+                                    Rp {formatRupiah(h.harga)} - {h.keterangan}{" "}
+                                    ({formatTanggal(h.tanggal_berlaku)})
+                                  </option>
+                                ))}
+                            </optgroup>
+                            <option value="tambah_harga_khusus">
+                              + Tambah Harga Khusus Customer
+                            </option>
                           </select>
+
+                          {d.harga_product_id === "tambah_harga_khusus" && (
+                            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                              <label className="block mb-2 font-medium text-blue-800">
+                                Harga Khusus Customer Baru
+                              </label>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  placeholder="Harga Baru (Rp)"
+                                  className="border px-3 py-2 rounded-lg"
+                                  value={
+                                    d.harga_baru.harga
+                                      ? formatRupiah(d.harga_baru.harga)
+                                      : ""
+                                  }
+                                  onChange={(e) => {
+                                    const raw = unformatRupiah(e.target.value);
+                                    const updated = [...form.details];
+                                    updated[i].harga_baru.harga = raw;
+                                    setForm({ ...form, details: updated });
+                                  }}
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Keterangan Harga"
+                                  className="border px-3 py-2 rounded-lg"
+                                  value={d.harga_baru.keterangan}
+                                  onChange={(e) => {
+                                    const updated = [...form.details];
+                                    updated[i].harga_baru.keterangan =
+                                      e.target.value;
+                                    setForm({ ...form, details: updated });
+                                  }}
+                                />
+                                <input
+                                  type="date"
+                                  className="border px-3 py-2 rounded-lg"
+                                  value={d.harga_baru.tanggal_berlaku}
+                                  onChange={(e) => {
+                                    const updated = [...form.details];
+                                    updated[i].harga_baru.tanggal_berlaku =
+                                      e.target.value;
+                                    setForm({ ...form, details: updated });
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 
-                      {!d.product_id && !d.harga_product_id && (
-                        <div className="border-t pt-3">
-                          <label className="block mb-2 font-medium">Atau Tambahkan Harga Baru (Opsional)</label>
-                          <div className="grid grid-cols-3 gap-2">
+                      {showProductBaru[i] && (
+                        <div className="mt-4">
+                          <label className="block mb-2 font-medium">
+                            Atau Tambahkan Harga Baru
+                          </label>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                             <input
                               type="text"
                               inputMode="numeric"
                               placeholder="Harga Baru (Rp)"
                               className="border px-3 py-2 rounded-lg"
-                              value={d.harga_baru.harga ? formatRupiah(d.harga_baru.harga) : ""}
+                              value={
+                                d.harga_baru.harga
+                                  ? formatRupiah(d.harga_baru.harga)
+                                  : ""
+                              }
                               onChange={(e) => {
                                 const raw = unformatRupiah(e.target.value);
-                                handleHargaBaruChange(i, "harga", raw);
+                                const updated = [...form.details];
+                                updated[i].harga_baru.harga = raw;
+                                setForm({ ...form, details: updated });
                               }}
                             />
                             <input
@@ -811,25 +1131,37 @@ const PesananPage = () => {
                               placeholder="Keterangan Harga"
                               className="border px-3 py-2 rounded-lg"
                               value={d.harga_baru.keterangan}
-                              onChange={(e) => handleHargaBaruChange(i, "keterangan", e.target.value)}
+                              onChange={(e) => {
+                                const updated = [...form.details];
+                                updated[i].harga_baru.keterangan =
+                                  e.target.value;
+                                setForm({ ...form, details: updated });
+                              }}
                             />
                             <input
                               type="date"
                               className="border px-3 py-2 rounded-lg"
                               value={d.harga_baru.tanggal_berlaku}
-                              onChange={(e) => handleHargaBaruChange(i, "tanggal_berlaku", e.target.value)}
+                              onChange={(e) => {
+                                const updated = [...form.details];
+                                updated[i].harga_baru.tanggal_berlaku =
+                                  e.target.value;
+                                setForm({ ...form, details: updated });
+                              }}
                             />
                           </div>
                         </div>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                       <input
                         type="date"
                         className="border px-3 py-2 rounded-lg"
                         value={d.tanggal}
-                        onChange={(e) => handleDetailChange(i, "tanggal", e.target.value)}
+                        onChange={(e) =>
+                          handleDetailChange(i, "tanggal", e.target.value)
+                        }
                         required
                       />
                       <input
@@ -838,7 +1170,9 @@ const PesananPage = () => {
                         placeholder="Qty *"
                         className="border px-3 py-2 rounded-lg"
                         value={d.qty}
-                        onChange={(e) => handleDetailChange(i, "qty", e.target.value)}
+                        onChange={(e) =>
+                          handleDetailChange(i, "qty", e.target.value)
+                        }
                         required
                       />
                       <input
@@ -852,49 +1186,39 @@ const PesananPage = () => {
                           handleDetailChange(i, "discount", raw);
                         }}
                       />
-                      <select
+                      <input
+                        type="text"
+                        placeholder="Catatan (opsional)"
                         className="border px-3 py-2 rounded-lg"
-                        value={d.status_transaksi_id}
-                        onChange={(e) => handleDetailChange(i, "status_transaksi_id", e.target.value)}
-                        required
-                      >
-                        <option value="">Status *</option>
-                        {statusList.map((s) => (
-                          <option key={s.id} value={s.id}>{s.nama}</option>
-                        ))}
-                      </select>
+                        value={d.catatan}
+                        onChange={(e) =>
+                          handleDetailChange(i, "catatan", e.target.value)
+                        }
+                      />
                     </div>
 
                     <button
                       type="button"
                       onClick={() => removeDetailRow(i)}
-                      className="w-full mt-3 bg-red-100 text-red-600 py-2 rounded-lg hover:bg-red-200"
+                      className="w-full mt-2 bg-red-100 text-red-600 py-2 rounded-lg hover:bg-red-200 flex items-center justify-center gap-1"
                     >
-                      <Trash2 className="inline-block" size={16} /> Hapus Detail
+                      <Trash2 size={16} /> Hapus Detail
                     </button>
                   </div>
                 ))}
 
-                <button
-                  type="button"
-                  onClick={addDetailRow}
-                  className="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg"
-                >
-                  + Tambah Detail
-                </button>
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={addDetailRow}
+                    className="mt-2 bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-1"
+                  >
+                    + Tambah Detail
+                  </button>
+                </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetForm();
-                    setIsModalOpen(false);
-                  }}
-                  className="px-5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200"
-                >
-                  Batal
-                </button>
+              <div className="flex justify-center gap-3 pt-4 border-t">
                 <button
                   type="submit"
                   className="px-6 py-2 rounded-xl bg-purple-600 text-white hover:bg-purple-700"

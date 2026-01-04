@@ -1,11 +1,23 @@
 import { useEffect, useState, useMemo } from "react";
 import Swal from "sweetalert2";
-import { Plus, Printer, X, Edit3, CheckCircle, XCircle, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Printer,
+  X,
+  Edit3,
+  CheckCircle,
+  XCircle,
+  Trash2,
+  CheckSquare,
+  Square,
+} from "lucide-react";
 import api from "../../services/api";
 
 const formatProductName = (p) => {
   if (!p) return "-";
-  return [p.jenis?.nama, p.type?.nama, p.ukuran].filter(Boolean).join(" | ");
+  return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
+    .filter(Boolean)
+    .join(" ");
 };
 
 const StokOpnamePage = () => {
@@ -25,7 +37,6 @@ const StokOpnamePage = () => {
   const [selectedPlaceId, setSelectedPlaceId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // --- Fetch Data ---
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -73,14 +84,21 @@ const StokOpnamePage = () => {
     return result;
   }, [inventories, selectedPlaceId, searchTerm]);
 
-  // --- Selection ---
   const toggleInventorySelection = (id) => {
     const newSet = new Set(selectedInventoryIds);
     newSet.has(id) ? newSet.delete(id) : newSet.add(id);
     setSelectedInventoryIds(newSet);
   };
 
-  // --- Create Opname ---
+  const toggleSelectAll = () => {
+    if (selectedInventoryIds.size === filteredInventories.length) {
+      setSelectedInventoryIds(new Set());
+    } else {
+      const allIds = new Set(filteredInventories.map((inv) => inv.id));
+      setSelectedInventoryIds(allIds);
+    }
+  };
+
   const handleCreateOpname = async () => {
     if (selectedInventoryIds.size === 0) {
       Swal.fire("Peringatan", "Pilih minimal satu inventory", "warning");
@@ -104,34 +122,54 @@ const StokOpnamePage = () => {
       });
       fetchData();
     } catch (err) {
-      Swal.fire("Error", err.response?.data?.message || "Gagal membuat opname", "error");
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Gagal membuat opname",
+        "error"
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // --- Update Stok Real ---
-  const handleUpdateStokReal = async (detailId, inventoryId, currentReal, currentKeterangan) => {
+  const handleUpdateStokReal = async (
+    detailId,
+    inventoryId,
+    currentReal,
+    currentKeterangan
+  ) => {
     const { value: result } = await Swal.fire({
       title: "Input Stok Fisik & Keterangan",
       html: `
-        <input type="number" id="stokReal" class="swal2-input" placeholder="Stok Fisik" value="${currentReal}">
-        <input type="text" id="keterangan" class="swal2-input" placeholder="Keterangan (opsional)" value="${currentKeterangan || ""}">
+        <input type="number" id="stokReal" class="swal2-input" placeholder="Stok Fisik" value="${
+          currentReal || ""
+        }">
+        <input type="text" id="keterangan" class="swal2-input" placeholder="Keterangan (opsional)" value="${
+          currentKeterangan || ""
+        }">
       `,
       preConfirm: () => {
-        const stokReal = Swal.getPopup().querySelector("#stokReal").value;
+        const stokRealInput = Swal.getPopup().querySelector("#stokReal").value;
         const keterangan = Swal.getPopup().querySelector("#keterangan").value;
-        if (!stokReal || parseInt(stokReal) < 0) {
-          Swal.showValidationMessage("Stok fisik harus diisi dan ≥ 0");
+
+        if (stokRealInput === "") {
+          return { stokReal: null, keterangan };
+        }
+
+        const stokReal = parseInt(stokRealInput);
+        if (isNaN(stokReal) || stokReal < 0) {
+          Swal.showValidationMessage("Stok fisik harus ≥ 0 atau dikosongkan");
         } else {
-          return { stokReal: parseInt(stokReal), keterangan };
+          return { stokReal, keterangan };
         }
       },
     });
 
     if (result) {
       try {
-        const opname = stokOpnames.find((o) => o.details?.some((d) => d.id === detailId));
+        const opname = stokOpnames.find((o) =>
+          o.details?.some((d) => d.id === detailId)
+        );
         if (!opname) return;
         await api.post(`/stok-opname/${opname.id}/detail`, {
           inventory_id: inventoryId,
@@ -145,11 +183,15 @@ const StokOpnamePage = () => {
     }
   };
 
-  // --- Selesai & Batal ---
   const handleSelesaiOpname = async (opnameId) => {
     const opname = stokOpnames.find((o) => o.id === opnameId);
-    const hasUnfilled = opname?.details?.some((d) => d.stok_real === 0 || d.stok_real == null);
+    if (!opname) return;
 
+    const hasUnfilled = opname.details?.some(
+      (d) => d.stok_real === null || d.stok_real === undefined
+    );
+
+    let shouldProceed = true;
     if (hasUnfilled) {
       const confirm = await Swal.fire({
         title: "Item Belum Lengkap!",
@@ -159,15 +201,31 @@ const StokOpnamePage = () => {
         confirmButtonText: "Ya, Selesaikan",
         cancelButtonText: "Batal",
       });
-      if (!confirm.isConfirmed) return;
+      shouldProceed = confirm.isConfirmed;
+    } else {
+      const confirm = await Swal.fire({
+        title: "Selesaikan Opname?",
+        text: "Setelah diselesaikan, data tidak bisa diubah lagi.",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Ya, Selesaikan",
+        cancelButtonText: "Batal",
+      });
+      shouldProceed = confirm.isConfirmed;
     }
+
+    if (!shouldProceed) return;
 
     try {
       await api.post(`/stok-opname/${opnameId}/selesai`);
       Swal.fire("Berhasil!", "Stok opname telah diselesaikan", "success");
       fetchData();
     } catch (err) {
-      Swal.fire("Error", err.response?.data?.message || "Gagal menyelesaikan opname", "error");
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Gagal menyelesaikan opname",
+        "error"
+      );
     }
   };
 
@@ -192,7 +250,6 @@ const StokOpnamePage = () => {
     }
   };
 
-  // --- Print ---
   const handlePrint = (opname) => {
     const statusLabel = "Draft (Belum Selesai)";
     const printWindow = window.open("", "_blank");
@@ -216,20 +273,42 @@ const StokOpnamePage = () => {
         <body>
           <h1>Laporan Stok Opname (Draft) #${opname.id}</h1>
           <div class="header">
-            <div class="card-row"><span class="label">Tanggal:</span> <span class="value">${new Date(opname.tgl_opname).toLocaleDateString("id-ID")}</span></div>
+            <div class="card-row"><span class="label">Tanggal:</span> <span class="value">${new Date(
+              opname.tgl_opname
+            ).toLocaleDateString("id-ID")}</span></div>
             <div class="card-row"><span class="label">Status:</span> <span class="value">${statusLabel}</span></div>
-            <div class="card-row"><span class="label">Oleh:</span> <span class="value">${opname.user?.name || "–"}</span></div>
+            <div class="card-row"><span class="label">Oleh:</span> <span class="value">${
+              opname.user?.name || "–"
+            }</span></div>
           </div>
           ${opname.details
             .map(
               (d) => `
               <div class="card">
-                <div class="card-title">${formatProductName(d.inventory?.product)} | ${d.inventory?.place?.nama || "–"}</div>
-                <div class="card-row"><span class="label">Kode:</span> <span>${d.inventory?.product?.kode || "–"}</span></div>
-                <div class="card-row"><span class="label">Stok Sistem:</span> <span>${d.stok_sistem}</span></div>
-                <div class="card-row"><span class="label">Stok Fisik:</span> <span>${d.stok_real || 0}</span></div>
-                <div class="card-row"><span class="label">Selisih:</span> <span class="selisih ${d.selisih > 0 ? 'pos' : d.selisih < 0 ? 'neg' : ''}">${d.selisih || 0}</span></div>
-                ${d.keterangan ? `<div class="card-row"><span class="label">Keterangan:</span> <span>${d.keterangan}</span></div>` : ""}
+                <div class="card-title">${formatProductName(
+                  d.inventory?.product
+                )} | ${d.inventory?.place?.nama || "–"}</div>
+                <div class="card-row"><span class="label">Kode:</span> <span>${
+                  d.inventory?.product?.kode || "–"
+                }</span></div>
+                <div class="card-row"><span class="label">Stok Sistem:</span> <span>${
+                  d.stok_sistem
+                }</span></div>
+                <div class="card-row"><span class="label">Stok Fisik:</span> <span>${
+                  d.stok_real !== null && d.stok_real !== undefined
+                    ? d.stok_real
+                    : "–"
+                }</span></div>
+                <div class="card-row"><span class="label">Selisih:</span> <span class="selisih ${
+                  d.selisih > 0 ? "pos" : d.selisih < 0 ? "neg" : ""
+                }">${
+                d.selisih !== null && d.selisih !== undefined ? d.selisih : "–"
+              }</span></div>
+                ${
+                  d.keterangan
+                    ? `<div class="card-row"><span class="label">Keterangan:</span> <span>${d.keterangan}</span></div>`
+                    : ""
+                }
               </div>
             `
             )
@@ -242,7 +321,6 @@ const StokOpnamePage = () => {
     printWindow.print();
   };
 
-  // --- Loading ---
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -259,8 +337,12 @@ const StokOpnamePage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Stok Opname Aktif</h1>
-          <p className="text-gray-600 mt-1">Kelola dan selesaikan stok opname yang sedang berjalan</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+            Stok Opname Aktif
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Kelola dan selesaikan stok opname yang sedang berjalan
+          </p>
         </div>
         <button
           onClick={() => setIsCreating(true)}
@@ -270,14 +352,17 @@ const StokOpnamePage = () => {
         </button>
       </div>
 
-      {/* Daftar Opname Aktif */}
       {draftOpnames.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 mb-4">
             <Edit3 size={28} />
           </div>
-          <h3 className="text-lg font-semibold text-gray-800">Belum Ada Opname Aktif</h3>
-          <p className="text-gray-600 mt-2">Buat stok opname baru untuk memulai proses pencocokan stok.</p>
+          <h3 className="text-lg font-semibold text-gray-800">
+            Belum Ada Opname Aktif
+          </h3>
+          <p className="text-gray-600 mt-2">
+            Buat stok opname baru untuk memulai proses pencocokan stok.
+          </p>
           <button
             onClick={() => setIsCreating(true)}
             className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
@@ -291,16 +376,21 @@ const StokOpnamePage = () => {
             key={op.id}
             className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden transition-all hover:shadow-md"
           >
-            {/* Header Card */}
             <div className="p-5 border-b border-gray-100 bg-gray-50">
               <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-800">{op.keterangan || `Opname #${op.id}`}</h3>
+                  <h3 className="text-lg font-bold text-gray-800">
+                    {op.keterangan || `Opname #${op.id}`}
+                  </h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    Tanggal: <span className="font-medium">{new Date(op.tgl_opname).toLocaleDateString("id-ID")}</span>
+                    Tanggal:{" "}
+                    <span className="font-medium">
+                      {new Date(op.tgl_opname).toLocaleDateString("id-ID")}
+                    </span>
                   </p>
                   <p className="text-sm text-gray-600">
-                    Dibuat oleh: <span className="font-medium">{op.user?.name || "–"}</span>
+                    Dibuat oleh:{" "}
+                    <span className="font-medium">{op.user?.name || "–"}</span>
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -326,25 +416,23 @@ const StokOpnamePage = () => {
               </div>
             </div>
 
-            {/* Detail Items */}
             <div className="p-5">
               {op.details?.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">Tidak ada item dalam opname ini.</p>
+                <p className="text-gray-500 text-center py-4">
+                  Tidak ada item dalam opname ini.
+                </p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {op.details.map((d) => (
                     <div
                       key={d.id}
                       className="border border-gray-200 rounded-xl p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
                     >
-                      <div className="font-semibold text-gray-800 text-sm mb-2">
+                      <div className="font-semibold text-gray-800 text-sm mb-2 text-center">
                         {formatProductName(d.inventory?.product)}
                       </div>
-                      <p className="text-xs text-gray-600 mb-1">
+                      <p className="text-xs text-gray-600 mb-1 text-center">
                         {d.inventory?.place?.nama || "–"}
-                      </p>
-                      <p className="text-xs text-gray-600 mb-2">
-                        Kode: <span className="font-medium">{d.inventory?.product?.kode || "–"}</span>
                       </p>
 
                       <div className="space-y-1.5 mt-3 text-sm">
@@ -357,35 +445,57 @@ const StokOpnamePage = () => {
                           <span
                             className="font-medium text-indigo-700 underline cursor-pointer"
                             onClick={() =>
-                              handleUpdateStokReal(d.id, d.inventory_id, d.stok_real, d.keterangan)
+                              handleUpdateStokReal(
+                                d.id,
+                                d.inventory_id,
+                                d.stok_real,
+                                d.keterangan
+                              )
                             }
                           >
-                            {d.stok_real || 0}
+                            {d.stok_real !== null && d.stok_real !== undefined
+                              ? d.stok_real
+                              : "-"}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Selisih</span>
                           <span
                             className={`font-medium ${
-                              d.selisih > 0 ? "text-green-600" : d.selisih < 0 ? "text-red-600" : "text-gray-500"
+                              d.selisih > 0
+                                ? "text-green-600"
+                                : d.selisih < 0
+                                ? "text-red-600"
+                                : "text-gray-500"
                             }`}
                           >
-                            {d.selisih || 0}
+                            {d.selisih !== null && d.selisih !== undefined
+                              ? d.selisih
+                              : "-"}
                           </span>
                         </div>
                       </div>
 
                       {d.keterangan ? (
-                        <p className="text-xs text-gray-600 mt-2">
-                          <span className="font-medium">Ket:</span> {d.keterangan}
+                        <p className="text-xs text-gray-600 mt-2 text-center">
+                          <span className="font-medium"></span> {d.keterangan}
                         </p>
                       ) : (
-                        <button
-                          onClick={() => handleUpdateStokReal(d.id, d.inventory_id, d.stok_real, d.keterangan)}
-                          className="text-xs text-indigo-600 hover:text-indigo-800 underline mt-2"
-                        >
-                          + Tambah Keterangan
-                        </button>
+                        <div className="flex justify-center">
+                          <button
+                            onClick={() =>
+                              handleUpdateStokReal(
+                                d.id,
+                                d.inventory_id,
+                                d.stok_real,
+                                d.keterangan
+                              )
+                            }
+                            className="text-xs text-indigo-600 hover:text-indigo-800 underline mt-2"
+                          >
+                            + Tambah Keterangan
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -396,12 +506,13 @@ const StokOpnamePage = () => {
         ))
       )}
 
-      {/* MODAL: BUAT OPNAME BARU */}
       {isCreating && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl">
             <div className="p-5 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800">Buat Stok Opname Baru</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                Buat Stok Opname Baru
+              </h2>
               <button
                 onClick={() => setIsCreating(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -411,35 +522,49 @@ const StokOpnamePage = () => {
             </div>
 
             <div className="p-5 space-y-6">
-              {/* Info Opname */}
               <div className="bg-gray-50 p-4 rounded-xl">
                 <h3 className="text-lg font-semibold mb-3">Informasi Opname</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Opname</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tanggal Opname
+                    </label>
                     <input
                       type="date"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                       value={formHeader.tgl_opname}
-                      onChange={(e) => setFormHeader({ ...formHeader, tgl_opname: e.target.value })}
+                      onChange={(e) =>
+                        setFormHeader({
+                          ...formHeader,
+                          tgl_opname: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Keterangan
+                    </label>
                     <input
                       type="text"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                       value={formHeader.keterangan}
-                      onChange={(e) => setFormHeader({ ...formHeader, keterangan: e.target.value })}
+                      onChange={(e) =>
+                        setFormHeader({
+                          ...formHeader,
+                          keterangan: e.target.value,
+                        })
+                      }
                       placeholder="Opsional"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Filter Tempat */}
               <div className="text-center">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Filter Tempat Penyimpanan</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter Tempat Penyimpanan
+                </label>
                 <select
                   className="w-full max-w-xs border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-center"
                   value={selectedPlaceId}
@@ -454,28 +579,38 @@ const StokOpnamePage = () => {
                 </select>
               </div>
 
-              {/* Pencarian */}
               <div className="text-center">
-                <input
-                  type="text"
-                  placeholder="Cari berdasarkan kode atau nama produk..."
-                  className="w-full max-w-md border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+                <button
+                  onClick={toggleSelectAll}
+                  className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mx-auto"
+                >
+                  {selectedInventoryIds.size === filteredInventories.length ? (
+                    <>
+                      <Square size={16} /> Batalkan Pilih Semua
+                    </>
+                  ) : (
+                    <>
+                      <CheckSquare size={16} /> Pilih Semua (
+                      {filteredInventories.length})
+                    </>
+                  )}
+                </button>
               </div>
 
-              {/* Daftar Inventory */}
               <div>
-                <h3 className="text-lg font-semibold mb-3">Pilih Item untuk Opname</h3>
+                <h3 className="text-lg font-semibold mb-3">
+                  Pilih Item untuk Opname
+                </h3>
                 {filteredInventories.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">Tidak ada inventory ditemukan.</p>
+                  <p className="text-gray-500 text-center py-4">
+                    Tidak ada inventory ditemukan.
+                  </p>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {filteredInventories.map((inv) => (
                       <div
                         key={inv.id}
-                        className={`border-2 rounded-xl p-4 cursor-pointer transition-all duration-200 ${
+                        className={`border-2 rounded-xl p-4 cursor-pointer relative ${
                           selectedInventoryIds.has(inv.id)
                             ? "border-indigo-500 bg-indigo-50 shadow-sm"
                             : "border-gray-200 hover:border-gray-300"
@@ -483,12 +618,15 @@ const StokOpnamePage = () => {
                         onClick={() => toggleInventorySelection(inv.id)}
                       >
                         <div className="text-center">
-                          <p className="text-xs text-gray-500">Kode: {inv.product?.kode || "–"}</p>
                           <p className="font-semibold text-gray-800 mt-1 text-sm">
                             {formatProductName(inv.product)}
                           </p>
-                          <p className="text-xs text-gray-600 mt-1">{inv.place?.nama || "–"}</p>
-                          <p className="text-xl font-bold text-indigo-700 mt-2">{inv.qty}</p>
+                          <p className="text-xs text-gray-600 mt-1">
+                            {inv.place?.nama || "–"}
+                          </p>
+                          <p className="text-xl font-bold text-indigo-700 mt-2">
+                            {inv.qty}
+                          </p>
                           <p className="text-xs text-gray-500">Stok Sistem</p>
                         </div>
                         {selectedInventoryIds.has(inv.id) && (
@@ -502,7 +640,6 @@ const StokOpnamePage = () => {
                 )}
               </div>
 
-              {/* Footer Modal */}
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                 <button
                   onClick={() => setIsCreating(false)}

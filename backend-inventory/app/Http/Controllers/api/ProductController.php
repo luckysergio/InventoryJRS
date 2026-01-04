@@ -394,4 +394,33 @@ class ProductController extends Controller
             'data'    => $products
         ]);
     }
+
+    public function lowStock()
+    {
+        $products = Product::whereHas('inventories', function ($q) {
+            $q->where('qty', '<', 20)
+                ->whereHas('place', function ($p) {
+                    $p->whereIn('kode', ['TOKO','BENGKEL']);
+                });
+        })
+            ->with([
+                'jenis',
+                'type',
+                'bahan',
+                'inventories' => function ($q) {
+                    $q->where('qty', '>', 0)
+                        ->whereHas('place', function ($p) {
+                            $p->where('kode', 'TOKO');
+                        });
+                },
+                'inventories.place'
+            ])
+            ->get();
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Berhasil mengambil produk tersedia di TOKO',
+            'data'    => $products
+        ]);
+    }
 }

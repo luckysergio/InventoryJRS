@@ -12,42 +12,47 @@ use App\Models\HargaProduct;
 use App\Models\Inventory;
 use App\Models\JenisProduct;
 use App\Models\Place;
-use App\Models\TypeProduct; // ✅ tambahkan untuk validasi type
+use App\Models\TypeProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PesananTransaksiController extends Controller
 {
+    public function index()
+    {
+        $data = Transaksi::with([
+            'customer',
+            'details.product.jenis',
+            'details.product.type',
+            'details.product.bahan',
+            'details.statusTransaksi',
+            'details.pembayarans',
+        ])
+            ->where('jenis_transaksi', 'pesanan')
+            ->orderByDesc('id')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'data'   => $data,
+        ]);
+    }
+
     public function aktif()
     {
         $data = Transaksi::with([
             'customer',
-            'details.product',
+            'details.product.jenis',
+            'details.product.type',
+            'details.product.bahan',
             'details.statusTransaksi',
             'details.pembayarans'
         ])
             ->where('jenis_transaksi', 'pesanan')
             ->whereHas('details', function ($query) {
-                $query->where('status_transaksi_id', '!=', 5);
-            })
-            ->orderBy('id', 'DESC')
-            ->get();
-
-        return response()->json($data);
-    }
-
-    public function riwayat()
-    {
-        $data = Transaksi::with([
-            'customer',
-            'details.product',
-            'details.statusTransaksi',
-            'details.pembayarans'
-        ])
-            ->where('jenis_transaksi', 'pesanan')
-            ->whereHas('details', function ($query) {
-                $query->where('status_transaksi_id', '=', 5);
+                $query->whereIn('status_transaksi_id', [2, 3, 4]);
             })
             ->orderBy('id', 'DESC')
             ->get();
@@ -57,7 +62,13 @@ class PesananTransaksiController extends Controller
 
     public function show($id)
     {
-        $data = Transaksi::with(['customer', 'details.product', 'details.pembayarans'])
+        $data = Transaksi::with([
+            'customer',
+            'details.product.jenis',
+            'details.product.type',
+            'details.product.bahan',
+            'details.pembayarans'
+        ])
             ->where('jenis_transaksi', 'pesanan')
             ->findOrFail($id);
 
@@ -99,6 +110,7 @@ class PesananTransaksiController extends Controller
             'details.*.qty' => 'required|integer|min:1',
             'details.*.tanggal' => 'required|date',
             'details.*.discount' => 'nullable|integer|min:0',
+            'details.*.catatan' => 'nullable|string',
             'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
         ]);
 
@@ -109,7 +121,6 @@ class PesananTransaksiController extends Controller
         DB::beginTransaction();
 
         try {
-            // Buat customer jika diperlukan
             if ($request->customer_id) {
                 $customer_id = $request->customer_id;
             } else {
@@ -117,14 +128,12 @@ class PesananTransaksiController extends Controller
                 $customer_id = $customer->id;
             }
 
-            // Buat transaksi utama
             $transaksi = Transaksi::create([
                 'customer_id' => $customer_id,
                 'jenis_transaksi' => 'pesanan',
                 'total' => 0,
             ]);
 
-            // 🔑 Pre-load place Bengkel & Toko sekali saja
             $places = Place::whereIn('kode', ['BENGKEL', 'TOKO'])->get();
             if ($places->count() < 2) {
                 throw new \Exception('Place Bengkel atau Toko belum tersedia di database.');
@@ -134,10 +143,8 @@ class PesananTransaksiController extends Controller
 
             foreach ($request->details as $d) {
                 if (!empty($d['product_id'])) {
-                    // Gunakan product yang sudah ada
                     $product = Product::findOrFail($d['product_id']);
                 } else {
-                    // === Buat product baru ===
                     $jenis_id = $d['product_baru']['jenis_id'] ?? null;
                     if (!$jenis_id) {
                         $jenis = JenisProduct::firstOrCreate([
@@ -168,12 +175,10 @@ class PesananTransaksiController extends Controller
                         'jenis_id' => $jenis_id,
                         'type_id' => $type_id,
                         'bahan_id' => $bahan_id,
-                        'status_id' => $d['product_baru']['status_id'] ?? null,
                         'ukuran' => $d['product_baru']['ukuran'],
                         'keterangan' => $d['product_baru']['keterangan'] ?? null,
                     ]);
 
-                    // 🔑 🔑 🔑 Buat inventory awal untuk product baru
                     foreach ($places as $place) {
                         Inventory::firstOrCreate([
                             'product_id' => $product->id,
@@ -184,7 +189,6 @@ class PesananTransaksiController extends Controller
                     }
                 }
 
-                // === Tentukan harga ===
                 if (!empty($d['harga_baru'])) {
                     $hp = HargaProduct::create([
                         'product_id' => $product->id,
@@ -207,13 +211,11 @@ class PesananTransaksiController extends Controller
                     );
                 }
 
-                // Hitung subtotal
                 $qty = $d['qty'];
                 $discount = $d['discount'] ?? 0;
                 $subtotal = ($hp->harga * $qty) - $discount;
                 $total_transaksi += $subtotal;
 
-                // Simpan detail transaksi
                 TransaksiDetail::create([
                     'transaksi_id' => $transaksi->id,
                     'product_id' => $product->id,
@@ -224,6 +226,7 @@ class PesananTransaksiController extends Controller
                     'harga' => $hp->harga,
                     'discount' => $discount,
                     'subtotal' => $subtotal,
+                    'catatan' => $d['catatan'] ?? null,
                 ]);
             }
 
@@ -238,7 +241,7 @@ class PesananTransaksiController extends Controller
                     'details.product.jenis',
                     'details.product.type',
                     'details.product.bahan',
-                    'details.product.inventories.place' // opsional: untuk debug
+                    'details.product.inventories.place'
                 ])
             ], 201);
         } catch (\Exception $e) {
@@ -278,5 +281,16 @@ class PesananTransaksiController extends Controller
             'message' => 'Status pesanan diperbarui',
             'data' => $detail->load('statusTransaksi')
         ]);
+    }
+
+    public function generatePdf($id)
+    {
+        $pesanan = Transaksi::with(['customer', 'details.product.jenis', 'details.product.type', 'details.product.bahan'])
+            ->findOrFail($id);
+
+        $pdf = Pdf::loadView('pdf.pesanan', compact('pesanan'))
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->stream("Pesanan_{$pesanan->id}.pdf");
     }
 }

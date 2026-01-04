@@ -169,7 +169,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               <SubNavLink to="/pesanan">Transaksi Pesanan</SubNavLink>
               <SubNavLink to="/riwayat-transaksi">Riwayat Transaksi</SubNavLink>
               <SubNavLink to="/customer">Customer</SubNavLink>
-              <SubNavLink to="/status-transaksi">Status Transaksi</SubNavLink>
+              {/* <SubNavLink to="/status-transaksi">Status Transaksi</SubNavLink> */}
             </Dropdown>
 
             <Dropdown title="Inventory" open={inventoryOpen} setOpen={setInventoryOpen} icon={Warehouse}>
@@ -236,7 +236,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               <SubNavLink to="/pesanan">Transaksi Pesanan</SubNavLink>
               <SubNavLink to="/riwayat-transaksi">Riwayat Transaksi</SubNavLink>
               <SubNavLink to="/customer">Customer</SubNavLink>
-              <SubNavLink to="/status-transaksi">Status Transaksi</SubNavLink>
+              {/* <SubNavLink to="/status-transaksi">Status Transaksi</SubNavLink> */}
             </Dropdown>
 
             <Dropdown title="Inventory" open={inventoryOpen} setOpen={setInventoryOpen} icon={Warehouse}>

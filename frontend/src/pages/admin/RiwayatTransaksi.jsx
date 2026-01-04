@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-import { Trash2, Receipt, Filter } from "lucide-react";
+import { Trash2, Receipt, Wallet, XCircle, CheckCircle } from "lucide-react";
 import api from "../../services/api";
 
 const safeParseFloat = (value) => {
@@ -23,10 +23,11 @@ const formatTanggal = (tgl) => {
   });
 };
 
-// ✅ Fungsi format nama produk (sama seperti di TransaksiPage & Pesanan)
 const formatProductName = (p) => {
   if (!p) return "-";
-  return [p.jenis?.nama, p.type?.nama, p.ukuran].filter(Boolean).join(" | ");
+  return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
+    .filter(Boolean)
+    .join(" ");
 };
 
 const RiwayatTransaksi = () => {
@@ -34,35 +35,42 @@ const RiwayatTransaksi = () => {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState("");
-  const [selectedJenis, setSelectedJenis] = useState("all"); // 'all', 'daily', 'pesanan'
+  const [selectedJenis, setSelectedJenis] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
 
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      // ✅ Bangun endpoint berdasarkan filter
-      let endpoint = "/transaksi/riwayat/all"; // Asumsi: kita buat endpoint baru
-
       const params = new URLSearchParams();
-      if (selectedCustomer) {
-        params.append("customer_id", selectedCustomer);
-      }
-      if (selectedJenis !== "all") {
-        params.append("jenis", selectedJenis);
+      if (selectedCustomer) params.append("customer_id", selectedCustomer);
+      if (selectedJenis !== "all") params.append("jenis", selectedJenis);
+
+      const res = await api.get(
+        `/transaksi/riwayat/all${
+          params.toString() ? `?${params.toString()}` : ""
+        }`
+      );
+      let data = res.data || [];
+
+      if (selectedStatus !== "all") {
+        const statusIdMap = {
+          selesai: 5,
+          dibatalkan: 6,
+        };
+        const targetStatusId = statusIdMap[selectedStatus];
+        data = data.filter((item) =>
+          item.details.some((d) => d.status_transaksi_id === targetStatusId)
+        );
       }
 
-      if (params.toString()) {
-        endpoint += `?${params.toString()}`;
-      }
-
-      const res = await api.get(endpoint);
-      setTransaksi(res.data || []);
+      setTransaksi(data);
 
       const customersRes = await api.get("/customers");
       setCustomers(customersRes.data.data || []);
     } catch (err) {
-      console.error("Error fetching ", err);
-      Swal.fire("Error", "Gagal memuat data", "error");
+      console.error("Error fetching riwayat transaksi:", err);
+      Swal.fire("Error", "Gagal memuat data riwayat transaksi", "error");
     } finally {
       setLoading(false);
     }
@@ -70,7 +78,7 @@ const RiwayatTransaksi = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedCustomer, selectedJenis]);
+  }, [selectedCustomer, selectedJenis, selectedStatus]);
 
   const handleDelete = async (id) => {
     const confirm = await Swal.fire({
@@ -79,6 +87,7 @@ const RiwayatTransaksi = () => {
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Hapus",
+      confirmButtonColor: "#d33",
     });
 
     if (confirm.isConfirmed) {
@@ -92,51 +101,53 @@ const RiwayatTransaksi = () => {
     }
   };
 
-  const getTotalHarga = (detail) => {
-    if (!detail) return 0;
-    return safeParseFloat(detail.harga) * (parseInt(detail.qty) || 0);
+  const getJenisInfo = (jenis) => {
+    if (jenis === "daily") return { text: "Harian", color: "blue" };
+    if (jenis === "pesanan") return { text: "Pesanan", color: "purple" };
+    return { text: jenis, color: "gray" };
   };
 
-  const getSisaBayar = (detail) => {
-    if (!detail) return 0;
-    const subtotal = safeParseFloat(detail.subtotal);
-    const totalBayar = (detail.pembayarans || []).reduce(
-      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-      0
-    );
-    return subtotal - totalBayar;
-  };
-
-  const getTotalBayar = (detail) => {
-    return (detail.pembayarans || []).reduce(
-      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-      0
-    );
-  };
-
-  // ✅ Fungsi untuk dapatkan warna badge berdasarkan jenis
-  const getJenisBadge = (jenis) => {
-    if (jenis === 'daily') {
-      return { text: 'Harian (Daily)', bg: 'bg-blue-100', textClass: 'text-blue-800' };
-    } else if (jenis === 'pesanan') {
-      return { text: 'Pesanan', bg: 'bg-purple-100', textClass: 'text-purple-800' };
-    }
-    return { text: jenis, bg: 'bg-gray-100', textClass: 'text-gray-800' };
+  const getStatusInfo = (statusId) => {
+    if (statusId === 5)
+      return {
+        text: "Selesai",
+        bg: "bg-green-100",
+        textClass: "text-green-800",
+        icon: CheckCircle,
+      };
+    if (statusId === 6)
+      return {
+        text: "Dibatalkan",
+        bg: "bg-red-100",
+        textClass: "text-red-800",
+        icon: XCircle,
+      };
+    return {
+      text: "Lainnya",
+      bg: "bg-gray-100",
+      textClass: "text-gray-800",
+      icon: Receipt,
+    };
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Riwayat Transaksi</h1>
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+          Riwayat Transaksi
+        </h1>
+      </div>
 
-        {/* FILTER */}
-        <div className="flex gap-4">
-          {/* Filter Jenis Transaksi */}
-          <div className="w-48">
-            <label className="block text-sm font-medium mb-1">Jenis Transaksi</label>
+      {/* FILTERS */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Jenis Transaksi
+            </label>
             <select
-              className="w-full border px-3 py-2 rounded-lg"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
               value={selectedJenis}
               onChange={(e) => setSelectedJenis(e.target.value)}
             >
@@ -146,11 +157,27 @@ const RiwayatTransaksi = () => {
             </select>
           </div>
 
-          {/* Filter Customer */}
-          <div className="w-48">
-            <label className="block text-sm font-medium mb-1">Customer</label>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Status
+            </label>
             <select
-              className="w-full border px-3 py-2 rounded-lg"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+            >
+              <option value="all">Semua Status</option>
+              <option value="selesai">Selesai</option>
+              <option value="dibatalkan">Dibatalkan</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Customer
+            </label>
+            <select
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
               value={selectedCustomer}
               onChange={(e) => setSelectedCustomer(e.target.value)}
             >
@@ -162,94 +189,148 @@ const RiwayatTransaksi = () => {
               ))}
             </select>
           </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                setSelectedJenis("all");
+                setSelectedStatus("all");
+                setSelectedCustomer("");
+              }}
+              className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium"
+            >
+              Reset Filter
+            </button>
+          </div>
         </div>
       </div>
 
       {/* LIST */}
       {loading ? (
-        <p className="text-center py-8 text-gray-600">Memuat data...</p>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+            <p className="mt-4 text-gray-600">Memuat riwayat transaksi...</p>
+          </div>
+        </div>
       ) : transaksi.length === 0 ? (
-        <p className="text-center py-8 text-gray-500">Tidak ada riwayat transaksi.</p>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 text-gray-500 mb-4">
+            <Receipt size={28} />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-800">
+            Tidak Ada Data
+          </h3>
+          <p className="text-gray-600 mt-2">
+            Tidak ada transaksi yang sesuai dengan filter saat ini.
+          </p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {transaksi.map((item) => {
-            const badge = getJenisBadge(item.jenis_transaksi);
+            const jenis = getJenisInfo(item.jenis_transaksi);
+
             return (
-              <div key={item.id} className="p-6 bg-white rounded-xl shadow space-y-3">
-                <div className="flex justify-center items-center">
-                  <div>
-                    <span className={`inline-block ${badge.bg} ${badge.textClass} text-xs px-2 py-1 rounded mt-1`}>
-                      {badge.text}
-                    </span>
+              <div
+                key={item.id}
+                className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
+              >
+                <div className="p-4 bg-gray-50 border-b border-gray-200">
+                  <div className="flex justify-center items-center">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className={`text-xs text-center px-2 py-1 rounded-full bg-${jenis.color}-100 text-${jenis.color}-800 font-medium`}
+                        >
+                          {jenis.text}
+                        </span>
+                      </div>
+                      <p className="text-sm text-center font-medium text-gray-800 mt-1">
+                        {item.customer?.name || "Customer Umum"}
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <p className="text-gray-700 text-center">
-                  Customer: {item.customer?.name || "–"}
-                </p>
-                <p className="text-gray-700 text-center font-semibold">
-                  Total: Rp {formatRupiah(item.total)}
-                </p>
-                <hr className="my-3" />
-                <div className="space-y-3">
+
+                <div className="p-4 space-y-3">
                   {item.details.map((d) => {
-                    const sisaBayar = getSisaBayar(d);
-                    const isLunas = sisaBayar <= 0;
-                    const totalBayar = getTotalBayar(d);
-
+                    const status = getStatusInfo(d.status_transaksi_id);
+                    const StatusIcon = status.icon;
                     return (
-                      <div key={d.id} className="p-3 border rounded-lg bg-gray-50 text-sm">
-                        <p><span className="font-semibold">Produk:</span> {formatProductName(d.product)}</p>
-                        <p><span className="font-semibold">Qty:</span> {d.qty}</p>
-                        <p><span className="font-semibold">Harga Satuan:</span> Rp {formatRupiah(d.harga)}</p>
-                        <p><span className="font-semibold">Diskon:</span> Rp {formatRupiah(d.discount)}</p>
-                        <p><span className="font-semibold">Tagihan:</span> Rp {formatRupiah(d.subtotal)}</p>
-                        <p><span className="font-semibold">Tanggal:</span> {formatTanggal(d.tanggal)}</p>
-
-                        <div className="mt-2 pt-2 border-t">
-                          <div className="flex justify-between items-center">
-                            <p className="text-sm">
-                              <span className="font-semibold">Status:</span>{" "}
-                              <span className="text-green-600">
-                                {d.statusTransaksi?.nama || "Selesai"}
-                              </span>
-                            </p>
-                          </div>
-
-                          <p className="text-sm text-center mt-1">
-                            <span className={`font-semibold ${isLunas ? "text-green-600" : "text-orange-600"}`}>
-                              {isLunas ? "✅ Lunas" : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(sisaBayar)})`}
-                            </span>
-                          </p>
-
-                          <p className="text-xs text-gray-600 mt-1 text-center">
-                            Sudah dibayar: Rp {formatRupiah(totalBayar)} dari Rp {formatRupiah(d.subtotal)}
-                          </p>
-
-                          {d.pembayarans && d.pembayarans.length > 0 && (
-                            <div className="mt-2 text-xs text-center">
-                              <p className="font-medium flex items-center justify-center gap-1">
-                                <Receipt size={12} /> Riwayat Pembayaran:
-                              </p>
-                              <ul className="list-disc list-inside space-y-1 mt-1 inline-block text-left">
-                                {d.pembayarans.map((p) => (
-                                  <li key={p.id} className="text-gray-700">
-                                    Rp {formatRupiah(p.jumlah_bayar)} - {formatTanggal(p.tanggal_bayar)}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
+                      <div
+                        key={d.id}
+                        className="border border-gray-200 rounded-lg p-3 bg-gray-50"
+                      >
+                        <div className="flex justify-center items-center mb-2">
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 ${status.bg} ${status.textClass}`}
+                          >
+                            <StatusIcon size={10} />
+                            {status.text}
+                          </span>
                         </div>
+                        <div className="flex justify-center items-center mb-2">
+                          <p className="text-sm font-medium text-gray-800 line-clamp-1">
+                            {formatProductName(d.product)}
+                          </p>
+                        </div>
+
+                        {d.status_transaksi_id === 6 ? (
+                          <div className="text-center text-xs text-gray-600 italic mt-2">
+                            Detail ini telah dibatalkan.
+                          </div>
+                        ) : (
+                          <>
+                            <div className="grid grid-cols-2 gap-1 text-xs text-gray-600 mb-2">
+                              <p>Qty: {d.qty}</p>
+                              <p className="text-right">
+                                {formatTanggal(d.tanggal)}
+                              </p>
+                              <p>Harga: Rp {formatRupiah(d.harga)}</p>
+                              <p className="text-right">
+                                Diskon: Rp {formatRupiah(d.discount)}
+                              </p>
+                              <p className="font-medium">Tagihan</p>
+                              <p className="font-medium text-right">
+                                Rp {formatRupiah(d.subtotal)}
+                              </p>
+                            </div>
+
+                            {d.pembayarans?.length > 0 && (
+                              <div className="mt-3 pt-2 border-t border-gray-200">
+                                <p className="text-[10px] font-medium text-gray-700 flex items-center gap-1">
+                                  <Wallet size={10} /> Riwayat Pembayaran
+                                </p>
+                                <ul className="mt-1 space-y-1">
+                                  {d.pembayarans.map((p) => (
+                                    <li
+                                      key={p.id}
+                                      className="text-[10px] text-gray-600 flex justify-between"
+                                    >
+                                      <span>
+                                        {formatTanggal(p.tanggal_bayar)}
+                                      </span>
+                                      <span>Rp {formatRupiah(p.jumlah_bayar)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
                     );
                   })}
                 </div>
-                <button
-                  onClick={() => handleDelete(item.id)}
-                  className="w-full flex justify-center gap-2 bg-red-100 text-red-700 px-3 py-2 rounded-xl hover:bg-red-200"
-                >
-                  <Trash2 size={16} /> Hapus
-                </button>
+
+                <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="w-full flex justify-center items-center gap-2 text-xs text-red-600 hover:text-red-800 py-1.5 rounded-lg hover:bg-red-50 transition"
+                  >
+                    <Trash2 size={14} /> Hapus Transaksi
+                  </button>
+                </div>
               </div>
             );
           })}
