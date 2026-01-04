@@ -38,6 +38,7 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     // Products
     Route::get('/products/available', [ProductController::class, 'available']);
     Route::get('/products/lowStok', [ProductController::class, 'lowStock']);
+    Route::get('/products/best-seller', [ProductController::class, 'bestSeller']);
     Route::get('/products', [ProductController::class, 'index']);
     Route::post('/products', [ProductController::class, 'store']);
     Route::get('/products/{id}', [ProductController::class, 'show']);

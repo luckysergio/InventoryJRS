@@ -400,7 +400,7 @@ class ProductController extends Controller
         $products = Product::whereHas('inventories', function ($q) {
             $q->where('qty', '<', 20)
                 ->whereHas('place', function ($p) {
-                    $p->whereIn('kode', ['TOKO','BENGKEL']);
+                    $p->whereIn('kode', ['TOKO', 'BENGKEL']);
                 });
         })
             ->with([
@@ -422,5 +422,73 @@ class ProductController extends Controller
             'message' => 'Berhasil mengambil produk tersedia di TOKO',
             'data'    => $products
         ]);
+    }
+
+    public function bestSeller(Request $request)
+    {
+        try {
+            $limit = $request->get('limit', 10);
+            $dari = $request->get('dari');
+            $sampai = $request->get('sampai');
+
+            $query = DB::table('transaksi_details as td')
+                ->join('transaksis as t', 't.id', '=', 'td.transaksi_id')
+                ->join('products as p', 'p.id', '=', 'td.product_id')
+                ->join('status_transaksis as st', 'st.id', '=', 'td.status_transaksi_id')
+                ->where('st.nama', 'Selesai');
+            if ($dari) {
+                $query->whereDate('td.tanggal', '>=', $dari);
+            }
+            if ($sampai) {
+                $query->whereDate('td.tanggal', '<=', $sampai);
+            }
+
+            $aggregated = $query->select(
+                'td.product_id',
+                DB::raw('SUM(td.qty) as total_qty'),
+                DB::raw('MAX(td.tanggal) as transaksi_terakhir')
+            )
+                ->groupBy('td.product_id')
+                ->orderByDesc('total_qty')
+                ->limit($limit)
+                ->get();
+
+            $productIds = $aggregated->pluck('product_id')->toArray();
+
+            if (empty($productIds)) {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Berhasil mengambil produk terlaris',
+                    'data' => []
+                ]);
+            }
+
+            // Ambil Product dengan relasi (sama seperti lowStock)
+            $products = Product::with(['jenis', 'type', 'bahan'])
+                ->whereIn('id', $productIds)
+                ->get()
+                ->keyBy('id');
+
+            // Gabungkan data
+            $result = [];
+            foreach ($aggregated as $item) {
+                if (isset($products[$item->product_id])) {
+                    $product = $products[$item->product_id];
+                    // Tambahkan atribut dinamis
+                    $product->total_qty = (int) $item->total_qty;
+                    $product->transaksi_terakhir = $item->transaksi_terakhir;
+                    $result[] = $product;
+                }
+            }
+
+            usort($result, fn($a, $b) => $b->total_qty <=> $a->total_qty);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Berhasil mengambil produk terlaris',
+                'data' => $result
+            ]);
+        } catch (\Exception $e) {
+        }
     }
 }

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import { Calendar, TrendingUp } from "lucide-react";
 import api from "../../services/api";
@@ -13,69 +13,38 @@ const formatTanggal = (tgl) => {
 };
 
 const BarangKeluarPage = () => {
-  const [transaksiData, setTransaksiData] = useState([]);
+  const [produkTerpopuler, setProdukTerpopuler] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterDari, setFilterDari] = useState("");
   const [filterSampai, setFilterSampai] = useState("");
 
-  const fetchData = async () => {
+  const fetchBestSeller = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/transaksi");
-      setTransaksiData(res.data.data || []);
+      const params = {};
+      if (filterDari) params.dari = filterDari;
+      if (filterSampai) params.sampai = filterSampai;
+
+      const res = await api.get("products/best-seller", { params });
+      setProdukTerpopuler(res.data.data || []);
     } catch (err) {
-      Swal.fire("Error", "Gagal memuat data transaksi", "error");
+      console.error(err);
+      Swal.fire("Error", "Gagal memuat data produk terlaris", "error");
+      setProdukTerpopuler([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchBestSeller();
+  }, [filterDari, filterSampai]);
 
-  const produkTerpopuler = useMemo(() => {
-    const map = {};
-
-    transaksiData.forEach((transaksi) => {
-      transaksi.details?.forEach((detail) => {
-        if (!detail.product || !detail.tanggal || !detail.qty) return;
-
-        const d = new Date(detail.tanggal);
-        const dari = filterDari ? new Date(filterDari) : null;
-        const sampai = filterSampai ? new Date(filterSampai) : null;
-
-        if (dari && d < dari) return;
-        if (sampai && d > sampai) return;
-
-        const key = detail.product.id;
-
-        if (!map[key]) {
-          map[key] = {
-            product: detail.product,
-            total_qty: 0,
-            transaksi_terakhir: detail.tanggal,
-          };
-        }
-
-        map[key].total_qty += detail.qty;
-
-        if (detail.tanggal > map[key].transaksi_terakhir) {
-          map[key].transaksi_terakhir = detail.tanggal;
-        }
-      });
-    });
-
-    return Object.values(map).sort((a, b) => b.total_qty - a.total_qty);
-  }, [transaksiData, filterDari, filterSampai]);
-
-  // Reset filter
   const handleReset = () => {
     setFilterDari("");
     setFilterSampai("");
   };
 
-  // Format nama produk
   const formatProductName = (p) => {
     if (!p) return "-";
     const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(Boolean);
@@ -98,7 +67,6 @@ const BarangKeluarPage = () => {
         </div>
       </div>
 
-      {/* FILTERS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-xl shadow-sm">
         <div>
           <label className="text-sm font-medium text-gray-700 block mb-1">
@@ -140,7 +108,6 @@ const BarangKeluarPage = () => {
         </div>
       </div>
 
-      {/* CONTENT */}
       {loading ? (
         <div className="text-center py-12">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
@@ -154,27 +121,27 @@ const BarangKeluarPage = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {produkTerpopuler.map((item, index) => (
               <div
-                key={item.product.id}
+                key={item.id} // ✅ gunakan item.id langsung
                 className="bg-white border border-gray-200 rounded-lg p-3 hover:border-indigo-300 hover:shadow-sm transition"
               >
                 <div className="text-center mb-2">
                   <p className="font-bold text-gray-800 text-sm line-clamp-2">
-                    {formatProductName(item.product)}
+                    {formatProductName(item)} {/* ✅ kirim item langsung */}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Kode: {item.product.kode}
+                    Kode: {item.kode}
                   </p>
                 </div>
 
                 <div className="text-center mt-2">
                   <p className="text-xs text-gray-600">Total Keluar</p>
                   <p className="font-bold text-green-600 text-lg">
-                    {item.total_qty}
+                    {item.total_qty} {/* ✅ akses langsung */}
                   </p>
                 </div>
 
                 <p className="text-[10px] text-gray-500 mt-2 text-center">
-                  Terakhir: {formatTanggal(item.transaksi_terakhir)}
+                  Terakhir: {formatTanggal(item.transaksi_terakhir)} {/* ✅ langsung */}
                 </p>
 
                 {index < 3 && (
