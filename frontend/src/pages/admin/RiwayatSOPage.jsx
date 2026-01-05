@@ -11,14 +11,9 @@ const formatProductName = (p) => {
 const RiwayatSOPage = () => {
   const [stokOpnames, setStokOpnames] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [bulanFilter, setBulanFilter] = useState("");
-  const [tahunFilter, setTahunFilter] = useState("");
+  const [tglDari, setTglDari] = useState("");
+  const [tglSampai, setTglSampai] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 6 }, (_, i) => currentYear + i).sort(
-    (a, b) => b - a
-  );
 
   const fetchData = async () => {
     try {
@@ -42,16 +37,24 @@ const RiwayatSOPage = () => {
       if (op.status === "draft") return false;
 
       const opDate = new Date(op.tgl_opname);
-      const opBulan = String(opDate.getMonth() + 1);
-      const opTahun = String(opDate.getFullYear());
 
-      if (bulanFilter && opBulan !== bulanFilter) return false;
-      if (tahunFilter && opTahun !== tahunFilter) return false;
+      // Filter tanggal
+      if (tglDari) {
+        const dari = new Date(tglDari);
+        if (opDate < dari) return false;
+      }
+      if (tglSampai) {
+        const sampai = new Date(tglSampai);
+        sampai.setHours(23, 59, 59, 999); // akhir hari
+        if (opDate > sampai) return false;
+      }
+
+      // Filter status
       if (statusFilter && op.status !== statusFilter) return false;
 
       return true;
     });
-  }, [stokOpnames, bulanFilter, tahunFilter, statusFilter]);
+  }, [stokOpnames, tglDari, tglSampai, statusFilter]);
 
   const handlePrint = (opname) => {
     const statusMap = {
@@ -130,6 +133,12 @@ const RiwayatSOPage = () => {
     printWindow.print();
   };
 
+  const handleReset = () => {
+    setTglDari("");
+    setTglSampai("");
+    setStatusFilter("");
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -149,37 +158,24 @@ const RiwayatSOPage = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Bulan</label>
-            <select
-              value={bulanFilter}
-              onChange={(e) => setBulanFilter(e.target.value)}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Dari Tanggal</label>
+            <input
+              type="date"
+              value={tglDari}
+              onChange={(e) => setTglDari(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            >
-              <option value="">Semua Bulan</option>
-              {Array.from({ length: 12 }, (_, i) => {
-                const monthNum = i + 1;
-                const monthName = new Date(2000, i, 1).toLocaleDateString("id-ID", { month: "long" });
-                return (
-                  <option key={monthNum} value={String(monthNum)}>
-                    {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
-                  </option>
-                );
-              })}
-            </select>
+            />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tahun</label>
-            <select
-              value={tahunFilter}
-              onChange={(e) => setTahunFilter(e.target.value)}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Sampai Tanggal</label>
+            <input
+              type="date"
+              value={tglSampai}
+              onChange={(e) => setTglSampai(e.target.value)}
+              min={tglDari || undefined}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            >
-              <option value="">Semua Tahun</option>
-              {years.map((year) => (
-                <option key={year} value={String(year)}>{year}</option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>
@@ -197,11 +193,7 @@ const RiwayatSOPage = () => {
 
           <div className="flex items-end">
             <button
-              onClick={() => {
-                setBulanFilter("");
-                setTahunFilter("");
-                setStatusFilter("");
-              }}
+              onClick={handleReset}
               className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium"
             >
               Reset Filter
@@ -217,7 +209,7 @@ const RiwayatSOPage = () => {
           </div>
           <h3 className="text-lg font-semibold text-gray-800">Tidak Ada Riwayat</h3>
           <p className="text-gray-600 mt-2">
-            Belum ada stok opname yang telah diselesaikan atau dibatalkan.
+            Belum ada stok opname yang telah diselesaikan atau dibatalkan dalam rentang tanggal ini.
           </p>
         </div>
       ) : (

@@ -8,9 +8,33 @@ import {
   Image as ImageIcon,
   X,
   Camera,
+  Tag,
+  Warehouse,
 } from "lucide-react";
 import api from "../../services/api";
 
+// === UTILS ===
+const safeParseFloat = (value) => {
+  if (value == null) return 0;
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  return isNaN(num) ? 0 : num;
+};
+
+const formatRupiah = (value) => {
+  const num = safeParseFloat(value);
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(num);
+};
+
+const unformatRupiah = (str) => {
+  if (!str) return 0;
+  return parseInt(String(str).replace(/\D/g, ""), 10) || 0;
+};
+
+// === MAIN COMPONENT ===
 const ProductPage = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +51,7 @@ const ProductPage = () => {
     bahan_id: "",
     ukuran: "",
     keterangan: "",
+    harga_umum: "", // tetap string untuk UI
   });
 
   const [fotoDepan, setFotoDepan] = useState(null);
@@ -90,7 +115,6 @@ const ProductPage = () => {
     setCurrentPage(1);
   }, [search, filterJenis, filterType]);
 
-  // Filter untuk filter dropdown (di bagian atas)
   useEffect(() => {
     if (!filterJenis) {
       setFilteredTypesForFilter([]);
@@ -102,24 +126,18 @@ const ProductPage = () => {
     setFilterType("");
   }, [filterJenis, allTypes]);
 
-  // Filter untuk form modal (tambah/edit)
   useEffect(() => {
-    if (allTypes.length === 0) return; // jangan proses jika data master belum siap
+    if (allTypes.length === 0) return;
 
     if (!form.jenis_id || form.jenis_id === "new") {
       setFilteredTypes([]);
-      if (!isEdit) {
-        setForm((prev) => ({ ...prev, type_id: "" }));
-      }
+      if (!isEdit) setForm((prev) => ({ ...prev, type_id: "" }));
       return;
     }
 
-    const filtered = allTypes.filter(
-      (t) => t.jenis_id === Number(form.jenis_id)
-    );
+    const filtered = allTypes.filter((t) => t.jenis_id === Number(form.jenis_id));
     setFilteredTypes(filtered);
 
-    // Hanya reset type_id saat mode TAMBAH, bukan EDIT
     if (!isEdit) {
       setForm((prev) => ({ ...prev, type_id: "" }));
     }
@@ -133,6 +151,7 @@ const ProductPage = () => {
       bahan_id: "",
       ukuran: "",
       keterangan: "",
+      harga_umum: "",
     });
     setFotoDepan(null);
     setFotoSamping(null);
@@ -146,7 +165,6 @@ const ProductPage = () => {
   };
 
   const handleEdit = (item) => {
-    // 🔒 Cegah edit saat data master belum selesai dimuat
     if (loading) {
       Swal.fire("Tunggu...", "Data master sedang dimuat", "info");
       return;
@@ -159,7 +177,9 @@ const ProductPage = () => {
       bahan_id: item.bahan_id || "",
       ukuran: item.ukuran,
       keterangan: item.keterangan || "",
+      harga_umum: formatRupiah(item.harga_umum), // format ke string Rupiah untuk UI
     });
+
     setFotoDepan(
       item.foto_depan
         ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`
@@ -175,6 +195,7 @@ const ProductPage = () => {
         ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`
         : null
     );
+
     setJenisInputBaru("");
     setTypeInputBaru("");
     setBahanInputBaru("");
@@ -186,17 +207,30 @@ const ProductPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validasi wajib
     if (!form.kode || !form.ukuran) {
       Swal.fire("Validasi", "Kode dan Ukuran wajib diisi", "warning");
       return;
     }
 
+    const hargaNum = unformatRupiah(form.harga_umum);
+    if (hargaNum === 0) {
+      const confirm = await Swal.fire({
+        title: "Harga Rp0?",
+        text: "Apakah Anda yakin ingin menyimpan harga Rp0?",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Ya, Simpan",
+        cancelButtonText: "Batal",
+      });
+      if (!confirm.isConfirmed) return;
+    }
+
     const formData = new FormData();
     formData.append("kode", form.kode);
     formData.append("ukuran", form.ukuran);
-    if (form.keterangan) {
-      formData.append("keterangan", form.keterangan);
-    }
+    formData.append("harga_umum", hargaNum); // kirim sebagai angka
+    if (form.keterangan) formData.append("keterangan", form.keterangan);
 
     if (form.jenis_id && form.jenis_id !== "new") {
       formData.append("jenis_id", form.jenis_id);
@@ -220,8 +254,7 @@ const ProductPage = () => {
     }
 
     if (fotoDepan instanceof File) formData.append("foto_depan", fotoDepan);
-    if (fotoSamping instanceof File)
-      formData.append("foto_samping", fotoSamping);
+    if (fotoSamping instanceof File) formData.append("foto_samping", fotoSamping);
     if (fotoAtas instanceof File) formData.append("foto_atas", fotoAtas);
 
     try {
@@ -302,6 +335,13 @@ const ProductPage = () => {
 
   const closeFotoModal = () => {
     setFotoModal(null);
+  };
+
+  const handleHargaChange = (value) => {
+    // Hanya izinkan digit & format
+    const clean = value.replace(/\D/g, "");
+    const num = clean === "" ? 0 : parseInt(clean, 10);
+    setForm((prev) => ({ ...prev, harga_umum: formatRupiah(num) }));
   };
 
   const renderPagination = () => {
@@ -444,9 +484,7 @@ const ProductPage = () => {
     <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-            Product
-          </h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Product</h1>
         </div>
         <button
           onClick={handleTambah}
@@ -530,106 +568,110 @@ const ProductPage = () => {
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
         </div>
       ) : products.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          Tidak ada Product ditemukan
-        </div>
+        <div className="text-center py-12 text-gray-500">Tidak ada Product ditemukan</div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {products.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-5 flex flex-col"
-              >
-                <div className="flex justify-center gap-2 mb-3">
-                  {item.foto_depan && (
-                    <img
-                      src={`${import.meta.env.VITE_ASSET_URL}/storage/${
-                        item.foto_depan
-                      }`}
-                      alt="Foto Depan"
-                      className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
-                      onClick={() =>
-                        openFotoModal(
-                          `${import.meta.env.VITE_ASSET_URL}/storage/${
-                            item.foto_depan
-                          }`
-                        )
-                      }
-                    />
-                  )}
-                  {item.foto_samping && (
-                    <img
-                      src={`${import.meta.env.VITE_ASSET_URL}/storage/${
-                        item.foto_samping
-                      }`}
-                      alt="Foto Samping"
-                      className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
-                      onClick={() =>
-                        openFotoModal(
-                          `${import.meta.env.VITE_ASSET_URL}/storage/${
-                            item.foto_samping
-                          }`
-                        )
-                      }
-                    />
-                  )}
-                  {item.foto_atas && (
-                    <img
-                      src={`${import.meta.env.VITE_ASSET_URL}/storage/${
-                        item.foto_atas
-                      }`}
-                      alt="Foto Atas"
-                      className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
-                      onClick={() =>
-                        openFotoModal(
-                          `${import.meta.env.VITE_ASSET_URL}/storage/${
-                            item.foto_atas
-                          }`
-                        )
-                      }
-                    />
-                  )}
-                  {!item.foto_depan &&
-                    !item.foto_samping &&
-                    !item.foto_atas && (
-                      <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
-                        <ImageIcon className="text-gray-400" size={24} />
-                      </div>
+            {products.map((item) => {
+              const totalQty = (item.qty_toko || 0) + (item.qty_bengkel || 0);
+              return (
+                <div
+                  key={item.id}
+                  className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-5 flex flex-col"
+                >
+                  <div className="flex justify-center gap-2 mb-3">
+                    {item.foto_depan && (
+                      <img
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`}
+                        alt="Foto Depan"
+                        className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
+                        onClick={() =>
+                          openFotoModal(`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`)
+                        }
+                      />
                     )}
-                </div>
-
-                <div className="text-center mb-2">
-                  <p className="font-bold text-xl text-gray-800">{item.kode}</p>
-                </div>
-                <div className="text-center mb-3 min-h-[24px]">
-                  <p className="text-sm text-gray-600">
-                    {formatProductName(item)}
-                  </p>
-                </div>
-                {item.keterangan && (
-                  <div className="text-center mb-4 flex-1">
-                    <p className="text-xs italic text-gray-500">
-                      "{item.keterangan}"
-                    </p>
+                    {item.foto_samping && (
+                      <img
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`}
+                        alt="Foto Samping"
+                        className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
+                        onClick={() =>
+                          openFotoModal(`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`)
+                        }
+                      />
+                    )}
+                    {item.foto_atas && (
+                      <img
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`}
+                        alt="Foto Atas"
+                        className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
+                        onClick={() =>
+                          openFotoModal(`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`)
+                        }
+                      />
+                    )}
+                    {!item.foto_depan &&
+                      !item.foto_samping &&
+                      !item.foto_atas && (
+                        <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
+                          <ImageIcon className="text-gray-400" size={24} />
+                        </div>
+                      )}
                   </div>
-                )}
-                <div className="flex gap-2 mt-auto pt-2">
-                  <button
-                    onClick={() => handleEdit(item)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-sm font-medium transition"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-sm font-medium transition"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+
+                  <div className="text-center mb-2">
+                    <p className="font-bold text-xl text-gray-800">{item.kode}</p>
+                  </div>
+                  <div className="text-center mb-2 min-h-[24px]">
+                    <p className="text-sm text-gray-600">{formatProductName(item)}</p>
+                  </div>
+
+                  {/* Harga Umum */}
+                  <div className="text-center mb-2 flex items-center justify-center gap-1 text-sm">
+                    <Tag size={14} className="text-amber-600" />
+                    <span className="font-medium text-amber-700">{formatRupiah(item.harga_umum)}</span>
+                  </div>
+
+                  {/* Stok */}
+                  <div className="text-center mb-2 text-xs text-gray-600 space-y-0.5">
+                    
+                    <div className="flex items-center justify-center gap-1">
+                      <Warehouse size={12} />
+                      <span>TOKO: {item.qty_toko || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-1">
+                      <Warehouse size={12} />
+                      <span>BENGKEL: {item.qty_bengkel || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-1">
+                      <Warehouse size={12} />
+                      <span>TOTAL PRODUCT: {totalQty}</span>
+                    </div>
+                  </div>
+
+                  {item.keterangan && (
+                    <div className="text-center mb-3 flex-1">
+                      <p className="text-xs italic text-gray-500">"{item.keterangan}"</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 mt-auto pt-2">
+                    <button
+                      onClick={() => handleEdit(item)}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-sm font-medium transition"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-sm font-medium transition"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {lastPage > 1 && renderPagination()}
@@ -655,6 +697,21 @@ const ProductPage = () => {
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
                   value={form.kode}
                   onChange={(e) => setForm({ ...form, kode: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Harga Umum <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
+                  value={form.harga_umum}
+                  onChange={(e) => handleHargaChange(e.target.value)}
+                  placeholder="Rp0"
                   required
                 />
               </div>
@@ -808,9 +865,7 @@ const ProductPage = () => {
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
                   rows={2}
                   value={form.keterangan}
-                  onChange={(e) =>
-                    setForm({ ...form, keterangan: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, keterangan: e.target.value })}
                 />
               </div>
 
