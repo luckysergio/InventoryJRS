@@ -12,7 +12,6 @@ class CustomerController extends Controller
 {
     public function index()
     {
-        // Subquery untuk tagihan harian belum lunas
         $tagihanHarian = DB::table('transaksi_details as td')
             ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
             ->leftJoin(DB::raw('(
@@ -25,7 +24,6 @@ class CustomerController extends Controller
             ->whereRaw('t.customer_id = customers.id')
             ->selectRaw('SUM(td.subtotal - COALESCE(p.total_bayar, 0))');
 
-        // Subquery untuk tagihan pesanan belum lunas
         $tagihanPesanan = DB::table('transaksi_details as td')
             ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
             ->leftJoin(DB::raw('(
@@ -52,7 +50,6 @@ class CustomerController extends Controller
             ])
             ->get();
 
-        // Konversi ke integer dan handle null
         $customers->each(function ($customer) {
             $customer->tagihan_harian_belum_lunas = (int) ($customer->tagihan_harian_belum_lunas ?? 0);
             $customer->tagihan_pesanan_belum_lunas = (int) ($customer->tagihan_pesanan_belum_lunas ?? 0);

@@ -7,6 +7,7 @@ import {
   Receipt,
   CheckCircle,
   XCircle,
+  Pencil,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -107,14 +108,13 @@ const TransaksiPage = () => {
     return details.filter((d) => d.status_transaksi_id === statusProsesId);
   };
 
-  const fetchHargaByProduct = async (productId, rowIndex) => {
+  const fetchHargaByProduct = async (productId, rowIndex, customerId = null) => {
     if (!productId) {
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: [] }));
       setShowHargaBaru((prev) => ({ ...prev, [rowIndex]: false }));
       return;
     }
     try {
-      const customerId = form.customer_id || null;
       const params = customerId ? `?customer_id=${customerId}` : "";
       const res = await api.get(`/harga/by-product/${productId}${params}`);
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: res.data.data || [] }));
@@ -156,7 +156,11 @@ const TransaksiPage = () => {
     updated[index][field] = value;
     setForm({ ...form, details: updated });
     if (field === "product_id") {
-      fetchHargaByProduct(value, index);
+      fetchHargaByProduct(
+        value,
+        index,
+        form.customer_id || null
+      );
       updated[index].harga_product_id = "";
       updated[index].harga_baru = {
         harga: "",
@@ -190,16 +194,60 @@ const TransaksiPage = () => {
     setForm({ ...form, details: updated });
   };
 
-  const resetForm = () => {
-    setForm({
-      customer_id: "",
-      customer_baru: { name: "", phone: "", email: "" },
-      details: [{ ...initialDetail, status_transaksi_id: statusProsesId }],
-    });
-    setIsCreatingNewCustomer(false); // ✅ Reset state
-    setHargaOptions({});
-    setShowHargaBaru({});
-    setEditingId(null);
+  const resetForm = (data = null) => {
+    if (data) {
+      // Mode edit
+      const isCustomerBaru = !customers.some(c => c.id == data.customer_id);
+      const customerBaru = isCustomerBaru
+        ? { name: data.customer?.name || "", phone: data.customer?.phone || "", email: data.customer?.email || "" }
+        : { name: "", phone: "", email: "" };
+
+      const details = (data.details || []).map(d => ({
+        id: d.id || "",
+        product_id: d.product_id || "",
+        harga_product_id: d.harga_product_id || "",
+        harga_baru: d.harga_baru || { harga: "", tanggal_berlaku: "", keterangan: "" },
+        qty: d.qty || "",
+        tanggal: d.tanggal || "",
+        status_transaksi_id: d.status_transaksi_id || statusProsesId,
+        discount: d.discount || 0,
+        catatan: d.catatan || "",
+      }));
+
+      // Init harga options & showHargaBaru
+      const hargaOpts = {};
+      const showHarga = {};
+      details.forEach((d, idx) => {
+        if (d.harga_baru.harga) {
+          showHarga[idx] = true;
+        } else {
+          showHarga[idx] = false;
+          // Fetch harga options for this product
+          fetchHargaByProduct(d.product_id, idx, data.customer_id);
+        }
+      });
+
+      setForm({
+        customer_id: isCustomerBaru ? "" : data.customer_id,
+        customer_baru: customerBaru,
+        details,
+      });
+      setIsCreatingNewCustomer(isCustomerBaru);
+      setHargaOptions(hargaOpts);
+      setShowHargaBaru(showHarga);
+      setEditingId(data.id);
+    } else {
+      // Mode baru
+      setForm({
+        customer_id: "",
+        customer_baru: { name: "", phone: "", email: "" },
+        details: [{ ...initialDetail, status_transaksi_id: statusProsesId }],
+      });
+      setIsCreatingNewCustomer(false);
+      setHargaOptions({});
+      setShowHargaBaru({});
+      setEditingId(null);
+    }
   };
 
   const cekLunas = (detail) => {
@@ -241,6 +289,12 @@ const TransaksiPage = () => {
       const cleaned = { ...detail };
       if (!editingId) {
         cleaned.status_transaksi_id = statusProsesId;
+      } else {
+        // Jika ini detail lama (ada id), jangan ubah status
+        // Jika detail baru (tidak ada id), set status proses
+        if (!cleaned.id) {
+          cleaned.status_transaksi_id = statusProsesId;
+        }
       }
       if (detail.harga_product_id) {
         delete cleaned.harga_baru;
@@ -338,6 +392,11 @@ const TransaksiPage = () => {
         Swal.fire("Error", "Gagal membatalkan detail", "error");
       }
     }
+  };
+
+  const handleEditTransaksi = (transaksiItem) => {
+    resetForm(transaksiItem);
+    setIsModalOpen(true);
   };
 
   const formatTanggal = (tgl) => {
@@ -477,12 +536,23 @@ const TransaksiPage = () => {
                   key={item.id}
                   className="p-6 bg-white rounded-xl shadow border border-gray-100 space-y-3"
                 >
-                  <p className="text-gray-700 text-center font-medium">
-                    Customer: {item.customer?.name || "Umum"}
-                  </p>
-                  <p className="text-gray-700 text-center font-bold text-lg">
-                    Total: Rp {formatRupiah(item.total)}
-                  </p>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-gray-700 font-medium">
+                        Customer: {item.customer?.name || "Umum"}
+                      </p>
+                      <p className="text-gray-700 font-bold text-lg">
+                        Total: Rp {formatRupiah(item.total)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleEditTransaksi(item)}
+                      className="text-blue-600 hover:text-blue-800"
+                      title="Edit Transaksi"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                  </div>
                   <hr className="my-3 border-gray-200" />
                   <div className="space-y-3">
                     {activeDetails.map((d) => {
@@ -710,7 +780,16 @@ const TransaksiPage = () => {
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-bold text-lg">Detail Transaksi</h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="font-bold text-lg">Detail Transaksi</h3>
+                  <button
+                    type="button"
+                    onClick={addDetailRow}
+                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm"
+                  >
+                    + Tambah Detail
+                  </button>
+                </div>
                 {form.details.map((d, i) => (
                   <div
                     key={i}
@@ -881,16 +960,6 @@ const TransaksiPage = () => {
                     </button>
                   </div>
                 ))}
-
-                <div className="flex justify-center">
-                  <button
-                    type="button"
-                    onClick={addDetailRow}
-                    className="mt-2 bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-1"
-                  >
-                    + Tambah Detail
-                  </button>
-                </div>
               </div>
 
               <div className="flex justify-center gap-3 pt-4 border-t">

@@ -308,7 +308,7 @@ const HargaProductPage = () => {
                     key={item.id}
                     className="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 hover:shadow-sm transition bg-white"
                   >
-                    <div className="flex items-start gap-2 mb-2">
+                    <div className="flex items-center justify-center gap-2 mb-2">
                       {item.customer_id ? (
                         <User className="text-blue-500 mt-0.5" size={14} />
                       ) : (
@@ -319,18 +319,18 @@ const HargaProductPage = () => {
                       </span>
                     </div>
 
-                    <p className="font-bold text-green-600 text-base">
+                    <p className="font-bold text-green-600 text-base text-center">
                       Rp {formatRupiah(item.harga)}
                     </p>
 
                     {item.tanggal_berlaku && (
-                      <p className="text-[10px] text-gray-500 mt-1">
+                      <p className="text-[10px] text-gray-500 text-center mt-1">
                         {new Date(item.tanggal_berlaku).toLocaleDateString("id-ID")}
                       </p>
                     )}
 
                     {item.keterangan && (
-                      <p className="text-[10px] italic text-gray-500 mt-1 line-clamp-2">
+                      <p className="text-[10px] italic text-gray-500 mt-1 line-clamp-2 text-center">
                         "{item.keterangan}"
                       </p>
                     )}

@@ -102,8 +102,8 @@ const RiwayatTransaksi = () => {
   };
 
   const getJenisInfo = (jenis) => {
-    if (jenis === "daily") return { text: "Harian", color: "blue" };
-    if (jenis === "pesanan") return { text: "Pesanan", color: "purple" };
+    if (jenis === "daily") return { text: "Transaksi Harian", color: "blue" };
+    if (jenis === "pesanan") return { text: "Transaksi Pesanan", color: "purple" };
     return { text: jenis, color: "gray" };
   };
 

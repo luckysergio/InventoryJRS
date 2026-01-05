@@ -7,6 +7,7 @@ import {
   Receipt,
   CheckCircle,
   XCircle,
+  Pencil,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -63,12 +64,13 @@ const PesananPage = () => {
     tanggal: "",
     status_transaksi_id: "",
     discount: 0,
+    catatan: "",
   };
 
   const [form, setForm] = useState({
     customer_id: "",
     customer_baru: { name: "", phone: "", email: "" },
-    details: [{ ...initialDetail, status_transaksi_id: statusDiPesanId }],
+    details: [{ ...initialDetail }],
   });
 
   const fetchData = async () => {
@@ -86,12 +88,9 @@ const PesananPage = () => {
       const statusRes = await api.get("/status-transaksi");
       const statuses = statusRes.data.data || [];
       setStatusList(statuses);
-      const selesai = statuses.find((s) =>
-        s.nama.toLowerCase().includes("selesai")
-      );
-      const dipesan = statuses.find((s) =>
-        s.nama.toLowerCase().includes("di pesan")
-      );
+
+      const selesai = statuses.find((s) => s.nama.toLowerCase().includes("selesai"));
+      const dipesan = statuses.find((s) => s.nama.toLowerCase().includes("di pesan"));
       setStatusSelesaiId(selesai?.id || null);
       setStatusDiPesanId(dipesan?.id || null);
 
@@ -113,7 +112,7 @@ const PesananPage = () => {
   }, []);
 
   const fetchTypeByJenis = async (jenisId, rowIndex) => {
-    if (!jenisId) {
+    if (!jenisId || jenisId === "new") {
       setTypeOptions((prev) => ({ ...prev, [rowIndex]: [] }));
       return;
     }
@@ -127,13 +126,12 @@ const PesananPage = () => {
     }
   };
 
-  const fetchHargaByProduct = async (productId, rowIndex) => {
-    if (!productId || productId === "") {
+  const fetchHargaByProduct = async (productId, rowIndex, customerId = null) => {
+    if (!productId || productId === "new" || productId === "") {
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: [] }));
       return;
     }
     try {
-      const customerId = form.customer_id || null;
       const params = customerId ? `?customer_id=${customerId}` : "";
       const res = await api.get(`/harga/by-product/${productId}${params}`);
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: res.data.data || [] }));
@@ -146,12 +144,13 @@ const PesananPage = () => {
 
   const addDetailRow = () => {
     const newIndex = form.details.length;
+    const newDetail = {
+      ...initialDetail,
+      status_transaksi_id: statusDiPesanId || "",
+    };
     setForm({
       ...form,
-      details: [
-        ...form.details,
-        { ...initialDetail, status_transaksi_id: statusDiPesanId },
-      ],
+      details: [...form.details, newDetail],
     });
     setHargaOptions((prev) => ({ ...prev, [newIndex]: [] }));
     setTypeOptions((prev) => ({ ...prev, [newIndex]: [] }));
@@ -163,33 +162,35 @@ const PesananPage = () => {
     updated.splice(index, 1);
     setForm({ ...form, details: updated });
 
-    const newHargaOptions = { ...hargaOptions };
-    delete newHargaOptions[index];
-    setHargaOptions(newHargaOptions);
-
-    const newTypeOptions = { ...typeOptions };
-    delete newTypeOptions[index];
-    setTypeOptions(newTypeOptions);
-
-    setShowProductBaru((prev) => {
-      const newState = { ...prev };
-      delete newState[index];
-      return newState;
-    });
+    // Clean up auxiliary states
+    const newHarga = { ...hargaOptions };
+    const newType = { ...typeOptions };
+    const newShow = { ...showProductBaru };
+    delete newHarga[index];
+    delete newType[index];
+    delete newShow[index];
+    setHargaOptions(newHarga);
+    setTypeOptions(newType);
+    setShowProductBaru(newShow);
   };
 
   const handleDetailChange = (index, field, value) => {
     const updated = [...form.details];
     updated[index][field] = value;
     setForm({ ...form, details: updated });
+
     if (field === "product_id") {
-      fetchHargaByProduct(value, index);
-      updated[index].harga_product_id = "";
-      updated[index].harga_baru = {
-        harga: "",
-        tanggal_berlaku: "",
-        keterangan: "",
-      };
+      const isProductBaru = value === "new";
+      setShowProductBaru((prev) => ({ ...prev, [index]: isProductBaru }));
+
+      if (!isProductBaru && value) {
+        fetchHargaByProduct(value, index, form.customer_id || null);
+        updated[index].harga_product_id = "";
+        updated[index].harga_baru = { harga: "", tanggal_berlaku: "", keterangan: "" };
+      } else {
+        updated[index].harga_product_id = "";
+        updated[index].harga_baru = { harga: "", tanggal_berlaku: "", keterangan: "" };
+      }
       setForm({ ...form, details: updated });
     }
   };
@@ -202,7 +203,6 @@ const PesananPage = () => {
     if (field === "jenis_id") {
       const isJenisBaru = value === "new";
       if (isJenisBaru) {
-        // Kosongkan type_id dan hapus daftar type
         updated[index].product_baru.type_id = "";
         updated[index].product_baru.type_nama = "";
         setTypeOptions((prev) => ({ ...prev, [index]: [] }));
@@ -210,111 +210,192 @@ const PesananPage = () => {
         fetchTypeByJenis(value, index);
         updated[index].product_baru.type_nama = "";
       }
+      setForm({ ...form, details: updated });
     }
   };
 
-  const resetForm = () => {
-    setForm({
-      customer_id: "",
-      customer_baru: { name: "", phone: "", email: "" },
-      details: [{ ...initialDetail, status_transaksi_id: statusDiPesanId }],
-    });
-    setHargaOptions({});
-    setTypeOptions({});
-    setShowProductBaru({});
-    setEditingId(null);
+  const resetForm = (data = null) => {
+    if (data) {
+      // Determine if customer is new
+      const isCustomerBaru = !customers.some((c) => c.id == data.customer_id);
+
+      // Map details
+      const details = data.details.map((d) => {
+        const isProductBaru = !d.product; // no product relation → assume new product
+        let product_baru = {
+          kode: "",
+          jenis_id: "",
+          jenis_nama: "",
+          type_id: "",
+          type_nama: "",
+          bahan_id: "",
+          bahan_nama: "",
+          ukuran: "",
+          keterangan: "",
+        };
+
+        if (isProductBaru && d.product_baru) {
+          product_baru = {
+            kode: d.product_baru.kode || "",
+            jenis_id: d.product_baru.jenis_id || "",
+            jenis_nama: d.product_baru.jenis_nama || "",
+            type_id: d.product_baru.type_id || "",
+            type_nama: d.product_baru.type_nama || "",
+            bahan_id: d.product_baru.bahan_id || "",
+            bahan_nama: d.product_baru.bahan_nama || "",
+            ukuran: d.product_baru.ukuran || "",
+            keterangan: d.product_baru.keterangan || "",
+          };
+        }
+
+        return {
+          id: d.id || "",
+          product_id: isProductBaru ? "new" : d.product_id || "",
+          product_baru,
+          harga_product_id: d.harga_product_id || "",
+          harga_baru: d.harga_baru || { harga: "", tanggal_berlaku: "", keterangan: "" },
+          qty: d.qty || "",
+          tanggal: d.tanggal || "",
+          status_transaksi_id: d.status_transaksi_id || statusDiPesanId || "",
+          discount: d.discount || 0,
+          catatan: d.catatan || "",
+        };
+      });
+
+      // Build showProductBaru map
+      const newShowProductBaru = {};
+      details.forEach((d, i) => {
+        newShowProductBaru[i] = d.product_id === "new";
+      });
+
+      setForm({
+        customer_id: isCustomerBaru ? "" : data.customer_id || "",
+        customer_baru: isCustomerBaru
+          ? {
+              name: data.customer?.name || "",
+              phone: data.customer?.phone || "",
+              email: data.customer?.email || "",
+            }
+          : { name: "", phone: "", email: "" },
+        details,
+      });
+
+      setShowProductBaru(newShowProductBaru);
+      setHargaOptions({});
+      setTypeOptions({});
+      setEditingId(data.id);
+
+      // Fetch harga & type AFTER state is set
+      details.forEach((d, i) => {
+        if (d.product_id !== "new" && d.product_id) {
+          fetchHargaByProduct(d.product_id, i, data.customer_id || null);
+        }
+        if (d.product_baru.jenis_id && d.product_baru.jenis_id !== "new") {
+          fetchTypeByJenis(d.product_baru.jenis_id, i);
+        }
+      });
+    } else {
+      // New mode
+      setForm({
+        customer_id: "",
+        customer_baru: { name: "", phone: "", email: "" },
+        details: [{ ...initialDetail, status_transaksi_id: statusDiPesanId || "" }],
+      });
+      setShowProductBaru({});
+      setHargaOptions({});
+      setTypeOptions({});
+      setEditingId(null);
+    }
   };
 
   const handleSubmit = async (e) => {
-    try {
-      e.preventDefault();
+    e.preventDefault();
 
-      if (form.customer_id === "baru" && !form.customer_baru.name.trim()) {
-        Swal.fire("Error", "Nama customer wajib diisi", "warning");
-        return;
-      }
+    // Validate customer
+    if (!form.customer_id && !form.customer_baru.name.trim()) {
+      Swal.fire("Error", "Nama customer wajib diisi jika membuat customer baru", "warning");
+      return;
+    }
 
-      const hasEmpty = form.details.some((d, i) => {
-        if (d.product_id && d.product_id !== "new") {
-          return !d.qty || !d.tanggal || !d.status_transaksi_id;
-        } else {
-          const isJenisBaru = d.product_baru.jenis_id === "new";
-          const isBahanBaru = d.product_baru.bahan_id === "new";
-          const isTypeBaru = d.product_baru.type_id === "new";
-
-          return (
-            !d.product_baru.kode ||
-            (!d.product_baru.jenis_id && !isJenisBaru) ||
-            (isJenisBaru && !d.product_baru.jenis_nama) ||
-            !d.product_baru.ukuran ||
-            !d.tanggal ||
-            !d.status_transaksi_id ||
-            (!d.product_baru.bahan_id && !isBahanBaru) ||
-            (isBahanBaru && !d.product_baru.bahan_nama) ||
-            (!d.product_baru.type_id && !isTypeBaru) ||
-            (isTypeBaru && !d.product_baru.type_nama)
-          );
-        }
-      });
-
-      if (hasEmpty) {
-        Swal.fire(
-          "Error",
-          "Lengkapi semua field wajib di detail pesanan",
-          "warning"
+    // Validate details
+    const hasEmpty = form.details.some((d) => {
+      if (d.product_id && d.product_id !== "new") {
+        return !d.qty || !d.tanggal || d.qty <= 0;
+      } else {
+        const isJenisBaru = d.product_baru.jenis_id === "new";
+        const isBahanBaru = d.product_baru.bahan_id === "new";
+        const isTypeBaru = d.product_baru.type_id === "new";
+        return (
+          !d.product_baru.kode ||
+          (!d.product_baru.jenis_id && !isJenisBaru) ||
+          (isJenisBaru && !d.product_baru.jenis_nama) ||
+          !d.product_baru.ukuran ||
+          !d.tanggal ||
+          d.qty <= 0 ||
+          (!d.product_baru.bahan_id && !isBahanBaru) ||
+          (isBahanBaru && !d.product_baru.bahan_nama) ||
+          (!d.product_baru.type_id && !isTypeBaru) ||
+          (isTypeBaru && !d.product_baru.type_nama)
         );
-        return;
+      }
+    });
+
+    if (hasEmpty) {
+      Swal.fire("Error", "Lengkapi semua field wajib di detail pesanan", "warning");
+      return;
+    }
+
+    // Clean and prepare payload
+    const cleanedDetails = form.details.map((detail) => {
+      const cleaned = { ...detail };
+
+      // Clean discount
+      cleaned.discount = Number(detail.discount) || 0;
+
+      // Set status if new detail during edit
+      if (editingId && !detail.id) {
+        cleaned.status_transaksi_id = statusDiPesanId || "";
+        cleaned.transaksi_id = editingId; // Ensure relation
       }
 
-      const cleanedDetails = form.details.map((detail, i) => {
-        const cleaned = { ...detail };
-        if (detail.product_id && detail.product_id !== "new") {
-          delete cleaned.product_baru;
-        } else {
-          const isJenisBaru = detail.product_baru.jenis_id === "new";
-          const isBahanBaru = detail.product_baru.bahan_id === "new";
-          const isTypeBaru = detail.product_baru.type_id === "new";
+      // Product logic
+      if (detail.product_id && detail.product_id !== "new") {
+        delete cleaned.product_baru;
+      } else {
+        const isJenisBaru = detail.product_baru.jenis_id === "new";
+        const isBahanBaru = detail.product_baru.bahan_id === "new";
+        const isTypeBaru = detail.product_baru.type_id === "new";
 
-          cleaned.product_baru.jenis_id = isJenisBaru
-            ? null
-            : detail.product_baru.jenis_id || null;
-          cleaned.product_baru.jenis_nama = isJenisBaru
-            ? detail.product_baru.jenis_nama || ""
-            : undefined;
+        cleaned.product_baru.jenis_id = isJenisBaru ? null : detail.product_baru.jenis_id || null;
+        cleaned.product_baru.jenis_nama = isJenisBaru ? detail.product_baru.jenis_nama || "" : undefined;
+        cleaned.product_baru.bahan_id = isBahanBaru ? null : detail.product_baru.bahan_id || null;
+        cleaned.product_baru.bahan_nama = isBahanBaru ? detail.product_baru.bahan_nama || "" : undefined;
+        cleaned.product_baru.type_id = isTypeBaru ? null : detail.product_baru.type_id || null;
+        cleaned.product_baru.type_nama = isTypeBaru ? detail.product_baru.type_nama || "" : undefined;
+      }
 
-          cleaned.product_baru.bahan_id = isBahanBaru
-            ? null
-            : detail.product_baru.bahan_id || null;
-          cleaned.product_baru.bahan_nama = isBahanBaru
-            ? detail.product_baru.bahan_nama || ""
-            : undefined;
+      // Harga logic
+      if (detail.harga_product_id && detail.harga_product_id !== "tambah_harga_khusus") {
+        delete cleaned.harga_baru;
+      } else if (detail.harga_baru.harga) {
+        cleaned.harga_baru.harga = unformatRupiah(detail.harga_baru.harga);
+      } else {
+        delete cleaned.harga_baru;
+      }
 
-          cleaned.product_baru.type_id = isTypeBaru
-            ? null
-            : detail.product_baru.type_id || null;
-          cleaned.product_baru.type_nama = isTypeBaru
-            ? detail.product_baru.type_nama || ""
-            : undefined;
-        }
+      // Remove empty id
+      if (!cleaned.id) delete cleaned.id;
 
-        if (
-          detail.harga_product_id &&
-          detail.harga_product_id !== "tambah_harga_khusus"
-        ) {
-          delete cleaned.harga_baru;
-        } else if (detail.harga_baru.harga) {
-          cleaned.harga_baru.harga = unformatRupiah(detail.harga_baru.harga);
-        }
+      return cleaned;
+    });
 
-        return cleaned;
-      });
+    const payload = {
+      customer_id: form.customer_id || null,
+      ...(form.customer_id ? {} : { customer_baru: form.customer_baru }),
+      details: cleanedDetails,
+    };
 
-      const payload = {
-        ...form,
-        customer_id: form.customer_id === "baru" ? null : form.customer_id,
-        details: cleanedDetails,
-      };
-
+    try {
       if (editingId) {
         await api.put(`/pesanan/${editingId}`, payload);
         Swal.fire("Berhasil!", "Pesanan berhasil diperbarui", "success");
@@ -323,9 +404,9 @@ const PesananPage = () => {
         Swal.fire("Berhasil!", "Pesanan berhasil dibuat", "success");
       }
 
-      resetForm();
       setIsModalOpen(false);
       fetchData();
+      resetForm();
     } catch (error) {
       if (error.response?.status === 422) {
         const msg = Object.values(error.response.data.errors)
@@ -333,24 +414,9 @@ const PesananPage = () => {
           .join("<br>");
         Swal.fire({ title: "Validasi Gagal", html: msg, icon: "warning" });
       } else {
+        console.error("Submission error:", error);
         Swal.fire("Error", "Terjadi kesalahan pada server", "error");
       }
-    }
-  };
-
-  const handleDelete = async (id) => {
-    const confirm = await Swal.fire({
-      title: "Batalkan Pesanan?",
-      text: "Data akan dihapus permanen!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Ya, Batalkan",
-      confirmButtonColor: "#d33",
-    });
-    if (confirm.isConfirmed) {
-      await api.delete(`/pesanan/${id}`);
-      Swal.fire("Berhasil", "Pesanan terhapus", "success");
-      fetchData();
     }
   };
 
@@ -366,35 +432,20 @@ const PesananPage = () => {
   const getSisaBayar = (detail) => {
     if (!detail) return 0;
     const subtotal = safeParseFloat(detail.subtotal);
-    const pembayarans = Array.isArray(detail.pembayarans)
-      ? detail.pembayarans
-      : [];
-    const totalBayar = pembayarans.reduce(
-      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-      0
-    );
+    const pembayarans = Array.isArray(detail.pembayarans) ? detail.pembayarans : [];
+    const totalBayar = pembayarans.reduce((sum, p) => sum + safeParseFloat(p.jumlah_bayar), 0);
     return subtotal - totalBayar;
   };
 
   const getTotalBayar = (detail) => {
     if (!detail) return 0;
-    const pembayarans = Array.isArray(detail.pembayarans)
-      ? detail.pembayarans
-      : [];
-    return pembayarans.reduce(
-      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-      0
-    );
+    const pembayarans = Array.isArray(detail.pembayarans) ? detail.pembayarans : [];
+    return pembayarans.reduce((sum, p) => sum + safeParseFloat(p.jumlah_bayar), 0);
   };
 
   const formatProductName = (p) => {
     if (!p) return "Produk tidak ditemukan";
-    return [
-      p.jenis?.nama || "-",
-      p.type?.nama || "-",
-      p.bahan?.nama || "-",
-      p.ukuran || "-",
-    ]
+    return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
       .filter(Boolean)
       .join(" ");
   };
@@ -403,28 +454,23 @@ const PesananPage = () => {
     const allDetails = pesanan.flatMap((t) => t.details);
     const detail = allDetails.find((d) => d.id === detailId);
     if (!detail) return;
+
     const sisa = getSisaBayar(detail);
     Swal.fire({
       title: "Input Pembayaran",
       html: `
         <p>Tagihan: Rp ${formatRupiah(detail.subtotal)}</p>
         <p>Sisa: Rp ${formatRupiah(sisa)}</p>
-        <input type="text" id="jumlahBayar" class="swal2-input" placeholder="Jumlah bayar" value="${formatRupiah(
-          sisa
-        )}">
+        <input type="text" id="jumlahBayar" class="swal2-input" placeholder="Jumlah bayar" value="${formatRupiah(sisa)}">
         <input type="date" id="tanggalBayar" class="swal2-input">
       `,
       preConfirm: () => {
-        const jumlah = unformatRupiah(
-          Swal.getPopup().querySelector("#jumlahBayar").value
-        );
+        const jumlah = unformatRupiah(Swal.getPopup().querySelector("#jumlahBayar").value);
         const tanggal = Swal.getPopup().querySelector("#tanggalBayar").value;
         if (!jumlah || jumlah <= 0) {
           Swal.showValidationMessage("Jumlah bayar harus lebih dari 0");
         } else if (jumlah > sisa) {
-          Swal.showValidationMessage(
-            "Jumlah bayar tidak boleh melebihi sisa tagihan"
-          );
+          Swal.showValidationMessage("Jumlah bayar tidak boleh melebihi sisa tagihan");
         } else if (!tanggal) {
           Swal.showValidationMessage("Tanggal bayar wajib diisi");
         } else {
@@ -456,43 +502,14 @@ const PesananPage = () => {
 
   const getStatusInfo = (statusId) => {
     const status = statusList.find((s) => s.id === statusId);
-
-    if (!status)
-      return { text: "–", bg: "bg-gray-100", textClass: "text-gray-800" };
-
-    if (status.nama === "Di pesan")
-      return {
-        text: "Di Pesan",
-        bg: "bg-blue-100",
-        textClass: "text-blue-800",
-      };
-
-    if (status.nama === "Di buat")
-      return {
-        text: "Di Buat",
-        bg: "bg-yellow-100",
-        textClass: "text-yellow-800",
-      };
-
-    if (status.nama === "Siap")
-      return {
-        text: "Siap",
-        bg: "bg-green-100",
-        textClass: "text-green-800",
-      };
-
-    if (status.nama === "Selesai")
-      return {
-        text: "Selesai",
-        bg: "bg-emerald-100",
-        textClass: "text-emerald-800",
-      };
-
-    return {
-      text: status.nama,
-      bg: "bg-gray-100",
-      textClass: "text-gray-800",
+    if (!status) return { text: "–", bg: "bg-gray-100", textClass: "text-gray-800" };
+    const map = {
+      "Di pesan": { text: "Di Pesan", bg: "bg-blue-100", textClass: "text-blue-800" },
+      "Di buat": { text: "Di Buat", bg: "bg-yellow-100", textClass: "text-yellow-800" },
+      "Siap": { text: "Siap", bg: "bg-green-100", textClass: "text-green-800" },
+      "Selesai": { text: "Selesai", bg: "bg-emerald-100", textClass: "text-emerald-800" },
     };
+    return map[status.nama] || { text: status.nama, bg: "bg-gray-100", textClass: "text-gray-800" };
   };
 
   const handleChangeDetailStatus = async (detailId, currentStatusId) => {
@@ -512,24 +529,17 @@ const PesananPage = () => {
       confirmButtonText: "Simpan",
       cancelButtonText: "Batal",
     });
+
     if (statusId && statusId !== currentStatusId) {
       const selesaiStatus = statusList.find((s) => s.nama === "Selesai");
       if (selesaiStatus && statusId == selesaiStatus.id) {
-        const detail = pesanan
-          .flatMap((t) => t.details)
-          .find((d) => d.id == detailId);
-        if (detail) {
-          const sisa = getSisaBayar(detail);
-          if (sisa > 0) {
-            Swal.fire(
-              "Peringatan",
-              "Selesaikan pembayaran terlebih dahulu!",
-              "warning"
-            );
-            return;
-          }
+        const detail = pesanan.flatMap((t) => t.details).find((d) => d.id == detailId);
+        if (detail && getSisaBayar(detail) > 0) {
+          Swal.fire("Peringatan", "Selesaikan pembayaran terlebih dahulu!", "warning");
+          return;
         }
       }
+
       try {
         await api.patch(`/transaksi-detail/${detailId}/status`, {
           status_transaksi_id: statusId,
@@ -540,6 +550,11 @@ const PesananPage = () => {
         Swal.fire("Error", "Gagal mengubah status", "error");
       }
     }
+  };
+
+  const handleEditPesanan = (pesananItem) => {
+    resetForm(pesananItem);
+    setIsModalOpen(true);
   };
 
   return (
@@ -560,9 +575,7 @@ const PesananPage = () => {
       {loading ? (
         <p className="text-center py-8 text-gray-600">Memuat data...</p>
       ) : pesanan.length === 0 ? (
-        <p className="text-center py-8 text-gray-500">
-          Tidak ada data pesanan.
-        </p>
+        <p className="text-center py-8 text-gray-500">Tidak ada data pesanan.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {pesanan.map((item) => (
@@ -570,12 +583,23 @@ const PesananPage = () => {
               key={item.id}
               className="p-6 bg-white rounded-xl shadow border border-gray-100 space-y-3"
             >
-              <p className="text-gray-700 text-center font-medium">
-                Customer: {item.customer?.name || "Umum"}
-              </p>
-              <p className="text-gray-700 text-center font-bold text-lg">
-                Total: Rp {formatRupiah(item.total)}
-              </p>
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-gray-700 font-medium">
+                    Customer: {item.customer?.name || "Umum"}
+                  </p>
+                  <p className="text-gray-700 font-bold text-lg">
+                    Total: Rp {formatRupiah(item.total)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleEditPesanan(item)}
+                  className="text-purple-600 hover:text-purple-800"
+                  title="Edit Pesanan"
+                >
+                  <Pencil size={18} />
+                </button>
+              </div>
               <hr className="my-3 border-gray-200" />
               <div className="space-y-3">
                 {item.details.map((d) => {
@@ -588,49 +612,32 @@ const PesananPage = () => {
                       key={d.id}
                       className="p-3 border border-gray-200 rounded-lg bg-gray-50 text-sm text-center"
                     >
-                      <p>
-                        <span className="font-semibold"></span>{" "}
-                        {formatProductName(d.product)}
-                      </p>
+                      <p>{formatProductName(d.product)}</p>
                       <p>
                         <span className="font-semibold">Qty:</span> {d.qty}
                       </p>
                       <p>
-                        <span className="font-semibold">Harga Satuan:</span> Rp{" "}
-                        {formatRupiah(d.harga)}
+                        <span className="font-semibold">Harga Satuan:</span> Rp {formatRupiah(d.harga)}
                       </p>
                       <p>
-                        <span className="font-semibold">Diskon:</span> Rp{" "}
-                        {formatRupiah(d.discount)}
+                        <span className="font-semibold">Diskon:</span> Rp {formatRupiah(d.discount)}
                       </p>
                       <p>
-                        <span className="font-semibold">Tagihan:</span> Rp{" "}
-                        {formatRupiah(d.subtotal)}
+                        <span className="font-semibold">Tagihan:</span> Rp {formatRupiah(d.subtotal)}
                       </p>
                       <p>
-                        <span className="font-semibold">Tanggal:</span>{" "}
-                        {formatTanggal(d.tanggal)}
+                        <span className="font-semibold">Tanggal:</span> {formatTanggal(d.tanggal)}
                       </p>
-                      {d.catatan && (
-                        <p>
-                          <span className="font-semibold"></span> {d.catatan}
-                        </p>
-                      )}
+                      {d.catatan && <p>{d.catatan}</p>}
+
                       <div className="mt-2 pt-2 border-t border-gray-200">
                         <div className="flex justify-between items-center">
                           <p className="text-sm">
                             <span className="font-semibold">Status:</span>{" "}
-                            <span className={`${status.textClass}`}>
-                              {status.text}
-                            </span>
+                            <span className={`${status.textClass}`}>{status.text}</span>
                           </p>
                           <button
-                            onClick={() =>
-                              handleChangeDetailStatus(
-                                d.id,
-                                d.status_transaksi_id
-                              )
-                            }
+                            onClick={() => handleChangeDetailStatus(d.id, d.status_transaksi_id)}
                             className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
                           >
                             Ubah
@@ -645,16 +652,14 @@ const PesananPage = () => {
                             >
                               {isLunas
                                 ? "✅ Lunas"
-                                : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
-                                    sisaBayar
-                                  )})`}
+                                : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(sisaBayar)})`}
                             </span>
                           </p>
                         </div>
                         <p className="text-xs text-gray-600 mt-1 text-center">
-                          Sudah dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
-                          {formatRupiah(d.subtotal)}
+                          Sudah dibayar: Rp {formatRupiah(totalBayar)} dari Rp {formatRupiah(d.subtotal)}
                         </p>
+
                         {d.pembayarans?.length > 0 && (
                           <div className="mt-2 text-xs text-center">
                             <p className="font-medium flex items-center justify-center gap-1">
@@ -663,13 +668,13 @@ const PesananPage = () => {
                             <ul className="list-disc list-inside space-y-1 mt-1 inline-block text-left">
                               {d.pembayarans.map((p) => (
                                 <li key={p.id} className="text-gray-700">
-                                  Rp {formatRupiah(p.jumlah_bayar)} -{" "}
-                                  {formatTanggal(p.tanggal_bayar)}
+                                  Rp {formatRupiah(p.jumlah_bayar)} - {formatTanggal(p.tanggal_bayar)}
                                 </li>
                               ))}
                             </ul>
                           </div>
                         )}
+
                         {!isLunas && (
                           <button
                             onClick={() => handleBayar(d.id)}
@@ -683,12 +688,6 @@ const PesananPage = () => {
                   );
                 })}
               </div>
-              <button
-                onClick={() => handleDelete(item.id)}
-                className="w-full flex justify-center gap-2 bg-red-100 text-red-700 px-3 py-2 rounded-xl hover:bg-red-200 mt-2"
-              >
-                <XCircle size={16} /> Batalkan Pesanan
-              </button>
             </div>
           ))}
         </div>
@@ -711,24 +710,35 @@ const PesananPage = () => {
                 <XCircle size={24} />
               </button>
             </div>
-
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* CUSTOMER SECTION */}
+              {/* CUSTOMER */}
               <div className="bg-gray-50 p-4 rounded-xl">
                 <label className="font-semibold block mb-2">Customer *</label>
                 <select
                   className="w-full border px-3 py-2 rounded-lg"
-                  value={form.customer_id}
+                  value={form.customer_id || (form.customer_baru.name ? "baru" : "")}
                   onChange={(e) => {
                     const val = e.target.value;
-                    setForm({ ...form, customer_id: val });
-                    if (val !== "baru") {
-                      form.details.forEach((_, i) => {
-                        fetchHargaByProduct(form.details[i].product_id, i);
+                    if (val === "baru") {
+                      setForm({
+                        ...form,
+                        customer_id: "",
+                        customer_baru: { name: "", phone: "", email: "" },
+                      });
+                    } else {
+                      setForm({
+                        ...form,
+                        customer_id: val,
+                        customer_baru: { name: "", phone: "", email: "" },
+                      });
+                      // Re-fetch harga for all existing product rows
+                      form.details.forEach((d, i) => {
+                        if (d.product_id && d.product_id !== "new") {
+                          fetchHargaByProduct(d.product_id, i, val);
+                        }
                       });
                     }
                   }}
-                  required
                 >
                   <option value="">Pilih Customer</option>
                   {customers.map((c) => (
@@ -739,7 +749,7 @@ const PesananPage = () => {
                   <option value="baru">➕ Buat Customer Baru</option>
                 </select>
 
-                {form.customer_id === "baru" && (
+                {form.customer_id === "" && form.customer_baru.name && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                     <input
                       type="text"
@@ -749,10 +759,7 @@ const PesananPage = () => {
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          customer_baru: {
-                            ...form.customer_baru,
-                            name: e.target.value,
-                          },
+                          customer_baru: { ...form.customer_baru, name: e.target.value },
                         })
                       }
                       required
@@ -765,10 +772,7 @@ const PesananPage = () => {
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          customer_baru: {
-                            ...form.customer_baru,
-                            phone: e.target.value,
-                          },
+                          customer_baru: { ...form.customer_baru, phone: e.target.value },
                         })
                       }
                     />
@@ -780,10 +784,7 @@ const PesananPage = () => {
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          customer_baru: {
-                            ...form.customer_baru,
-                            email: e.target.value,
-                          },
+                          customer_baru: { ...form.customer_baru, email: e.target.value },
                         })
                       }
                     />
@@ -791,7 +792,7 @@ const PesananPage = () => {
                 )}
               </div>
 
-              {/* DETAIL SECTION */}
+              {/* DETAILS */}
               <div className="space-y-4">
                 <h3 className="font-bold text-lg">Detail Pesanan</h3>
                 {form.details.map((d, i) => (
@@ -803,25 +804,8 @@ const PesananPage = () => {
                       <label className="block mb-1 font-medium">Produk *</label>
                       <select
                         className="w-full border px-3 py-2 rounded-lg"
-                        value={
-                          d.product_id || (showProductBaru[i] ? "new" : "")
-                        }
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (value === "new") {
-                            setShowProductBaru((prev) => ({
-                              ...prev,
-                              [i]: true,
-                            }));
-                            handleDetailChange(i, "product_id", "");
-                          } else {
-                            setShowProductBaru((prev) => ({
-                              ...prev,
-                              [i]: false,
-                            }));
-                            handleDetailChange(i, "product_id", value);
-                          }
-                        }}
+                        value={d.product_id || (showProductBaru[i] ? "new" : "")}
+                        onChange={(e) => handleDetailChange(i, "product_id", e.target.value)}
                       >
                         <option value="">Pilih Produk</option>
                         {products.map((p) => (
@@ -839,27 +823,16 @@ const PesananPage = () => {
                             placeholder="Kode Produk *"
                             className="w-full border px-3 py-2 rounded-lg"
                             value={d.product_baru.kode}
-                            onChange={(e) =>
-                              handleProductBaruChange(i, "kode", e.target.value)
-                            }
+                            onChange={(e) => handleProductBaruChange(i, "kode", e.target.value)}
                             required
                           />
-
                           {/* Jenis */}
                           <div>
-                            <label className="block text-sm font-medium mb-1">
-                              Jenis Produk *
-                            </label>
+                            <label className="block text-sm font-medium mb-1">Jenis Produk *</label>
                             <select
                               className="w-full border px-3 py-2 rounded-lg"
                               value={d.product_baru.jenis_id || ""}
-                              onChange={(e) =>
-                                handleProductBaruChange(
-                                  i,
-                                  "jenis_id",
-                                  e.target.value
-                                )
-                              }
+                              onChange={(e) => handleProductBaruChange(i, "jenis_id", e.target.value)}
                               required
                             >
                               <option value="">Pilih Jenis</option>
@@ -877,21 +850,15 @@ const PesananPage = () => {
                                 className="w-full border px-3 py-2 rounded-lg mt-2"
                                 value={d.product_baru.jenis_nama || ""}
                                 onChange={(e) =>
-                                  handleProductBaruChange(
-                                    i,
-                                    "jenis_nama",
-                                    e.target.value
-                                  )
+                                  handleProductBaruChange(i, "jenis_nama", e.target.value)
                                 }
                                 required
                               />
                             )}
                           </div>
-
+                          {/* Tipe */}
                           <div>
-                            <label className="block text-sm font-medium mb-1">
-                              Tipe Produk
-                            </label>
+                            <label className="block text-sm font-medium mb-1">Tipe Produk</label>
                             {d.product_baru.jenis_id === "new" ? (
                               <input
                                 type="text"
@@ -899,11 +866,7 @@ const PesananPage = () => {
                                 className="w-full border px-3 py-2 rounded-lg"
                                 value={d.product_baru.type_nama || ""}
                                 onChange={(e) =>
-                                  handleProductBaruChange(
-                                    i,
-                                    "type_nama",
-                                    e.target.value
-                                  )
+                                  handleProductBaruChange(i, "type_nama", e.target.value)
                                 }
                               />
                             ) : d.product_baru.jenis_id ? (
@@ -912,11 +875,7 @@ const PesananPage = () => {
                                   className="w-full border px-3 py-2 rounded-lg"
                                   value={d.product_baru.type_id || ""}
                                   onChange={(e) =>
-                                    handleProductBaruChange(
-                                      i,
-                                      "type_id",
-                                      e.target.value
-                                    )
+                                    handleProductBaruChange(i, "type_id", e.target.value)
                                   }
                                 >
                                   <option value="">Pilih Tipe</option>
@@ -934,36 +893,23 @@ const PesananPage = () => {
                                     className="w-full border px-3 py-2 rounded-lg mt-2"
                                     value={d.product_baru.type_nama || ""}
                                     onChange={(e) =>
-                                      handleProductBaruChange(
-                                        i,
-                                        "type_nama",
-                                        e.target.value
-                                      )
+                                      handleProductBaruChange(i, "type_nama", e.target.value)
                                     }
                                   />
                                 )}
                               </>
                             ) : (
-                              <p className="text-sm text-gray-500 italic">
-                                Pilih Jenis terlebih dahulu
-                              </p>
+                              <p className="text-sm text-gray-500 italic">Pilih Jenis terlebih dahulu</p>
                             )}
                           </div>
-
                           {/* Bahan */}
                           <div>
-                            <label className="block text-sm font-medium mb-1">
-                              Bahan Produk
-                            </label>
+                            <label className="block text-sm font-medium mb-1">Bahan Produk</label>
                             <select
                               className="w-full border px-3 py-2 rounded-lg"
                               value={d.product_baru.bahan_id || ""}
                               onChange={(e) =>
-                                handleProductBaruChange(
-                                  i,
-                                  "bahan_id",
-                                  e.target.value
-                                )
+                                handleProductBaruChange(i, "bahan_id", e.target.value)
                               }
                             >
                               <option value="">Pilih Bahan</option>
@@ -981,29 +927,18 @@ const PesananPage = () => {
                                 className="w-full border px-3 py-2 rounded-lg mt-2"
                                 value={d.product_baru.bahan_nama || ""}
                                 onChange={(e) =>
-                                  handleProductBaruChange(
-                                    i,
-                                    "bahan_nama",
-                                    e.target.value
-                                  )
+                                  handleProductBaruChange(i, "bahan_nama", e.target.value)
                                 }
                               />
                             )}
                           </div>
-
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <input
                               type="text"
                               placeholder="Ukuran *"
                               className="border px-3 py-2 rounded-lg"
                               value={d.product_baru.ukuran}
-                              onChange={(e) =>
-                                handleProductBaruChange(
-                                  i,
-                                  "ukuran",
-                                  e.target.value
-                                )
-                              }
+                              onChange={(e) => handleProductBaruChange(i, "ukuran", e.target.value)}
                               required
                             />
                             <input
@@ -1012,22 +947,17 @@ const PesananPage = () => {
                               className="border px-3 py-2 rounded-lg"
                               value={d.product_baru.keterangan}
                               onChange={(e) =>
-                                handleProductBaruChange(
-                                  i,
-                                  "keterangan",
-                                  e.target.value
-                                )
+                                handleProductBaruChange(i, "keterangan", e.target.value)
                               }
                             />
                           </div>
                         </div>
                       )}
 
-                      {d.product_id && !showProductBaru[i] && (
+                      {/* HARGA - Existing Product */}
+                      {d.product_id && d.product_id !== "new" && (
                         <div className="mt-4">
-                          <label className="block mb-1 font-medium">
-                            Pilih Harga
-                          </label>
+                          <label className="block mb-1 font-medium">Pilih Harga</label>
                           <select
                             className="w-full border px-3 py-2 rounded-lg"
                             value={d.harga_product_id || ""}
@@ -1049,8 +979,7 @@ const PesananPage = () => {
                                 .filter((h) => !h.customer_id)
                                 .map((h) => (
                                   <option key={`umum-${h.id}`} value={h.id}>
-                                    Rp {formatRupiah(h.harga)} -{" "}
-                                    {h.keterangan || "Tanpa keterangan"} (
+                                    Rp {formatRupiah(h.harga)} - {h.keterangan || "Tanpa keterangan"} (
                                     {formatTanggal(h.tanggal_berlaku)})
                                   </option>
                                 ))}
@@ -1060,14 +989,12 @@ const PesananPage = () => {
                                 .filter((h) => h.customer_id)
                                 .map((h) => (
                                   <option key={`khusus-${h.id}`} value={h.id}>
-                                    Rp {formatRupiah(h.harga)} - {h.keterangan}{" "}
-                                    ({formatTanggal(h.tanggal_berlaku)})
+                                    Rp {formatRupiah(h.harga)} - {h.keterangan} (
+                                    {formatTanggal(h.tanggal_berlaku)})
                                   </option>
                                 ))}
                             </optgroup>
-                            <option value="tambah_harga_khusus">
-                              + Tambah Harga Khusus Customer
-                            </option>
+                            <option value="tambah_harga_khusus">+ Tambah Harga Khusus Customer</option>
                           </select>
 
                           {d.harga_product_id === "tambah_harga_khusus" && (
@@ -1081,11 +1008,7 @@ const PesananPage = () => {
                                   inputMode="numeric"
                                   placeholder="Harga Baru (Rp)"
                                   className="border px-3 py-2 rounded-lg"
-                                  value={
-                                    d.harga_baru.harga
-                                      ? formatRupiah(d.harga_baru.harga)
-                                      : ""
-                                  }
+                                  value={d.harga_baru.harga ? formatRupiah(d.harga_baru.harga) : ""}
                                   onChange={(e) => {
                                     const raw = unformatRupiah(e.target.value);
                                     const updated = [...form.details];
@@ -1100,8 +1023,7 @@ const PesananPage = () => {
                                   value={d.harga_baru.keterangan}
                                   onChange={(e) => {
                                     const updated = [...form.details];
-                                    updated[i].harga_baru.keterangan =
-                                      e.target.value;
+                                    updated[i].harga_baru.keterangan = e.target.value;
                                     setForm({ ...form, details: updated });
                                   }}
                                 />
@@ -1111,8 +1033,7 @@ const PesananPage = () => {
                                   value={d.harga_baru.tanggal_berlaku}
                                   onChange={(e) => {
                                     const updated = [...form.details];
-                                    updated[i].harga_baru.tanggal_berlaku =
-                                      e.target.value;
+                                    updated[i].harga_baru.tanggal_berlaku = e.target.value;
                                     setForm({ ...form, details: updated });
                                   }}
                                 />
@@ -1122,22 +1043,17 @@ const PesananPage = () => {
                         </div>
                       )}
 
+                      {/* HARGA - New Product */}
                       {showProductBaru[i] && (
                         <div className="mt-4">
-                          <label className="block mb-2 font-medium">
-                            Atau Tambahkan Harga Baru
-                          </label>
+                          <label className="block mb-2 font-medium">Atau Tambahkan Harga Baru</label>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                             <input
                               type="text"
                               inputMode="numeric"
                               placeholder="Harga Baru (Rp)"
                               className="border px-3 py-2 rounded-lg"
-                              value={
-                                d.harga_baru.harga
-                                  ? formatRupiah(d.harga_baru.harga)
-                                  : ""
-                              }
+                              value={d.harga_baru.harga ? formatRupiah(d.harga_baru.harga) : ""}
                               onChange={(e) => {
                                 const raw = unformatRupiah(e.target.value);
                                 const updated = [...form.details];
@@ -1152,8 +1068,7 @@ const PesananPage = () => {
                               value={d.harga_baru.keterangan}
                               onChange={(e) => {
                                 const updated = [...form.details];
-                                updated[i].harga_baru.keterangan =
-                                  e.target.value;
+                                updated[i].harga_baru.keterangan = e.target.value;
                                 setForm({ ...form, details: updated });
                               }}
                             />
@@ -1163,8 +1078,7 @@ const PesananPage = () => {
                               value={d.harga_baru.tanggal_berlaku}
                               onChange={(e) => {
                                 const updated = [...form.details];
-                                updated[i].harga_baru.tanggal_berlaku =
-                                  e.target.value;
+                                updated[i].harga_baru.tanggal_berlaku = e.target.value;
                                 setForm({ ...form, details: updated });
                               }}
                             />
@@ -1178,9 +1092,7 @@ const PesananPage = () => {
                         type="date"
                         className="border px-3 py-2 rounded-lg"
                         value={d.tanggal}
-                        onChange={(e) =>
-                          handleDetailChange(i, "tanggal", e.target.value)
-                        }
+                        onChange={(e) => handleDetailChange(i, "tanggal", e.target.value)}
                         required
                       />
                       <input
@@ -1189,9 +1101,7 @@ const PesananPage = () => {
                         placeholder="Qty *"
                         className="border px-3 py-2 rounded-lg"
                         value={d.qty}
-                        onChange={(e) =>
-                          handleDetailChange(i, "qty", e.target.value)
-                        }
+                        onChange={(e) => handleDetailChange(i, "qty", e.target.value)}
                         required
                       />
                       <input
@@ -1210,9 +1120,7 @@ const PesananPage = () => {
                         placeholder="Catatan (opsional)"
                         className="border px-3 py-2 rounded-lg"
                         value={d.catatan}
-                        onChange={(e) =>
-                          handleDetailChange(i, "catatan", e.target.value)
-                        }
+                        onChange={(e) => handleDetailChange(i, "catatan", e.target.value)}
                       />
                     </div>
 
