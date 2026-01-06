@@ -97,24 +97,82 @@ class ProductController extends Controller
         ]);
     }
 
+    private function generateProductKode($jenisNama, $typeNama, $bahanNama, $ukuran)
+    {
+        $jenisKode = $jenisNama ? strtoupper(substr($jenisNama, 0, 1)) : '';
+
+        $typeKode = '';
+        if ($typeNama) {
+            $firstChar = strtoupper(substr($typeNama, 0, 1));
+            preg_match('/\d/', $typeNama, $matches);
+            $digit = $matches[0] ?? '';
+            $typeKode = $firstChar . $digit;
+        }
+
+        $bahanKode = $bahanNama ? strtoupper(substr($bahanNama, 0, 1)) : '';
+
+        $ukuranAngka = preg_replace('/\D/', '', $ukuran);
+
+        return $jenisKode . $typeKode . $bahanKode . $ukuranAngka;
+    }
+
+    private function makeUniqueKode(string $baseKode, ?int $ignoreId = null): string
+    {
+        $kode = $baseKode;
+        $counter = 1;
+
+        while (
+            Product::where('kode', $kode)
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->exists()
+        ) {
+            $kode = $baseKode . '_' . $counter++;
+        }
+
+        return $kode;
+    }
+
+    private function buildProductKode(
+        int $jenis_id,
+        ?int $type_id,
+        ?int $bahan_id,
+        string $ukuran,
+        ?int $ignoreProductId = null
+    ): string {
+        $jenisNama = JenisProduct::find($jenis_id)?->nama;
+        $typeNama  = $type_id ? TypeProduct::find($type_id)?->nama : null;
+        $bahanNama = $bahan_id ? BahanProduct::find($bahan_id)?->nama : null;
+
+        $baseKode = $this->generateProductKode(
+            $jenisNama,
+            $typeNama,
+            $bahanNama,
+            $ukuran
+        );
+
+        return $this->makeUniqueKode($baseKode, $ignoreProductId);
+    }
+
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'kode'          => 'required|string|max:50|unique:products,kode',
-            'jenis_id'      => 'nullable|exists:jenis_products,id',
-            'jenis_nama'    => 'required_without:jenis_id|string|max:100',
-            'type_id'       => 'nullable|exists:type_products,id',
-            'type_nama'     => 'required_without:type_id|string|max:100',
-            'bahan_id'      => 'nullable|exists:bahan_products,id',
-            'bahan_nama'    => 'required_without:bahan_id|string|max:100',
-            'ukuran'        => 'required|string|max:20',
-            'keterangan'    => 'nullable|string',
-            'harga_umum'    => 'required|integer|min:0', // <-- TAMBAHKAN INI
-            'tanggal_berlaku_harga' => 'nullable|date',
-            'keterangan_harga' => 'nullable|string|max:255',
-            'foto_depan'    => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_samping'  => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_atas'     => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+            'jenis_id'   => 'nullable|exists:jenis_products,id',
+            'jenis_nama' => 'required_without:jenis_id|string|max:100',
+
+            'type_id'    => 'nullable|exists:type_products,id',
+            'type_nama'  => 'required_without:type_id|string|max:100',
+
+            'bahan_id'   => 'nullable|exists:bahan_products,id',
+            'bahan_nama' => 'required_without:bahan_id|string|max:100',
+
+            'ukuran'     => 'required|string|max:20',
+            'keterangan' => 'nullable|string',
+
+            'harga_umum' => 'required|integer|min:0',
+
+            'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+            'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+            'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
         ]);
 
         if ($validator->fails()) {
@@ -127,88 +185,80 @@ class ProductController extends Controller
         DB::beginTransaction();
 
         try {
-            // === Jenis Product ===
-            if ($request->filled('jenis_id')) {
-                $jenis_id = $request->jenis_id;
-            } else {
-                $nama = Str::title(trim($request->jenis_nama));
-                $jenis = JenisProduct::firstOrCreate(['nama' => $nama]);
-                $jenis_id = $jenis->id;
-            }
-
-            // === Type Product ===
-            if ($request->filled('type_id')) {
-                $type = TypeProduct::where('id', $request->type_id)
-                    ->where('jenis_id', $jenis_id)
-                    ->firstOrFail();
-                $type_id = $type->id;
-            } else {
-                $nama = Str::title(trim($request->type_nama));
-                $type = TypeProduct::firstOrCreate([
-                    'nama' => $nama,
-                    'jenis_id' => $jenis_id
+            // JENIS
+            $jenis = $request->filled('jenis_id')
+                ? JenisProduct::findOrFail($request->jenis_id)
+                : JenisProduct::firstOrCreate([
+                    'nama' => Str::title(trim($request->jenis_nama))
                 ]);
-                $type_id = $type->id;
-            }
 
-            // === Bahan Product ===
-            if ($request->filled('bahan_id')) {
-                $bahan_id = $request->bahan_id;
-            } else {
-                $nama = Str::title(trim($request->bahan_nama));
-                $bahan = BahanProduct::firstOrCreate(['nama' => $nama]);
-                $bahan_id = $bahan->id;
-            }
+            // TYPE
+            $type = $request->filled('type_id')
+                ? TypeProduct::where('id', $request->type_id)
+                    ->where('jenis_id', $jenis->id)
+                    ->firstOrFail()
+                : TypeProduct::firstOrCreate([
+                    'nama' => Str::title(trim($request->type_nama)),
+                    'jenis_id' => $jenis->id
+                ]);
 
-            // === Upload Foto ===
+            // BAHAN
+            $bahan = $request->filled('bahan_id')
+                ? BahanProduct::findOrFail($request->bahan_id)
+                : BahanProduct::firstOrCreate([
+                    'nama' => Str::title(trim($request->bahan_nama))
+                ]);
+
+            $kode = $this->buildProductKode(
+                $jenis->id,
+                $type->id,
+                $bahan->id,
+                $request->ukuran
+            );
+
+            // FOTO
             $manager = new ImageManager(new Driver());
-            $fotoPaths = [
-                'foto_depan' => null,
-                'foto_samping' => null,
-                'foto_atas' => null,
-            ];
+            $foto = [];
 
-            foreach ($fotoPaths as $field => $val) {
+            foreach (['foto_depan', 'foto_samping', 'foto_atas'] as $field) {
                 if ($request->hasFile($field)) {
                     $image = $manager->read($request->file($field));
                     if ($image->width() > 800) {
                         $image->scale(width: 800);
                     }
+
                     $filename = 'products/' . Str::uuid() . '.jpg';
-                    Storage::disk('public')->makeDirectory('products');
-                    Storage::disk('public')->put($filename, (string) $image->toJpeg(85));
-                    $fotoPaths[$field] = $filename;
+                    Storage::disk('public')->put(
+                        $filename,
+                        (string) $image->toJpeg(85)
+                    );
+
+                    $foto[$field] = $filename;
                 }
             }
 
-            // === Simpan Product ===
             $product = Product::create([
-                'kode' => $request->kode,
-                'jenis_id' => $jenis_id,
-                'type_id' => $type_id,
-                'bahan_id' => $bahan_id,
+                'kode' => $kode,
+                'jenis_id' => $jenis->id,
+                'type_id' => $type->id,
+                'bahan_id' => $bahan->id,
                 'ukuran' => $request->ukuran,
                 'keterangan' => $request->keterangan,
-                'foto_depan' => $fotoPaths['foto_depan'],
-                'foto_samping' => $fotoPaths['foto_samping'],
-                'foto_atas' => $fotoPaths['foto_atas'],
+                ...$foto
             ]);
 
-            // === Tambahkan Harga Umum ===
             HargaProduct::create([
                 'product_id' => $product->id,
-                'customer_id' => null, // <-- Harga umum = null
+                'customer_id' => null,
                 'harga' => $request->harga_umum,
-                'tanggal_berlaku' => $request->tanggal_berlaku_harga ?? now(),
-                'keterangan' => $request->keterangan_harga ?? 'Harga umum saat pembuatan produk',
+                'tanggal_berlaku' => now(),
+                'keterangan' => 'Harga awal'
             ]);
 
-            // === Inisialisasi Inventory ===
-            $places = Place::whereIn('kode', ['BENGKEL', 'TOKO'])->get();
-            foreach ($places as $place) {
+            foreach (Place::whereIn('kode', ['BENGKEL', 'TOKO'])->get() as $place) {
                 Inventory::firstOrCreate([
                     'product_id' => $product->id,
-                    'place_id' => $place->id,
+                    'place_id' => $place->id
                 ], ['qty' => 0]);
             }
 
@@ -216,48 +266,44 @@ class ProductController extends Controller
 
             return response()->json([
                 'status' => true,
-                'message' => 'Product berhasil dibuat',
+                'message' => 'Produk berhasil dibuat',
                 'data' => $product->load(['jenis', 'type', 'bahan'])
             ], 201);
+
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json([
                 'status' => false,
-                'message' => 'Gagal membuat produk: ' . $e->getMessage()
+                'message' => $e->getMessage()
             ], 500);
         }
     }
 
     public function update(Request $request, $id)
     {
-        $product = Product::find($id);
-
-        if (!$product) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Product tidak ditemukan'
-            ], 404);
-        }
+        $product = Product::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'kode'          => 'required|string|max:50|unique:products,kode,' . $id,
-            'jenis_id'      => 'required|exists:jenis_products,id',
-            'type_id'       => 'nullable|exists:type_products,id',
-            'type_nama'     => 'nullable|string|max:100',
-            'bahan_id'      => 'nullable|exists:bahan_products,id',
-            'bahan_nama'    => 'nullable|string|max:100',
-            'ukuran'        => 'required|string|max:20',
-            'keterangan'    => 'nullable|string',
-            'harga_umum'    => 'required|integer|min:0', // 🔹 Tambahkan ini
-            'foto_depan'    => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_samping'  => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_atas'     => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+            'jenis_id' => 'required|exists:jenis_products,id',
+            'type_id'  => 'nullable|exists:type_products,id',
+            'type_nama'=> 'nullable|string|max:100',
+
+            'bahan_id' => 'nullable|exists:bahan_products,id',
+            'bahan_nama' => 'nullable|string|max:100',
+
+            'ukuran' => 'required|string|max:20',
+            'keterangan' => 'nullable|string',
+
+            'harga_umum' => 'required|integer|min:0',
+
+            'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+            'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+            'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'status' => false,
-                'message' => 'Validasi gagal',
                 'errors' => $validator->errors()
             ], 422);
         }
@@ -265,80 +311,90 @@ class ProductController extends Controller
         DB::beginTransaction();
 
         try {
-            $jenis_id = $request->jenis_id;
-            $type_id = null;
-
+            // TYPE
             if ($request->filled('type_nama')) {
-                $nama = Str::title(trim($request->type_nama));
                 $type = TypeProduct::firstOrCreate([
-                    'nama' => $nama,
-                    'jenis_id' => $jenis_id
+                    'nama' => Str::title(trim($request->type_nama)),
+                    'jenis_id' => $request->jenis_id
                 ]);
                 $type_id = $type->id;
-            } elseif ($request->filled('type_id')) {
-                $type = TypeProduct::where('id', $request->type_id)
-                    ->where('jenis_id', $jenis_id)
-                    ->first();
-                if (!$type) {
-                    throw new \Exception('Type tidak sesuai dengan jenis product');
-                }
-                $type_id = $type->id;
+            } else {
+                $type_id = $request->type_id;
             }
 
-            $updateData = [
-                'kode'       => $request->kode,
-                'jenis_id'   => $jenis_id,
-                'type_id'    => $type_id,
-                'bahan_id'   => $request->bahan_id,
-                'ukuran'     => $request->ukuran,
+            // BAHAN
+            if ($request->filled('bahan_nama')) {
+                $bahan = BahanProduct::firstOrCreate([
+                    'nama' => Str::title(trim($request->bahan_nama))
+                ]);
+                $bahan_id = $bahan->id;
+            } else {
+                $bahan_id = $request->bahan_id;
+            }
+
+            $kode = $this->buildProductKode(
+                $request->jenis_id,
+                $type_id,
+                $bahan_id,
+                $request->ukuran,
+                $product->id
+            );
+
+            $update = [
+                'kode' => $kode,
+                'jenis_id' => $request->jenis_id,
+                'type_id' => $type_id,
+                'bahan_id' => $bahan_id,
+                'ukuran' => $request->ukuran,
                 'keterangan' => $request->keterangan,
             ];
 
-            // 🔹 Handle Foto
             $manager = new ImageManager(new Driver());
             foreach (['foto_depan', 'foto_samping', 'foto_atas'] as $foto) {
                 if ($request->hasFile($foto)) {
                     if ($product->{$foto}) {
                         Storage::disk('public')->delete($product->{$foto});
                     }
+
                     $image = $manager->read($request->file($foto));
                     if ($image->width() > 800) {
                         $image->scale(width: 800);
                     }
+
                     $filename = 'products/' . Str::uuid() . '.jpg';
-                    Storage::disk('public')->makeDirectory('products');
-                    Storage::disk('public')->put($filename, (string) $image->toJpeg(85));
-                    $updateData[$foto] = $filename;
+                    Storage::disk('public')->put(
+                        $filename,
+                        (string) $image->toJpeg(85)
+                    );
+
+                    $update[$foto] = $filename;
                 }
             }
 
-            $product->update($updateData);
+            $product->update($update);
 
-            // 🔹 Update Harga Umum
-            // Hapus harga umum lama (customer_id = null)
             $product->hargaProducts()->whereNull('customer_id')->delete();
-
-            // Buat harga umum baru
             HargaProduct::create([
                 'product_id' => $product->id,
                 'customer_id' => null,
                 'harga' => $request->harga_umum,
                 'tanggal_berlaku' => now(),
-                'keterangan' => 'Harga umum diperbarui',
+                'keterangan' => 'Harga diperbarui'
             ]);
 
             DB::commit();
 
             return response()->json([
                 'status' => true,
-                'message' => 'Product berhasil diperbarui',
+                'message' => 'Produk berhasil diperbarui',
                 'data' => $product->load(['jenis', 'type', 'bahan'])
             ]);
+
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json([
                 'status' => false,
-                'message' => 'Gagal memperbarui produk: ' . $e->getMessage()
+                'message' => $e->getMessage()
             ], 500);
         }
     }

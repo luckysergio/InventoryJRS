@@ -37,6 +37,8 @@ const RiwayatTransaksi = () => {
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedJenis, setSelectedJenis] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [tanggalDari, setTanggalDari] = useState("");
+  const [tanggalSampai, setTanggalSampai] = useState("");
 
   const fetchData = async () => {
     try {
@@ -53,6 +55,7 @@ const RiwayatTransaksi = () => {
       );
       let data = res.data || [];
 
+      // Filter status
       if (selectedStatus !== "all") {
         const statusIdMap = {
           selesai: 5,
@@ -61,6 +64,23 @@ const RiwayatTransaksi = () => {
         const targetStatusId = statusIdMap[selectedStatus];
         data = data.filter((item) =>
           item.details.some((d) => d.status_transaksi_id === targetStatusId)
+        );
+      }
+
+      // Filter rentang tanggal
+      if (tanggalDari || tanggalSampai) {
+        const dari = tanggalDari ? new Date(tanggalDari) : null;
+        const sampai = tanggalSampai
+          ? new Date(new Date(tanggalSampai).setHours(23, 59, 59, 999))
+          : null;
+
+        data = data.filter((item) =>
+          item.details.some((d) => {
+            const detailDate = new Date(d.tanggal);
+            const afterDari = !dari || detailDate >= dari;
+            const beforeSampai = !sampai || detailDate <= sampai;
+            return afterDari && beforeSampai;
+          })
         );
       }
 
@@ -78,7 +98,7 @@ const RiwayatTransaksi = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedCustomer, selectedJenis, selectedStatus]);
+  }, [selectedCustomer, selectedJenis, selectedStatus, tanggalDari, tanggalSampai]);
 
   const handleDelete = async (id) => {
     const confirm = await Swal.fire({
@@ -130,6 +150,14 @@ const RiwayatTransaksi = () => {
     };
   };
 
+  const handleReset = () => {
+    setSelectedJenis("all");
+    setSelectedStatus("all");
+    setSelectedCustomer("");
+    setTanggalDari("");
+    setTanggalSampai("");
+  };
+
   return (
     <div className="space-y-6">
       {/* HEADER */}
@@ -141,7 +169,32 @@ const RiwayatTransaksi = () => {
 
       {/* FILTERS */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Dari Tanggal
+            </label>
+            <input
+              type="date"
+              value={tanggalDari}
+              onChange={(e) => setTanggalDari(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Sampai Tanggal
+            </label>
+            <input
+              type="date"
+              value={tanggalSampai}
+              onChange={(e) => setTanggalSampai(e.target.value)}
+              min={tanggalDari || undefined}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Jenis Transaksi
@@ -190,13 +243,9 @@ const RiwayatTransaksi = () => {
             </select>
           </div>
 
-          <div className="flex items-end">
+          <div className="flex items-end lg:col-span-5">
             <button
-              onClick={() => {
-                setSelectedJenis("all");
-                setSelectedStatus("all");
-                setSelectedCustomer("");
-              }}
+              onClick={handleReset}
               className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium"
             >
               Reset Filter

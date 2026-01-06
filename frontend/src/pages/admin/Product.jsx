@@ -34,7 +34,24 @@ const unformatRupiah = (str) => {
   return parseInt(String(str).replace(/\D/g, ""), 10) || 0;
 };
 
-// === MAIN COMPONENT ===
+// === GENERATE KODE OTOMATIS (HANYA UNTUK PREVIEW) ===
+const generateKode = (jenisNama, typeName, bahanNama, ukuran) => {
+  const jenisKode = jenisNama ? jenisNama.charAt(0).toUpperCase() : "";
+
+  let typeKode = "";
+  if (typeName) {
+    const firstChar = typeName.charAt(0).toUpperCase();
+    const matchDigit = typeName.match(/\d/);
+    typeKode = firstChar + (matchDigit ? matchDigit[0] : "");
+  }
+
+  const bahanKode = bahanNama ? bahanNama.charAt(0).toUpperCase() : "";
+
+  const ukuranAngka = ukuran ? ukuran.replace(/[^0-9]/g, "") : "";
+
+  return jenisKode + typeKode + bahanKode + ukuranAngka;
+};
+
 const ProductPage = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,15 +60,15 @@ const ProductPage = () => {
   const [filterType, setFilterType] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
-    kode: "",
     jenis_id: "",
     type_id: "",
     bahan_id: "",
     ukuran: "",
     keterangan: "",
-    harga_umum: "", // tetap string untuk UI
+    harga_umum: "",
   });
 
   const [fotoDepan, setFotoDepan] = useState(null);
@@ -135,7 +152,9 @@ const ProductPage = () => {
       return;
     }
 
-    const filtered = allTypes.filter((t) => t.jenis_id === Number(form.jenis_id));
+    const filtered = allTypes.filter(
+      (t) => t.jenis_id === Number(form.jenis_id)
+    );
     setFilteredTypes(filtered);
 
     if (!isEdit) {
@@ -143,9 +162,36 @@ const ProductPage = () => {
     }
   }, [form.jenis_id, allTypes, isEdit]);
 
+  const getKodePreview = () => {
+    let jenisNama = "";
+    if (form.jenis_id === "new") {
+      jenisNama = jenisInputBaru;
+    } else {
+      const j = jenis.find((j) => String(j.id) === String(form.jenis_id));
+      jenisNama = j ? j.nama : "";
+    }
+
+    let typeName = "";
+    if (form.type_id === "new") {
+      typeName = typeInputBaru;
+    } else {
+      const t = allTypes.find((t) => String(t.id) === String(form.type_id));
+      typeName = t ? t.nama : "";
+    }
+
+    let bahanNama = "";
+    if (form.bahan_id === "new") {
+      bahanNama = bahanInputBaru;
+    } else {
+      const b = bahan.find((b) => String(b.id) === String(form.bahan_id));
+      bahanNama = b ? b.nama : "";
+    }
+
+    return generateKode(jenisNama, typeName, bahanNama, form.ukuran);
+  };
+
   const handleTambah = () => {
     setForm({
-      kode: "",
       jenis_id: "",
       type_id: "",
       bahan_id: "",
@@ -171,13 +217,12 @@ const ProductPage = () => {
     }
 
     setForm({
-      kode: item.kode,
       jenis_id: item.jenis_id,
       type_id: item.type_id || "",
       bahan_id: item.bahan_id || "",
       ukuran: item.ukuran,
       keterangan: item.keterangan || "",
-      harga_umum: formatRupiah(item.harga_umum), // format ke string Rupiah untuk UI
+      harga_umum: formatRupiah(item.harga_umum),
     });
 
     setFotoDepan(
@@ -207,8 +252,8 @@ const ProductPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validasi wajib
-    if (!form.kode || !form.ukuran) {
+    const kodeToSubmit = kodePreview;
+    if (!kodeToSubmit || !form.ukuran) {
       Swal.fire("Validasi", "Kode dan Ukuran wajib diisi", "warning");
       return;
     }
@@ -226,50 +271,132 @@ const ProductPage = () => {
       if (!confirm.isConfirmed) return;
     }
 
-    const formData = new FormData();
-    formData.append("kode", form.kode);
-    formData.append("ukuran", form.ukuran);
-    formData.append("harga_umum", hargaNum); // kirim sebagai angka
-    if (form.keterangan) formData.append("keterangan", form.keterangan);
-
-    if (form.jenis_id && form.jenis_id !== "new") {
-      formData.append("jenis_id", form.jenis_id);
-    }
+    let jenisNama = "";
     if (form.jenis_id === "new") {
-      formData.append("jenis_nama", jenisInputBaru.trim());
+      jenisNama = jenisInputBaru.trim();
+    } else {
+      const j = jenis.find((j) => String(j.id) === String(form.jenis_id));
+      jenisNama = j ? j.nama : "";
     }
 
-    if (form.type_id && form.type_id !== "new") {
-      formData.append("type_id", form.type_id);
-    }
+    let typeName = "";
     if (form.type_id === "new") {
-      formData.append("type_nama", typeInputBaru.trim());
+      typeName = typeInputBaru.trim();
+    } else {
+      const t = allTypes.find((t) => String(t.id) === String(form.type_id));
+      typeName = t ? t.nama : "";
     }
 
-    if (form.bahan_id && form.bahan_id !== "new") {
-      formData.append("bahan_id", form.bahan_id);
-    }
+    let bahanNama = "";
     if (form.bahan_id === "new") {
-      formData.append("bahan_nama", bahanInputBaru.trim());
+      bahanNama = bahanInputBaru.trim();
+    } else {
+      const b = bahan.find((b) => String(b.id) === String(form.bahan_id));
+      bahanNama = b ? b.nama : "";
     }
 
-    if (fotoDepan instanceof File) formData.append("foto_depan", fotoDepan);
-    if (fotoSamping instanceof File) formData.append("foto_samping", fotoSamping);
-    if (fotoAtas instanceof File) formData.append("foto_atas", fotoAtas);
+    const dataPreview = `
+    <div style="text-align: center; font-size: 14px;">
+      <strong>Kode:</strong> ${kodeToSubmit}<br/>
+      <strong>Jenis:</strong> ${jenisNama || "-"}<br/>
+      <strong>Tipe:</strong> ${typeName || "-"}<br/>
+      <strong>Bahan:</strong> ${bahanNama || "-"}<br/>
+      <strong>Ukuran:</strong> ${form.ukuran}<br/>
+      <strong>Harga Umum:</strong> ${formatRupiah(hargaNum)}<br/>
+      ${
+        form.keterangan
+          ? `<strong>Keterangan:</strong> ${form.keterangan}<br/>`
+          : ""
+      }
+      <strong>Foto Depan:</strong> ${
+        fotoDepan ? "✅ Terupload" : "❌ Tidak ada"
+      }<br/>
+      <strong>Foto Samping:</strong> ${
+        fotoSamping ? "✅ Terupload" : "❌ Tidak ada"
+      }<br/>
+      <strong>Foto Atas:</strong> ${fotoAtas ? "✅ Terupload" : "❌ Tidak ada"}
+    </div>
+  `;
 
+    const action = isEdit ? "memperbarui" : "menambah";
+    const result = await Swal.fire({
+      title: `Konfirmasi ${isEdit ? "Perubahan" : "Penambahan"} Product`,
+      html: dataPreview,
+      icon: "info",
+      showCancelButton: true,
+      confirmButtonText: `Ya, ${action} product`,
+      cancelButtonText: "Batal",
+      reverseButtons: true,
+      confirmButtonColor: "#3b82f6",
+      cancelButtonColor: "#d33",
+    });
+
+    if (!result.isConfirmed) return;
+
+    let swalLoading = null;
     try {
+      Swal.fire({
+        title: isEdit ? "Memperbarui product..." : "Menyimpan product...",
+        html: "Mohon tunggu, sedang memproses data.",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+      swalLoading = Swal.getPopup();
+
+      const formData = new FormData();
+      formData.append("kode", kodeToSubmit); // Gunakan kodePreview
+      formData.append("ukuran", form.ukuran);
+      formData.append("harga_umum", hargaNum);
+      if (form.keterangan) formData.append("keterangan", form.keterangan);
+
+      if (form.jenis_id && form.jenis_id !== "new") {
+        formData.append("jenis_id", form.jenis_id);
+      }
+      if (form.jenis_id === "new") {
+        formData.append("jenis_nama", jenisInputBaru.trim());
+      }
+
+      if (form.type_id && form.type_id !== "new") {
+        formData.append("type_id", form.type_id);
+      }
+      if (form.type_id === "new") {
+        formData.append("type_nama", typeInputBaru.trim());
+      }
+
+      if (form.bahan_id && form.bahan_id !== "new") {
+        formData.append("bahan_id", form.bahan_id);
+      }
+      if (form.bahan_id === "new") {
+        formData.append("bahan_nama", bahanInputBaru.trim());
+      }
+
+      if (fotoDepan instanceof File) formData.append("foto_depan", fotoDepan);
+      if (fotoSamping instanceof File)
+        formData.append("foto_samping", fotoSamping);
+      if (fotoAtas instanceof File) formData.append("foto_atas", fotoAtas);
+
       if (isEdit) {
         await api.post(`/products/${selectedId}?_method=PUT`, formData);
-        Swal.fire("Berhasil", "Product berhasil diperbarui", "success");
       } else {
         await api.post("/products", formData);
-        Swal.fire("Berhasil", "Product berhasil ditambahkan", "success");
       }
+
+      Swal.close();
+      Swal.fire(
+        "Berhasil",
+        isEdit ? "Product berhasil diperbarui" : "Product berhasil ditambahkan",
+        "success"
+      );
 
       setIsModalOpen(false);
       setCurrentPage(1);
       fetchData({ search, jenis_id: filterJenis, type_id: filterType });
     } catch (error) {
+      Swal.close();
       if (error.response?.status === 422) {
         const msg = Object.values(error.response.data.errors)
           .flat()
@@ -338,7 +465,6 @@ const ProductPage = () => {
   };
 
   const handleHargaChange = (value) => {
-    // Hanya izinkan digit & format
     const clean = value.replace(/\D/g, "");
     const num = clean === "" ? 0 : parseInt(clean, 10);
     setForm((prev) => ({ ...prev, harga_umum: formatRupiah(num) }));
@@ -480,11 +606,15 @@ const ProductPage = () => {
     </div>
   );
 
+  const kodePreview = getKodePreview();
+
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Product</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+            Product
+          </h1>
         </div>
         <button
           onClick={handleTambah}
@@ -568,7 +698,9 @@ const ProductPage = () => {
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
         </div>
       ) : products.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">Tidak ada Product ditemukan</div>
+        <div className="text-center py-12 text-gray-500">
+          Tidak ada Product ditemukan
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -582,31 +714,49 @@ const ProductPage = () => {
                   <div className="flex justify-center gap-2 mb-3">
                     {item.foto_depan && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
+                          item.foto_depan
+                        }`}
                         alt="Foto Depan"
                         className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
                         onClick={() =>
-                          openFotoModal(`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`)
+                          openFotoModal(
+                            `${import.meta.env.VITE_ASSET_URL}/storage/${
+                              item.foto_depan
+                            }`
+                          )
                         }
                       />
                     )}
                     {item.foto_samping && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
+                          item.foto_samping
+                        }`}
                         alt="Foto Samping"
                         className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
                         onClick={() =>
-                          openFotoModal(`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`)
+                          openFotoModal(
+                            `${import.meta.env.VITE_ASSET_URL}/storage/${
+                              item.foto_samping
+                            }`
+                          )
                         }
                       />
                     )}
                     {item.foto_atas && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
+                          item.foto_atas
+                        }`}
                         alt="Foto Atas"
                         className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
                         onClick={() =>
-                          openFotoModal(`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`)
+                          openFotoModal(
+                            `${import.meta.env.VITE_ASSET_URL}/storage/${
+                              item.foto_atas
+                            }`
+                          )
                         }
                       />
                     )}
@@ -620,21 +770,24 @@ const ProductPage = () => {
                   </div>
 
                   <div className="text-center mb-2">
-                    <p className="font-bold text-xl text-gray-800">{item.kode}</p>
+                    <p className="font-bold text-xl text-gray-800">
+                      {item.kode}
+                    </p>
                   </div>
                   <div className="text-center mb-2 min-h-[24px]">
-                    <p className="text-sm text-gray-600">{formatProductName(item)}</p>
+                    <p className="text-sm text-gray-600">
+                      {formatProductName(item)}
+                    </p>
                   </div>
 
-                  {/* Harga Umum */}
                   <div className="text-center mb-2 flex items-center justify-center gap-1 text-sm">
                     <Tag size={14} className="text-amber-600" />
-                    <span className="font-medium text-amber-700">{formatRupiah(item.harga_umum)}</span>
+                    <span className="font-medium text-amber-700">
+                      {formatRupiah(item.harga_umum)}
+                    </span>
                   </div>
 
-                  {/* Stok */}
                   <div className="text-center mb-2 text-xs text-gray-600 space-y-0.5">
-                    
                     <div className="flex items-center justify-center gap-1">
                       <Warehouse size={12} />
                       <span>TOKO: {item.qty_toko || 0}</span>
@@ -651,7 +804,9 @@ const ProductPage = () => {
 
                   {item.keterangan && (
                     <div className="text-center mb-3 flex-1">
-                      <p className="text-xs italic text-gray-500">"{item.keterangan}"</p>
+                      <p className="text-xs italic text-gray-500">
+                        "{item.keterangan}"
+                      </p>
                     </div>
                   )}
 
@@ -678,7 +833,6 @@ const ProductPage = () => {
         </>
       )}
 
-      {/* MODAL TAMBAH/EDIT */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
@@ -692,13 +846,12 @@ const ProductPage = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Kode <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-                  value={form.kode}
-                  onChange={(e) => setForm({ ...form, kode: e.target.value })}
-                  required
-                />
+                <div className="w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 font-mono">
+                  {kodePreview || "—"}
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Kode akan di-generate otomatis oleh sistem
+                </p>
               </div>
 
               <div>
@@ -865,7 +1018,9 @@ const ProductPage = () => {
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
                   rows={2}
                   value={form.keterangan}
-                  onChange={(e) => setForm({ ...form, keterangan: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, keterangan: e.target.value })
+                  }
                 />
               </div>
 
@@ -879,7 +1034,8 @@ const ProductPage = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition"
+                  className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition disabled:opacity-70 disabled:cursor-not-allowed"
+                  disabled={loading}
                 >
                   Simpan
                 </button>
