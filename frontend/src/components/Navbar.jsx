@@ -71,7 +71,7 @@ const Navbar = ({ setSidebarOpen }) => {
   }
 
   return (
-    <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 px-4 md:px-6 py-4 sticky top-0 z-30">
+    <header className="bg-gray/80 backdrop-blur-lg border-gray-200/50 px-4 md:px-6 py-4 sticky top-0 z-30">
       <div className="flex items-center justify-between">
 
         {/* Left Section */}
@@ -113,15 +113,7 @@ const Navbar = ({ setSidebarOpen }) => {
 
             {/* Dropdown Menu */}
             {dropdownOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200/50 py-2 z-50">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <p className="text-sm font-medium text-gray-700">
-                    {user?.name}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {user?.email}
-                  </p>
-                </div>
+              <div className="absolute right-0 top-full mt-2 w-56 bg-gray rounded-xl shadow-lg border border-gray-200/50 py-2 z-50">
 
                 <div className="py-2">
                   <button

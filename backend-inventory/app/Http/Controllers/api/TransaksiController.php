@@ -190,7 +190,7 @@ class TransaksiController extends Controller
             'details.statusTransaksi',
             'details.pembayarans',
         ])
-            ->where('jenis_transaksi', 'daily')
+            ->whereIn('jenis_transaksi', ['daily','pesanan'])
             ->whereHas('details', fn($q) => $q->whereIn('status_transaksi_id', [5, 6]))
             ->orderByDesc('id');
 

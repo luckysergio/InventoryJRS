@@ -11,8 +11,8 @@ class StatusTransaksi extends Seeder
     {
         $statuses = [
             ['nama' => 'Proses'],
-            ['nama' => 'Di pesan'],
-            ['nama' => 'Di buat'],
+            ['nama' => 'Di Pesan'],
+            ['nama' => 'Di Buat'],
             ['nama' => 'Siap'],
             ['nama' => 'Selesai'],
             ['nama' => 'Dibatalkan'],

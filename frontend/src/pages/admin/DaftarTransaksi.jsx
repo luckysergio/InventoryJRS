@@ -108,7 +108,11 @@ const TransaksiPage = () => {
     return details.filter((d) => d.status_transaksi_id === statusProsesId);
   };
 
-  const fetchHargaByProduct = async (productId, rowIndex, customerId = null) => {
+  const fetchHargaByProduct = async (
+    productId,
+    rowIndex,
+    customerId = null
+  ) => {
     if (!productId) {
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: [] }));
       setShowHargaBaru((prev) => ({ ...prev, [rowIndex]: false }));
@@ -156,11 +160,7 @@ const TransaksiPage = () => {
     updated[index][field] = value;
     setForm({ ...form, details: updated });
     if (field === "product_id") {
-      fetchHargaByProduct(
-        value,
-        index,
-        form.customer_id || null
-      );
+      fetchHargaByProduct(value, index, form.customer_id || null);
       updated[index].harga_product_id = "";
       updated[index].harga_baru = {
         harga: "",
@@ -197,16 +197,24 @@ const TransaksiPage = () => {
   const resetForm = (data = null) => {
     if (data) {
       // Mode edit
-      const isCustomerBaru = !customers.some(c => c.id == data.customer_id);
+      const isCustomerBaru = !customers.some((c) => c.id == data.customer_id);
       const customerBaru = isCustomerBaru
-        ? { name: data.customer?.name || "", phone: data.customer?.phone || "", email: data.customer?.email || "" }
+        ? {
+            name: data.customer?.name || "",
+            phone: data.customer?.phone || "",
+            email: data.customer?.email || "",
+          }
         : { name: "", phone: "", email: "" };
 
-      const details = (data.details || []).map(d => ({
+      const details = (data.details || []).map((d) => ({
         id: d.id || "",
         product_id: d.product_id || "",
         harga_product_id: d.harga_product_id || "",
-        harga_baru: d.harga_baru || { harga: "", tanggal_berlaku: "", keterangan: "" },
+        harga_baru: d.harga_baru || {
+          harga: "",
+          tanggal_berlaku: "",
+          keterangan: "",
+        },
         qty: d.qty || "",
         tanggal: d.tanggal || "",
         status_transaksi_id: d.status_transaksi_id || statusProsesId,
@@ -536,22 +544,15 @@ const TransaksiPage = () => {
                   key={item.id}
                   className="p-6 bg-white rounded-xl shadow border border-gray-100 space-y-3"
                 >
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-center items-start">
                     <div>
                       <p className="text-gray-700 font-medium">
                         Customer: {item.customer?.name || "Umum"}
                       </p>
-                      <p className="text-gray-700 font-bold text-lg">
+                      <p className="text-gray-700 font-bold text-lg text-center">
                         Total: Rp {formatRupiah(item.total)}
                       </p>
                     </div>
-                    <button
-                      onClick={() => handleEditTransaksi(item)}
-                      className="text-blue-600 hover:text-blue-800"
-                      title="Edit Transaksi"
-                    >
-                      <Pencil size={18} />
-                    </button>
                   </div>
                   <hr className="my-3 border-gray-200" />
                   <div className="space-y-3">
@@ -669,6 +670,14 @@ const TransaksiPage = () => {
                       );
                     })}
                   </div>
+                  <div className="flex justify-center gap-2 mt-3">
+                    <button
+                      onClick={() => handleEditTransaksi(item)}
+                      className="flex-1 flex items-center justify-center gap-1 bg-yellow-600 text-white text-xs px-2 py-1.5 rounded-lg hover:bg-yellow-700"
+                    >
+                      <Pencil size={14} /> Edit
+                    </button>
+                  </div>
                 </div>
               );
             })
@@ -698,7 +707,9 @@ const TransaksiPage = () => {
                 <label className="font-semibold block mb-2">Customer</label>
                 <select
                   className="w-full border px-3 py-2 rounded-lg"
-                  value={form.customer_id || (isCreatingNewCustomer ? "new" : "")}
+                  value={
+                    form.customer_id || (isCreatingNewCustomer ? "new" : "")
+                  }
                   onChange={(e) => {
                     const selectedValue = e.target.value;
                     if (selectedValue === "new") {

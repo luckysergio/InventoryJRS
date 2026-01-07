@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\api;
+namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\BahanProduct;
@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str;
 
 class PesananTransaksiController extends Controller
 {
@@ -44,21 +45,29 @@ class PesananTransaksiController extends Controller
     {
         $data = Transaksi::with([
             'customer',
-            'details.product.jenis',
-            'details.product.type',
-            'details.product.bahan',
-            'details.statusTransaksi',
-            'details.pembayarans'
+
+            'details' => function ($q) {
+                $q->whereIn('status_transaksi_id', [2, 3, 4])
+                    ->with([
+                        'product.jenis',
+                        'product.type',
+                        'product.bahan',
+                        'statusTransaksi',
+                        'pembayarans',
+                    ]);
+            }
         ])
             ->where('jenis_transaksi', 'pesanan')
-            ->whereHas('details', function ($query) {
-                $query->whereIn('status_transaksi_id', [2, 3, 4]);
+
+            ->whereHas('details', function ($q) {
+                $q->whereIn('status_transaksi_id', [2, 3, 4]);
             })
-            ->orderBy('id', 'DESC')
+            ->orderByDesc('id')
             ->get();
 
         return response()->json($data);
     }
+
 
     public function show($id)
     {
@@ -75,230 +84,445 @@ class PesananTransaksiController extends Controller
         return response()->json($data);
     }
 
+    private function generatePesananProductKode(
+        string $customerName,
+        string $jenisNama,
+        string $typeNama,
+        string $bahanNama,
+        string $ukuran
+    ): string {
+        $customerPrefix = strtoupper(substr(Str::ascii($customerName), 0, 3));
+        $customerPrefix = str_pad($customerPrefix, 3, 'X');
+
+        $jenisKode = $jenisNama ? strtoupper(substr($jenisNama, 0, 1)) : 'X';
+
+        if ($typeNama) {
+            preg_match('/\d/', $typeNama, $matches);
+            $typeKode = strtoupper(substr($typeNama, 0, 1)) . ($matches[0] ?? '');
+        } else {
+            $typeKode = 'X';
+        }
+
+        $bahanKode = $bahanNama ? strtoupper(substr($bahanNama, 0, 1)) : 'X';
+        $ukuranAngka = preg_replace('/\D/', '', $ukuran);
+
+        return $customerPrefix . $jenisKode . $typeKode . $bahanKode . $ukuranAngka;
+    }
+
+    private function makeUniqueKode(string $baseKode): string
+    {
+        $kode = $baseKode;
+        $i = 1;
+
+        while (Product::where('kode', $kode)->exists()) {
+            $kode = "{$baseKode}_{$i}";
+            $i++;
+        }
+
+        return $kode;
+    }
+
+    private function normalizeDetails(array $details): array
+    {
+        return collect($details)->map(function ($detail) {
+            if (($detail['product_id'] ?? null) === 'new') {
+                $detail['product_id'] = null;
+            }
+
+            if (isset($detail['product_baru']) && is_array($detail['product_baru'])) {
+                foreach (['jenis_id', 'type_id', 'bahan_id'] as $field) {
+                    if (($detail['product_baru'][$field] ?? null) === 'new') {
+                        $detail['product_baru'][$field] = null;
+                    }
+                }
+            }
+
+            return $detail;
+        })->toArray();
+    }
+
     public function store(Request $request)
     {
+        $request->merge([
+            'details' => $this->normalizeDetails($request->input('details', []))
+        ]);
+
         $validator = Validator::make($request->all(), [
             'customer_id' => 'nullable|exists:customers,id',
-            'customer_baru.name' => 'nullable|string',
-            'customer_baru.phone' => 'nullable|string',
-            'customer_baru.email' => 'nullable|email',
+            'customer_baru.name' => 'required_without:customer_id|string',
 
             'details' => 'required|array|min:1',
-
             'details.*.product_id' => 'nullable|exists:products,id',
 
-            'details.*.product_baru.kode' => 'required_if:details.*.product_id,null|string|max:50|unique:products,kode',
-
             'details.*.product_baru.jenis_id' => 'nullable|exists:jenis_products,id',
-            'details.*.product_baru.jenis_nama' => 'required_if:details.*.product_baru.jenis_id,null|string',
+            'details.*.product_baru.jenis_nama' => 'nullable|string',
 
-            'details.*.product_baru.type_id' => 'nullable|exists:type_products,id',
-            'details.*.product_baru.type_nama' => 'required_if:details.*.product_baru.type_id,null|string',
+            'details.*.product_baru.type_id' => 'nullable',
+            'details.*.product_baru.type_nama' => 'nullable|string',
 
             'details.*.product_baru.bahan_id' => 'nullable|exists:bahan_products,id',
-            'details.*.product_baru.bahan_nama' => 'required_if:details.*.product_baru.bahan_id,null|string',
+            'details.*.product_baru.bahan_nama' => 'nullable|string',
 
-            'details.*.product_baru.status_id' => 'nullable|exists:status_products,id',
-            'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null|string|max:20',
-            'details.*.product_baru.keterangan' => 'nullable|string',
-
-            'details.*.harga_product_id' => 'nullable|exists:harga_products,id',
-            'details.*.harga_baru.harga' => 'required_if:details.*.harga_product_id,null|integer|min:0',
-            'details.*.harga_baru.keterangan' => 'nullable|string',
-            'details.*.harga_baru.tanggal_berlaku' => 'nullable|date',
+            'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null',
 
             'details.*.qty' => 'required|integer|min:1',
             'details.*.tanggal' => 'required|date',
-            'details.*.discount' => 'nullable|integer|min:0',
-            'details.*.catatan' => 'nullable|string',
             'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
+
+            'details.*.harga_baru.harga' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
         DB::beginTransaction();
 
         try {
-            if ($request->customer_id) {
-                $customer_id = $request->customer_id;
-            } else {
-                $customer = Customer::create($request->customer_baru);
-                $customer_id = $customer->id;
-            }
+            $customer = $request->customer_id
+                ? Customer::findOrFail($request->customer_id)
+                : Customer::create($request->customer_baru);
 
             $transaksi = Transaksi::create([
-                'customer_id' => $customer_id,
+                'customer_id' => $customer->id,
                 'jenis_transaksi' => 'pesanan',
-                'total' => 0,
+                'total' => 0
             ]);
 
             $places = Place::whereIn('kode', ['BENGKEL', 'TOKO'])->get();
-            if ($places->count() < 2) {
-                throw new \Exception('Place Bengkel atau Toko belum tersedia di database.');
-            }
-
-            $total_transaksi = 0;
+            $total = 0;
 
             foreach ($request->details as $d) {
+
                 if (!empty($d['product_id'])) {
                     $product = Product::findOrFail($d['product_id']);
                 } else {
-                    $jenis_id = $d['product_baru']['jenis_id'] ?? null;
-                    if (!$jenis_id) {
-                        $jenis = JenisProduct::firstOrCreate([
-                            'nama' => $d['product_baru']['jenis_nama']
+
+                    if (!empty($d['product_baru']['jenis_id'])) {
+                        $jenis = JenisProduct::findOrFail($d['product_baru']['jenis_id']);
+                    } else {
+                        $jenis = JenisProduct::create([
+                            'nama' => trim($d['product_baru']['jenis_nama'])
                         ]);
-                        $jenis_id = $jenis->id;
                     }
 
-                    $type_id = $d['product_baru']['type_id'] ?? null;
-                    if (!$type_id && !empty($d['product_baru']['type_nama'])) {
-                        $type = TypeProduct::firstOrCreate([
-                            'nama' => $d['product_baru']['type_nama'],
-                            'jenis_id' => $jenis_id
+                    $jenis->refresh();
+
+                    $type = null;
+
+                    if (
+                        isset($d['product_baru']['type_id']) &&
+                        is_numeric($d['product_baru']['type_id'])
+                    ) {
+                        $type = TypeProduct::findOrFail($d['product_baru']['type_id']);
+                    } elseif (
+                        isset($d['product_baru']['type_nama']) &&
+                        trim($d['product_baru']['type_nama']) !== ''
+                    ) {
+                        $type = TypeProduct::create([
+                            'nama' => trim($d['product_baru']['type_nama']),
+                            'jenis_id' => $jenis->id
                         ]);
-                        $type_id = $type->id;
                     }
 
-                    $bahan_id = $d['product_baru']['bahan_id'] ?? null;
-                    if (!$bahan_id && !empty($d['product_baru']['bahan_nama'])) {
+                    if (!empty($d['product_baru']['bahan_id'])) {
+                        $bahan = BahanProduct::findOrFail($d['product_baru']['bahan_id']);
+                    } elseif (!empty($d['product_baru']['bahan_nama'])) {
                         $bahan = BahanProduct::firstOrCreate([
-                            'nama' => $d['product_baru']['bahan_nama']
+                            'nama' => trim($d['product_baru']['bahan_nama'])
                         ]);
-                        $bahan_id = $bahan->id;
+                    } else {
+                        $bahan = null;
                     }
 
                     $product = Product::create([
-                        'kode' => $d['product_baru']['kode'],
-                        'jenis_id' => $jenis_id,
-                        'type_id' => $type_id,
-                        'bahan_id' => $bahan_id,
+                        'kode' => $this->makeUniqueKode(
+                            $this->generatePesananProductKode(
+                                $customer->name,
+                                $jenis->nama,
+                                $type?->nama ?? '',
+                                $bahan?->nama ?? '',
+                                $d['product_baru']['ukuran']
+                            )
+                        ),
+                        'jenis_id' => $jenis->id,
+                        'type_id' => $type?->id,
+                        'bahan_id' => $bahan?->id,
                         'ukuran' => $d['product_baru']['ukuran'],
                         'keterangan' => $d['product_baru']['keterangan'] ?? null,
                     ]);
 
                     foreach ($places as $place) {
-                        Inventory::firstOrCreate([
-                            'product_id' => $product->id,
-                            'place_id'   => $place->id,
-                        ], [
-                            'qty' => 0
-                        ]);
+                        Inventory::firstOrCreate(
+                            [
+                                'product_id' => $product->id,
+                                'place_id' => $place->id
+                            ],
+                            ['qty' => 0]
+                        );
                     }
                 }
 
-                if (!empty($d['harga_baru'])) {
-                    $hp = HargaProduct::create([
+                if (!empty($d['harga_baru']['harga'])) {
+                    $harga = HargaProduct::create([
                         'product_id' => $product->id,
+                        'customer_id' => $customer->id,
                         'harga' => $d['harga_baru']['harga'],
-                        'tanggal_berlaku' => $d['harga_baru']['tanggal_berlaku'] ?? now(),
-                        'keterangan' => $d['harga_baru']['keterangan'] ?? 'Harga pesanan',
+                        'tanggal_berlaku' => now(),
+                        'keterangan' => $d['harga_baru']['keterangan'] ?? 'Harga khusus'
                     ]);
-                } elseif (!empty($d['harga_product_id'])) {
-                    $hp = HargaProduct::where('id', $d['harga_product_id'])
-                        ->where('product_id', $product->id)
-                        ->firstOrFail();
                 } else {
-                    $hp = HargaProduct::firstOrCreate(
-                        ['product_id' => $product->id],
-                        [
-                            'harga' => 0,
-                            'tanggal_berlaku' => now(),
-                            'keterangan' => 'Harga default pesanan'
-                        ]
-                    );
+                    $harga = HargaProduct::where('product_id', $product->id)
+                        ->where(function ($q) use ($customer) {
+                            $q->where('customer_id', $customer->id)
+                                ->orWhereNull('customer_id');
+                        })
+                        ->latest('tanggal_berlaku')
+                        ->first();
+
+                    if (!$harga) {
+                        throw new \Exception("Harga belum tersedia untuk produk {$product->kode}");
+                    }
                 }
 
-                $qty = $d['qty'];
-                $discount = $d['discount'] ?? 0;
-                $subtotal = ($hp->harga * $qty) - $discount;
-                $total_transaksi += $subtotal;
+                $subtotal = $harga->harga * $d['qty'];
+                $total += $subtotal;
 
                 TransaksiDetail::create([
                     'transaksi_id' => $transaksi->id,
                     'product_id' => $product->id,
-                    'harga_product_id' => $hp->id,
+                    'harga_product_id' => $harga->id,
                     'status_transaksi_id' => $d['status_transaksi_id'],
                     'tanggal' => $d['tanggal'],
-                    'qty' => $qty,
-                    'harga' => $hp->harga,
-                    'discount' => $discount,
+                    'qty' => $d['qty'],
+                    'harga' => $harga->harga,
                     'subtotal' => $subtotal,
-                    'catatan' => $d['catatan'] ?? null,
                 ]);
             }
 
-            $transaksi->update(['total' => $total_transaksi]);
-
+            $transaksi->update(['total' => $total]);
             DB::commit();
 
             return response()->json([
                 'message' => 'Pesanan berhasil dibuat',
-                'data' => $transaksi->load([
-                    'customer',
-                    'details.product.jenis',
-                    'details.product.type',
-                    'details.product.bahan',
-                    'details.product.inventories.place'
-                ])
+                'transaksi_id' => $transaksi->id
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'error' => 'Gagal membuat pesanan: ' . $e->getMessage()
+                'message' => 'Gagal membuat pesanan',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
 
-    public function destroy($id)
+    public function update(Request $request, $id)
     {
-        $transaksi = Transaksi::where('jenis_transaksi', 'pesanan')->findOrFail($id);
-        $transaksi->delete();
-        return response()->json(['message' => 'Pesanan berhasil dihapus']);
-    }
+        $request->merge([
+            'details' => $this->normalizeDetails($request->input('details', []))
+        ]);
 
-    public function updateStatus(Request $request, $id)
-    {
         $validator = Validator::make($request->all(), [
-            'status_transaksi_id' => 'required|exists:status_transaksis,id',
+            'customer_id' => 'nullable|exists:customers,id',
+            'customer_baru.name' => 'required_without:customer_id|string',
+
+            'details' => 'required|array|min:1',
+            'details.*.id' => 'nullable|exists:transaksi_details,id',
+            'details.*.product_id' => 'nullable|exists:products,id',
+
+            'details.*.product_baru.jenis_id' => 'nullable|exists:jenis_products,id',
+            'details.*.product_baru.jenis_nama' => 'nullable|string',
+
+            'details.*.product_baru.type_id' => 'nullable',
+            'details.*.product_baru.type_nama' => 'nullable|string',
+
+            'details.*.product_baru.bahan_id' => 'nullable|exists:bahan_products,id',
+            'details.*.product_baru.bahan_nama' => 'nullable|string',
+
+            'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null',
+
+            'details.*.qty' => 'required|integer|min:1',
+            'details.*.tanggal' => 'required|date',
+            'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
+
+            'details.*.harga_baru.harga' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        $detail = TransaksiDetail::with('transaksi')->findOrFail($id);
+        DB::beginTransaction();
 
-        if ($detail->transaksi->jenis_transaksi !== 'pesanan') {
-            return response()->json(['error' => 'Hanya untuk transaksi pesanan.'], 403);
+        try {
+            $transaksi = Transaksi::with('details')->findOrFail($id);
+
+            $customer = $request->customer_id
+                ? Customer::findOrFail($request->customer_id)
+                : Customer::firstOrCreate(
+                    ['name' => $request->customer_baru['name']],
+                    $request->customer_baru
+                );
+
+            $transaksi->update([
+                'customer_id' => $customer->id
+            ]);
+
+            $total = 0;
+            $existingDetailIds = [];
+
+            foreach ($request->details as $d) {
+                if (!empty($d['product_id'])) {
+                    $product = Product::findOrFail($d['product_id']);
+                } else {
+                    $jenis = !empty($d['product_baru']['jenis_id'])
+                        ? JenisProduct::findOrFail($d['product_baru']['jenis_id'])
+                        : JenisProduct::firstOrCreate([
+                            'nama' => $d['product_baru']['jenis_nama']
+                        ]);
+
+                    if (!empty($d['product_baru']['type_id']) && is_numeric($d['product_baru']['type_id'])) {
+                        $type = TypeProduct::findOrFail($d['product_baru']['type_id']);
+                    } elseif (!empty($d['product_baru']['type_nama'])) {
+                        $type = TypeProduct::firstOrCreate([
+                            'nama' => $d['product_baru']['type_nama'],
+                            'jenis_id' => $jenis->id
+                        ]);
+                    } else {
+                        $type = null;
+                    }
+
+                    if (!empty($d['product_baru']['bahan_id'])) {
+                        $bahan = BahanProduct::findOrFail($d['product_baru']['bahan_id']);
+                    } elseif (!empty($d['product_baru']['bahan_nama'])) {
+                        $bahan = BahanProduct::firstOrCreate([
+                            'nama' => $d['product_baru']['bahan_nama']
+                        ]);
+                    } else {
+                        $bahan = null;
+                    }
+
+                    $product = Product::create([
+                        'kode' => $this->makeUniqueKode(
+                            $this->generatePesananProductKode(
+                                $customer->name,
+                                $jenis->nama,
+                                $type?->nama ?? '',
+                                $bahan?->nama ?? '',
+                                $d['product_baru']['ukuran']
+                            )
+                        ),
+                        'jenis_id' => $jenis->id,
+                        'type_id' => $type?->id,
+                        'bahan_id' => $bahan?->id,
+                        'ukuran' => $d['product_baru']['ukuran'],
+                        'keterangan' => $d['product_baru']['keterangan'] ?? null,
+                    ]);
+                }
+
+                if (!empty($d['harga_baru']['harga'])) {
+                    $harga = HargaProduct::create([
+                        'product_id' => $product->id,
+                        'customer_id' => $customer->id,
+                        'harga' => $d['harga_baru']['harga'],
+                        'tanggal_berlaku' => now(),
+                        'keterangan' => $d['harga_baru']['keterangan'] ?? 'Harga khusus'
+                    ]);
+                } else {
+                    $harga = HargaProduct::where('product_id', $product->id)
+                        ->where(function ($q) use ($customer) {
+                            $q->where('customer_id', $customer->id)
+                                ->orWhereNull('customer_id');
+                        })
+                        ->latest('tanggal_berlaku')
+                        ->first();
+
+                    if (!$harga) {
+                        throw new \Exception("Harga belum tersedia");
+                    }
+                }
+
+                $subtotal = $harga->harga * $d['qty'];
+                $total += $subtotal;
+
+                $detail = TransaksiDetail::updateOrCreate(
+                    [
+                        'id' => $d['id'] ?? null,
+                        'transaksi_id' => $transaksi->id
+                    ],
+                    [
+                        'product_id' => $product->id,
+                        'harga_product_id' => $harga->id,
+                        'status_transaksi_id' => $d['status_transaksi_id'],
+                        'tanggal' => $d['tanggal'],
+                        'qty' => $d['qty'],
+                        'harga' => $harga->harga,
+                        'subtotal' => $subtotal,
+                    ]
+                );
+
+                $existingDetailIds[] = $detail->id;
+            }
+
+            $transaksi->details()
+                ->whereNotIn('id', $existingDetailIds)
+                ->delete();
+
+            $transaksi->update(['total' => $total]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Pesanan berhasil diperbarui'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Gagal memperbarui pesanan',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        $detail->update(['status_transaksi_id' => $request->status_transaksi_id]);
-
-        return response()->json([
-            'message' => 'Status pesanan diperbarui',
-            'data' => $detail->load('statusTransaksi')
-        ]);
     }
 
-    public function printNota($id)
+    public function cancel($id)
     {
-        $transaksi = Transaksi::with([
-            'customer',
-            'details.product.jenis',
-            'details.product.type',
-            'details.product.bahan',
-            'details.pembayarans',
-            'details.statusTransaksi'
-        ])
-        ->where('jenis_transaksi', 'pesanan')
-        ->findOrFail($id);
+        $transaksi = Transaksi::where('jenis_transaksi', 'pesanan')->findOrFail($id);
 
-        $pdf = Pdf::loadView('pdf.nota-pesanan', compact('transaksi'))
-                  ->setPaper('a4', 'portrait');
+        DB::transaction(function () use ($transaksi) {
+            $transaksi->details()
+                ->whereNotIn('status_transaksi_id', [5, 6])
+                ->update(['status_transaksi_id' => 6]);
+        });
 
-        return $pdf->stream("Nota_Pesanan_{$transaksi->id}.pdf");
+        return response()->json(['message' => 'Pesanan dibatalkan']);
+    }
+
+    public function selesai($detailId)
+    {
+        $detail = TransaksiDetail::with('pembayarans')
+            ->whereNotIn('status_transaksi_id', [5, 6])
+            ->findOrFail($detailId);
+
+        $totalBayar = $detail->pembayarans->sum('jumlah_bayar');
+
+        if ($totalBayar < $detail->subtotal) {
+            return response()->json([
+                'message' => 'Detail belum lunas'
+            ], 422);
+        }
+
+        $detail->update([
+            'status_transaksi_id' => 5 // Selesai
+        ]);
+
+        return response()->json([
+            'message' => 'Detail berhasil diselesaikan'
+        ]);
     }
 }

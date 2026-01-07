@@ -266,7 +266,7 @@ const InventoryPage = () => {
             >
               {/* Info Produk */}
               <div className="text-center mb-3">
-                <p className="text-sm text-gray-500 font-medium">Kode: {item.product.kode}</p>
+                <p className="text-sm text-gray-500 font-medium">{item.product.kode}</p>
                 <p className="font-medium text-gray-800 mt-1 text-sm min-h-[40px]">
                   {formatProductName(item.product)}
                 </p>

@@ -96,9 +96,14 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     // Transaksi Pesanan
     Route::get('/pesanan', [PesananTransaksiController::class, 'index']);
     Route::get('/pesanan/aktif', [PesananTransaksiController::class, 'aktif']);
+    Route::get('/pesanan/{id}', [PesananTransaksiController::class, 'show']);
     Route::post('/pesanan', [PesananTransaksiController::class, 'store']);
-    Route::delete('/pesanan/{id}', [PesananTransaksiController::class, 'destroy']);
     Route::put('/pesanan/{id}', [PesananTransaksiController::class, 'update']);
+    Route::delete('/pesanan/{id}', [PesananTransaksiController::class, 'destroy']);
+    Route::post('/pesanan/{id}/cancel', [PesananTransaksiController::class, 'cancel']);
+    Route::patch('/pesanan/{id}/selesai', [PesananTransaksiController::class, 'selesai']);
+    Route::post('/pesanan/detail/{id}/status', [PesananTransaksiController::class, 'updateStatus']);
+    Route::get('/pesanan/{id}/print', [PesananTransaksiController::class, 'printNota']);
 
     // Pembayaran
     Route::get('/pembayaran', [PembayaranController::class, 'index']);
