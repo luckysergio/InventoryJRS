@@ -81,7 +81,7 @@ class ProductionController extends Controller
                 $detail = TransaksiDetail::with('product')
                     ->findOrFail($request->transaksi_detail_id);
 
-                $statusDibuat = StatusTransaksi::where('nama', 'Di buat')->firstOrFail();
+                $statusDibuat = StatusTransaksi::where('nama', 'Di Buat')->firstOrFail();
 
                 $production = Production::create([
                     'product_id'          => $detail->product_id,
@@ -292,7 +292,7 @@ class ProductionController extends Controller
             'statusTransaksi'
         ])
             ->whereHas('statusTransaksi', function ($q) {
-                $q->where('nama', 'Di pesan');
+                $q->where('nama', 'Di Pesan');
             })
             ->get();
 

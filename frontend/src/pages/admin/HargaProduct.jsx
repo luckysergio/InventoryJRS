@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
+// src/pages/admin/HargaProductPage.jsx
+import { useEffect, useState, useMemo, useRef } from "react";
 import Swal from "sweetalert2";
 import { Plus, Pencil, Trash2, Globe, User, Search } from "lucide-react";
 import api from "../../services/api";
@@ -10,10 +11,89 @@ const formatRupiah = (value) => {
 
 const unformatRupiah = (value) => {
   if (!value) return "";
-  return value.replace(/\./g, "");
+  return value.replace(/\D/g, "");
 };
 
-const HargaProductPage = () => {
+// ✅ Komponen Filter untuk Navbar
+export const HargaFilterBar = ({
+  searchKode,
+  setSearchKode,
+  filterJenis,
+  setFilterJenis,
+  filterType,
+  setFilterType,
+  jenis,
+  filteredTypes,
+}) => (
+  <div className="flex items-center gap-2 w-full">
+    {/* Search: Selalu tampil */}
+    <div className="relative flex-1 min-w-[150px]">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Cari kode..."
+        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm"
+        value={searchKode}
+        onChange={(e) => setSearchKode(e.target.value)}
+      />
+    </div>
+
+    {/* Filter lengkap: Hanya di tablet+ */}
+    <div className="hidden sm:flex items-center gap-2">
+      <select
+        className="py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm min-w-[140px]"
+        value={filterJenis}
+        onChange={(e) => {
+          setFilterJenis(e.target.value);
+          setFilterType("");
+        }}
+      >
+        <option value="">Semua Jenis</option>
+        {jenis.map((j) => (
+          <option key={j.id} value={j.id}>
+            {j.nama}
+          </option>
+        ))}
+      </select>
+
+      <select
+        className="py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm min-w-[140px]"
+        value={filterType}
+        onChange={(e) => setFilterType(e.target.value)}
+        disabled={!filterJenis}
+      >
+        <option value="">Semua Tipe</option>
+        {filteredTypes.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.nama}
+          </option>
+        ))}
+      </select>
+
+      <button
+        onClick={() => {
+          setSearchKode("");
+          setFilterJenis("");
+          setFilterType("");
+        }}
+        className="py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm whitespace-nowrap font-medium"
+      >
+        Reset
+      </button>
+    </div>
+
+    {/* Reset untuk mobile (hanya reset search) */}
+    <button
+      onClick={() => setSearchKode("")}
+      className="sm:hidden py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+    >
+      ⓧ
+    </button>
+  </div>
+);
+
+// ✅ Komponen utama
+const HargaProductPage = ({ setNavbarContent }) => {
   const [hargaList, setHargaList] = useState([]);
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -40,13 +120,14 @@ const HargaProductPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [hargaRes, productRes, customerRes, jenisRes, typeRes] = await Promise.all([
-        api.get("/harga"),
-        api.get("/products"),
-        api.get("/customers"),
-        api.get("/jenis"),
-        api.get("/type"),
-      ]);
+      const [hargaRes, productRes, customerRes, jenisRes, typeRes] =
+        await Promise.all([
+          api.get("/harga"),
+          api.get("/products"),
+          api.get("/customers"),
+          api.get("/jenis"),
+          api.get("/type"),
+        ]);
       setHargaList(hargaRes.data.data);
       setProducts(productRes.data.data);
       setCustomers(customerRes.data.data);
@@ -69,43 +150,44 @@ const HargaProductPage = () => {
     return allTypes.filter((t) => t.jenis_id === Number(filterJenis));
   }, [filterJenis, allTypes]);
 
-  // Filter dan kelompokkan produk berdasarkan search & filter
-  const groupedByProduct = useMemo(() => {
-    let filteredProducts = [...products];
-
-    // Filter berdasarkan kode
+  // Filter produk
+  const filteredProducts = useMemo(() => {
+    let result = [...products];
     if (searchKode) {
       const term = searchKode.toLowerCase();
-      filteredProducts = filteredProducts.filter((p) =>
-        p.kode.toLowerCase().includes(term)
-      );
+      result = result.filter((p) => p.kode.toLowerCase().includes(term));
     }
-
-    // Filter berdasarkan jenis
     if (filterJenis) {
-      filteredProducts = filteredProducts.filter(
-        (p) => p.jenis_id === Number(filterJenis)
-      );
+      result = result.filter((p) => p.jenis_id === Number(filterJenis));
     }
-
-    // Filter berdasarkan type
     if (filterType) {
-      filteredProducts = filteredProducts.filter(
-        (p) => p.type_id === Number(filterType)
-      );
+      result = result.filter((p) => p.type_id === Number(filterType));
     }
+    return result;
+  }, [products, searchKode, filterJenis, filterType]);
 
-    // Hanya ambil produk yang punya harga
+  // Kelompokkan harga berdasarkan produk yang difilter
+  const groupedByProduct = useMemo(() => {
+    const productMap = new Map();
+    filteredProducts.forEach((p) => productMap.set(p.id, p));
+
+    const hargaByProduct = {};
+    hargaList.forEach((h) => {
+      if (productMap.has(h.product_id)) {
+        if (!hargaByProduct[h.product_id]) {
+          hargaByProduct[h.product_id] = [];
+        }
+        hargaByProduct[h.product_id].push(h);
+      }
+    });
+
     return filteredProducts
-      .map((product) => {
-        const hargaItems = hargaList.filter((h) => h.product_id === product.id);
-        return {
-          product,
-          harga: hargaItems,
-        };
-      })
+      .map((p) => ({
+        product: p,
+        harga: hargaByProduct[p.id] || [],
+      }))
       .filter((group) => group.harga.length > 0);
-  }, [products, hargaList, searchKode, filterJenis, filterType]);
+  }, [filteredProducts, hargaList]);
 
   const handleTambah = () => {
     setForm({
@@ -124,7 +206,7 @@ const HargaProductPage = () => {
     setForm({
       product_id: item.product_id,
       customer_id: item.customer_id || "",
-      harga: item.harga,
+      harga: String(item.harga),
       tanggal_berlaku: item.tanggal_berlaku || "",
       keterangan: item.keterangan || "",
     });
@@ -135,7 +217,6 @@ const HargaProductPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const payload = {
       ...form,
       harga: Number(form.harga),
@@ -149,13 +230,13 @@ const HargaProductPage = () => {
         await api.post("/harga", payload);
         Swal.fire("Berhasil", "Harga berhasil ditambahkan", "success");
       }
-
       setIsModalOpen(false);
       fetchData();
     } catch (error) {
       if (error.response?.status === 422) {
-        const msg = error.response.data.message || 
-                   Object.values(error.response.data.errors).flat().join("<br>");
+        const msg =
+          error.response.data.message ||
+          Object.values(error.response.data.errors).flat().join("<br>");
         Swal.fire("Validasi Gagal", msg, "warning");
       } else {
         Swal.fire("Error", "Terjadi kesalahan", "error");
@@ -184,111 +265,48 @@ const HargaProductPage = () => {
     }
   };
 
-  const handleReset = () => {
-    setSearchKode("");
-    setFilterJenis("");
-    setFilterType("");
-  };
-
   const formatProductName = (p) => {
     if (!p) return "-";
-    const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(Boolean);
+    const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(
+      Boolean
+    );
     return parts.join(" ") || p.kode;
   };
 
+  // ✅ Kirim filter ke Navbar
+  useEffect(() => {
+    setNavbarContent(
+      <HargaFilterBar
+        searchKode={searchKode}
+        setSearchKode={setSearchKode}
+        filterJenis={filterJenis}
+        setFilterJenis={setFilterJenis}
+        filterType={filterType}
+        setFilterType={setFilterType}
+        jenis={jenis}
+        filteredTypes={filteredTypes}
+      />
+    );
+  }, [
+    searchKode,
+    filterJenis,
+    filterType,
+    jenis,
+    filteredTypes,
+    setNavbarContent,
+  ]);
+
   return (
     <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Harga Product</h1>
-          <p className="text-gray-600 mt-1">Kelola harga umum dan harga per customer</p>
-        </div>
-
-        <button
-          onClick={handleTambah}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition"
-        >
-          <Plus size={18} />
-          Tambah Harga
-        </button>
-      </div>
-
-      {/* FILTERS */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-white p-4 rounded-xl shadow-sm">
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">
-            Cari Kode
-          </label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Cari kode..."
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-              value={searchKode}
-              onChange={(e) => setSearchKode(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">
-            Jenis
-          </label>
-          <select
-            className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-            value={filterJenis}
-            onChange={(e) => {
-              setFilterJenis(e.target.value);
-              setFilterType(""); // reset type saat jenis berubah
-            }}
-          >
-            <option value="">Semua Jenis</option>
-            {jenis.map((j) => (
-              <option key={j.id} value={j.id}>
-                {j.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">
-            Tipe
-          </label>
-          <select
-            className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            disabled={!filterJenis}
-          >
-            <option value="">Semua Tipe</option>
-            {filteredTypes.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="md:col-span-2 flex items-end">
-          <button
-            onClick={handleReset}
-            className="w-full py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition"
-          >
-            Reset Filter
-          </button>
-        </div>
-      </div>
-
-      {/* CONTENT */}
+      {/* Konten Utama */}
       {loading ? (
         <div className="text-center py-12">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
         </div>
       ) : groupedByProduct.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">Tidak ada data harga sesuai filter</div>
+        <div className="text-center py-12 text-gray-500">
+          Tidak ada data harga sesuai filter
+        </div>
       ) : (
         <div className="space-y-8">
           {groupedByProduct.map((group) => (
@@ -325,7 +343,9 @@ const HargaProductPage = () => {
 
                     {item.tanggal_berlaku && (
                       <p className="text-[10px] text-gray-500 text-center mt-1">
-                        {new Date(item.tanggal_berlaku).toLocaleDateString("id-ID")}
+                        {new Date(item.tanggal_berlaku).toLocaleDateString(
+                          "id-ID"
+                        )}
                       </p>
                     )}
 
@@ -360,6 +380,15 @@ const HargaProductPage = () => {
         </div>
       )}
 
+      {/* 🔹 Floating Button Tambah */}
+      <button
+        onClick={handleTambah}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+      >
+        <Plus size={18} />
+      </button>
+
+      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-xl">
@@ -376,7 +405,9 @@ const HargaProductPage = () => {
                 </label>
                 <select
                   value={form.product_id}
-                  onChange={(e) => setForm({ ...form, product_id: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, product_id: e.target.value })
+                  }
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                   required
                 >
@@ -416,7 +447,7 @@ const HargaProductPage = () => {
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={formatRupiah(form.harga)}
+                  value={formatRupiah(unformatRupiah(form.harga))}
                   onChange={(e) => {
                     const raw = unformatRupiah(e.target.value);
                     if (!isNaN(raw)) {
@@ -450,7 +481,9 @@ const HargaProductPage = () => {
                 <input
                   type="text"
                   value={form.keterangan}
-                  onChange={(e) => setForm({ ...form, keterangan: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, keterangan: e.target.value })
+                  }
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                   placeholder="Opsional"
                 />

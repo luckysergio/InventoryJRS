@@ -12,38 +12,61 @@ class CustomerController extends Controller
 {
     public function index()
     {
+        // Ambil ID status "Dibatalkan"
+        $statusDibatalkan = DB::table('status_transaksis')
+            ->where('nama', 'Dibatalkan')
+            ->pluck('id')
+            ->first();
+
+        // Subquery pembayaran
+        $pembayaranSubquery = DB::raw('(
+        SELECT transaksi_detail_id, SUM(jumlah_bayar) as total_bayar 
+        FROM pembayarans 
+        GROUP BY transaksi_detail_id
+    ) as p');
+
+        // Query tagihan harian
         $tagihanHarian = DB::table('transaksi_details as td')
             ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-            ->leftJoin(DB::raw('(
-                SELECT transaksi_detail_id, SUM(jumlah_bayar) as total_bayar 
-                FROM pembayarans 
-                GROUP BY transaksi_detail_id
-            ) as p'), 'td.id', '=', 'p.transaksi_detail_id')
-            ->whereRaw('td.subtotal > COALESCE(p.total_bayar, 0)')
+            ->leftJoin($pembayaranSubquery, 'td.id', '=', 'p.transaksi_detail_id')
             ->where('t.jenis_transaksi', 'daily')
             ->whereRaw('t.customer_id = customers.id')
+            ->whereRaw('td.subtotal > COALESCE(p.total_bayar, 0)')
+            ->when($statusDibatalkan, function ($query) use ($statusDibatalkan) {
+                return $query->where('td.status_transaksi_id', '!=', $statusDibatalkan);
+            })
             ->selectRaw('SUM(td.subtotal - COALESCE(p.total_bayar, 0))');
 
+        // Query tagihan pesanan
         $tagihanPesanan = DB::table('transaksi_details as td')
             ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-            ->leftJoin(DB::raw('(
-                SELECT transaksi_detail_id, SUM(jumlah_bayar) as total_bayar 
-                FROM pembayarans 
-                GROUP BY transaksi_detail_id
-            ) as p'), 'td.id', '=', 'p.transaksi_detail_id')
-            ->whereRaw('td.subtotal > COALESCE(p.total_bayar, 0)')
+            ->leftJoin($pembayaranSubquery, 'td.id', '=', 'p.transaksi_detail_id')
             ->where('t.jenis_transaksi', 'pesanan')
             ->whereRaw('t.customer_id = customers.id')
+            ->whereRaw('td.subtotal > COALESCE(p.total_bayar, 0)')
+            ->when($statusDibatalkan, function ($query) use ($statusDibatalkan) {
+                return $query->where('td.status_transaksi_id', '!=', $statusDibatalkan);
+            })
             ->selectRaw('SUM(td.subtotal - COALESCE(p.total_bayar, 0))');
 
         $customers = Customer::withCount([
-                'transaksi as transaksi_harian_count' => function ($q) {
-                    $q->where('jenis_transaksi', 'daily');
-                },
-                'transaksi as transaksi_pesanan_count' => function ($q) {
-                    $q->where('jenis_transaksi', 'pesanan');
+            'transaksi as transaksi_harian_count' => function ($q) use ($statusDibatalkan) {
+                $q->where('jenis_transaksi', 'daily');
+                if ($statusDibatalkan) {
+                    $q->whereHas('details', function ($detailQuery) use ($statusDibatalkan) {
+                        $detailQuery->where('status_transaksi_id', '!=', $statusDibatalkan);
+                    });
                 }
-            ])
+            },
+            'transaksi as transaksi_pesanan_count' => function ($q) use ($statusDibatalkan) {
+                $q->where('jenis_transaksi', 'pesanan');
+                if ($statusDibatalkan) {
+                    $q->whereHas('details', function ($detailQuery) use ($statusDibatalkan) {
+                        $detailQuery->where('status_transaksi_id', '!=', $statusDibatalkan);
+                    });
+                }
+            }
+        ])
             ->addSelect([
                 'tagihan_harian_belum_lunas' => $tagihanHarian,
                 'tagihan_pesanan_belum_lunas' => $tagihanPesanan,
@@ -51,8 +74,8 @@ class CustomerController extends Controller
             ->get();
 
         $customers->each(function ($customer) {
-            $customer->tagihan_harian_belum_lunas = (int) ($customer->tagihan_harian_belum_lunas ?? 0);
-            $customer->tagihan_pesanan_belum_lunas = (int) ($customer->tagihan_pesanan_belum_lunas ?? 0);
+            $customer->tagihan_harian_belum_lunas = max(0, (int) ($customer->tagihan_harian_belum_lunas ?? 0));
+            $customer->tagihan_pesanan_belum_lunas = max(0, (int) ($customer->tagihan_pesanan_belum_lunas ?? 0));
         });
 
         return response()->json([

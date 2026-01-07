@@ -81,16 +81,6 @@ const RiwayatProductionPage = () => {
   if (loading) {
     return (
       <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-              Riwayat Produksi
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Riwayat produksi yang telah selesai atau dibatalkan
-            </p>
-          </div>
-        </div>
         <div className="text-center py-12">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
         </div>
@@ -100,17 +90,6 @@ const RiwayatProductionPage = () => {
 
   return (
     <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-            Riwayat Produksi
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Riwayat produksi yang telah selesai atau dibatalkan
-          </p>
-        </div>
-      </div>
 
       {/* FILTERS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-xl shadow-sm">

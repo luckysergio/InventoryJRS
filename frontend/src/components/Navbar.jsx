@@ -1,145 +1,86 @@
-import { Menu, ChevronDown, User, Settings, LogOut } from "lucide-react"
-import { useState, useRef, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import axios from "axios"
-import Swal from "sweetalert2"
+// components/Navbar.jsx
+import { Menu, ChevronDown, User, LogOut } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
+import axios from "axios";
 
-const Navbar = ({ setSidebarOpen }) => {
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef(null)
-  const navigate = useNavigate()
+const Navbar = ({ setSidebarOpen, centerContent }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const navigate = useNavigate();
 
-  const user = JSON.parse(localStorage.getItem("user"))
-  const token = localStorage.getItem("token")
+  const user = JSON.parse(localStorage.getItem("user"));
+  const token = localStorage.getItem("token");
 
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setDropdownOpen(false)
-      }
-    }
+    const close = (e) =>
+      ref.current && !ref.current.contains(e.target) && setOpen(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
 
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
-  }, [])
-
-  const handleLogout = async () => {
-    const result = await Swal.fire({
+  const logout = async () => {
+    const res = await Swal.fire({
       title: "Logout?",
-      text: "Anda yakin ingin keluar dari sistem?",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonText: "Ya, Logout",
-      cancelButtonText: "Batal",
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-    })
+      confirmButtonColor: "#ef4444",
+    });
+    if (!res.isConfirmed) return;
 
-    if (result.isConfirmed) {
-      try {
-        await axios.post(
-          "http://127.0.0.1:8000/api/logout",
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        )
+    await axios.post("http://127.0.0.1:8000/api/logout", {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-        await Swal.fire({
-          icon: "success",
-          title: "Berhasil Logout",
-          text: "Anda berhasil keluar",
-          timer: 1500,
-          showConfirmButton: false,
-        })
-
-      } catch (error) {
-        console.error(error)
-      }
-
-      // Hapus data login di frontend
-      localStorage.removeItem("token")
-      localStorage.removeItem("user")
-
-      // Redirect ke login
-      navigate("/login")
-    }
-  }
+    localStorage.clear();
+    navigate("/login");
+  };
 
   return (
-    <header className="bg-gray/80 backdrop-blur-lg border-gray-200/50 px-4 md:px-6 py-4 sticky top-0 z-30">
-      <div className="flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-grey border-gray-200">
+      <div className="h-16 px-4 md:px-6 flex items-center gap-4 max-w-7xl mx-auto w-full">
+        {/* Sidebar Toggle */}
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
+        >
+          <Menu size={20} />
+        </button>
 
-        {/* Left Section */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors duration-200"
-          >
-            <Menu className="w-5 h-5 text-gray-600" />
-          </button>
+        {/* CENTER SLOT — DIBATASI LEBARNYA */}
+        <div className="flex-1 flex justify-center min-w-0">
+          <div className="w-full max-w-4xl">
+            {centerContent}
+          </div>
         </div>
 
-        {/* Right Section */}
-        <div className="flex items-center gap-3">
+        {/* USER MENU */}
+        <div className="relative" ref={ref}>
+          <button
+            onClick={() => setOpen(!open)}
+            className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100"
+          >
+            <div className="w-8 h-8 bg-indigo-600 text-white rounded-lg flex items-center justify-center">
+              <User size={16} />
+            </div>
+            <ChevronDown size={16} />
+          </button>
 
-          {/* User Dropdown */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-100 transition-colors duration-200"
-            >
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <User className="w-4 h-4 text-white" />
-              </div>
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-gray-700">
-                  {user?.name || "Admin User"}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {user?.email || "Administrator"}
-                </p>
-              </div>
-              <ChevronDown
-                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
-                  dropdownOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {/* Dropdown Menu */}
-            {dropdownOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-gray rounded-xl shadow-lg border border-gray-200/50 py-2 z-50">
-
-                <div className="py-2">
-                  <button
-                    className="flex items-center w-full gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    <Settings className="w-4 h-4" />
-                    Settings
-                  </button>
-
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center w-full gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Logout
-                  </button>
-                </div>
-
-              </div>
-            )}
-          </div>
-
+          {open && (
+            <div className="absolute right-0 mt-2 w-48 bg-white border rounded-xl shadow-lg">
+              <button
+                onClick={logout}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                <LogOut size={16} /> Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
-  )
-}
+  );
+};
 
-export default Navbar
+export default Navbar;

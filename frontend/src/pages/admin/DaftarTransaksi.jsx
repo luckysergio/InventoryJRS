@@ -206,21 +206,23 @@ const TransaksiPage = () => {
           }
         : { name: "", phone: "", email: "" };
 
-      const details = (data.details || []).map((d) => ({
-        id: d.id || "",
-        product_id: d.product_id || "",
-        harga_product_id: d.harga_product_id || "",
-        harga_baru: d.harga_baru || {
-          harga: "",
-          tanggal_berlaku: "",
-          keterangan: "",
-        },
-        qty: d.qty || "",
-        tanggal: d.tanggal || "",
-        status_transaksi_id: d.status_transaksi_id || statusProsesId,
-        discount: d.discount || 0,
-        catatan: d.catatan || "",
-      }));
+      const details = (data.details || [])
+  .filter((d) => d.status_transaksi_id === statusProsesId)
+  .map((d) => ({
+    id: d.id || "",
+    product_id: d.product_id || "",
+    harga_product_id: d.harga_product_id || "",
+    harga_baru: d.harga_baru || {
+      harga: "",
+      tanggal_berlaku: "",
+      keterangan: "",
+    },
+    qty: d.qty || "",
+    tanggal: d.tanggal || "",
+    status_transaksi_id: d.status_transaksi_id,
+    discount: d.discount || 0,
+    catatan: d.catatan || "",
+  }));
 
       // Init harga options & showHargaBaru
       const hargaOpts = {};

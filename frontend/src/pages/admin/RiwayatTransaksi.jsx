@@ -1,6 +1,15 @@
-import { useEffect, useState } from "react";
+// src/pages/admin/RiwayatTransaksi.jsx
+import { useEffect, useState, useMemo } from "react";
 import Swal from "sweetalert2";
-import { Trash2, Receipt, Wallet, XCircle, CheckCircle } from "lucide-react";
+import {
+  Trash2,
+  Receipt,
+  Wallet,
+  XCircle,
+  CheckCircle,
+  Calendar,
+  Search,
+} from "lucide-react";
 import api from "../../services/api";
 
 const safeParseFloat = (value) => {
@@ -30,7 +39,133 @@ const formatProductName = (p) => {
     .join(" ");
 };
 
-const RiwayatTransaksi = () => {
+export const RiwayatTransaksiFilterBar = ({
+  tanggalDari,
+  setTanggalDari,
+  tanggalSampai,
+  setTanggalSampai,
+  selectedJenis,
+  setSelectedJenis,
+  selectedStatus,
+  setSelectedStatus,
+  selectedCustomer,
+  setSelectedCustomer,
+  customers,
+  handleReset,
+}) => (
+  <div className="flex flex-wrap items-center gap-2 w-full max-w-4xl">
+    {/* === DESKTOP: Tampilkan SEMUA === */}
+    <div className="hidden sm:flex flex-wrap items-center gap-2 flex-1">
+      {/* Tanggal Dari */}
+      <div className="relative w-[160px]">
+        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          type="date"
+          value={tanggalDari}
+          onChange={(e) => setTanggalDari(e.target.value)}
+          className="w-full pl-10 pr-2 py-1.5 text-sm border border-gray-300 rounded text-gray-700 focus:ring-1 focus:ring-indigo-200 focus:outline-none"
+          placeholder="Dari"
+        />
+      </div>
+
+      {/* Tanggal Sampai */}
+      <div className="relative w-[160px]">
+        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          type="date"
+          value={tanggalSampai}
+          onChange={(e) => setTanggalSampai(e.target.value)}
+          min={tanggalDari || undefined}
+          className="w-full pl-10 pr-2 py-1.5 text-sm border border-gray-300 rounded text-gray-700 focus:ring-1 focus:ring-indigo-200 focus:outline-none"
+          placeholder="Sampai"
+        />
+      </div>
+
+      {/* Jenis */}
+      <select
+        className="py-1.5 px-3 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-200 focus:outline-none min-w-[120px]"
+        value={selectedJenis}
+        onChange={(e) => setSelectedJenis(e.target.value)}
+      >
+        <option value="all">Semua Jenis</option>
+        <option value="daily">Harian</option>
+        <option value="pesanan">Pesanan</option>
+      </select>
+
+      {/* Status */}
+      <select
+        className="py-1.5 px-3 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-200 focus:outline-none min-w-[120px]"
+        value={selectedStatus}
+        onChange={(e) => setSelectedStatus(e.target.value)}
+      >
+        <option value="all">Semua Status</option>
+        <option value="selesai">Selesai</option>
+        <option value="dibatalkan">Dibatalkan</option>
+      </select>
+
+      {/* Customer */}
+      <select
+        className="py-1.5 px-3 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-200 focus:outline-none min-w-[140px]"
+        value={selectedCustomer}
+        onChange={(e) => setSelectedCustomer(e.target.value)}
+      >
+        <option value="">Semua Customer</option>
+        {customers.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+
+      {/* Reset */}
+      <button
+        onClick={handleReset}
+        className="py-1.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm whitespace-nowrap font-medium transition"
+      >
+        Reset
+      </button>
+    </div>
+
+    {/* === MOBILE: Hanya Jenis, Customer, Status === */}
+    <div className="sm:hidden flex flex-wrap items-center gap-2 w-full justify-center">
+      <select
+        className="py-1 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-200 focus:outline-none min-w-[100px]"
+        value={selectedJenis}
+        onChange={(e) => setSelectedJenis(e.target.value)}
+      >
+        <option value="all">Semua Jenis</option>
+        <option value="daily">Harian</option>
+        <option value="pesanan">Pesanan</option>
+      </select>
+
+      <select
+        className="py-1 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-200 focus:outline-none min-w-[100px]"
+        value={selectedCustomer}
+        onChange={(e) => setSelectedCustomer(e.target.value)}
+      >
+        <option value="">Customer</option>
+        {customers.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+
+      <select
+        className="py-1 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-200 focus:outline-none min-w-[100px]"
+        value={selectedStatus}
+        onChange={(e) => setSelectedStatus(e.target.value)}
+      >
+        <option value="all">Status</option>
+        <option value="selesai">Selesai</option>
+        <option value="dibatalkan">Dibatalkan</option>
+      </select>
+    </div>
+  </div>
+);
+
+// ✅ Komponen utama
+const RiwayatTransaksi = ({ setNavbarContent }) => {
   const [transaksi, setTransaksi] = useState([]);
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
@@ -43,7 +178,6 @@ const RiwayatTransaksi = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-
       const params = new URLSearchParams();
       if (selectedCustomer) params.append("customer_id", selectedCustomer);
       if (selectedJenis !== "all") params.append("jenis", selectedJenis);
@@ -98,7 +232,13 @@ const RiwayatTransaksi = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedCustomer, selectedJenis, selectedStatus, tanggalDari, tanggalSampai]);
+  }, [
+    selectedCustomer,
+    selectedJenis,
+    selectedStatus,
+    tanggalDari,
+    tanggalSampai,
+  ]);
 
   const handleDelete = async (id) => {
     const confirm = await Swal.fire({
@@ -123,7 +263,8 @@ const RiwayatTransaksi = () => {
 
   const getJenisInfo = (jenis) => {
     if (jenis === "daily") return { text: "Transaksi Harian", color: "blue" };
-    if (jenis === "pesanan") return { text: "Transaksi Pesanan", color: "purple" };
+    if (jenis === "pesanan")
+      return { text: "Transaksi Pesanan", color: "purple" };
     return { text: jenis, color: "gray" };
   };
 
@@ -158,103 +299,36 @@ const RiwayatTransaksi = () => {
     setTanggalSampai("");
   };
 
+  // ✅ Kirim filter ke Navbar
+  useEffect(() => {
+    setNavbarContent(
+      <RiwayatTransaksiFilterBar
+        tanggalDari={tanggalDari}
+        setTanggalDari={setTanggalDari}
+        tanggalSampai={tanggalSampai}
+        setTanggalSampai={setTanggalSampai}
+        selectedJenis={selectedJenis}
+        setSelectedJenis={setSelectedJenis}
+        selectedStatus={selectedStatus}
+        setSelectedStatus={setSelectedStatus}
+        selectedCustomer={selectedCustomer}
+        setSelectedCustomer={setSelectedCustomer}
+        customers={customers}
+        handleReset={handleReset}
+      />
+    );
+  }, [
+    tanggalDari,
+    tanggalSampai,
+    selectedJenis,
+    selectedStatus,
+    selectedCustomer,
+    customers,
+    setNavbarContent,
+  ]);
+
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-          Riwayat Transaksi
-        </h1>
-      </div>
-
-      {/* FILTERS */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Dari Tanggal
-            </label>
-            <input
-              type="date"
-              value={tanggalDari}
-              onChange={(e) => setTanggalDari(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Sampai Tanggal
-            </label>
-            <input
-              type="date"
-              value={tanggalSampai}
-              onChange={(e) => setTanggalSampai(e.target.value)}
-              min={tanggalDari || undefined}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Jenis Transaksi
-            </label>
-            <select
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              value={selectedJenis}
-              onChange={(e) => setSelectedJenis(e.target.value)}
-            >
-              <option value="all">Semua Jenis</option>
-              <option value="daily">Harian (Daily)</option>
-              <option value="pesanan">Pesanan</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              <option value="all">Semua Status</option>
-              <option value="selesai">Selesai</option>
-              <option value="dibatalkan">Dibatalkan</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Customer
-            </label>
-            <select
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              value={selectedCustomer}
-              onChange={(e) => setSelectedCustomer(e.target.value)}
-            >
-              <option value="">Semua Customer</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-end lg:col-span-5">
-            <button
-              onClick={handleReset}
-              className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium"
-            >
-              Reset Filter
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* LIST */}
+    <div className="space-y-6 p-2 md:p-4 max-w-7xl mx-auto">
       {loading ? (
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-center">
@@ -278,7 +352,6 @@ const RiwayatTransaksi = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {transaksi.map((item) => {
             const jenis = getJenisInfo(item.jenis_transaksi);
-
             return (
               <div
                 key={item.id}
@@ -355,7 +428,9 @@ const RiwayatTransaksi = () => {
                                       <span>
                                         {formatTanggal(p.tanggal_bayar)}
                                       </span>
-                                      <span>Rp {formatRupiah(p.jumlah_bayar)}</span>
+                                      <span>
+                                        Rp {formatRupiah(p.jumlah_bayar)}
+                                      </span>
                                     </li>
                                   ))}
                                 </ul>

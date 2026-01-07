@@ -129,7 +129,9 @@ function App() {
           element={
             <ProtectedRoute>
               <Layout>
-                <ProductPage />
+                {({ setNavbarContent }) => (
+                  <ProductPage setNavbarContent={setNavbarContent} />
+                )}
               </Layout>
             </ProtectedRoute>
           }
@@ -158,26 +160,30 @@ function App() {
         />
 
         <Route
-          path="/inventory"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <InventoryPage />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+  path="/inventory"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        {({ setNavbarContent }) => (
+          <InventoryPage setNavbarContent={setNavbarContent} />
+        )}
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
 
         <Route
-          path="/ProductMovement"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <ProductMovementPage />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+  path="/ProductMovement"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        {({ setNavbarContent }) => (
+          <ProductMovementPage setNavbarContent={setNavbarContent} />
+        )}
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
 
         <Route
           path="/StokOpname"
@@ -206,7 +212,9 @@ function App() {
           element={
             <ProtectedRoute>
               <Layout>
-                <HargaProductPage />
+                {({ setNavbarContent }) => (
+                  <HargaProductPage setNavbarContent={setNavbarContent} />
+                )}
               </Layout>
             </ProtectedRoute>
           }
@@ -228,7 +236,9 @@ function App() {
           element={
             <ProtectedRoute>
               <Layout>
-                <BarangKeluarPage />
+                {({ setNavbarContent }) => (
+                  <BarangKeluarPage setNavbarContent={setNavbarContent} />
+                )}
               </Layout>
             </ProtectedRoute>
           }
@@ -262,7 +272,9 @@ function App() {
           element={
             <ProtectedRoute>
               <Layout>
-                <RiwayatTransaksi />
+                {({ setNavbarContent }) => (
+                  <RiwayatTransaksi setNavbarContent={setNavbarContent} />
+                )}
               </Layout>
             </ProtectedRoute>
           }

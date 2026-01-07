@@ -136,10 +136,10 @@ const CustomerPage = () => {
               <h3 className="text-lg font-bold text-gray-900 text-center">
                 {item.name}
               </h3>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-gray-500 mt-2 text-center">
                 📞 {item.phone || "-"}
               </p>
-              <p className="text-sm text-gray-500">✉️ {item.email || "-"}</p>
+              <p className="text-sm text-gray-500 text-center">✉️ {item.email || "-"}</p>
 
               <div className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between">

@@ -34,25 +34,92 @@ const unformatRupiah = (str) => {
   return parseInt(String(str).replace(/\D/g, ""), 10) || 0;
 };
 
-// === GENERATE KODE OTOMATIS (HANYA UNTUK PREVIEW) ===
 const generateKode = (jenisNama, typeName, bahanNama, ukuran) => {
   const jenisKode = jenisNama ? jenisNama.charAt(0).toUpperCase() : "";
-
   let typeKode = "";
   if (typeName) {
     const firstChar = typeName.charAt(0).toUpperCase();
     const matchDigit = typeName.match(/\d/);
     typeKode = firstChar + (matchDigit ? matchDigit[0] : "");
   }
-
   const bahanKode = bahanNama ? bahanNama.charAt(0).toUpperCase() : "";
-
   const ukuranAngka = ukuran ? ukuran.replace(/[^0-9]/g, "") : "";
-
   return jenisKode + typeKode + bahanKode + ukuranAngka;
 };
 
-const ProductPage = () => {
+export const ProductFilterBar = ({
+  search,
+  setSearch,
+  filterJenis,
+  setFilterJenis,
+  filterType,
+  setFilterType,
+  jenis,
+  filteredTypesForFilter,
+}) => (
+  <div className="flex items-center gap-2 w-full">
+    <div className="relative flex-1 min-w-[150px]">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Cari kode..."
+        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+    </div>
+
+    <div className="hidden sm:flex items-center gap-2">
+      <select
+        className="py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm min-w-[140px]"
+        value={filterJenis}
+        onChange={(e) => setFilterJenis(e.target.value)}
+      >
+        <option value="">Semua Jenis</option>
+        {jenis.map((j) => (
+          <option key={j.id} value={j.id}>
+            {j.nama}
+          </option>
+        ))}
+      </select>
+
+      <select
+        className="py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm min-w-[140px]"
+        value={filterType}
+        onChange={(e) => setFilterType(e.target.value)}
+        disabled={!filterJenis}
+      >
+        <option value="">Semua Tipe</option>
+        {filteredTypesForFilter.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.nama}
+          </option>
+        ))}
+      </select>
+
+      <button
+        onClick={() => {
+          setSearch("");
+          setFilterJenis("");
+          setFilterType("");
+        }}
+        className="py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm whitespace-nowrap font-medium"
+      >
+        Reset
+      </button>
+    </div>
+
+    {/* Reset Button untuk Mobile (opsional) */}
+    <button
+      onClick={() => setSearch("")}
+      className="sm:hidden py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+    >
+      ⓧ
+    </button>
+  </div>
+);
+
+const ProductPage = ({ setNavbarContent }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -60,7 +127,6 @@ const ProductPage = () => {
   const [filterType, setFilterType] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     jenis_id: "",
@@ -93,7 +159,6 @@ const ProductPage = () => {
   const cameraInputDepan = useRef(null);
   const cameraInputSamping = useRef(null);
   const cameraInputAtas = useRef(null);
-
   const fileInputDepan = useRef(null);
   const fileInputSamping = useRef(null);
   const fileInputAtas = useRef(null);
@@ -102,21 +167,19 @@ const ProductPage = () => {
     try {
       setLoading(true);
       const res = await api.get("/products", {
-        params: {
-          ...params,
-          page: currentPage,
-        },
+        params: { ...params, page: currentPage },
       });
       setProducts(res.data.data);
       setLastPage(res.data.meta?.last_page || 1);
 
-      const j = await api.get("/jenis");
-      const t = await api.get("/type");
-      const b = await api.get("/bahan");
-
-      setJenis(j.data.data);
-      setAllTypes(t.data.data);
-      setBahan(b.data.data);
+      const [jRes, tRes, bRes] = await Promise.all([
+        api.get("/jenis"),
+        api.get("/type"),
+        api.get("/bahan"),
+      ]);
+      setJenis(jRes.data.data);
+      setAllTypes(tRes.data.data);
+      setBahan(bRes.data.data);
     } catch {
       Swal.fire("Error", "Gagal mengambil data", "error");
     } finally {
@@ -145,21 +208,14 @@ const ProductPage = () => {
 
   useEffect(() => {
     if (allTypes.length === 0) return;
-
     if (!form.jenis_id || form.jenis_id === "new") {
       setFilteredTypes([]);
       if (!isEdit) setForm((prev) => ({ ...prev, type_id: "" }));
       return;
     }
-
-    const filtered = allTypes.filter(
-      (t) => t.jenis_id === Number(form.jenis_id)
-    );
+    const filtered = allTypes.filter((t) => t.jenis_id === Number(form.jenis_id));
     setFilteredTypes(filtered);
-
-    if (!isEdit) {
-      setForm((prev) => ({ ...prev, type_id: "" }));
-    }
+    if (!isEdit) setForm((prev) => ({ ...prev, type_id: "" }));
   }, [form.jenis_id, allTypes, isEdit]);
 
   const getKodePreview = () => {
@@ -251,8 +307,7 @@ const ProductPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const kodeToSubmit = kodePreview;
+    const kodeToSubmit = getKodePreview();
     if (!kodeToSubmit || !form.ukuran) {
       Swal.fire("Validasi", "Kode dan Ukuran wajib diisi", "warning");
       return;
@@ -272,25 +327,22 @@ const ProductPage = () => {
     }
 
     let jenisNama = "";
-    if (form.jenis_id === "new") {
-      jenisNama = jenisInputBaru.trim();
-    } else {
+    if (form.jenis_id === "new") jenisNama = jenisInputBaru.trim();
+    else {
       const j = jenis.find((j) => String(j.id) === String(form.jenis_id));
       jenisNama = j ? j.nama : "";
     }
 
     let typeName = "";
-    if (form.type_id === "new") {
-      typeName = typeInputBaru.trim();
-    } else {
+    if (form.type_id === "new") typeName = typeInputBaru.trim();
+    else {
       const t = allTypes.find((t) => String(t.id) === String(form.type_id));
       typeName = t ? t.nama : "";
     }
 
     let bahanNama = "";
-    if (form.bahan_id === "new") {
-      bahanNama = bahanInputBaru.trim();
-    } else {
+    if (form.bahan_id === "new") bahanNama = bahanInputBaru.trim();
+    else {
       const b = bahan.find((b) => String(b.id) === String(form.bahan_id));
       bahanNama = b ? b.nama : "";
     }
@@ -303,20 +355,11 @@ const ProductPage = () => {
       <strong>Bahan:</strong> ${bahanNama || "-"}<br/>
       <strong>Ukuran:</strong> ${form.ukuran}<br/>
       <strong>Harga Umum:</strong> ${formatRupiah(hargaNum)}<br/>
-      ${
-        form.keterangan
-          ? `<strong>Keterangan:</strong> ${form.keterangan}<br/>`
-          : ""
-      }
-      <strong>Foto Depan:</strong> ${
-        fotoDepan ? "✅ Terupload" : "❌ Tidak ada"
-      }<br/>
-      <strong>Foto Samping:</strong> ${
-        fotoSamping ? "✅ Terupload" : "❌ Tidak ada"
-      }<br/>
+      ${form.keterangan ? `<strong>Keterangan:</strong> ${form.keterangan}<br/>` : ""}
+      <strong>Foto Depan:</strong> ${fotoDepan ? "✅ Terupload" : "❌ Tidak ada"}<br/>
+      <strong>Foto Samping:</strong> ${fotoSamping ? "✅ Terupload" : "❌ Tidak ada"}<br/>
       <strong>Foto Atas:</strong> ${fotoAtas ? "✅ Terupload" : "❌ Tidak ada"}
-    </div>
-  `;
+    </div>`;
 
     const action = isEdit ? "memperbarui" : "menambah";
     const result = await Swal.fire({
@@ -333,7 +376,6 @@ const ProductPage = () => {
 
     if (!result.isConfirmed) return;
 
-    let swalLoading = null;
     try {
       Swal.fire({
         title: isEdit ? "Memperbarui product..." : "Menyimpan product...",
@@ -341,42 +383,22 @@ const ProductPage = () => {
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
-        didOpen: () => {
-          Swal.showLoading();
-        },
+        didOpen: () => Swal.showLoading(),
       });
-      swalLoading = Swal.getPopup();
 
       const formData = new FormData();
-      formData.append("kode", kodeToSubmit); // Gunakan kodePreview
+      formData.append("kode", kodeToSubmit);
       formData.append("ukuran", form.ukuran);
       formData.append("harga_umum", hargaNum);
       if (form.keterangan) formData.append("keterangan", form.keterangan);
-
-      if (form.jenis_id && form.jenis_id !== "new") {
-        formData.append("jenis_id", form.jenis_id);
-      }
-      if (form.jenis_id === "new") {
-        formData.append("jenis_nama", jenisInputBaru.trim());
-      }
-
-      if (form.type_id && form.type_id !== "new") {
-        formData.append("type_id", form.type_id);
-      }
-      if (form.type_id === "new") {
-        formData.append("type_nama", typeInputBaru.trim());
-      }
-
-      if (form.bahan_id && form.bahan_id !== "new") {
-        formData.append("bahan_id", form.bahan_id);
-      }
-      if (form.bahan_id === "new") {
-        formData.append("bahan_nama", bahanInputBaru.trim());
-      }
-
+      if (form.jenis_id && form.jenis_id !== "new") formData.append("jenis_id", form.jenis_id);
+      if (form.jenis_id === "new") formData.append("jenis_nama", jenisInputBaru.trim());
+      if (form.type_id && form.type_id !== "new") formData.append("type_id", form.type_id);
+      if (form.type_id === "new") formData.append("type_nama", typeInputBaru.trim());
+      if (form.bahan_id && form.bahan_id !== "new") formData.append("bahan_id", form.bahan_id);
+      if (form.bahan_id === "new") formData.append("bahan_nama", bahanInputBaru.trim());
       if (fotoDepan instanceof File) formData.append("foto_depan", fotoDepan);
-      if (fotoSamping instanceof File)
-        formData.append("foto_samping", fotoSamping);
+      if (fotoSamping instanceof File) formData.append("foto_samping", fotoSamping);
       if (fotoAtas instanceof File) formData.append("foto_atas", fotoAtas);
 
       if (isEdit) {
@@ -386,21 +408,14 @@ const ProductPage = () => {
       }
 
       Swal.close();
-      Swal.fire(
-        "Berhasil",
-        isEdit ? "Product berhasil diperbarui" : "Product berhasil ditambahkan",
-        "success"
-      );
-
+      Swal.fire("Berhasil", isEdit ? "Product berhasil diperbarui" : "Product berhasil ditambahkan", "success");
       setIsModalOpen(false);
       setCurrentPage(1);
       fetchData({ search, jenis_id: filterJenis, type_id: filterType });
     } catch (error) {
       Swal.close();
       if (error.response?.status === 422) {
-        const msg = Object.values(error.response.data.errors)
-          .flat()
-          .join("<br>");
+        const msg = Object.values(error.response.data.errors).flat().join("<br>");
         Swal.fire("Validasi Gagal", msg, "warning");
       } else {
         Swal.fire("Error", "Terjadi kesalahan saat menyimpan data", "error");
@@ -452,17 +467,10 @@ const ProductPage = () => {
     }
   };
 
-  const handleRemoveFoto = (setFile) => {
-    setFile(null);
-  };
+  const handleRemoveFoto = (setFile) => setFile(null);
 
-  const openFotoModal = (fotoUrl) => {
-    setFotoModal(fotoUrl);
-  };
-
-  const closeFotoModal = () => {
-    setFotoModal(null);
-  };
+  const openFotoModal = (fotoUrl) => setFotoModal(fotoUrl);
+  const closeFotoModal = () => setFotoModal(null);
 
   const handleHargaChange = (value) => {
     const clean = value.replace(/\D/g, "");
@@ -474,10 +482,7 @@ const ProductPage = () => {
     const pages = [];
     const startPage = Math.max(1, currentPage - 1);
     const endPage = Math.min(lastPage, currentPage + 1);
-
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i);
-    }
+    for (let i = startPage; i <= endPage; i++) pages.push(i);
 
     return (
       <div className="flex items-center justify-center gap-1 mt-6">
@@ -488,45 +493,27 @@ const ProductPage = () => {
         >
           {"<"}
         </button>
-
         {startPage > 1 && (
           <>
-            <button
-              onClick={() => setCurrentPage(1)}
-              className="px-3 py-1 rounded border"
-            >
-              1
-            </button>
+            <button onClick={() => setCurrentPage(1)} className="px-3 py-1 rounded border">1</button>
             {startPage > 2 && <span className="px-2">...</span>}
           </>
         )}
-
         {pages.map((page) => (
           <button
             key={page}
             onClick={() => setCurrentPage(page)}
-            className={`px-3 py-1 rounded border ${
-              page === currentPage
-                ? "bg-indigo-600 text-white"
-                : "bg-white text-gray-700"
-            }`}
+            className={`px-3 py-1 rounded border ${page === currentPage ? "bg-indigo-600 text-white" : "bg-white text-gray-700"}`}
           >
             {page}
           </button>
         ))}
-
         {endPage < lastPage && (
           <>
             {endPage < lastPage - 1 && <span className="px-2">...</span>}
-            <button
-              onClick={() => setCurrentPage(lastPage)}
-              className="px-3 py-1 rounded border"
-            >
-              {lastPage}
-            </button>
+            <button onClick={() => setCurrentPage(lastPage)} className="px-3 py-1 rounded border">{lastPage}</button>
           </>
         )}
-
         <button
           onClick={() => setCurrentPage((p) => Math.min(lastPage, p + 1))}
           disabled={currentPage === lastPage}
@@ -538,17 +525,9 @@ const ProductPage = () => {
     );
   };
 
-  const renderFotoPreview = (
-    foto,
-    setFoto,
-    label,
-    fileInputRef,
-    cameraInputRef
-  ) => (
+  const renderFotoPreview = (foto, setFoto, label, fileInputRef, cameraInputRef) => (
     <div className="space-y-1.5">
-      <label className="block text-xs font-medium text-gray-600 text-center">
-        {label}
-      </label>
+      <label className="block text-xs font-medium text-gray-600 text-center">{label}</label>
       <div className="flex flex-col items-center gap-1.5">
         {foto ? (
           <div className="relative">
@@ -583,18 +562,11 @@ const ProductPage = () => {
             onClick={() => cameraInputRef.current?.click()}
             className="text-[10px] text-green-600 hover:text-green-800 flex items-center gap-0.5"
           >
-            <Camera size={10} />
-            Kamera
+            <Camera size={10} /> Kamera
           </button>
         </div>
       </div>
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept="image/*"
-        onChange={(e) => handleFileChange(e, setFoto)}
-        className="hidden"
-      />
+      <input type="file" ref={fileInputRef} accept="image/*" onChange={(e) => handleFileChange(e, setFoto)} className="hidden" />
       <input
         type="file"
         ref={cameraInputRef}
@@ -608,99 +580,29 @@ const ProductPage = () => {
 
   const kodePreview = getKodePreview();
 
+  useEffect(() => {
+    setNavbarContent(
+      <ProductFilterBar
+        search={search}
+        setSearch={setSearch}
+        filterJenis={filterJenis}
+        setFilterJenis={setFilterJenis}
+        filterType={filterType}
+        setFilterType={setFilterType}
+        jenis={jenis}
+        filteredTypesForFilter={filteredTypesForFilter}
+      />
+    );
+  }, [search, filterJenis, filterType, jenis, filteredTypesForFilter, setNavbarContent]);
+
   return (
-    <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-            Product
-          </h1>
-        </div>
-        <button
-          onClick={handleTambah}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition"
-        >
-          <Plus size={18} />
-          Tambah Product
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-4 rounded-xl shadow-sm">
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">
-            Cari Kode
-          </label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Cari kode..."
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">
-            Jenis
-          </label>
-          <select
-            className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-            value={filterJenis}
-            onChange={(e) => setFilterJenis(e.target.value)}
-          >
-            <option value="">Semua Jenis</option>
-            {jenis.map((j) => (
-              <option key={j.id} value={j.id}>
-                {j.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">
-            Tipe
-          </label>
-          <select
-            className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            disabled={!filterJenis}
-          >
-            <option value="">Semua Tipe</option>
-            {filteredTypesForFilter.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-end">
-          <button
-            onClick={() => {
-              setSearch("");
-              setFilterJenis("");
-              setFilterType("");
-            }}
-            className="w-full py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition"
-          >
-            Reset Filter
-          </button>
-        </div>
-      </div>
-
+    <div className="space-y-6 max-w-7xl mx-auto">
       {loading ? (
         <div className="text-center py-12">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
         </div>
       ) : products.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          Tidak ada Product ditemukan
-        </div>
+        <div className="text-center py-12 text-gray-500">Tidak ada Product ditemukan</div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -714,99 +616,62 @@ const ProductPage = () => {
                   <div className="flex justify-center gap-2 mb-3">
                     {item.foto_depan && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
-                          item.foto_depan
-                        }`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`}
                         alt="Foto Depan"
                         className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
-                        onClick={() =>
-                          openFotoModal(
-                            `${import.meta.env.VITE_ASSET_URL}/storage/${
-                              item.foto_depan
-                            }`
-                          )
-                        }
+                        onClick={() => openFotoModal(`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`)}
                       />
                     )}
                     {item.foto_samping && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
-                          item.foto_samping
-                        }`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`}
                         alt="Foto Samping"
                         className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
-                        onClick={() =>
-                          openFotoModal(
-                            `${import.meta.env.VITE_ASSET_URL}/storage/${
-                              item.foto_samping
-                            }`
-                          )
-                        }
+                        onClick={() => openFotoModal(`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`)}
                       />
                     )}
                     {item.foto_atas && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
-                          item.foto_atas
-                        }`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`}
                         alt="Foto Atas"
                         className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
-                        onClick={() =>
-                          openFotoModal(
-                            `${import.meta.env.VITE_ASSET_URL}/storage/${
-                              item.foto_atas
-                            }`
-                          )
-                        }
+                        onClick={() => openFotoModal(`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`)}
                       />
                     )}
-                    {!item.foto_depan &&
-                      !item.foto_samping &&
-                      !item.foto_atas && (
-                        <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
-                          <ImageIcon className="text-gray-400" size={24} />
-                        </div>
-                      )}
+                    {!item.foto_depan && !item.foto_samping && !item.foto_atas && (
+                      <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
+                        <ImageIcon className="text-gray-400" size={24} />
+                      </div>
+                    )}
                   </div>
 
                   <div className="text-center mb-2">
-                    <p className="font-bold text-xl text-gray-800">
-                      {item.kode}
-                    </p>
+                    <p className="font-bold text-xl text-gray-800">{item.kode}</p>
                   </div>
                   <div className="text-center mb-2 min-h-[24px]">
-                    <p className="text-sm text-gray-600">
-                      {formatProductName(item)}
-                    </p>
+                    <p className="text-sm text-gray-600">{formatProductName(item)}</p>
                   </div>
 
                   <div className="text-center mb-2 flex items-center justify-center gap-1 text-sm">
                     <Tag size={14} className="text-amber-600" />
-                    <span className="font-medium text-amber-700">
-                      {formatRupiah(item.harga_umum)}
-                    </span>
+                    <span className="font-medium text-amber-700">{formatRupiah(item.harga_umum)}</span>
                   </div>
 
                   <div className="text-center mb-2 text-xs text-gray-600 space-y-0.5">
                     <div className="flex items-center justify-center gap-1">
-                      <Warehouse size={12} />
-                      <span>TOKO: {item.qty_toko || 0}</span>
+                      <Warehouse size={12} /> <span>TOKO: {item.qty_toko || 0}</span>
                     </div>
                     <div className="flex items-center justify-center gap-1">
-                      <Warehouse size={12} />
-                      <span>BENGKEL: {item.qty_bengkel || 0}</span>
+                      <Warehouse size={12} /> <span>BENGKEL: {item.qty_bengkel || 0}</span>
                     </div>
                     <div className="flex items-center justify-center gap-1">
-                      <Warehouse size={12} />
-                      <span>TOTAL PRODUCT: {totalQty}</span>
+                      <Warehouse size={12} /> <span>TOTAL PRODUCT: {totalQty}</span>
                     </div>
                   </div>
 
                   {item.keterangan && (
                     <div className="text-center mb-3 flex-1">
-                      <p className="text-xs italic text-gray-500">
-                        "{item.keterangan}"
-                      </p>
+                      <p className="text-xs italic text-gray-500">"{item.keterangan}"</p>
                     </div>
                   )}
 
@@ -833,6 +698,13 @@ const ProductPage = () => {
         </>
       )}
 
+      <button
+        onClick={handleTambah}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+      >
+        <Plus size={18} />
+      </button>
+
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
@@ -849,9 +721,7 @@ const ProductPage = () => {
                 <div className="w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 font-mono">
                   {kodePreview || "—"}
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  Kode akan di-generate otomatis oleh sistem
-                </p>
+                <p className="mt-1 text-xs text-gray-500">Kode akan di-generate otomatis oleh sistem</p>
               </div>
 
               <div>
@@ -885,9 +755,7 @@ const ProductPage = () => {
                 >
                   <option value="">Pilih Jenis</option>
                   {jenis.map((j) => (
-                    <option key={j.id} value={j.id}>
-                      {j.nama}
-                    </option>
+                    <option key={j.id} value={j.id}>{j.nama}</option>
                   ))}
                   <option value="new">➕ Tambah Jenis Baru</option>
                 </select>
@@ -904,9 +772,7 @@ const ProductPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipe
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipe</label>
                 <select
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
                   value={form.type_id}
@@ -917,14 +783,8 @@ const ProductPage = () => {
                   }}
                 >
                   <option value="">Pilih Tipe</option>
-                  {form.jenis_id &&
-                  form.jenis_id !== "new" &&
-                  filteredTypes.length > 0
-                    ? filteredTypes.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.nama}
-                        </option>
-                      ))
+                  {form.jenis_id && form.jenis_id !== "new" && filteredTypes.length > 0
+                    ? filteredTypes.map((t) => <option key={t.id} value={t.id}>{t.nama}</option>)
                     : null}
                   <option value="new">➕ Tambah Tipe Baru</option>
                 </select>
@@ -941,9 +801,7 @@ const ProductPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bahan
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bahan</label>
                 <select
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
                   value={form.bahan_id}
@@ -954,11 +812,7 @@ const ProductPage = () => {
                   }}
                 >
                   <option value="">Pilih Bahan</option>
-                  {bahan.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.nama}
-                    </option>
-                  ))}
+                  {bahan.map((b) => <option key={b.id} value={b.id}>{b.nama}</option>)}
                   <option value="new">➕ Tambah Bahan Baru</option>
                 </select>
                 {form.bahan_id === "new" && (
@@ -987,40 +841,18 @@ const ProductPage = () => {
               </div>
 
               <div className="grid grid-cols-3 gap-3 pt-2">
-                {renderFotoPreview(
-                  fotoDepan,
-                  setFotoDepan,
-                  "Depan",
-                  fileInputDepan,
-                  cameraInputDepan
-                )}
-                {renderFotoPreview(
-                  fotoSamping,
-                  setFotoSamping,
-                  "Samping",
-                  fileInputSamping,
-                  cameraInputSamping
-                )}
-                {renderFotoPreview(
-                  fotoAtas,
-                  setFotoAtas,
-                  "Atas",
-                  fileInputAtas,
-                  cameraInputAtas
-                )}
+                {renderFotoPreview(fotoDepan, setFotoDepan, "Depan", fileInputDepan, cameraInputDepan)}
+                {renderFotoPreview(fotoSamping, setFotoSamping, "Samping", fileInputSamping, cameraInputSamping)}
+                {renderFotoPreview(fotoAtas, setFotoAtas, "Atas", fileInputAtas, cameraInputAtas)}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Keterangan
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan</label>
                 <textarea
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
                   rows={2}
                   value={form.keterangan}
-                  onChange={(e) =>
-                    setForm({ ...form, keterangan: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, keterangan: e.target.value })}
                 />
               </div>
 
@@ -1045,22 +877,11 @@ const ProductPage = () => {
         </div>
       )}
 
-      {/* Modal tampil foto besar */}
       {fotoModal && (
-        <div
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-          onClick={closeFotoModal}
-        >
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={closeFotoModal}>
           <div className="relative">
-            <img
-              src={fotoModal}
-              alt="Foto Produk"
-              className="max-w-full max-h-[90vh] object-contain rounded"
-            />
-            <button
-              onClick={closeFotoModal}
-              className="absolute -top-12 right-0 bg-white rounded-full p-2 shadow-lg"
-            >
+            <img src={fotoModal} alt="Foto Produk" className="max-w-full max-h-[90vh] object-contain rounded" />
+            <button onClick={closeFotoModal} className="absolute -top-12 right-0 bg-white rounded-full p-2 shadow-lg">
               <X size={20} className="text-gray-700" />
             </button>
           </div>

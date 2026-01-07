@@ -1,15 +1,95 @@
-import { useEffect, useState, useMemo } from "react";
+// src/pages/admin/InventoryPage.jsx
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Swal from "sweetalert2";
+import { Search, Plus, Minus, RefreshCw } from "lucide-react";
 import api from "../../services/api";
 
 const formatProductName = (p) => {
   if (!p) return "-";
-  const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
-    .filter(Boolean);
+  const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(Boolean);
   return parts.join(" ");
 };
 
-const InventoryPage = () => {
+// ✅ Komponen Filter untuk Navbar
+export const InventoryFilterBar = ({
+  searchTerm,
+  setSearchTerm,
+  selectedJenisId,
+  setSelectedJenisId,
+  selectedTypeId,
+  setSelectedTypeId,
+  jenisList,
+  typeList,
+}) => (
+  <div className="flex flex-wrap items-center gap-2 w-full max-w-3xl">
+    {/* Search - Selalu ditampilkan */}
+    <div className="relative min-w-[140px] sm:min-w-[180px] flex-1">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Cari produk..."
+        className="w-full pl-10 pr-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-200 focus:outline-none"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
+    </div>
+
+    {/* Filter Lengkap - Tablet+ */}
+    <div className="hidden sm:flex flex-wrap items-center gap-2">
+      <select
+        className="py-1.5 px-3 text-xs sm:text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-200 focus:outline-none min-w-[120px]"
+        value={selectedJenisId}
+        onChange={(e) => {
+          setSelectedJenisId(e.target.value);
+          setSelectedTypeId("");
+        }}
+      >
+        <option value="">Semua Jenis</option>
+        {jenisList.map((j) => (
+          <option key={j.id} value={j.id}>
+            {j.nama}
+          </option>
+        ))}
+      </select>
+
+      <select
+        className="py-1.5 px-3 text-xs sm:text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-200 focus:outline-none min-w-[120px]"
+        value={selectedTypeId}
+        onChange={(e) => setSelectedTypeId(e.target.value)}
+        disabled={!selectedJenisId}
+      >
+        <option value="">Semua Type</option>
+        {typeList.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.nama}
+          </option>
+        ))}
+      </select>
+
+      <button
+        onClick={() => {
+          setSearchTerm("");
+          setSelectedJenisId("");
+          setSelectedTypeId("");
+        }}
+        className="py-1.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs sm:text-sm whitespace-nowrap font-medium transition"
+      >
+        Reset
+      </button>
+    </div>
+
+    {/* Reset Mobile */}
+    <button
+      onClick={() => setSearchTerm("")}
+      className="sm:hidden py-1.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs whitespace-nowrap"
+    >
+      ⓧ
+    </button>
+  </div>
+);
+
+// ✅ Komponen utama
+const InventoryPage = ({ setNavbarContent }) => {
   const [allInventories, setAllInventories] = useState([]);
   const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,11 +107,13 @@ const InventoryPage = () => {
   const [selectedTypeId, setSelectedTypeId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const invRes = await api.get("/inventories");
-      const placeRes = await api.get("/places");
+      const [invRes, placeRes] = await Promise.all([
+        api.get("/inventories"),
+        api.get("/places"),
+      ]);
 
       setAllInventories(invRes.data.data);
       setPlaces(placeRes.data.data);
@@ -40,11 +122,11 @@ const InventoryPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // ✅ Group inventory per produk
   const produkWithInventori = useMemo(() => {
@@ -140,6 +222,22 @@ const InventoryPage = () => {
     return result;
   }, [produkLengkap, selectedJenisId, selectedTypeId, searchTerm]);
 
+  // ✅ Kirim filter ke Navbar
+  useEffect(() => {
+    setNavbarContent(
+      <InventoryFilterBar
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        selectedJenisId={selectedJenisId}
+        setSelectedJenisId={setSelectedJenisId}
+        selectedTypeId={selectedTypeId}
+        setSelectedTypeId={setSelectedTypeId}
+        jenisList={jenisList}
+        typeList={typeList}
+      />
+    );
+  }, [searchTerm, selectedJenisId, selectedTypeId, jenisList, typeList, setNavbarContent]);
+
   const openModal = (type, inventory) => {
     if (!inventory) {
       Swal.fire("Error", "Inventory tidak ditemukan", "error");
@@ -199,60 +297,7 @@ const InventoryPage = () => {
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Inventory</h1>
-
-      {/* FILTERS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-white p-4 rounded-xl shadow-sm">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Jenis</label>
-          <select
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-            value={selectedJenisId}
-            onChange={(e) => {
-              setSelectedJenisId(e.target.value);
-              setSelectedTypeId("");
-            }}
-          >
-            <option value="">Semua Jenis</option>
-            {jenisList.map((j) => (
-              <option key={j.id} value={j.id}>
-                {j.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-          <select
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-            value={selectedTypeId}
-            onChange={(e) => setSelectedTypeId(e.target.value)}
-            disabled={!selectedJenisId}
-          >
-            <option value="">Semua Type</option>
-            {typeList.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Kode Product</label>
-          <input
-            type="text"
-            placeholder="Cari produk..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* CARD LIST */}
+    <div className="space-y-6 p-2 md:p-4 max-w-7xl mx-auto">
       {filteredProducts.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">Tidak ada inventory ditemukan.</p>
@@ -283,20 +328,23 @@ const InventoryPage = () => {
                     <button
                       onClick={() => openModal("in", item.inv_toko)}
                       className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
+                      title="Stok Masuk"
                     >
-                      IN
+                      <Plus size={10} />
                     </button>
                     <button
                       onClick={() => openModal("out", item.inv_toko)}
                       className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
+                      title="Stok Keluar"
                     >
-                      OUT
+                      <Minus size={10} />
                     </button>
                     <button
                       onClick={() => openModal("transfer", item.inv_toko)}
                       className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
+                      title="Transfer"
                     >
-                      TF
+                      <RefreshCw size={10} />
                     </button>
                   </div>
                 </div>
@@ -313,20 +361,23 @@ const InventoryPage = () => {
                     <button
                       onClick={() => openModal("in", item.inv_bengkel)}
                       className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
+                      title="Stok Masuk"
                     >
-                      IN
+                      <Plus size={10} />
                     </button>
                     <button
                       onClick={() => openModal("out", item.inv_bengkel)}
                       className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
+                      title="Stok Keluar"
                     >
-                      OUT
+                      <Minus size={10} />
                     </button>
                     <button
                       onClick={() => openModal("transfer", item.inv_bengkel)}
                       className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
+                      title="Transfer"
                     >
-                      TF
+                      <RefreshCw size={10} />
                     </button>
                   </div>
                 </div>
