@@ -21,7 +21,7 @@ export const InventoryFilterBar = ({
   jenisList,
   typeList,
 }) => (
-  <div className="flex flex-wrap items-center gap-2 w-full max-w-3xl">
+  <div className="flex items-center gap-2 w-full">
     {/* Search - Selalu ditampilkan */}
     <div className="relative min-w-[140px] sm:min-w-[180px] flex-1">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />

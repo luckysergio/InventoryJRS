@@ -53,7 +53,7 @@ export const RiwayatTransaksiFilterBar = ({
   customers,
   handleReset,
 }) => (
-  <div className="flex flex-wrap items-center gap-2 w-full max-w-4xl">
+  <div className="flex items-center gap-2 w-full">
     {/* === DESKTOP: Tampilkan SEMUA === */}
     <div className="hidden sm:flex flex-wrap items-center gap-2 flex-1">
       {/* Tanggal Dari */}

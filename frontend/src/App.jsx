@@ -148,16 +148,18 @@ function App() {
           }
         />
 
-        <Route
-          path="/RiwayatProduction"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <RiwayatProductionPage />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+<Route
+  path="/RiwayatProduction"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        {({ setNavbarContent }) => (
+          <RiwayatProductionPage setNavbarContent={setNavbarContent} />
+        )}
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
 
         <Route
   path="/inventory"
@@ -197,15 +199,17 @@ function App() {
         />
 
         <Route
-          path="/Riwayat-StokOpname"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <RiwayatSOPage />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+  path="/Riwayat-StokOpname"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        {({ setNavbarContent }) => (
+          <RiwayatSOPage setNavbarContent={setNavbarContent} />
+        )}
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
 
         <Route
           path="/harga-product"

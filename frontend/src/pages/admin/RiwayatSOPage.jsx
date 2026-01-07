@@ -1,6 +1,7 @@
-import { useEffect, useState, useMemo } from "react";
+// src/pages/admin/RiwayatSOPage.jsx
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Swal from "sweetalert2";
-import { Printer } from "lucide-react";
+import { Printer, Calendar } from "lucide-react";
 import api from "../../services/api";
 
 const formatProductName = (p) => {
@@ -8,14 +9,72 @@ const formatProductName = (p) => {
   return [p.jenis?.nama, p.type?.nama, p.ukuran].filter(Boolean).join(" | ");
 };
 
-const RiwayatSOPage = () => {
+// ✅ Komponen Filter untuk Navbar
+export const RiwayatSOFilterBar = ({
+  tglDari,
+  setTglDari,
+  tglSampai,
+  setTglSampai,
+  statusFilter,
+  setStatusFilter,
+  handleReset,
+}) => (
+  <div className="flex items-center gap-2 w-full">
+    {/* Tanggal Dari */}
+    <div className="relative flex-1 min-w-[100px] sm:min-w-[150px]">
+      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <input
+        type="date"
+        value={tglDari}
+        onChange={(e) => setTglDari(e.target.value)}
+        className="w-full pl-10 pr-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded text-gray-700 focus:ring-1 focus:ring-indigo-200 focus:outline-none"
+        placeholder="Dari"
+      />
+    </div>
+
+    {/* Tanggal Sampai */}
+    <div className="relative flex-1 min-w-[100px] sm:min-w-[150px]">
+      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <input
+        type="date"
+        value={tglSampai}
+        onChange={(e) => setTglSampai(e.target.value)}
+        min={tglDari || undefined}
+        className="w-full pl-10 pr-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded text-gray-700 focus:ring-1 focus:ring-indigo-200 focus:outline-none"
+        placeholder="Sampai"
+      />
+    </div>
+
+    {/* Status */}
+<select
+  value={statusFilter}
+  onChange={(e) => setStatusFilter(e.target.value)}
+  className="hidden sm:block py-1.5 px-2 text-xs sm:text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-200 focus:outline-none min-w-[100px] sm:min-w-[120px]"
+>
+  <option value="">Semua Status</option>
+  <option value="selesai">Selesai</option>
+  <option value="dibatalkan">Dibatalkan</option>
+</select>
+
+{/* Reset Button */}
+<button
+  onClick={handleReset}
+  className="hidden sm:inline-flex py-1.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs sm:text-sm whitespace-nowrap font-medium transition"
+>
+  Reset
+</button>
+
+  </div>
+);
+
+const RiwayatSOPage = ({ setNavbarContent }) => {
   const [stokOpnames, setStokOpnames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tglDari, setTglDari] = useState("");
   const [tglSampai, setTglSampai] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const opnameRes = await api.get("/stok-opname");
@@ -26,11 +85,11 @@ const RiwayatSOPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const filteredOpnames = useMemo(() => {
     return stokOpnames.filter((op) => {
@@ -139,9 +198,24 @@ const RiwayatSOPage = () => {
     setStatusFilter("");
   };
 
+  // ✅ Kirim filter ke Navbar - HAPUS setNavbarContent dari dependencies
+  useEffect(() => {
+    setNavbarContent(
+      <RiwayatSOFilterBar
+        tglDari={tglDari}
+        setTglDari={setTglDari}
+        tglSampai={tglSampai}
+        setTglSampai={setTglSampai}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        handleReset={handleReset}
+      />
+    );
+  }, [tglDari, tglSampai, statusFilter]); // ❌ TIDAK ADA setNavbarContent DI SINI
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="flex items-center justify-center min-h-[50vh] p-2 md:p-4">
         <div className="text-center">
           <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
           <p className="mt-4 text-gray-600">Memuat data riwayat stok opname...</p>
@@ -151,57 +225,7 @@ const RiwayatSOPage = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-8">
-      <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Riwayat Stok Opname</h1>
-
-      {/* Filter Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Dari Tanggal</label>
-            <input
-              type="date"
-              value={tglDari}
-              onChange={(e) => setTglDari(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sampai Tanggal</label>
-            <input
-              type="date"
-              value={tglSampai}
-              onChange={(e) => setTglSampai(e.target.value)}
-              min={tglDari || undefined}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            >
-              <option value="">Semua Status</option>
-              <option value="selesai">Selesai</option>
-              <option value="dibatalkan">Dibatalkan</option>
-            </select>
-          </div>
-
-          <div className="flex items-end">
-            <button
-              onClick={handleReset}
-              className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium"
-            >
-              Reset Filter
-            </button>
-          </div>
-        </div>
-      </div>
-
+    <div className="max-w-7xl mx-auto px-2 md:px-4 py-4 space-y-6">
       {filteredOpnames.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 mb-4">
@@ -218,7 +242,7 @@ const RiwayatSOPage = () => {
             key={op.id}
             className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden transition-all hover:shadow-md"
           >
-            <div className="p-5 border-b border-gray-100 bg-gray-50">
+            <div className="p-4 md:p-5 border-b border-gray-100 bg-gray-50">
               <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
                 <div>
                   <h3 className="text-lg font-bold text-gray-800">
@@ -253,7 +277,7 @@ const RiwayatSOPage = () => {
               </div>
             </div>
 
-            <div className="p-5">
+            <div className="p-4 md:p-5">
               {op.details?.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">Tidak ada item dalam opname ini.</p>
               ) : (
