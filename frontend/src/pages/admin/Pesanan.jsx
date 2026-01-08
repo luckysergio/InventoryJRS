@@ -642,18 +642,6 @@ const PesananPage = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">Pesanan</h1>
-        <button
-          onClick={() => {
-            resetForm();
-            setIsModalOpen(true);
-          }}
-          className="bg-indigo-600 text-white px-6 py-3 rounded-xl flex items-center gap-2 shadow-md hover:bg-indigo-700 transition-all duration-200"
-        >
-          <Plus size={18} /> Tambah Pesanan
-        </button>
-      </div>
       {loading ? (
         <p className="text-center py-8 text-gray-600">Memuat data...</p>
       ) : pesanan.length === 0 ? (
@@ -695,46 +683,71 @@ const PesananPage = () => {
                         key={d.id}
                         className="p-3 border border-gray-200 rounded-lg bg-gray-50 text-sm text-center"
                       >
-                        <p className="font-medium">
+                        <p>
+                          <span className="font-semibold"></span>{" "}
                           {formatProductName(d.product)}
                         </p>
-                        <p>Qty: {d.qty}</p>
-                        <p>Harga Satuan: Rp {formatRupiah(d.harga)}</p>
-                        <p>Diskon: Rp {formatRupiah(d.discount)}</p>
-                        <p>Tagihan: Rp {formatRupiah(d.subtotal)}</p>
-                        <p>Tanggal: {formatTanggal(d.tanggal)}</p>
+                        <p>
+                          <span className="font-semibold"></span>{" "}
+                          {formatTanggal(d.tanggal)}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Qty</span> {d.qty}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Harga Satuan</span> Rp{" "}
+                          {formatRupiah(d.harga)}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Diskon</span> Rp{" "}
+                          {formatRupiah(d.discount)}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Tagihan</span> Rp{" "}
+                          {formatRupiah(d.subtotal)}
+                        </p>
+
                         {d.catatan && (
-                          <p className="text-gray-600 italic">{d.catatan}</p>
+                          <p>
+                            <span className="font-semibold"></span> {d.catatan}
+                          </p>
                         )}
-                        <div className="mt-3 pt-3 border-t border-gray-200">
-                          <div className="flex justify-center items-center">
+
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <div className="flex justify-center items-center mb-2">
                             <p className="text-sm">
-                              Status:{" "}
-                              <span className={`${status.textClass}`}>
-                                {status.text}
+                              <span className="font-semibold"></span>{" "}
+                              <span className="text-blue-600">Proses</span>
+                            </p>
+                          </div>
+
+                          <div className="mt-2">
+                            <p className="text-sm text-center">
+                              <span
+                                className={`font-semibold ${
+                                  isLunas ? "text-green-600" : "text-orange-600"
+                                }`}
+                              >
+                                {isLunas
+                                  ? "✅ Lunas"
+                                  : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
+                                      sisaBayar
+                                    )})`}
                               </span>
                             </p>
                           </div>
-                          <p
-                            className={`mt-2 font-semibold text-sm ${
-                              isLunas ? "text-green-600" : "text-orange-600"
-                            }`}
-                          >
-                            {isLunas
-                              ? "✅ Lunas"
-                              : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
-                                  sisaBayar
-                                )})`}
+
+                          <p className="text-xs text-gray-600 mt-1 text-center">
+                            Sudah dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                            {formatRupiah(d.subtotal)}
                           </p>
-                          <p className="text-xs text-gray-600 mt-1">
-                            Sudah bayar: Rp {formatRupiah(totalBayar)}
-                          </p>
+
                           {d.pembayarans && d.pembayarans.length > 0 && (
-                            <div className="mt-2 text-xs">
+                            <div className="mt-2 text-xs text-center">
                               <p className="font-medium flex items-center justify-center gap-1">
                                 <Receipt size={12} /> Riwayat Pembayaran:
                               </p>
-                              <ul className="list-disc list-inside space-y-1 mt-1 text-left inline-block">
+                              <ul className="list-disc list-inside space-y-1 mt-1 inline-block text-left">
                                 {d.pembayarans.map((p) => (
                                   <li key={p.id} className="text-gray-700">
                                     Rp {formatRupiah(p.jumlah_bayar)} -{" "}
@@ -744,6 +757,7 @@ const PesananPage = () => {
                               </ul>
                             </div>
                           )}
+
                           {!isLunas && (
                             <button
                               onClick={() => handleBayar(d.id)}
@@ -752,6 +766,7 @@ const PesananPage = () => {
                               <Wallet size={14} /> Bayar Sekarang
                             </button>
                           )}
+
                           <div className="flex gap-2 mt-3">
                             <button
                               onClick={() => handleSelesaiDetail(d.id)}
@@ -784,6 +799,16 @@ const PesananPage = () => {
           })}
         </div>
       )}
+
+      <button
+        onClick={() => {
+          resetForm();
+          setIsModalOpen(true);
+        }}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+      >
+        <Plus size={18} />
+      </button>
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -893,17 +918,8 @@ const PesananPage = () => {
               </div>
 
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-bold text-lg text-gray-800">
-                    Detail Pesanan
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={addDetailRow}
-                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm hover:bg-green-700"
-                  >
-                    + Tambah Detail
-                  </button>
+                <div className="flex justify-center items-center">
+                  <h3 className="font-bold text-lg">Detail Transaksi</h3>
                 </div>
                 {form.details.map((d, i) => (
                   <div
@@ -1313,6 +1329,16 @@ const PesananPage = () => {
                     </button>
                   </div>
                 ))}
+              </div>
+
+              <div className="flex justify-center items-center">
+                <button
+                  type="button"
+                  onClick={addDetailRow}
+                  className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm"
+                >
+                  + Tambah Detail
+                </button>
               </div>
 
               <div className="flex justify-center gap-3 pt-4 border-t">

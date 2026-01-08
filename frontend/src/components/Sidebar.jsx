@@ -8,6 +8,7 @@ import {
   Warehouse,
   Factory,
   ClipboardCheck,
+  PersonStandingIcon,
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
@@ -25,7 +26,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   useEffect(() => {
     const path = location.pathname;
 
-    // === PRODUCTION ROUTES (harus dicek PERTAMA untuk menghindari false positive) ===
     const productionRoutes = [
       "/production",
       "/RiwayatProduction",
@@ -34,7 +34,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       path === route || path.startsWith(route + "/")
     );
 
-    // === PRODUCT ROUTES (pastikan TIDAK termasuk yang di production) ===
     const productRoutes = [
       "/product",
       "/harga-product",
@@ -47,31 +46,26 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       path === route || path.startsWith(route + "/")
     );
 
-    // === TRANSAKSI ===
     const transaksiRoutes = [
       "/transaksi",
       "/pesanan",
       "/riwayat-transaksi",
-      "/customer",
       "/status-transaksi",
     ];
     const isTransaksiRoute = transaksiRoutes.some((route) =>
       path === route || path.startsWith(route + "/")
     );
 
-    // === INVENTORY ===
     const inventoryRoutes = ["/inventory", "/ProductMovement"];
     const isInventoryRoute = inventoryRoutes.some((route) =>
       path === route || path.startsWith(route + "/")
     );
 
-    // === STOK OPNAME ===
     const stokOpnameRoutes = ["/StokOpname", "/Riwayat-StokOpname"];
     const isStokOpnameRoute = stokOpnameRoutes.some((route) =>
       path === route || path.startsWith(route + "/")
     );
 
-    // Set state
     setProductionOpen(isProductionRoute);
     setProductOpen(isProductRoute);
     setTransaksiOpen(isTransaksiRoute);
@@ -79,7 +73,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     setStokOpnameOpen(isStokOpnameRoute);
   }, [location.pathname]);
 
-  /* -------------------- Components -------------------- */
   const NavLink = ({ children, to, icon: Icon }) => {
     const isActive = location.pathname === to;
     return (
@@ -144,7 +137,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
   return (
     <>
-      {/* Desktop */}
       <aside className="hidden lg:flex lg:w-72 bg-white border-r border-gray-200 flex-col">
         <div className="flex flex-col h-full overflow-y-auto pb-6">
           <div className="px-6 py-6 border-b border-gray-200/50">
@@ -153,6 +145,9 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           <nav className="flex-1 px-4 py-6 space-y-2">
             <NavLink to="/dashboard-admin" icon={Home}>
               Dashboard
+            </NavLink>
+            <NavLink to="/customer" icon={PersonStandingIcon}>
+              Customer
             </NavLink>
 
             <Dropdown title="Product" open={productOpen} setOpen={setProductOpen} icon={Boxes}>
@@ -168,7 +163,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               <SubNavLink to="/transaksi">Transaksi Daily</SubNavLink>
               <SubNavLink to="/pesanan">Transaksi Pesanan</SubNavLink>
               <SubNavLink to="/riwayat-transaksi">Riwayat Transaksi</SubNavLink>
-              <SubNavLink to="/customer">Customer</SubNavLink>
               {/* <SubNavLink to="/status-transaksi">Status Transaksi</SubNavLink> */}
             </Dropdown>
 
@@ -191,7 +185,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
       </aside>
 
-      {/* Mobile Overlay */}
       <div
         className={`fixed inset-0 z-40 bg-black/20 lg:hidden transition-opacity ${
           sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -199,13 +192,13 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         onClick={() => setSidebarOpen(false)}
       />
 
-      {/* Mobile Sidebar */}
       <aside
         className={`fixed top-0 left-0 z-50 w-72 h-full bg-white shadow-2xl transform transition-transform lg:hidden ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b">
+            <h1 className="text-xl font-bold text-gray-800">Jaya Rubber Seal</h1>
           <button
             onClick={() => setSidebarOpen(false)}
             className="p-2 rounded-lg hover:bg-gray-100"
@@ -214,12 +207,12 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           </button>
         </div>
         <div className="flex flex-col h-full overflow-y-auto pb-6">
-          <div className="px-6 py-6 border-b border-gray-200/50">
-            <h1 className="text-xl font-bold text-gray-800">Jaya Rubber Seal</h1>
-          </div>
           <nav className="flex-1 px-4 py-6 space-y-2">
             <NavLink to="/dashboard-admin" icon={Home}>
               Dashboard
+            </NavLink>
+            <NavLink to="/customer" icon={PersonStandingIcon}>
+              Customer
             </NavLink>
 
             <Dropdown title="Product" open={productOpen} setOpen={setProductOpen} icon={Boxes}>
@@ -235,7 +228,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               <SubNavLink to="/transaksi">Transaksi Daily</SubNavLink>
               <SubNavLink to="/pesanan">Transaksi Pesanan</SubNavLink>
               <SubNavLink to="/riwayat-transaksi">Riwayat Transaksi</SubNavLink>
-              <SubNavLink to="/customer">Customer</SubNavLink>
               {/* <SubNavLink to="/status-transaksi">Status Transaksi</SubNavLink> */}
             </Dropdown>
 

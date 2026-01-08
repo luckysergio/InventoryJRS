@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 
-// === UTILS ===
 const safeParseFloat = (value) => {
   if (value == null) return 0;
   const num = typeof value === "string" ? parseFloat(value) : value;
@@ -109,7 +108,6 @@ export const ProductFilterBar = ({
       </button>
     </div>
 
-    {/* Reset Button untuk Mobile (opsional) */}
     <button
       onClick={() => setSearch("")}
       className="sm:hidden py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
@@ -195,27 +193,46 @@ const ProductPage = ({ setNavbarContent }) => {
     setCurrentPage(1);
   }, [search, filterJenis, filterType]);
 
+  const prevFilterJenisRef = useRef(filterJenis);
+
   useEffect(() => {
     if (!filterJenis) {
       setFilteredTypesForFilter([]);
       setFilterType("");
+      prevFilterJenisRef.current = filterJenis;
       return;
     }
+
     const filtered = allTypes.filter((t) => t.jenis_id === Number(filterJenis));
+
     setFilteredTypesForFilter(filtered);
-    setFilterType("");
+
+    if (prevFilterJenisRef.current !== filterJenis) {
+      setFilterType("");
+      prevFilterJenisRef.current = filterJenis;
+    }
   }, [filterJenis, allTypes]);
 
   useEffect(() => {
     if (allTypes.length === 0) return;
+
     if (!form.jenis_id || form.jenis_id === "new") {
       setFilteredTypes([]);
-      if (!isEdit) setForm((prev) => ({ ...prev, type_id: "" }));
+      if (!isEdit) {
+        setForm((prev) => ({ ...prev, type_id: "" }));
+      }
       return;
     }
-    const filtered = allTypes.filter((t) => t.jenis_id === Number(form.jenis_id));
+
+    const filtered = allTypes.filter(
+      (t) => t.jenis_id === Number(form.jenis_id)
+    );
+
     setFilteredTypes(filtered);
-    if (!isEdit) setForm((prev) => ({ ...prev, type_id: "" }));
+
+    if (!isEdit) {
+      setForm((prev) => ({ ...prev, type_id: "" }));
+    }
   }, [form.jenis_id, allTypes, isEdit]);
 
   const getKodePreview = () => {
@@ -355,9 +372,17 @@ const ProductPage = ({ setNavbarContent }) => {
       <strong>Bahan:</strong> ${bahanNama || "-"}<br/>
       <strong>Ukuran:</strong> ${form.ukuran}<br/>
       <strong>Harga Umum:</strong> ${formatRupiah(hargaNum)}<br/>
-      ${form.keterangan ? `<strong>Keterangan:</strong> ${form.keterangan}<br/>` : ""}
-      <strong>Foto Depan:</strong> ${fotoDepan ? "✅ Terupload" : "❌ Tidak ada"}<br/>
-      <strong>Foto Samping:</strong> ${fotoSamping ? "✅ Terupload" : "❌ Tidak ada"}<br/>
+      ${
+        form.keterangan
+          ? `<strong>Keterangan:</strong> ${form.keterangan}<br/>`
+          : ""
+      }
+      <strong>Foto Depan:</strong> ${
+        fotoDepan ? "✅ Terupload" : "❌ Tidak ada"
+      }<br/>
+      <strong>Foto Samping:</strong> ${
+        fotoSamping ? "✅ Terupload" : "❌ Tidak ada"
+      }<br/>
       <strong>Foto Atas:</strong> ${fotoAtas ? "✅ Terupload" : "❌ Tidak ada"}
     </div>`;
 
@@ -391,14 +416,21 @@ const ProductPage = ({ setNavbarContent }) => {
       formData.append("ukuran", form.ukuran);
       formData.append("harga_umum", hargaNum);
       if (form.keterangan) formData.append("keterangan", form.keterangan);
-      if (form.jenis_id && form.jenis_id !== "new") formData.append("jenis_id", form.jenis_id);
-      if (form.jenis_id === "new") formData.append("jenis_nama", jenisInputBaru.trim());
-      if (form.type_id && form.type_id !== "new") formData.append("type_id", form.type_id);
-      if (form.type_id === "new") formData.append("type_nama", typeInputBaru.trim());
-      if (form.bahan_id && form.bahan_id !== "new") formData.append("bahan_id", form.bahan_id);
-      if (form.bahan_id === "new") formData.append("bahan_nama", bahanInputBaru.trim());
+      if (form.jenis_id && form.jenis_id !== "new")
+        formData.append("jenis_id", form.jenis_id);
+      if (form.jenis_id === "new")
+        formData.append("jenis_nama", jenisInputBaru.trim());
+      if (form.type_id && form.type_id !== "new")
+        formData.append("type_id", form.type_id);
+      if (form.type_id === "new")
+        formData.append("type_nama", typeInputBaru.trim());
+      if (form.bahan_id && form.bahan_id !== "new")
+        formData.append("bahan_id", form.bahan_id);
+      if (form.bahan_id === "new")
+        formData.append("bahan_nama", bahanInputBaru.trim());
       if (fotoDepan instanceof File) formData.append("foto_depan", fotoDepan);
-      if (fotoSamping instanceof File) formData.append("foto_samping", fotoSamping);
+      if (fotoSamping instanceof File)
+        formData.append("foto_samping", fotoSamping);
       if (fotoAtas instanceof File) formData.append("foto_atas", fotoAtas);
 
       if (isEdit) {
@@ -408,14 +440,20 @@ const ProductPage = ({ setNavbarContent }) => {
       }
 
       Swal.close();
-      Swal.fire("Berhasil", isEdit ? "Product berhasil diperbarui" : "Product berhasil ditambahkan", "success");
+      Swal.fire(
+        "Berhasil",
+        isEdit ? "Product berhasil diperbarui" : "Product berhasil ditambahkan",
+        "success"
+      );
       setIsModalOpen(false);
       setCurrentPage(1);
       fetchData({ search, jenis_id: filterJenis, type_id: filterType });
     } catch (error) {
       Swal.close();
       if (error.response?.status === 422) {
-        const msg = Object.values(error.response.data.errors).flat().join("<br>");
+        const msg = Object.values(error.response.data.errors)
+          .flat()
+          .join("<br>");
         Swal.fire("Validasi Gagal", msg, "warning");
       } else {
         Swal.fire("Error", "Terjadi kesalahan saat menyimpan data", "error");
@@ -495,7 +533,12 @@ const ProductPage = ({ setNavbarContent }) => {
         </button>
         {startPage > 1 && (
           <>
-            <button onClick={() => setCurrentPage(1)} className="px-3 py-1 rounded border">1</button>
+            <button
+              onClick={() => setCurrentPage(1)}
+              className="px-3 py-1 rounded border"
+            >
+              1
+            </button>
             {startPage > 2 && <span className="px-2">...</span>}
           </>
         )}
@@ -503,7 +546,11 @@ const ProductPage = ({ setNavbarContent }) => {
           <button
             key={page}
             onClick={() => setCurrentPage(page)}
-            className={`px-3 py-1 rounded border ${page === currentPage ? "bg-indigo-600 text-white" : "bg-white text-gray-700"}`}
+            className={`px-3 py-1 rounded border ${
+              page === currentPage
+                ? "bg-indigo-600 text-white"
+                : "bg-white text-gray-700"
+            }`}
           >
             {page}
           </button>
@@ -511,7 +558,12 @@ const ProductPage = ({ setNavbarContent }) => {
         {endPage < lastPage && (
           <>
             {endPage < lastPage - 1 && <span className="px-2">...</span>}
-            <button onClick={() => setCurrentPage(lastPage)} className="px-3 py-1 rounded border">{lastPage}</button>
+            <button
+              onClick={() => setCurrentPage(lastPage)}
+              className="px-3 py-1 rounded border"
+            >
+              {lastPage}
+            </button>
           </>
         )}
         <button
@@ -525,9 +577,17 @@ const ProductPage = ({ setNavbarContent }) => {
     );
   };
 
-  const renderFotoPreview = (foto, setFoto, label, fileInputRef, cameraInputRef) => (
+  const renderFotoPreview = (
+    foto,
+    setFoto,
+    label,
+    fileInputRef,
+    cameraInputRef
+  ) => (
     <div className="space-y-1.5">
-      <label className="block text-xs font-medium text-gray-600 text-center">{label}</label>
+      <label className="block text-xs font-medium text-gray-600 text-center">
+        {label}
+      </label>
       <div className="flex flex-col items-center gap-1.5">
         {foto ? (
           <div className="relative">
@@ -566,7 +626,13 @@ const ProductPage = ({ setNavbarContent }) => {
           </button>
         </div>
       </div>
-      <input type="file" ref={fileInputRef} accept="image/*" onChange={(e) => handleFileChange(e, setFoto)} className="hidden" />
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        onChange={(e) => handleFileChange(e, setFoto)}
+        className="hidden"
+      />
       <input
         type="file"
         ref={cameraInputRef}
@@ -593,7 +659,14 @@ const ProductPage = ({ setNavbarContent }) => {
         filteredTypesForFilter={filteredTypesForFilter}
       />
     );
-  }, [search, filterJenis, filterType, jenis, filteredTypesForFilter, setNavbarContent]);
+  }, [
+    search,
+    filterJenis,
+    filterType,
+    jenis,
+    filteredTypesForFilter,
+    setNavbarContent,
+  ]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -602,7 +675,9 @@ const ProductPage = ({ setNavbarContent }) => {
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
         </div>
       ) : products.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">Tidak ada Product ditemukan</div>
+        <div className="text-center py-12 text-gray-500">
+          Tidak ada Product ditemukan
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -616,62 +691,99 @@ const ProductPage = ({ setNavbarContent }) => {
                   <div className="flex justify-center gap-2 mb-3">
                     {item.foto_depan && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
+                          item.foto_depan
+                        }`}
                         alt="Foto Depan"
                         className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
-                        onClick={() => openFotoModal(`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`)}
+                        onClick={() =>
+                          openFotoModal(
+                            `${import.meta.env.VITE_ASSET_URL}/storage/${
+                              item.foto_depan
+                            }`
+                          )
+                        }
                       />
                     )}
                     {item.foto_samping && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
+                          item.foto_samping
+                        }`}
                         alt="Foto Samping"
                         className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
-                        onClick={() => openFotoModal(`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`)}
+                        onClick={() =>
+                          openFotoModal(
+                            `${import.meta.env.VITE_ASSET_URL}/storage/${
+                              item.foto_samping
+                            }`
+                          )
+                        }
                       />
                     )}
                     {item.foto_atas && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
+                          item.foto_atas
+                        }`}
                         alt="Foto Atas"
                         className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
-                        onClick={() => openFotoModal(`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`)}
+                        onClick={() =>
+                          openFotoModal(
+                            `${import.meta.env.VITE_ASSET_URL}/storage/${
+                              item.foto_atas
+                            }`
+                          )
+                        }
                       />
                     )}
-                    {!item.foto_depan && !item.foto_samping && !item.foto_atas && (
-                      <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
-                        <ImageIcon className="text-gray-400" size={24} />
-                      </div>
-                    )}
+                    {!item.foto_depan &&
+                      !item.foto_samping &&
+                      !item.foto_atas && (
+                        <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
+                          <ImageIcon className="text-gray-400" size={24} />
+                        </div>
+                      )}
                   </div>
 
                   <div className="text-center mb-2">
-                    <p className="font-bold text-xl text-gray-800">{item.kode}</p>
+                    <p className="font-bold text-xl text-gray-800">
+                      {item.kode}
+                    </p>
                   </div>
                   <div className="text-center mb-2 min-h-[24px]">
-                    <p className="text-sm text-gray-600">{formatProductName(item)}</p>
+                    <p className="text-sm text-gray-600">
+                      {formatProductName(item)}
+                    </p>
                   </div>
 
                   <div className="text-center mb-2 flex items-center justify-center gap-1 text-sm">
                     <Tag size={14} className="text-amber-600" />
-                    <span className="font-medium text-amber-700">{formatRupiah(item.harga_umum)}</span>
+                    <span className="font-medium text-amber-700">
+                      {formatRupiah(item.harga_umum)}
+                    </span>
                   </div>
 
                   <div className="text-center mb-2 text-xs text-gray-600 space-y-0.5">
                     <div className="flex items-center justify-center gap-1">
-                      <Warehouse size={12} /> <span>TOKO: {item.qty_toko || 0}</span>
+                      <Warehouse size={12} />{" "}
+                      <span>TOKO: {item.qty_toko || 0}</span>
                     </div>
                     <div className="flex items-center justify-center gap-1">
-                      <Warehouse size={12} /> <span>BENGKEL: {item.qty_bengkel || 0}</span>
+                      <Warehouse size={12} />{" "}
+                      <span>BENGKEL: {item.qty_bengkel || 0}</span>
                     </div>
                     <div className="flex items-center justify-center gap-1">
-                      <Warehouse size={12} /> <span>TOTAL PRODUCT: {totalQty}</span>
+                      <Warehouse size={12} />{" "}
+                      <span>TOTAL PRODUCT: {totalQty}</span>
                     </div>
                   </div>
 
                   {item.keterangan && (
                     <div className="text-center mb-3 flex-1">
-                      <p className="text-xs italic text-gray-500">"{item.keterangan}"</p>
+                      <p className="text-xs italic text-gray-500">
+                        "{item.keterangan}"
+                      </p>
                     </div>
                   )}
 
@@ -721,7 +833,9 @@ const ProductPage = ({ setNavbarContent }) => {
                 <div className="w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 font-mono">
                   {kodePreview || "—"}
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Kode akan di-generate otomatis oleh sistem</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Kode akan di-generate otomatis oleh sistem
+                </p>
               </div>
 
               <div>
@@ -755,7 +869,9 @@ const ProductPage = ({ setNavbarContent }) => {
                 >
                   <option value="">Pilih Jenis</option>
                   {jenis.map((j) => (
-                    <option key={j.id} value={j.id}>{j.nama}</option>
+                    <option key={j.id} value={j.id}>
+                      {j.nama}
+                    </option>
                   ))}
                   <option value="new">➕ Tambah Jenis Baru</option>
                 </select>
@@ -772,7 +888,9 @@ const ProductPage = ({ setNavbarContent }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipe</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipe
+                </label>
                 <select
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
                   value={form.type_id}
@@ -783,8 +901,14 @@ const ProductPage = ({ setNavbarContent }) => {
                   }}
                 >
                   <option value="">Pilih Tipe</option>
-                  {form.jenis_id && form.jenis_id !== "new" && filteredTypes.length > 0
-                    ? filteredTypes.map((t) => <option key={t.id} value={t.id}>{t.nama}</option>)
+                  {form.jenis_id &&
+                  form.jenis_id !== "new" &&
+                  filteredTypes.length > 0
+                    ? filteredTypes.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.nama}
+                        </option>
+                      ))
                     : null}
                   <option value="new">➕ Tambah Tipe Baru</option>
                 </select>
@@ -801,7 +925,9 @@ const ProductPage = ({ setNavbarContent }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bahan</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Bahan
+                </label>
                 <select
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
                   value={form.bahan_id}
@@ -812,7 +938,11 @@ const ProductPage = ({ setNavbarContent }) => {
                   }}
                 >
                   <option value="">Pilih Bahan</option>
-                  {bahan.map((b) => <option key={b.id} value={b.id}>{b.nama}</option>)}
+                  {bahan.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.nama}
+                    </option>
+                  ))}
                   <option value="new">➕ Tambah Bahan Baru</option>
                 </select>
                 {form.bahan_id === "new" && (
@@ -841,18 +971,40 @@ const ProductPage = ({ setNavbarContent }) => {
               </div>
 
               <div className="grid grid-cols-3 gap-3 pt-2">
-                {renderFotoPreview(fotoDepan, setFotoDepan, "Depan", fileInputDepan, cameraInputDepan)}
-                {renderFotoPreview(fotoSamping, setFotoSamping, "Samping", fileInputSamping, cameraInputSamping)}
-                {renderFotoPreview(fotoAtas, setFotoAtas, "Atas", fileInputAtas, cameraInputAtas)}
+                {renderFotoPreview(
+                  fotoDepan,
+                  setFotoDepan,
+                  "Depan",
+                  fileInputDepan,
+                  cameraInputDepan
+                )}
+                {renderFotoPreview(
+                  fotoSamping,
+                  setFotoSamping,
+                  "Samping",
+                  fileInputSamping,
+                  cameraInputSamping
+                )}
+                {renderFotoPreview(
+                  fotoAtas,
+                  setFotoAtas,
+                  "Atas",
+                  fileInputAtas,
+                  cameraInputAtas
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Keterangan
+                </label>
                 <textarea
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
                   rows={2}
                   value={form.keterangan}
-                  onChange={(e) => setForm({ ...form, keterangan: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, keterangan: e.target.value })
+                  }
                 />
               </div>
 
@@ -878,10 +1030,20 @@ const ProductPage = ({ setNavbarContent }) => {
       )}
 
       {fotoModal && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={closeFotoModal}>
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={closeFotoModal}
+        >
           <div className="relative">
-            <img src={fotoModal} alt="Foto Produk" className="max-w-full max-h-[90vh] object-contain rounded" />
-            <button onClick={closeFotoModal} className="absolute -top-12 right-0 bg-white rounded-full p-2 shadow-lg">
+            <img
+              src={fotoModal}
+              alt="Foto Produk"
+              className="max-w-full max-h-[90vh] object-contain rounded"
+            />
+            <button
+              onClick={closeFotoModal}
+              className="absolute -top-12 right-0 bg-white rounded-full p-2 shadow-lg"
+            >
               <X size={20} className="text-gray-700" />
             </button>
           </div>

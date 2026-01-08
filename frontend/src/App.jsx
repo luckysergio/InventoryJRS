@@ -91,15 +91,17 @@ function App() {
         />
 
         <Route
-          path="/customer"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <CustomerPage />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+  path="/customer"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        {({ setNavbarContent }) => (
+          <CustomerPage setNavbarContent={setNavbarContent} />
+        )}
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
 
         <Route
           path="/status-transaksi"

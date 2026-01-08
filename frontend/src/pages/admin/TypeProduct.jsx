@@ -95,7 +95,8 @@ const TypeProductPage = () => {
     );
 
     if (isDuplicate) {
-      const jenisNama = jenisData.find((j) => j.id == jenis_id)?.nama || "jenis ini";
+      const jenisNama =
+        jenisData.find((j) => j.id == jenis_id)?.nama || "jenis ini";
       Swal.fire(
         "Duplikasi Data",
         `Nama type "${nama}" sudah ada di ${jenisNama}. Silakan gunakan nama lain.`,
@@ -148,22 +149,6 @@ const TypeProductPage = () => {
 
   return (
     <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Type Product</h1>
-          <p className="text-gray-600 mt-1">Type turunan dari Jenis Product</p>
-        </div>
-
-        <button
-          onClick={handleTambah}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition"
-        >
-          <Plus size={18} />
-          Tambah Type
-        </button>
-      </div>
-
       {/* CONTENT */}
       {loading ? (
         <div className="text-center py-12">
@@ -182,7 +167,7 @@ const TypeProductPage = () => {
             >
               {/* JUDUL JENIS */}
               <div className="mb-4 pb-2 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">
+                <h2 className="text-xl font-bold text-gray-800 text-center">
                   Jenis: {group.jenis.nama}
                 </h2>
               </div>
@@ -222,6 +207,13 @@ const TypeProductPage = () => {
           ))}
         </div>
       )}
+
+      <button
+        onClick={handleTambah}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+      >
+        <Plus size={18} />
+      </button>
 
       {/* MODAL */}
       {isModalOpen && (

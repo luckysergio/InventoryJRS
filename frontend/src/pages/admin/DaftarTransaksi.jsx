@@ -207,22 +207,22 @@ const TransaksiPage = () => {
         : { name: "", phone: "", email: "" };
 
       const details = (data.details || [])
-  .filter((d) => d.status_transaksi_id === statusProsesId)
-  .map((d) => ({
-    id: d.id || "",
-    product_id: d.product_id || "",
-    harga_product_id: d.harga_product_id || "",
-    harga_baru: d.harga_baru || {
-      harga: "",
-      tanggal_berlaku: "",
-      keterangan: "",
-    },
-    qty: d.qty || "",
-    tanggal: d.tanggal || "",
-    status_transaksi_id: d.status_transaksi_id,
-    discount: d.discount || 0,
-    catatan: d.catatan || "",
-  }));
+        .filter((d) => d.status_transaksi_id === statusProsesId)
+        .map((d) => ({
+          id: d.id || "",
+          product_id: d.product_id || "",
+          harga_product_id: d.harga_product_id || "",
+          harga_baru: d.harga_baru || {
+            harga: "",
+            tanggal_berlaku: "",
+            keterangan: "",
+          },
+          qty: d.qty || "",
+          tanggal: d.tanggal || "",
+          status_transaksi_id: d.status_transaksi_id,
+          discount: d.discount || 0,
+          catatan: d.catatan || "",
+        }));
 
       // Init harga options & showHargaBaru
       const hargaOpts = {};
@@ -515,19 +515,6 @@ const TransaksiPage = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Transaksi Harian (Daily)</h1>
-        <button
-          onClick={() => {
-            resetForm();
-            setIsModalOpen(true);
-          }}
-          className="bg-blue-600 text-white px-6 py-3 rounded-xl flex items-center gap-2 shadow-md hover:bg-blue-700 transition"
-        >
-          <Plus size={18} /> Tambah Transaksi
-        </button>
-      </div>
-
       {loading ? (
         <p className="text-center py-8 text-gray-600">Memuat data...</p>
       ) : transaksi.length === 0 ? (
@@ -540,7 +527,6 @@ const TransaksiPage = () => {
             .map((item) => {
               const activeDetails = getActiveDetails(item.details);
               if (activeDetails.length === 0) return null;
-
               return (
                 <div
                   key={item.id}
@@ -548,11 +534,11 @@ const TransaksiPage = () => {
                 >
                   <div className="flex justify-center items-start">
                     <div>
-                      <p className="text-gray-700 font-medium">
-                        Customer: {item.customer?.name || "Umum"}
+                      <p className="text-gray-700 font-medium text-center">
+                        {item.customer?.name || "Umum"}
                       </p>
                       <p className="text-gray-700 font-bold text-lg text-center">
-                        Total: Rp {formatRupiah(item.total)}
+                        Rp.{formatRupiah(item.total)}
                       </p>
                     </div>
                   </div>
@@ -572,24 +558,25 @@ const TransaksiPage = () => {
                             {formatProductName(d.product)}
                           </p>
                           <p>
-                            <span className="font-semibold">Qty:</span> {d.qty}
+                            <span className="font-semibold"></span>{" "}
+                            {formatTanggal(d.tanggal)}
                           </p>
                           <p>
-                            <span className="font-semibold">Harga Satuan:</span>{" "}
+                            <span className="font-semibold">Qty</span> {d.qty}
+                          </p>
+                          <p>
+                            <span className="font-semibold">Harga Satuan</span>{" "}
                             Rp {formatRupiah(d.harga)}
                           </p>
                           <p>
-                            <span className="font-semibold">Diskon:</span> Rp{" "}
+                            <span className="font-semibold">Diskon</span> Rp{" "}
                             {formatRupiah(d.discount)}
                           </p>
                           <p>
-                            <span className="font-semibold">Tagihan:</span> Rp{" "}
+                            <span className="font-semibold">Tagihan</span> Rp{" "}
                             {formatRupiah(d.subtotal)}
                           </p>
-                          <p>
-                            <span className="font-semibold">Tanggal:</span>{" "}
-                            {formatTanggal(d.tanggal)}
-                          </p>
+                          
                           {d.catatan && (
                             <p>
                               <span className="font-semibold"></span>{" "}
@@ -600,7 +587,7 @@ const TransaksiPage = () => {
                           <div className="mt-2 pt-2 border-t border-gray-200">
                             <div className="flex justify-center items-center mb-2">
                               <p className="text-sm">
-                                <span className="font-semibold">Status:</span>{" "}
+                                <span className="font-semibold"></span>{" "}
                                 <span className="text-blue-600">Proses</span>
                               </p>
                             </div>
@@ -686,6 +673,16 @@ const TransaksiPage = () => {
             .filter(Boolean)}
         </div>
       )}
+
+      <button
+        onClick={() => {
+          resetForm();
+          setIsModalOpen(true);
+        }}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+      >
+        <Plus size={18} />
+      </button>
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -793,15 +790,8 @@ const TransaksiPage = () => {
               </div>
 
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-center items-center">
                   <h3 className="font-bold text-lg">Detail Transaksi</h3>
-                  <button
-                    type="button"
-                    onClick={addDetailRow}
-                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm"
-                  >
-                    + Tambah Detail
-                  </button>
                 </div>
                 {form.details.map((d, i) => (
                   <div
@@ -973,6 +963,16 @@ const TransaksiPage = () => {
                     </button>
                   </div>
                 ))}
+              </div>
+
+              <div className="flex justify-center items-center">
+                <button
+                  type="button"
+                  onClick={addDetailRow}
+                  className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm"
+                >
+                  + Tambah Detail
+                </button>
               </div>
 
               <div className="flex justify-center gap-3 pt-4 border-t">

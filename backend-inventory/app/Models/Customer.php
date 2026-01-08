@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Customer extends Model
 {
@@ -37,4 +38,16 @@ class Customer extends Model
     {
         return $this->hasMany(HargaProduct::class, 'customer_id');
     }
+
+    public function transaksi_details(): HasManyThrough
+{
+    return $this->hasManyThrough(
+        TransaksiDetail::class,
+        Transaksi::class,
+        'customer_id',      // FK di transaksis
+        'transaksi_id',     // FK di transaksi_details
+        'id',               // PK customers
+        'id'                // PK transaksis
+    );
+}
 }

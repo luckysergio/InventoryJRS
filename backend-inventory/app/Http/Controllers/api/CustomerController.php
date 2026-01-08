@@ -10,80 +10,100 @@ use Illuminate\Support\Facades\Validator;
 
 class CustomerController extends Controller
 {
-    public function index()
-    {
-        // Ambil ID status "Dibatalkan"
-        $statusDibatalkan = DB::table('status_transaksis')
-            ->where('nama', 'Dibatalkan')
-            ->pluck('id')
-            ->first();
+    public function index(Request $request)
+{
+    $statusDibatalkan = DB::table('status_transaksis')
+        ->where('nama', 'Dibatalkan')
+        ->pluck('id')
+        ->first();
 
-        // Subquery pembayaran
-        $pembayaranSubquery = DB::raw('(
+    $pembayaranSubquery = DB::raw('(
         SELECT transaksi_detail_id, SUM(jumlah_bayar) as total_bayar 
         FROM pembayarans 
         GROUP BY transaksi_detail_id
     ) as p');
 
-        // Query tagihan harian
-        $tagihanHarian = DB::table('transaksi_details as td')
-            ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-            ->leftJoin($pembayaranSubquery, 'td.id', '=', 'p.transaksi_detail_id')
-            ->where('t.jenis_transaksi', 'daily')
-            ->whereRaw('t.customer_id = customers.id')
-            ->whereRaw('td.subtotal > COALESCE(p.total_bayar, 0)')
-            ->when($statusDibatalkan, function ($query) use ($statusDibatalkan) {
-                return $query->where('td.status_transaksi_id', '!=', $statusDibatalkan);
-            })
-            ->selectRaw('SUM(td.subtotal - COALESCE(p.total_bayar, 0))');
+    $tagihanHarian = DB::table('transaksi_details as td')
+        ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
+        ->leftJoin($pembayaranSubquery, 'td.id', '=', 'p.transaksi_detail_id')
+        ->where('t.jenis_transaksi', 'daily')
+        ->whereRaw('t.customer_id = customers.id')
+        ->whereRaw('td.subtotal > COALESCE(p.total_bayar, 0)')
+        ->when($statusDibatalkan, function ($query) use ($statusDibatalkan) {
+            return $query->where('td.status_transaksi_id', '!=', $statusDibatalkan);
+        })
+        ->selectRaw('SUM(td.subtotal - COALESCE(p.total_bayar, 0))');
 
-        // Query tagihan pesanan
-        $tagihanPesanan = DB::table('transaksi_details as td')
-            ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-            ->leftJoin($pembayaranSubquery, 'td.id', '=', 'p.transaksi_detail_id')
-            ->where('t.jenis_transaksi', 'pesanan')
-            ->whereRaw('t.customer_id = customers.id')
-            ->whereRaw('td.subtotal > COALESCE(p.total_bayar, 0)')
-            ->when($statusDibatalkan, function ($query) use ($statusDibatalkan) {
-                return $query->where('td.status_transaksi_id', '!=', $statusDibatalkan);
-            })
-            ->selectRaw('SUM(td.subtotal - COALESCE(p.total_bayar, 0))');
+    $tagihanPesanan = DB::table('transaksi_details as td')
+        ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
+        ->leftJoin($pembayaranSubquery, 'td.id', '=', 'p.transaksi_detail_id')
+        ->where('t.jenis_transaksi', 'pesanan')
+        ->whereRaw('t.customer_id = customers.id')
+        ->whereRaw('td.subtotal > COALESCE(p.total_bayar, 0)')
+        ->when($statusDibatalkan, function ($query) use ($statusDibatalkan) {
+            return $query->where('td.status_transaksi_id', '!=', $statusDibatalkan);
+        })
+        ->selectRaw('SUM(td.subtotal - COALESCE(p.total_bayar, 0))');
 
-        $customers = Customer::withCount([
-            'transaksi as transaksi_harian_count' => function ($q) use ($statusDibatalkan) {
-                $q->where('jenis_transaksi', 'daily');
-                if ($statusDibatalkan) {
-                    $q->whereHas('details', function ($detailQuery) use ($statusDibatalkan) {
-                        $detailQuery->where('status_transaksi_id', '!=', $statusDibatalkan);
-                    });
-                }
-            },
-            'transaksi as transaksi_pesanan_count' => function ($q) use ($statusDibatalkan) {
-                $q->where('jenis_transaksi', 'pesanan');
-                if ($statusDibatalkan) {
-                    $q->whereHas('details', function ($detailQuery) use ($statusDibatalkan) {
-                        $detailQuery->where('status_transaksi_id', '!=', $statusDibatalkan);
-                    });
-                }
+    $search = $request->query('search');
+
+    $customersQuery = Customer::with([
+        'transaksi_details.transaksi',
+        'transaksi_details.product.jenis',
+        'transaksi_details.product.type',
+        'transaksi_details.pembayarans'
+    ])->withCount([
+        'transaksi as transaksi_harian_count' => function ($q) use ($statusDibatalkan) {
+            $q->where('jenis_transaksi', 'daily');
+            if ($statusDibatalkan) {
+                $q->whereHas('details', function ($detailQuery) use ($statusDibatalkan) {
+                    $detailQuery->where('status_transaksi_id', '!=', $statusDibatalkan);
+                });
             }
-        ])
-            ->addSelect([
-                'tagihan_harian_belum_lunas' => $tagihanHarian,
-                'tagihan_pesanan_belum_lunas' => $tagihanPesanan,
-            ])
-            ->get();
+        },
+        'transaksi as transaksi_pesanan_count' => function ($q) use ($statusDibatalkan) {
+            $q->where('jenis_transaksi', 'pesanan');
+            if ($statusDibatalkan) {
+                $q->whereHas('details', function ($detailQuery) use ($statusDibatalkan) {
+                    $detailQuery->where('status_transaksi_id', '!=', $statusDibatalkan);
+                });
+            }
+        }
+    ])->addSelect([
+        'tagihan_harian_belum_lunas' => $tagihanHarian,
+        'tagihan_pesanan_belum_lunas' => $tagihanPesanan,
+    ]);
 
-        $customers->each(function ($customer) {
-            $customer->tagihan_harian_belum_lunas = max(0, (int) ($customer->tagihan_harian_belum_lunas ?? 0));
-            $customer->tagihan_pesanan_belum_lunas = max(0, (int) ($customer->tagihan_pesanan_belum_lunas ?? 0));
+    if ($search) {
+        $customersQuery->where(function ($query) use ($search) {
+            $query->where('name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%");
         });
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Berhasil mengambil data customer',
-            'data'    => $customers
-        ]);
     }
+
+    $customers = $customersQuery
+        ->orderByRaw('CASE WHEN (tagihan_harian_belum_lunas > 0 OR tagihan_pesanan_belum_lunas > 0) THEN 0 ELSE 1 END')
+        ->orderBy('name')
+        ->get();
+
+    $customers->each(function ($customer) use ($statusDibatalkan) {
+        $customer->tagihan_harian_belum_lunas = max(0, (int) ($customer->tagihan_harian_belum_lunas ?? 0));
+        $customer->tagihan_pesanan_belum_lunas = max(0, (int) ($customer->tagihan_pesanan_belum_lunas ?? 0));
+
+        $customer->transaksi_details = $customer->transaksi_details->filter(function ($detail) use ($statusDibatalkan) {
+            $totalBayar = $detail->pembayarans->sum('jumlah_bayar') ?? 0;
+            return $detail->subtotal > $totalBayar &&
+                $detail->status_transaksi_id != ($statusDibatalkan ?? 999);
+        });
+    });
+
+    return response()->json([
+        'status'  => true,
+        'message' => 'Berhasil mengambil data customer',
+        'data'    => $customers
+    ]);
+}
 
     public function store(Request $request)
     {

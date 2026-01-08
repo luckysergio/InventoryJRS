@@ -125,22 +125,6 @@ const JenisProductPage = () => {
 
   return (
     <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Jenis Product</h1>
-          <p className="text-gray-600 mt-1">Kategori utama dari product yang tersedia</p>
-        </div>
-
-        <button
-          onClick={handleTambah}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition"
-        >
-          <Plus size={18} />
-          Tambah Jenis
-        </button>
-      </div>
-
       {/* CONTENT */}
       {loading ? (
         <div className="text-center py-12">
@@ -182,6 +166,13 @@ const JenisProductPage = () => {
           ))}
         </div>
       )}
+
+      <button
+          onClick={handleTambah}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+        >
+          <Plus size={18} />
+        </button>
 
       {/* MODAL */}
       {isModalOpen && (
