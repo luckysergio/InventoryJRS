@@ -196,7 +196,6 @@ const TransaksiPage = () => {
 
   const resetForm = (data = null) => {
     if (data) {
-      // Mode edit
       const isCustomerBaru = !customers.some((c) => c.id == data.customer_id);
       const customerBaru = isCustomerBaru
         ? {
@@ -224,7 +223,6 @@ const TransaksiPage = () => {
           catatan: d.catatan || "",
         }));
 
-      // Init harga options & showHargaBaru
       const hargaOpts = {};
       const showHarga = {};
       details.forEach((d, idx) => {
@@ -232,7 +230,6 @@ const TransaksiPage = () => {
           showHarga[idx] = true;
         } else {
           showHarga[idx] = false;
-          // Fetch harga options for this product
           fetchHargaByProduct(d.product_id, idx, data.customer_id);
         }
       });
@@ -247,7 +244,6 @@ const TransaksiPage = () => {
       setShowHargaBaru(showHarga);
       setEditingId(data.id);
     } else {
-      // Mode baru
       setForm({
         customer_id: "",
         customer_baru: { name: "", phone: "", email: "" },
@@ -300,8 +296,6 @@ const TransaksiPage = () => {
       if (!editingId) {
         cleaned.status_transaksi_id = statusProsesId;
       } else {
-        // Jika ini detail lama (ada id), jangan ubah status
-        // Jika detail baru (tidak ada id), set status proses
         if (!cleaned.id) {
           cleaned.status_transaksi_id = statusProsesId;
         }
@@ -443,60 +437,79 @@ const TransaksiPage = () => {
   };
 
   const handleBayar = (detailId) => {
-    const allDetails = transaksi.flatMap((t) => t.details);
-    const detail = allDetails.find((d) => d.id === detailId);
-    if (!detail) return;
+  const allDetails = transaksi.flatMap((t) => t.details);
+  const detail = allDetails.find((d) => d.id === detailId);
+  if (!detail) return;
 
-    const sisa = getSisaBayar(detail);
-    Swal.fire({
-      title: "Input Pembayaran",
-      html: `
-        <p>Tagihan: Rp ${formatRupiah(detail.subtotal)}</p>
-        <p>Sisa: Rp ${formatRupiah(sisa)}</p>
-        <input type="text" id="jumlahBayar" class="swal2-input" placeholder="Jumlah bayar" value="${formatRupiah(
-          sisa
-        )}">
-        <input type="date" id="tanggalBayar" class="swal2-input">
-      `,
-      preConfirm: () => {
-        const jumlah = unformatRupiah(
-          Swal.getPopup().querySelector("#jumlahBayar").value
+  const sisa = getSisaBayar(detail);
+  Swal.fire({
+    title: "Input Pembayaran",
+    html: `
+      <p>Tagihan: Rp ${formatRupiah(detail.subtotal)}</p>
+      <p>Sisa: Rp ${formatRupiah(sisa)}</p>
+      <input type="text" id="jumlahBayar" class="swal2-input" placeholder="Jumlah bayar" value="">
+      <input type="date" id="tanggalBayar" class="swal2-input">
+    `,
+    preConfirm: () => {
+      const jumlah = unformatRupiah(
+        Swal.getPopup().querySelector("#jumlahBayar").value
+      );
+      const tanggal = Swal.getPopup().querySelector("#tanggalBayar").value;
+      if (!jumlah || jumlah <= 0) {
+        Swal.showValidationMessage("Jumlah bayar harus lebih dari 0");
+      } else if (jumlah > sisa) {
+        Swal.showValidationMessage(
+          "Jumlah bayar tidak boleh melebihi sisa tagihan"
         );
-        const tanggal = Swal.getPopup().querySelector("#tanggalBayar").value;
-        if (!jumlah || jumlah <= 0) {
-          Swal.showValidationMessage("Jumlah bayar harus lebih dari 0");
-        } else if (jumlah > sisa) {
-          Swal.showValidationMessage(
-            "Jumlah bayar tidak boleh melebihi sisa tagihan"
-          );
-        } else if (!tanggal) {
-          Swal.showValidationMessage("Tanggal bayar wajib diisi");
-        } else {
-          return { jumlah, tanggal };
-        }
-      },
-      didOpen: () => {
-        const today = new Date().toISOString().split("T")[0];
-        Swal.getPopup().querySelector("#tanggalBayar").value = today;
-      },
-    }).then((result) => {
-      if (result.isConfirmed) {
-        api
-          .post("/pembayaran", {
-            transaksi_detail_id: detailId,
-            jumlah_bayar: result.value.jumlah,
-            tanggal_bayar: result.value.tanggal,
-          })
-          .then(() => {
-            Swal.fire("Berhasil!", "Pembayaran telah dicatat", "success");
-            fetchData();
-          })
-          .catch((err) => {
-            Swal.fire("Error", "Gagal menyimpan pembayaran", "error");
-          });
+      } else if (!tanggal) {
+        Swal.showValidationMessage("Tanggal bayar wajib diisi");
+      } else {
+        return { jumlah, tanggal };
       }
-    });
-  };
+    },
+    didOpen: () => {
+      const today = new Date().toISOString().split("T")[0];
+      const tanggalInput = Swal.getPopup().querySelector("#tanggalBayar");
+      const jumlahInput = Swal.getPopup().querySelector("#jumlahBayar");
+
+      if (tanggalInput) {
+        tanggalInput.value = today;
+      }
+
+      if (jumlahInput) {
+        // Set nilai awal
+        jumlahInput.value = formatRupiah(sisa);
+
+        // Tambahkan live formatting
+        jumlahInput.addEventListener("input", (e) => {
+          let value = e.target.value;
+          let clean = value.replace(/\D/g, "");
+          if (clean === "") {
+            e.target.value = "";
+          } else {
+            e.target.value = new Intl.NumberFormat("id-ID").format(clean);
+          }
+        });
+      }
+    },
+  }).then((result) => {
+    if (result.isConfirmed) {
+      api
+        .post("/pembayaran", {
+          transaksi_detail_id: detailId,
+          jumlah_bayar: result.value.jumlah,
+          tanggal_bayar: result.value.tanggal,
+        })
+        .then(() => {
+          Swal.fire("Berhasil!", "Pembayaran telah dicatat", "success");
+          fetchData();
+        })
+        .catch((err) => {
+          Swal.fire("Error", "Gagal menyimpan pembayaran", "error");
+        });
+    }
+  });
+};
 
   const formatProductName = (p) => {
     if (!p) return "-";

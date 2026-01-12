@@ -311,7 +311,12 @@ const StokOpnamePage = () => {
           </style>
         </head>
         <body>
-          <h1>Laporan Stok Opname (Draft) #${opname.id}</h1>
+          <h1>
+  Laporan Stok Opname (Draft)
+  JRS/SO/${new Date().getFullYear()}/${String(
+      new Date().getMonth() + 1
+    ).padStart(2, "0")}/${opname.id}
+</h1>
           <div class="header">
             <div class="card-row"><span class="label">Tanggal:</span> <span class="value">${new Date(
               opname.tgl_opname
@@ -335,12 +340,14 @@ const StokOpnamePage = () => {
                   <div class="card-row"><span class="label">Stok Fisik:</span> <span>${
                     d.stok_real !== null && d.stok_real !== undefined
                       ? d.stok_real
-                      : "–"
+                      : " "
                   }</span></div>
                   <div class="card-row"><span class="label">Selisih:</span> <span class="selisih ${
                     d.selisih > 0 ? "pos" : d.selisih < 0 ? "neg" : ""
                   }">${
-                  d.selisih !== null && d.selisih !== undefined ? d.selisih : "–"
+                  d.selisih !== null && d.selisih !== undefined
+                    ? d.selisih
+                    : " "
                 }</span></div>
                   ${
                     d.keterangan
@@ -373,24 +380,6 @@ const StokOpnamePage = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-            Stok Opname Aktif
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Kelola dan selesaikan stok opname yang sedang berjalan
-          </p>
-        </div>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 shadow-md transition-all shadow-indigo-100"
-        >
-          <Plus size={18} /> Buat Opname Baru
-        </button>
-      </div>
-
       {draftOpnames.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 mb-4">
@@ -545,6 +534,13 @@ const StokOpnamePage = () => {
         ))
       )}
 
+      <button
+          onClick={() => setIsCreating(true)}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+        >
+          <Plus size={18} />
+        </button>
+
       {isCreating && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl">
@@ -562,7 +558,7 @@ const StokOpnamePage = () => {
 
             <div className="p-5 space-y-6">
               <div className="bg-gray-50 p-4 rounded-xl">
-                <h3 className="text-lg font-semibold mb-3">Informasi Opname</h3>
+                <h3 className="text-lg font-semibold mb-3 text-center">Informasi Opname</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -680,13 +676,7 @@ const StokOpnamePage = () => {
                 )}
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => setIsCreating(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition"
-                >
-                  Batal
-                </button>
+              <div className="flex justify-center gap-3 pt-4 border-t border-gray-200">
                 <button
                   onClick={handleCreateOpname}
                   disabled={isSubmitting || selectedInventoryIds.size === 0}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import {
+  Plus,
   Calendar,
   Package,
   User,
@@ -181,19 +182,10 @@ const ProductionPage = () => {
 
   if (loading) {
     return (
-      <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-              Manajemen Produksi
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Kelola produksi inventory dan pesanan yang sedang berjalan
-            </p>
-          </div>
-        </div>
-        <div className="text-center py-12">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center">
+          <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+          <p className="mt-4 text-gray-600">Memuat data production...</p>
         </div>
       </div>
     );
@@ -203,28 +195,10 @@ const ProductionPage = () => {
 
   return (
     <div className="space-y-12 p-4 md:p-6 max-w-7xl mx-auto">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-            Manajemen Produksi
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Kelola produksi inventory dan pesanan yang sedang berjalan
-          </p>
-        </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl transition"
-        >
-          <span>+ Produksi Inventory</span>
-        </button>
-      </div>
-
       {/* PESANAN MENUNGGU PRODUKSI */}
       {pesanan.length > 0 && (
         <div>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">
+          <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
             Pesanan Menunggu Produksi
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -266,7 +240,7 @@ const ProductionPage = () => {
       {/* PRODUKSI: ANTRI */}
       {byStatus("antri").length > 0 && (
         <div>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Antri</h2>
+          <h2 className="text-xl text-center font-bold text-gray-800 mb-4">Antri</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {byStatus("antri").map((p) => (
               <ProductionCard
@@ -284,7 +258,7 @@ const ProductionPage = () => {
       {/* PRODUKSI: DALAM PRODUKSI */}
       {byStatus("produksi").length > 0 && (
         <div>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">
+          <h2 className="text-xl text-center font-bold text-gray-800 mb-4">
             Dalam Produksi
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -300,6 +274,13 @@ const ProductionPage = () => {
           </div>
         </div>
       )}
+
+      <button
+          onClick={() => setIsModalOpen(true)}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+        >
+          <Plus size={18} />
+        </button>
 
       {/* MODAL: PRODUKSI INVENTORY */}
       {isModalOpen && (
@@ -378,7 +359,7 @@ const ProductionPage = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-center gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
