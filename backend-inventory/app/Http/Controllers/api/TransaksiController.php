@@ -146,9 +146,9 @@ class TransaksiController extends Controller
         ]);
     }
 
-    public function aktif()
+    public function aktif(Request $request)
     {
-        $data = Transaksi::with([
+        $query = Transaksi::with([
             'customer',
             'details.product.jenis',
             'details.product.type',
@@ -157,9 +157,16 @@ class TransaksiController extends Controller
             'details.pembayarans'
         ])
             ->where('jenis_transaksi', 'daily')
-            ->whereHas('details', fn($q) => $q->where('status_transaksi_id', 1))
-            ->orderByDesc('id')
-            ->get();
+            ->whereHas('details', fn($q) => $q->where('status_transaksi_id', 1));
+
+        if ($request->filled('search')) {
+            $searchTerm = '%' . $request->search . '%';
+            $query->whereHas('customer', function ($q) use ($searchTerm) {
+                $q->where('name', 'like', $searchTerm);
+            });
+        }
+
+        $data = $query->orderByDesc('id')->get();
 
         return response()->json($data);
     }
@@ -190,7 +197,7 @@ class TransaksiController extends Controller
             'details.statusTransaksi',
             'details.pembayarans',
         ])
-            ->whereIn('jenis_transaksi', ['daily','pesanan'])
+            ->whereIn('jenis_transaksi', ['daily', 'pesanan'])
             ->whereHas('details', fn($q) => $q->whereIn('status_transaksi_id', [5, 6]))
             ->orderByDesc('id');
 

@@ -12,9 +12,11 @@ class BahanProductController extends Controller
 {
     public function index()
     {
+        $data = BahanProduct::orderByRaw('LOWER(nama) ASC')->get();
+
         return response()->json([
             'status' => true,
-            'data'   => BahanProduct::all()
+            'data'   => $data
         ]);
     }
 
@@ -38,7 +40,14 @@ class BahanProductController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'nama' => 'required|string|max:255'
+            'nama' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[A-Z\s]+$/'
+            ]
+        ], [
+            'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL semua'
         ]);
 
         if ($validator->fails()) {
@@ -50,9 +59,7 @@ class BahanProductController extends Controller
         }
 
         $namaInput = trim($request->nama);
-        $namaNormalized = Str::title(strtolower($namaInput));
 
-        // ✅ Cek duplikasi case-insensitive
         $exists = BahanProduct::whereRaw('LOWER(nama) = ?', [strtolower($namaInput)])->exists();
 
         if ($exists) {
@@ -62,7 +69,9 @@ class BahanProductController extends Controller
             ], 422);
         }
 
-        $data = BahanProduct::create(['nama' => $namaNormalized]);
+        $data = BahanProduct::create([
+            'nama' => strtoupper($namaInput)
+        ]);
 
         return response()->json([
             'status'  => true,
@@ -83,7 +92,14 @@ class BahanProductController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'nama' => 'required|string|max:255'
+            'nama' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[A-Z\s]+$/'
+            ]
+        ], [
+            'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL semua'
         ]);
 
         if ($validator->fails()) {
@@ -95,9 +111,7 @@ class BahanProductController extends Controller
         }
 
         $namaInput = trim($request->nama);
-        $namaNormalized = Str::title(strtolower($namaInput));
 
-        // ✅ Cek duplikasi case-insensitive (kecuali diri sendiri)
         $exists = BahanProduct::whereRaw('LOWER(nama) = ?', [strtolower($namaInput)])
             ->where('id', '!=', $id)
             ->exists();
@@ -109,7 +123,9 @@ class BahanProductController extends Controller
             ], 422);
         }
 
-        $data->update(['nama' => $namaNormalized]);
+        $data->update([
+            'nama' => strtoupper($namaInput)
+        ]);
 
         return response()->json([
             'status'  => true,

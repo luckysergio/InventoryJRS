@@ -1,4 +1,3 @@
-// src/pages/admin/RiwayatTransaksi.jsx
 import { useEffect, useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import {
@@ -349,81 +348,77 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
           {transaksi.map((item) => {
             const jenis = getJenisInfo(item.jenis_transaksi);
             return (
               <div
                 key={item.id}
-                className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
+                className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden flex flex-col"
               >
-                <div className="p-4 bg-gray-50 border-b border-gray-200">
-                  <div className="flex justify-center items-center">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className={`text-xs text-center px-2 py-1 rounded-full bg-${jenis.color}-100 text-${jenis.color}-800 font-medium`}
-                        >
-                          {jenis.text}
-                        </span>
-                      </div>
-                      <p className="text-sm text-center font-medium text-gray-800 mt-1">
-                        {item.customer?.name || "Customer Umum"}
-                      </p>
+                <div className="p-3 bg-gray-50 border-b border-gray-200">
+                  <div className="text-center">
+                    <div className="flex justify-center mb-1">
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full bg-${jenis.color}-100 text-${jenis.color}-800 font-medium`}
+                      >
+                        {jenis.text}
+                      </span>
                     </div>
+                    <p className="text-xs text-gray-800 font-medium truncate px-1">
+                      {item.customer?.name || "Customer Umum"}
+                    </p>
                   </div>
                 </div>
 
-                <div className="p-4 space-y-3">
+                <div className="p-3 space-y-2 flex-1 overflow-y-auto max-h-[320px]">
                   {item.details.map((d) => {
                     const status = getStatusInfo(d.status_transaksi_id);
                     const StatusIcon = status.icon;
                     return (
                       <div
                         key={d.id}
-                        className="border border-gray-200 rounded-lg p-3 bg-gray-50"
+                        className="border border-gray-200 rounded-lg p-2.5 bg-gray-50 text-[11px]"
                       >
-                        <div className="flex justify-center items-center mb-2">
+                        <div className="flex justify-center mb-1.5">
                           <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 ${status.bg} ${status.textClass}`}
+                            className={`text-[9px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${status.bg} ${status.textClass}`}
                           >
-                            <StatusIcon size={10} />
+                            <StatusIcon size={9} />
                             {status.text}
                           </span>
                         </div>
-                        <div className="flex justify-center items-center mb-2">
-                          <p className="text-sm font-medium text-gray-800 line-clamp-1">
-                            {formatProductName(d.product)}
-                          </p>
-                        </div>
+                        <p className="font-medium text-center line-clamp-2 mb-1.5">
+                          {formatProductName(d.product)}
+                        </p>
 
                         {d.status_transaksi_id === 6 ? (
-                          <div className="text-center text-xs text-gray-600 italic mt-2">
-                            Detail ini telah dibatalkan.
+                          <div className="text-center text-[10px] text-gray-600 italic">
+                            Dibatalkan
                           </div>
                         ) : (
                           <>
-                            <div className="grid grid-cols-2 gap-1 text-xs text-gray-600 mb-2">
-                              <p>Qty: {d.qty}</p>
-                              <p className="text-right">
+                            <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 text-[10px] text-gray-600 mb-1.5">
+                              <span>Qty: {d.qty}</span>
+                              <span className="text-right">
                                 {formatTanggal(d.tanggal)}
-                              </p>
-                              <p>Harga: Rp {formatRupiah(d.harga)}</p>
-                              <p className="text-right">
+                              </span>
+                              <span>Harga: Rp {formatRupiah(d.harga)}</span>
+                              <span className="text-right">
                                 Diskon: Rp {formatRupiah(d.discount)}
-                              </p>
+                              </span>
                             </div>
 
                             {d.pembayarans?.length > 0 && (
-                              <div className="mt-3 pt-2 border-t border-gray-200">
-                                <p className="text-[10px] font-medium text-gray-700 flex justify-center gap-1">
-                                  <Wallet size={10} /> Riwayat Pembayaran
+                              <div className="pt-1.5 border-t border-gray-200">
+                                <p className="text-[9px] font-medium text-gray-700 text-center mb-1">
+                                  <Wallet size={9} /> Riwayat
                                 </p>
-                                <ul className="mt-1 space-y-1">
-                                  {d.pembayarans.map((p) => (
+                                <ul className="space-y-0.5">
+                                  {d.pembayarans.slice(0, 2).map((p) => (
                                     <li
                                       key={p.id}
-                                      className="text-[10px] text-gray-600 flex justify-between"
+                                      className="text-[9px] text-gray-600 flex justify-between"
                                     >
                                       <span>
                                         {formatTanggal(p.tanggal_bayar)}
@@ -433,6 +428,11 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
                                       </span>
                                     </li>
                                   ))}
+                                  {d.pembayarans.length > 2 && (
+                                    <li className="text-[9px] text-gray-500 italic text-center">
+                                      +{d.pembayarans.length - 2} lainnya
+                                    </li>
+                                  )}
                                 </ul>
                               </div>
                             )}
@@ -443,12 +443,12 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
                   })}
                 </div>
 
-                <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+                <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
                   <button
                     onClick={() => handleDelete(item.id)}
-                    className="w-full flex justify-center items-center gap-2 text-xs text-red-600 hover:text-red-800 py-1.5 rounded-lg hover:bg-red-50 transition"
+                    className="w-full flex justify-center items-center gap-1 text-[10px] text-red-600 hover:text-red-800 py-1 rounded hover:bg-red-50 transition"
                   >
-                    <Trash2 size={14} /> Hapus Transaksi
+                    <Trash2 size={12} /> Hapus
                   </button>
                 </div>
               </div>

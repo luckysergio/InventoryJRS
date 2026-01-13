@@ -12,9 +12,13 @@ class TypeProductController extends Controller
 {
     public function index()
     {
+        $data = TypeProduct::with('jenis')
+            ->orderByRaw('LOWER(nama) ASC')
+            ->get();
+
         return response()->json([
             'status' => true,
-            'data'   => TypeProduct::with('jenis')->get()
+            'data'   => $data
         ]);
     }
 
@@ -47,8 +51,15 @@ class TypeProductController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'nama'     => 'required|string|max:255',
+            'nama' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[A-Z0-9\s]+$/'
+            ],
             'jenis_id' => 'required|exists:jenis_products,id',
+        ], [
+            'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL dan boleh mengandung ANGKA'
         ]);
 
         if ($validator->fails()) {
@@ -60,9 +71,7 @@ class TypeProductController extends Controller
         }
 
         $namaInput = trim($request->nama);
-        $namaNormalized = Str::title(strtolower($namaInput));
 
-        // ✅ Cek duplikasi case-insensitive + jenis_id
         $exists = TypeProduct::where('jenis_id', $request->jenis_id)
             ->whereRaw('LOWER(nama) = ?', [strtolower($namaInput)])
             ->exists();
@@ -75,7 +84,7 @@ class TypeProductController extends Controller
         }
 
         $data = TypeProduct::create([
-            'nama'     => $namaNormalized,
+            'nama'     => strtoupper($namaInput),
             'jenis_id' => $request->jenis_id,
         ]);
 
@@ -98,8 +107,15 @@ class TypeProductController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'nama'     => 'required|string|max:255',
+            'nama' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[A-Z0-9\s]+$/'
+            ],
             'jenis_id' => 'required|exists:jenis_products,id',
+        ], [
+            'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL dan boleh mengandung ANGKA'
         ]);
 
         if ($validator->fails()) {
@@ -111,9 +127,7 @@ class TypeProductController extends Controller
         }
 
         $namaInput = trim($request->nama);
-        $namaNormalized = Str::title(strtolower($namaInput));
 
-        // ✅ Cek duplikasi case-insensitive (kecuali diri sendiri)
         $exists = TypeProduct::where('jenis_id', $request->jenis_id)
             ->whereRaw('LOWER(nama) = ?', [strtolower($namaInput)])
             ->where('id', '!=', $id)
@@ -127,7 +141,7 @@ class TypeProductController extends Controller
         }
 
         $data->update([
-            'nama'     => $namaNormalized,
+            'nama'     => strtoupper($namaInput),
             'jenis_id' => $request->jenis_id,
         ]);
 

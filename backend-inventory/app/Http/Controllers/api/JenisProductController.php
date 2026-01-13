@@ -12,9 +12,11 @@ class JenisProductController extends Controller
 {
     public function index()
     {
+        $data = JenisProduct::orderByRaw('LOWER(nama) ASC')->get();
+
         return response()->json([
             'status' => true,
-            'data'   => JenisProduct::all()
+            'data'   => $data
         ]);
     }
 
@@ -38,7 +40,14 @@ class JenisProductController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'nama' => 'required|string|max:255'
+            'nama' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[A-Z0-9\s]+$/'
+            ]
+        ], [
+            'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL dan boleh mengandung ANGKA'
         ]);
 
         if ($validator->fails()) {
@@ -50,10 +59,11 @@ class JenisProductController extends Controller
         }
 
         $namaInput = trim($request->nama);
-        $namaNormalized = Str::title(strtolower($namaInput));
 
-        // ✅ Cek duplikasi case-insensitive
-        $exists = JenisProduct::whereRaw('LOWER(nama) = ?', [strtolower($namaInput)])->exists();
+        $exists = JenisProduct::whereRaw(
+            'LOWER(nama) = ?',
+            [strtolower($namaInput)]
+        )->exists();
 
         if ($exists) {
             return response()->json([
@@ -62,7 +72,9 @@ class JenisProductController extends Controller
             ], 422);
         }
 
-        $data = JenisProduct::create(['nama' => $namaNormalized]);
+        $data = JenisProduct::create([
+            'nama' => strtoupper($namaInput)
+        ]);
 
         return response()->json([
             'status'  => true,
@@ -74,7 +86,14 @@ class JenisProductController extends Controller
     public function update(Request $request, JenisProduct $jenisProduct)
     {
         $validator = Validator::make($request->all(), [
-            'nama' => 'required|string|max:255'
+            'nama' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[A-Z0-9\s]+$/'
+            ]
+        ], [
+            'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL dan boleh mengandung ANGKA'
         ]);
 
         if ($validator->fails()) {
@@ -86,10 +105,11 @@ class JenisProductController extends Controller
         }
 
         $namaInput = trim($request->nama);
-        $namaNormalized = Str::title(strtolower($namaInput));
 
-        // ✅ Cek duplikasi case-insensitive (kecuali diri sendiri)
-        $exists = JenisProduct::whereRaw('LOWER(nama) = ?', [strtolower($namaInput)])
+        $exists = JenisProduct::whereRaw(
+            'LOWER(nama) = ?',
+            [strtolower($namaInput)]
+        )
             ->where('id', '!=', $jenisProduct->id)
             ->exists();
 
@@ -100,7 +120,9 @@ class JenisProductController extends Controller
             ], 422);
         }
 
-        $jenisProduct->update(['nama' => $namaNormalized]);
+        $jenisProduct->update([
+            'nama' => strtoupper($namaInput)
+        ]);
 
         return response()->json([
             'status'  => true,

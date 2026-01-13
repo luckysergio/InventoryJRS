@@ -41,11 +41,10 @@ class PesananTransaksiController extends Controller
         ]);
     }
 
-    public function aktif()
+    public function aktif(Request $request)
     {
-        $data = Transaksi::with([
+        $query = Transaksi::with([
             'customer',
-
             'details' => function ($q) {
                 $q->whereIn('status_transaksi_id', [2, 3, 4])
                     ->with([
@@ -58,16 +57,21 @@ class PesananTransaksiController extends Controller
             }
         ])
             ->where('jenis_transaksi', 'pesanan')
-
             ->whereHas('details', function ($q) {
                 $q->whereIn('status_transaksi_id', [2, 3, 4]);
-            })
-            ->orderByDesc('id')
-            ->get();
+            });
+
+        if ($request->filled('search')) {
+            $searchTerm = '%' . $request->search . '%';
+            $query->whereHas('customer', function ($q) use ($searchTerm) {
+                $q->where('name', 'like', $searchTerm);
+            });
+        }
+
+        $data = $query->orderByDesc('id')->get();
 
         return response()->json($data);
     }
-
 
     public function show($id)
     {
@@ -84,29 +88,38 @@ class PesananTransaksiController extends Controller
         return response()->json($data);
     }
 
-    private function generatePesananProductKode(
-        string $customerName,
-        string $jenisNama,
-        string $typeNama,
-        string $bahanNama,
-        string $ukuran
-    ): string {
-        $customerPrefix = strtoupper(substr(Str::ascii($customerName), 0, 3));
-        $customerPrefix = str_pad($customerPrefix, 3, 'X');
+    private function extractInitials(?string $text, int $max = 2): string
+    {
+        if (!$text) return '';
 
-        $jenisKode = $jenisNama ? strtoupper(substr($jenisNama, 0, 1)) : 'X';
+        $words = preg_split('/\s+/', trim(Str::ascii($text)));
 
-        if ($typeNama) {
-            preg_match('/\d/', $typeNama, $matches);
-            $typeKode = strtoupper(substr($typeNama, 0, 1)) . ($matches[0] ?? '');
-        } else {
-            $typeKode = 'X';
-        }
+        return collect($words)
+            ->map(fn($w) => strtoupper(substr($w, 0, 1)))
+            ->filter(fn($c) => ctype_alpha($c))
+            ->take($max)
+            ->implode('');
+    }
 
-        $bahanKode = $bahanNama ? strtoupper(substr($bahanNama, 0, 1)) : 'X';
-        $ukuranAngka = preg_replace('/\D/', '', $ukuran);
+    private function extractNumbers(?string $text): string
+    {
+        if (!$text) return '';
+        preg_match_all('/\d+/', $text, $matches);
+        return implode('', $matches[0]);
+    }
 
-        return $customerPrefix . $jenisKode . $typeKode . $bahanKode . $ukuranAngka;
+    private function generateCustomerPrefix(string $customerName, int $max = 6): string
+    {
+        $letters = collect(
+            preg_split('/\s+/', trim(Str::ascii($customerName)))
+        )
+            ->map(fn($word) => strtoupper(substr($word, 0, 1)))
+            ->filter(fn($char) => ctype_alpha($char))
+            ->implode('');
+
+        $letters = substr($letters, 0, $max);
+
+        return $letters . '-';
     }
 
     private function makeUniqueKode(string $baseKode): string
@@ -120,6 +133,32 @@ class PesananTransaksiController extends Controller
         }
 
         return $kode;
+    }
+
+    private function generatePesananProductKode(
+        string $customerName,
+        string $jenisNama,
+        ?string $typeNama,
+        ?string $bahanNama,
+        string $ukuran
+    ): string {
+        $customerPrefix = $this->generateCustomerPrefix($customerName);
+
+        $jenisKode = strtoupper(substr($jenisNama, 0, 1));
+
+        $typeKode = $typeNama
+            ? $this->extractInitials($typeNama, 2) . $this->extractNumbers($typeNama)
+            : '';
+
+        $bahanKode = $this->extractInitials($bahanNama, 2);
+
+        $ukuranKode = $this->extractNumbers($ukuran);
+
+        return $customerPrefix
+            . $jenisKode
+            . $typeKode
+            . $bahanKode
+            . $ukuranKode;
     }
 
     private function normalizeDetails(array $details): array

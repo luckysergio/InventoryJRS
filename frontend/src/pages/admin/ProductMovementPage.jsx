@@ -1,10 +1,8 @@
-// src/pages/admin/ProductMovementPage.jsx
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Swal from "sweetalert2";
 import { Calendar, ArrowDown, ArrowUp, Repeat, Factory } from "lucide-react";
 import api from "../../services/api";
 
-// Helper: format nama produk
 const formatProductName = (product) => {
   if (!product) return "-";
   return [
@@ -17,7 +15,6 @@ const formatProductName = (product) => {
     .join(" ");
 };
 
-// Badge types
 const badgeType = {
   in: {
     label: "IN",
@@ -52,7 +49,6 @@ export const ProductMovementFilterBar = ({
   handleReset,
 }) => (
   <div className="flex items-center gap-2 w-full">
-    {/* Tanggal Dari */}
     <div className="relative flex-1 min-w-[80px] xs:min-w-[90px] sm:min-w-[160px] md:min-w-[180px] lg:min-w-[200px]">
       <Calendar className="absolute left-1 xs:left-2 sm:left-3 top-1/2 -translate-y-1/2 h-3 xs:h-4 w-3 xs:w-4 text-gray-400" />
       <input
@@ -64,7 +60,6 @@ export const ProductMovementFilterBar = ({
       />
     </div>
 
-    {/* Tanggal Sampai */}
     <div className="relative flex-1 min-w-[80px] xs:min-w-[90px] sm:min-w-[160px] md:min-w-[180px] lg:min-w-[200px]">
       <Calendar className="absolute left-1 xs:left-2 sm:left-3 top-1/2 -translate-y-1/2 h-3 xs:h-4 w-3 xs:w-4 text-gray-400" />
       <input
@@ -101,7 +96,6 @@ export const ProductMovementFilterBar = ({
   </div>
 );
 
-
 const ProductMovementPage = ({ setNavbarContent }) => {
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -110,7 +104,6 @@ const ProductMovementPage = ({ setNavbarContent }) => {
   const [filterSampai, setFilterSampai] = useState("");
   const [selectedType, setSelectedType] = useState("");
 
-  // ✅ Stable movementTypes
   const movementTypes = useMemo(
     () => [
       { value: "in", label: "IN" },
@@ -157,7 +150,6 @@ const ProductMovementPage = ({ setNavbarContent }) => {
     setSelectedType("");
   };
 
-  // ✅ Use stable movementTypes to prevent infinite loop
   useEffect(() => {
     setNavbarContent(
       <ProductMovementFilterBar
@@ -206,7 +198,6 @@ const ProductMovementPage = ({ setNavbarContent }) => {
                   key={m.id}
                   className="bg-white border border-gray-200 rounded-lg p-3 hover:border-purple-300 hover:shadow-sm transition cursor-pointer"
                 >
-                  {/* Badge & Tanggal */}
                   <div className="flex justify-between items-start mb-2">
                     <span
                       className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full ${badge.className}`}
@@ -227,13 +218,11 @@ const ProductMovementPage = ({ setNavbarContent }) => {
                     {m.inventory?.place?.nama || "–"}
                   </p>
 
-                  {/* Qty */}
                   <p className="text-lg font-bold text-purple-700 mt-2 text-center">
                     {m.qty}{" "}
                     {m.tipe === "out" || m.tipe === "transfer" ? "–" : "+"}
                   </p>
 
-                  {/* Keterangan */}
                   {m.keterangan && (
                     <p className="text-[10px] italic text-gray-500 mt-2 line-clamp-2 text-center">
                       "{m.keterangan}"

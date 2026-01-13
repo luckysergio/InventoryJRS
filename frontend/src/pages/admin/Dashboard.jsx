@@ -63,7 +63,7 @@ const Dashboard = () => {
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200/50">
           <p className="text-gray-600 text-sm">Transaksi Pending</p>
           <p className="text-3xl font-bold text-red-600 mt-1">
-            {transaksiStatusData.transaksiPending}
+            {transaksiStatusData.ProductionPending}
           </p>
           <p className="text-sm text-gray-500 mt-2">Menunggu tindakan admin</p>
         </div>

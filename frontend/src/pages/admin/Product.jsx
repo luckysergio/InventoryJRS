@@ -33,16 +33,42 @@ const unformatRupiah = (str) => {
   return parseInt(String(str).replace(/\D/g, ""), 10) || 0;
 };
 
-const generateKode = (jenisNama, typeName, bahanNama, ukuran) => {
+const extractInitials = (text, max = 2) => {
+  if (!text) return "";
+
+  return text
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase())
+    .filter((char) => /[A-Z]/.test(char))
+    .slice(0, max)
+    .join("");
+};
+
+const extractNumbers = (text) => {
+  if (!text) return "";
+  const matches = text.match(/\d+/g);
+  return matches ? matches.join("") : "";
+};
+
+const generateKode = (jenisNama, typeNama, bahanNama, ukuran) => {
+  // JENIS → 1 huruf
   const jenisKode = jenisNama ? jenisNama.charAt(0).toUpperCase() : "";
+
+  // TYPE → 1–2 huruf + semua angka
   let typeKode = "";
-  if (typeName) {
-    const firstChar = typeName.charAt(0).toUpperCase();
-    const matchDigit = typeName.match(/\d/);
-    typeKode = firstChar + (matchDigit ? matchDigit[0] : "");
+  if (typeNama) {
+    const huruf = extractInitials(typeNama, 2);
+    const angka = extractNumbers(typeNama);
+    typeKode = huruf + angka;
   }
-  const bahanKode = bahanNama ? bahanNama.charAt(0).toUpperCase() : "";
-  const ukuranAngka = ukuran ? ukuran.replace(/[^0-9]/g, "") : "";
+
+  // BAHAN → 1–2 huruf
+  const bahanKode = bahanNama ? extractInitials(bahanNama, 2) : "";
+
+  // UKURAN → semua angka
+  const ukuranAngka = extractNumbers(ukuran);
+
   return jenisKode + typeKode + bahanKode + ukuranAngka;
 };
 
@@ -236,31 +262,23 @@ const ProductPage = ({ setNavbarContent }) => {
   }, [form.jenis_id, allTypes, isEdit]);
 
   const getKodePreview = () => {
-    let jenisNama = "";
-    if (form.jenis_id === "new") {
-      jenisNama = jenisInputBaru;
-    } else {
-      const j = jenis.find((j) => String(j.id) === String(form.jenis_id));
-      jenisNama = j ? j.nama : "";
-    }
+    const jenisNama =
+      form.jenis_id === "new"
+        ? jenisInputBaru
+        : jenis.find((j) => String(j.id) === String(form.jenis_id))?.nama || "";
 
-    let typeName = "";
-    if (form.type_id === "new") {
-      typeName = typeInputBaru;
-    } else {
-      const t = allTypes.find((t) => String(t.id) === String(form.type_id));
-      typeName = t ? t.nama : "";
-    }
+    const typeNama =
+      form.type_id === "new"
+        ? typeInputBaru
+        : allTypes.find((t) => String(t.id) === String(form.type_id))?.nama ||
+          "";
 
-    let bahanNama = "";
-    if (form.bahan_id === "new") {
-      bahanNama = bahanInputBaru;
-    } else {
-      const b = bahan.find((b) => String(b.id) === String(form.bahan_id));
-      bahanNama = b ? b.nama : "";
-    }
+    const bahanNama =
+      form.bahan_id === "new"
+        ? bahanInputBaru
+        : bahan.find((b) => String(b.id) === String(form.bahan_id))?.nama || "";
 
-    return generateKode(jenisNama, typeName, bahanNama, form.ukuran);
+    return generateKode(jenisNama, typeNama, bahanNama, form.ukuran);
   };
 
   const handleTambah = () => {

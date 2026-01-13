@@ -180,7 +180,7 @@ const RiwayatProductionPage = ({ setNavbarContent }) => {
 
                   <div className="flex items-center justify-center gap-1 mt-2 text-center">
                     <span className="text-[11px] text-gray-700">
-                      Qty: {p.qty} untuk{" "}
+                      Qty {p.qty} untuk{" "}
                       {p.jenis_pembuatan === "pesanan"
                         ? p.transaksi?.customer?.name || "Pesanan"
                         : "Inventory"}

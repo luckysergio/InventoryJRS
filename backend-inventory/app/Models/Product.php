@@ -70,6 +70,11 @@ class Product extends Model
         return $this->hasMany(Inventory::class);
     }
 
+    public function place()
+    {
+        return $this->belongsTo(Place::class);
+    }
+
     public function productions()
     {
         return $this->hasMany(Production::class);

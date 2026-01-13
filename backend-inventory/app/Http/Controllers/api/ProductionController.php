@@ -287,7 +287,9 @@ class ProductionController extends Controller
     public function pesananDipesan()
     {
         $data = TransaksiDetail::with([
-            'product',
+            'product.jenis',
+            'product.type',
+            'product.bahan',
             'transaksi.customer',
             'statusTransaksi'
         ])

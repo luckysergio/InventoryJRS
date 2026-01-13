@@ -1,4 +1,3 @@
-// src/pages/admin/CustomerPage.jsx
 import { useEffect, useState, useCallback } from "react";
 import Swal from "sweetalert2";
 import {
@@ -59,12 +58,10 @@ export const CustomerFilterBar = ({ search, setSearch }) => (
   </div>
 );
 
-// Helper: cari customer berdasarkan ID
 const findCustomerById = (customers, id) => {
   return customers.find((c) => c.id == id) || null;
 };
 
-// Helper: cari transaksi detail berdasarkan ID
 const findTransaksiDetailById = (customers, id) => {
   for (const customer of customers) {
     if (customer.transaksi_details) {
@@ -79,8 +76,8 @@ const CustomerPage = ({ setNavbarContent }) => {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [customerModal, setCustomerModal] = useState(null); // { customerId, jenisFilter }
-  const [detailModal, setDetailModal] = useState(null); // { id, customerName }
+  const [customerModal, setCustomerModal] = useState(null);
+  const [detailModal, setDetailModal] = useState(null);
   const [bayarModal, setBayarModal] = useState(null);
   const [jumlahBayar, setJumlahBayar] = useState("");
 

@@ -97,21 +97,54 @@ class ProductController extends Controller
         ]);
     }
 
-    private function generateProductKode($jenisNama, $typeNama, $bahanNama, $ukuran)
+    private function extractInitials(string $text, int $max = 2): string
     {
-        $jenisKode = $jenisNama ? strtoupper(substr($jenisNama, 0, 1)) : '';
+        $words = preg_split('/\s+/', trim($text));
+
+        $initials = '';
+        foreach ($words as $word) {
+            $char = strtoupper(substr($word, 0, 1));
+
+            if (ctype_alpha($char)) {
+                $initials .= $char;
+            }
+
+            if (strlen($initials) >= $max) {
+                break;
+            }
+        }
+
+        return $initials;
+    }
+
+    private function extractNumbers(string $text): string
+    {
+        preg_match_all('/\d+/', $text, $matches);
+        return implode('', $matches[0]);
+    }
+
+    private function generateProductKode(
+        ?string $jenisNama,
+        ?string $typeNama,
+        ?string $bahanNama,
+        string $ukuran
+    ): string {
+        $jenisKode = $jenisNama
+            ? strtoupper(substr($jenisNama, 0, 1))
+            : '';
 
         $typeKode = '';
         if ($typeNama) {
-            $firstChar = strtoupper(substr($typeNama, 0, 1));
-            preg_match('/\d/', $typeNama, $matches);
-            $digit = $matches[0] ?? '';
-            $typeKode = $firstChar . $digit;
+            $huruf = $this->extractInitials($typeNama, 2);
+            $angka = $this->extractNumbers($typeNama);
+            $typeKode = $huruf . $angka;
         }
 
-        $bahanKode = $bahanNama ? strtoupper(substr($bahanNama, 0, 1)) : '';
+        $bahanKode = $bahanNama
+            ? $this->extractInitials($bahanNama, 2)
+            : '';
 
-        $ukuranAngka = preg_replace('/\D/', '', $ukuran);
+        $ukuranAngka = $this->extractNumbers($ukuran);
 
         return $jenisKode . $typeKode . $bahanKode . $ukuranAngka;
     }
@@ -123,10 +156,10 @@ class ProductController extends Controller
 
         while (
             Product::where('kode', $kode)
-                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
-                ->exists()
+            ->when($ignoreId, fn($q) => $q->where('id', '!=', $ignoreId))
+            ->exists()
         ) {
-            $kode = $baseKode . '_' . $counter++;
+            $kode = $baseKode . '-' . $counter++;
         }
 
         return $kode;
@@ -152,6 +185,7 @@ class ProductController extends Controller
 
         return $this->makeUniqueKode($baseKode, $ignoreProductId);
     }
+
 
     public function store(Request $request)
     {
@@ -195,8 +229,8 @@ class ProductController extends Controller
             // TYPE
             $type = $request->filled('type_id')
                 ? TypeProduct::where('id', $request->type_id)
-                    ->where('jenis_id', $jenis->id)
-                    ->firstOrFail()
+                ->where('jenis_id', $jenis->id)
+                ->firstOrFail()
                 : TypeProduct::firstOrCreate([
                     'nama' => Str::title(trim($request->type_nama)),
                     'jenis_id' => $jenis->id
@@ -269,7 +303,6 @@ class ProductController extends Controller
                 'message' => 'Produk berhasil dibuat',
                 'data' => $product->load(['jenis', 'type', 'bahan'])
             ], 201);
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json([
@@ -286,7 +319,7 @@ class ProductController extends Controller
         $validator = Validator::make($request->all(), [
             'jenis_id' => 'required|exists:jenis_products,id',
             'type_id'  => 'nullable|exists:type_products,id',
-            'type_nama'=> 'nullable|string|max:100',
+            'type_nama' => 'nullable|string|max:100',
 
             'bahan_id' => 'nullable|exists:bahan_products,id',
             'bahan_nama' => 'nullable|string|max:100',
@@ -389,7 +422,6 @@ class ProductController extends Controller
                 'message' => 'Produk berhasil diperbarui',
                 'data' => $product->load(['jenis', 'type', 'bahan'])
             ]);
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json([
@@ -473,6 +505,7 @@ class ProductController extends Controller
                 },
                 'inventories.place'
             ])
+            ->orderByRaw('LOWER(kode) ASC') // 🔥 A–Z tanpa peduli huruf besar/kecil
             ->get();
 
         return response()->json([
@@ -484,11 +517,13 @@ class ProductController extends Controller
 
     public function lowStock()
     {
-        $products = Product::whereHas('inventories', function ($q) {
-            $q->where('qty', '<', 20)
-                ->whereHas('place', function ($p) {
-                    $p->whereIn('kode', ['TOKO', 'BENGKEL']);
-                });
+        $products = Product::whereIn('id', function ($sub) {
+            $sub->select('product_id')
+                ->from('inventories')
+                ->join('places', 'places.id', '=', 'inventories.place_id')
+                ->whereIn('places.kode', ['TOKO', 'BENGKEL'])
+                ->groupBy('product_id')
+                ->havingRaw('SUM(inventories.qty) < 20');
         })
             ->with([
                 'jenis',
@@ -497,16 +532,17 @@ class ProductController extends Controller
                 'inventories' => function ($q) {
                     $q->where('qty', '>', 0)
                         ->whereHas('place', function ($p) {
-                            $p->where('kode', 'TOKO');
+                            $p->whereIn('kode', ['TOKO', 'BENGKEL']);
                         });
                 },
                 'inventories.place'
             ])
+            ->orderByRaw('LOWER(products.kode) ASC')
             ->get();
 
         return response()->json([
             'status'  => true,
-            'message' => 'Berhasil mengambil produk tersedia di TOKO',
+            'message' => 'Produk dengan total stok TOKO + BENGKEL < 20',
             'data'    => $products
         ]);
     }

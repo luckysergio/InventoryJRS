@@ -27,8 +27,8 @@ import PlacePage from "./pages/admin/PlacePage";
 import CustomerPage from "./pages/admin/Customer";
 
 // Transaksi
-import DaftarTransaksi from "./pages/admin/DaftarTransaksi";
-import Pesanan from "./pages/admin/Pesanan";
+import TransaksiPage from "./pages/admin/DaftarTransaksi";
+import PesananPage from "./pages/admin/Pesanan";
 import RiwayatTransaksi from "./pages/admin/RiwayatTransaksi";
 
 import Layout from "./components/Layout";
@@ -91,17 +91,17 @@ function App() {
         />
 
         <Route
-  path="/customer"
-  element={
-    <ProtectedRoute>
-      <Layout>
-        {({ setNavbarContent }) => (
-          <CustomerPage setNavbarContent={setNavbarContent} />
-        )}
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
+          path="/customer"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                {({ setNavbarContent }) => (
+                  <CustomerPage setNavbarContent={setNavbarContent} />
+                )}
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/status-transaksi"
@@ -150,44 +150,44 @@ function App() {
           }
         />
 
-<Route
-  path="/RiwayatProduction"
-  element={
-    <ProtectedRoute>
-      <Layout>
-        {({ setNavbarContent }) => (
-          <RiwayatProductionPage setNavbarContent={setNavbarContent} />
-        )}
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
+        <Route
+          path="/RiwayatProduction"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                {({ setNavbarContent }) => (
+                  <RiwayatProductionPage setNavbarContent={setNavbarContent} />
+                )}
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
 
         <Route
-  path="/inventory"
-  element={
-    <ProtectedRoute>
-      <Layout>
-        {({ setNavbarContent }) => (
-          <InventoryPage setNavbarContent={setNavbarContent} />
-        )}
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
+          path="/inventory"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                {({ setNavbarContent }) => (
+                  <InventoryPage setNavbarContent={setNavbarContent} />
+                )}
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
 
         <Route
-  path="/ProductMovement"
-  element={
-    <ProtectedRoute>
-      <Layout>
-        {({ setNavbarContent }) => (
-          <ProductMovementPage setNavbarContent={setNavbarContent} />
-        )}
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
+          path="/ProductMovement"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                {({ setNavbarContent }) => (
+                  <ProductMovementPage setNavbarContent={setNavbarContent} />
+                )}
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/StokOpname"
@@ -201,17 +201,17 @@ function App() {
         />
 
         <Route
-  path="/Riwayat-StokOpname"
-  element={
-    <ProtectedRoute>
-      <Layout>
-        {({ setNavbarContent }) => (
-          <RiwayatSOPage setNavbarContent={setNavbarContent} />
-        )}
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
+          path="/Riwayat-StokOpname"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                {({ setNavbarContent }) => (
+                  <RiwayatSOPage setNavbarContent={setNavbarContent} />
+                )}
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/harga-product"
@@ -250,13 +250,14 @@ function App() {
           }
         />
 
-        {/* Transaksi */}
         <Route
           path="/transaksi"
           element={
             <ProtectedRoute>
               <Layout>
-                <DaftarTransaksi />
+                {({ setNavbarContent }) => (
+                  <TransaksiPage setNavbarContent={setNavbarContent} />
+                )}
               </Layout>
             </ProtectedRoute>
           }
@@ -267,7 +268,9 @@ function App() {
           element={
             <ProtectedRoute>
               <Layout>
-                <Pesanan />
+                {({ setNavbarContent }) => (
+                  <PesananPage setNavbarContent={setNavbarContent} />
+                )}
               </Layout>
             </ProtectedRoute>
           }

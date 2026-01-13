@@ -8,6 +8,7 @@ import {
   XCircle,
   Pencil,
   CheckCircle,
+  Search,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -28,19 +29,35 @@ const unformatRupiah = (str) => {
   return clean === "" ? 0 : parseInt(clean, 10);
 };
 
-const PesananPage = () => {
+export const PesananFilterBar = ({ search, setSearch }) => (
+  <div className="flex items-center gap-2 w-full max-w-4xl">
+    <div className="relative flex-1 min-w-[150px]">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Cari customer..."
+        className="w-full pl-10 pr-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded text-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+    </div>
+  </div>
+);
+
+const PesananPage = ({ setNavbarContent }) => {
   const [pesanan, setPesanan] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [statusList, setStatusList] = useState([]);
   const [statusDiPesanId, setStatusDiPesanId] = useState(null);
   const [statusSelesaiId, setStatusSelesaiId] = useState(null);
   const [statusDibatalkanId, setStatusDibatalkanId] = useState(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [isCreatingNewCustomer, setIsCreatingNewCustomer] = useState(false);
-
   const [jenisProducts, setJenisProducts] = useState([]);
   const [bahanProducts, setBahanProducts] = useState([]);
   const [typeOptions, setTypeOptions] = useState({});
@@ -76,16 +93,18 @@ const PesananPage = () => {
     details: [{ ...initialDetail, status_transaksi_id: "" }],
   });
 
-  const fetchData = async () => {
+  const fetchData = async (searchTerm = "") => {
     try {
       setLoading(true);
-      const pesananRes = await api.get("/pesanan/aktif");
+      const pesananRes = await api.get("/pesanan/aktif", {
+        params: { search: searchTerm },
+      });
       setPesanan(pesananRes.data || []);
 
       const customersRes = await api.get("/customers");
       setCustomers(customersRes.data.data || []);
 
-      const productsRes = await api.get("/products");
+      const productsRes = await api.get("/products/lowStok");
       setProducts(productsRes.data.data || []);
 
       const statusRes = await api.get("/status-transaksi");
@@ -112,8 +131,16 @@ const PesananPage = () => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(search);
+  }, [search]);
+
+  useEffect(() => {
+    if (typeof setNavbarContent === "function") {
+      setNavbarContent(
+        <PesananFilterBar search={search} setSearch={setSearch} />
+      );
+    }
+  }, [search, setNavbarContent]);
 
   const fetchTypeByJenis = async (jenisId, rowIndex) => {
     if (!jenisId) {
@@ -542,6 +569,17 @@ const PesananPage = () => {
     );
   };
 
+  const cekLunas = (detail) => {
+    const subtotal = safeParseFloat(detail.subtotal);
+    const totalBayar = Array.isArray(detail.pembayarans)
+      ? detail.pembayarans.reduce(
+          (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+          0
+        )
+      : 0;
+    return subtotal - totalBayar <= 0;
+  };
+
   const formatProductName = (p) => {
     if (!p) return "Produk tidak ditemukan";
     return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
@@ -550,79 +588,77 @@ const PesananPage = () => {
   };
 
   const handleBayar = (detailId) => {
-  const allDetails = transaksi.flatMap((t) => t.details);
-  const detail = allDetails.find((d) => d.id === detailId);
-  if (!detail) return;
+    const allDetails = transaksi.flatMap((t) => t.details);
+    const detail = allDetails.find((d) => d.id === detailId);
+    if (!detail) return;
 
-  const sisa = getSisaBayar(detail);
-  Swal.fire({
-    title: "Input Pembayaran",
-    html: `
+    const sisa = getSisaBayar(detail);
+    Swal.fire({
+      title: "Input Pembayaran",
+      html: `
       <p>Tagihan: Rp ${formatRupiah(detail.subtotal)}</p>
       <p>Sisa: Rp ${formatRupiah(sisa)}</p>
       <input type="text" id="jumlahBayar" class="swal2-input" placeholder="Jumlah bayar" value="">
       <input type="date" id="tanggalBayar" class="swal2-input">
     `,
-    preConfirm: () => {
-      const jumlah = unformatRupiah(
-        Swal.getPopup().querySelector("#jumlahBayar").value
-      );
-      const tanggal = Swal.getPopup().querySelector("#tanggalBayar").value;
-      if (!jumlah || jumlah <= 0) {
-        Swal.showValidationMessage("Jumlah bayar harus lebih dari 0");
-      } else if (jumlah > sisa) {
-        Swal.showValidationMessage(
-          "Jumlah bayar tidak boleh melebihi sisa tagihan"
+      preConfirm: () => {
+        const jumlah = unformatRupiah(
+          Swal.getPopup().querySelector("#jumlahBayar").value
         );
-      } else if (!tanggal) {
-        Swal.showValidationMessage("Tanggal bayar wajib diisi");
-      } else {
-        return { jumlah, tanggal };
-      }
-    },
-    didOpen: () => {
-      const today = new Date().toISOString().split("T")[0];
-      const tanggalInput = Swal.getPopup().querySelector("#tanggalBayar");
-      const jumlahInput = Swal.getPopup().querySelector("#jumlahBayar");
+        const tanggal = Swal.getPopup().querySelector("#tanggalBayar").value;
+        if (!jumlah || jumlah <= 0) {
+          Swal.showValidationMessage("Jumlah bayar harus lebih dari 0");
+        } else if (jumlah > sisa) {
+          Swal.showValidationMessage(
+            "Jumlah bayar tidak boleh melebihi sisa tagihan"
+          );
+        } else if (!tanggal) {
+          Swal.showValidationMessage("Tanggal bayar wajib diisi");
+        } else {
+          return { jumlah, tanggal };
+        }
+      },
+      didOpen: () => {
+        const today = new Date().toISOString().split("T")[0];
+        const tanggalInput = Swal.getPopup().querySelector("#tanggalBayar");
+        const jumlahInput = Swal.getPopup().querySelector("#jumlahBayar");
 
-      if (tanggalInput) {
-        tanggalInput.value = today;
-      }
+        if (tanggalInput) {
+          tanggalInput.value = today;
+        }
 
-      if (jumlahInput) {
-        // Set nilai awal
-        jumlahInput.value = formatRupiah(sisa);
+        if (jumlahInput) {
+          jumlahInput.value = formatRupiah(sisa);
 
-        // Tambahkan live formatting
-        jumlahInput.addEventListener("input", (e) => {
-          let value = e.target.value;
-          let clean = value.replace(/\D/g, "");
-          if (clean === "") {
-            e.target.value = "";
-          } else {
-            e.target.value = new Intl.NumberFormat("id-ID").format(clean);
-          }
-        });
+          jumlahInput.addEventListener("input", (e) => {
+            let value = e.target.value;
+            let clean = value.replace(/\D/g, "");
+            if (clean === "") {
+              e.target.value = "";
+            } else {
+              e.target.value = new Intl.NumberFormat("id-ID").format(clean);
+            }
+          });
+        }
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        api
+          .post("/pembayaran", {
+            transaksi_detail_id: detailId,
+            jumlah_bayar: result.value.jumlah,
+            tanggal_bayar: result.value.tanggal,
+          })
+          .then(() => {
+            Swal.fire("Berhasil!", "Pembayaran telah dicatat", "success");
+            fetchData();
+          })
+          .catch((err) => {
+            Swal.fire("Error", "Gagal menyimpan pembayaran", "error");
+          });
       }
-    },
-  }).then((result) => {
-    if (result.isConfirmed) {
-      api
-        .post("/pembayaran", {
-          transaksi_detail_id: detailId,
-          jumlah_bayar: result.value.jumlah,
-          tanggal_bayar: result.value.tanggal,
-        })
-        .then(() => {
-          Swal.fire("Berhasil!", "Pembayaran telah dicatat", "success");
-          fetchData();
-        })
-        .catch((err) => {
-          Swal.fire("Error", "Gagal menyimpan pembayaran", "error");
-        });
-    }
-  });
-};
+    });
+  };
 
   const getStatusInfo = (statusId) => {
     const status = statusList.find((s) => s.id === statusId);
@@ -669,80 +705,68 @@ const PesananPage = () => {
           Tidak ada pesanan aktif.
         </p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {pesanan.map((item) => {
-            const isCompletedOrCancelled = item.details.every((d) =>
-              [statusSelesaiId, statusDibatalkanId].includes(
-                d.status_transaksi_id
-              )
-            );
-            return (
-              <div
-                key={item.id}
-                className="p-6 bg-white rounded-xl shadow-md border border-gray-200 space-y-4 hover:shadow-lg transition-shadow"
-              >
-                <div className="flex justify-center items-center">
-                  <div>
-                    <p className="text-gray-700 font-medium text-center">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-5">
+          {pesanan
+            .map((item) => {
+              const isCompletedOrCancelled = item.details.every((d) =>
+                [statusSelesaiId, statusDibatalkanId].includes(
+                  d.status_transaksi_id
+                )
+              );
+              if (isCompletedOrCancelled) return null;
+
+              return (
+                <div
+                  key={item.id}
+                  className="p-4 bg-white rounded-xl shadow border border-gray-200 space-y-3 hover:shadow-md transition-shadow"
+                >
+                  <div className="text-center">
+                    <p className="text-gray-700 font-medium text-sm truncate">
                       {item.customer?.name || "Umum"}
                     </p>
-                    <p className="text-gray-800 font-bold text-lg text-center">
-                      Total: Rp {formatRupiah(item.total)}
+                    <p className="text-gray-800 font-bold mt-1 text-base">
+                      Rp {formatRupiah(item.total)}
                     </p>
                   </div>
-                </div>
-                <hr className="my-3 border-gray-200" />
-                <div className="space-y-3">
-                  {item.details.map((d) => {
-                    const sisaBayar = getSisaBayar(d);
-                    const isLunas = sisaBayar <= 0;
-                    const totalBayar = getTotalBayar(d);
-                    const status = getStatusInfo(d.status_transaksi_id);
-                    return (
-                      <div
-                        key={d.id}
-                        className="p-3 border border-gray-200 rounded-lg bg-gray-50 text-sm text-center"
-                      >
-                        <p>
-                          <span className="font-semibold"></span>{" "}
-                          {formatProductName(d.product)}
-                        </p>
-                        <p>
-                          <span className="font-semibold"></span>{" "}
-                          {formatTanggal(d.tanggal)}
-                        </p>
-                        <p>
-                          <span className="font-semibold">Qty</span> {d.qty}
-                        </p>
-                        <p>
-                          <span className="font-semibold">Harga Satuan</span> Rp{" "}
-                          {formatRupiah(d.harga)}
-                        </p>
-                        <p>
-                          <span className="font-semibold">Diskon</span> Rp{" "}
-                          {formatRupiah(d.discount)}
-                        </p>
-                        <p>
-                          <span className="font-semibold">Tagihan</span> Rp{" "}
-                          {formatRupiah(d.subtotal)}
-                        </p>
-
-                        {d.catatan && (
-                          <p>
-                            <span className="font-semibold"></span> {d.catatan}
+                  <hr className="my-2 border-gray-200" />
+                  <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                    {item.details.map((d) => {
+                      const sisaBayar = getSisaBayar(d);
+                      const isLunas = sisaBayar <= 0;
+                      const totalBayar = getTotalBayar(d);
+                      return (
+                        <div
+                          key={d.id}
+                          className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-xs text-center"
+                        >
+                          <p className="font-medium">
+                            {formatProductName(d.product)}
                           </p>
-                        )}
+                          <p className="mt-1">{formatTanggal(d.tanggal)}</p>
+                          <p className="mt-1">
+                            <span className="font-semibold">Qty</span> {d.qty}
+                          </p>
+                          <p className="mt-1">
+                            <span className="font-semibold">Harga</span> Rp{" "}
+                            {formatRupiah(d.harga)}
+                          </p>
+                          <p className="mt-1">
+                            <span className="font-semibold">Diskon</span> Rp{" "}
+                            {formatRupiah(d.discount)}
+                          </p>
+                          <p className="mt-1">
+                            <span className="font-semibold">Tagihan</span> Rp{" "}
+                            {formatRupiah(d.subtotal)}
+                          </p>
 
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <div className="flex justify-center items-center mb-2">
-                            <p className="text-sm">
-                              <span className="font-semibold"></span>{" "}
-                              <span className="text-blue-600">Proses</span>
+                          {d.catatan && (
+                            <p className="mt-1 italic text-[10px] line-clamp-1">
+                              {d.catatan}
                             </p>
-                          </div>
+                          )}
 
-                          <div className="mt-2">
-                            <p className="text-sm text-center">
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <p className="text-[10px]">
                               <span
                                 className={`font-semibold ${
                                   isLunas ? "text-green-600" : "text-orange-600"
@@ -755,68 +779,73 @@ const PesananPage = () => {
                                     )})`}
                               </span>
                             </p>
-                          </div>
 
-                          <p className="text-xs text-gray-600 mt-1 text-center">
-                            Sudah dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
-                            {formatRupiah(d.subtotal)}
-                          </p>
+                            <p className="text-[9px] text-gray-600 mt-1">
+                              Dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                              {formatRupiah(d.subtotal)}
+                            </p>
 
-                          {d.pembayarans && d.pembayarans.length > 0 && (
-                            <div className="mt-2 text-xs text-center">
-                              <p className="font-medium flex items-center justify-center gap-1">
-                                <Receipt size={12} /> Riwayat Pembayaran:
-                              </p>
-                              <ul className="list-disc list-inside space-y-1 mt-1 inline-block text-left">
-                                {d.pembayarans.map((p) => (
-                                  <li key={p.id} className="text-gray-700">
-                                    Rp {formatRupiah(p.jumlah_bayar)} -{" "}
-                                    {formatTanggal(p.tanggal_bayar)}
-                                  </li>
-                                ))}
-                              </ul>
+                            {d.pembayarans && d.pembayarans.length > 0 && (
+                              <div className="mt-1 text-[9px]">
+                                <p className="font-medium flex items-center justify-center gap-1">
+                                  <Receipt size={10} /> Riwayat:
+                                </p>
+                                <ul className="list-disc list-inside space-y-0.5 mt-0.5">
+                                  {d.pembayarans.slice(0, 2).map((p) => (
+                                    <li key={p.id} className="text-gray-700">
+                                      Rp {formatRupiah(p.jumlah_bayar)} -{" "}
+                                      {formatTanggal(p.tanggal_bayar)}
+                                    </li>
+                                  ))}
+                                  {d.pembayarans.length > 2 && (
+                                    <li className="text-gray-500 italic">
+                                      +{d.pembayarans.length - 2} lainnya
+                                    </li>
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+
+                            {!isLunas && (
+                              <button
+                                onClick={() => handleBayar(d.id)}
+                                className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] hover:bg-green-200"
+                              >
+                                <Wallet size={12} /> Bayar
+                              </button>
+                            )}
+
+                            <div className="flex gap-1 mt-2">
+                              <button
+                                onClick={() => handleSelesaiDetail(d.id)}
+                                className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-[10px] px-1 py-1 rounded hover:bg-green-700"
+                              >
+                                <CheckCircle size={12} /> Selesai
+                              </button>
+                              <button
+                                onClick={() => handleCancelDetail(d.id)}
+                                className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
+                              >
+                                <XCircle size={12} /> Batal
+                              </button>
                             </div>
-                          )}
-
-                          {!isLunas && (
-                            <button
-                              onClick={() => handleBayar(d.id)}
-                              className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-lg hover:bg-green-200 text-xs"
-                            >
-                              <Wallet size={14} /> Bayar Sekarang
-                            </button>
-                          )}
-
-                          <div className="flex gap-2 mt-3">
-                            <button
-                              onClick={() => handleSelesaiDetail(d.id)}
-                              className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-xs px-2 py-1.5 rounded-lg hover:bg-green-700"
-                            >
-                              <CheckCircle size={14} /> Selesai
-                            </button>
-                            <button
-                              onClick={() => handleCancelDetail(d.id)}
-                              className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-xs px-2 py-1.5 rounded-lg hover:bg-red-700"
-                            >
-                              <XCircle size={14} /> Batal
-                            </button>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2">
+                    <button
+                      onClick={() => handleEditTransaksi(item)}
+                      className="w-full flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700"
+                    >
+                      <Pencil size={12} /> Edit
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2 mt-3 justify-center">
-                  <button
-                    onClick={() => handleEditTransaksi(item)}
-                    className="flex-1 flex items-center justify-center gap-1 bg-yellow-600 text-white text-xs px-2 py-1.5 rounded-lg hover:bg-yellow-700"
-                  >
-                    <Pencil size={14} /> Edit
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+            .filter(Boolean)}
         </div>
       )}
 

@@ -207,19 +207,19 @@ const ProductionPage = () => {
                 key={p.id}
                 className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:shadow-sm transition"
               >
-                <p className="text-sm font-bold text-gray-800 line-clamp-1">
+                <p className="text-sm text-center font-bold text-gray-800 line-clamp-1">
                   {p.product?.kode || "-"}
                 </p>
-                <p className="text-[11px] text-gray-600 line-clamp-2 min-h-[28px]">
+                <p className="text-[11px] text-center text-gray-600 line-clamp-2 min-h-[28px]">
                   {formatProductName(p.product)}
                 </p>
-                <div className="flex items-center gap-1 mt-2">
+                <div className="flex justify-center items-center gap-1 mt-2">
                   <User size={12} className="text-gray-500" />
                   <span className="text-[11px] text-gray-700">
                     {p.transaksi?.customer?.name || "Pesanan"}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 mt-1">
+                <div className="flex justify-center items-center gap-1 mt-1">
                   <Package size={12} className="text-gray-500" />
                   <span className="text-[11px] text-gray-700">
                     Qty: {p.qty}
@@ -282,7 +282,6 @@ const ProductionPage = () => {
           <Plus size={18} />
         </button>
 
-      {/* MODAL: PRODUKSI INVENTORY */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-xl">
@@ -400,7 +399,6 @@ const ProductionCard = ({ p, updateStatus, formatProductName, formatDate }) => {
         </span>
       </div>
 
-      {/* Kode & Nama Produk */}
       <p className="text-sm font-bold text-gray-800 line-clamp-1 text-center">
         {p.product?.kode || "-"}
       </p>
@@ -408,7 +406,6 @@ const ProductionCard = ({ p, updateStatus, formatProductName, formatDate }) => {
         {formatProductName(p.product)}
       </p>
 
-      {/* Customer */}
       <div className="flex items-center justify-center gap-1 mt-1 text-center">
         <User size={12} className="text-gray-500" />
         <span className="text-[11px] text-gray-700">
@@ -418,19 +415,16 @@ const ProductionCard = ({ p, updateStatus, formatProductName, formatDate }) => {
         </span>
       </div>
 
-      {/* Qty */}
       <div className="flex items-center justify-center gap-1 mt-1 text-center">
         <Package size={12} className="text-gray-500" />
         <span className="text-[11px] text-gray-700">Qty: {p.qty}</span>
       </div>
 
-      {/* Tanggal Selesai */}
       <div className="text-[10px] text-gray-500 mt-1 text-center">
-        <span className="font-medium">Selesai:</span>{" "}
+        <span className="font-medium">Estimasi Selesai</span>{" "}
         {formatDate(p.tanggal_selesai)}
       </div>
 
-      {/* ACTION BUTTONS */}
       <div className="flex gap-1 mt-2">
         {p.status === "antri" && (
           <button

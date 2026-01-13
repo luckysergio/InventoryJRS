@@ -8,6 +8,7 @@ import {
   CheckCircle,
   XCircle,
   Pencil,
+  Search,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -28,10 +29,25 @@ const unformatRupiah = (str) => {
   return clean === "" ? 0 : parseInt(clean, 10);
 };
 
-const TransaksiPage = () => {
+export const TransaksiFilterBar = ({ search, setSearch }) => (
+  <div className="flex items-center gap-2 w-full max-w-4xl">
+    <div className="relative flex-1 min-w-[150px]">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Cari customer..."
+        className="w-full pl-10 pr-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded text-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+    </div>
+  </div>
+);
+
+const TransaksiPage = ({ setNavbarContent }) => {
   const [transaksi, setTransaksi] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const [search, setSearch] = useState("");
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [statusList, setStatusList] = useState([]);
@@ -64,10 +80,12 @@ const TransaksiPage = () => {
   const [hargaOptions, setHargaOptions] = useState({});
   const [showHargaBaru, setShowHargaBaru] = useState({});
 
-  const fetchData = async () => {
+  const fetchData = async (searchTerm = "") => {
     try {
       setLoading(true);
-      const transaksiRes = await api.get("/transaksi/aktif");
+      const transaksiRes = await api.get("/transaksi/aktif", {
+        params: { search: searchTerm },
+      });
       setTransaksi(transaksiRes.data || []);
 
       const customersRes = await api.get("/customers");
@@ -101,8 +119,16 @@ const TransaksiPage = () => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(search);
+  }, [search]);
+
+  useEffect(() => {
+    if (typeof setNavbarContent === "function") {
+      setNavbarContent(
+        <TransaksiFilterBar search={search} setSearch={setSearch} />
+      );
+    }
+  }, [search, setNavbarContent]);
 
   const getActiveDetails = (details) => {
     return details.filter((d) => d.status_transaksi_id === statusProsesId);
@@ -437,79 +463,77 @@ const TransaksiPage = () => {
   };
 
   const handleBayar = (detailId) => {
-  const allDetails = transaksi.flatMap((t) => t.details);
-  const detail = allDetails.find((d) => d.id === detailId);
-  if (!detail) return;
+    const allDetails = transaksi.flatMap((t) => t.details);
+    const detail = allDetails.find((d) => d.id === detailId);
+    if (!detail) return;
 
-  const sisa = getSisaBayar(detail);
-  Swal.fire({
-    title: "Input Pembayaran",
-    html: `
+    const sisa = getSisaBayar(detail);
+    Swal.fire({
+      title: "Input Pembayaran",
+      html: `
       <p>Tagihan: Rp ${formatRupiah(detail.subtotal)}</p>
       <p>Sisa: Rp ${formatRupiah(sisa)}</p>
       <input type="text" id="jumlahBayar" class="swal2-input" placeholder="Jumlah bayar" value="">
       <input type="date" id="tanggalBayar" class="swal2-input">
     `,
-    preConfirm: () => {
-      const jumlah = unformatRupiah(
-        Swal.getPopup().querySelector("#jumlahBayar").value
-      );
-      const tanggal = Swal.getPopup().querySelector("#tanggalBayar").value;
-      if (!jumlah || jumlah <= 0) {
-        Swal.showValidationMessage("Jumlah bayar harus lebih dari 0");
-      } else if (jumlah > sisa) {
-        Swal.showValidationMessage(
-          "Jumlah bayar tidak boleh melebihi sisa tagihan"
+      preConfirm: () => {
+        const jumlah = unformatRupiah(
+          Swal.getPopup().querySelector("#jumlahBayar").value
         );
-      } else if (!tanggal) {
-        Swal.showValidationMessage("Tanggal bayar wajib diisi");
-      } else {
-        return { jumlah, tanggal };
-      }
-    },
-    didOpen: () => {
-      const today = new Date().toISOString().split("T")[0];
-      const tanggalInput = Swal.getPopup().querySelector("#tanggalBayar");
-      const jumlahInput = Swal.getPopup().querySelector("#jumlahBayar");
+        const tanggal = Swal.getPopup().querySelector("#tanggalBayar").value;
+        if (!jumlah || jumlah <= 0) {
+          Swal.showValidationMessage("Jumlah bayar harus lebih dari 0");
+        } else if (jumlah > sisa) {
+          Swal.showValidationMessage(
+            "Jumlah bayar tidak boleh melebihi sisa tagihan"
+          );
+        } else if (!tanggal) {
+          Swal.showValidationMessage("Tanggal bayar wajib diisi");
+        } else {
+          return { jumlah, tanggal };
+        }
+      },
+      didOpen: () => {
+        const today = new Date().toISOString().split("T")[0];
+        const tanggalInput = Swal.getPopup().querySelector("#tanggalBayar");
+        const jumlahInput = Swal.getPopup().querySelector("#jumlahBayar");
 
-      if (tanggalInput) {
-        tanggalInput.value = today;
-      }
+        if (tanggalInput) {
+          tanggalInput.value = today;
+        }
 
-      if (jumlahInput) {
-        // Set nilai awal
-        jumlahInput.value = formatRupiah(sisa);
+        if (jumlahInput) {
+          jumlahInput.value = formatRupiah(sisa);
 
-        // Tambahkan live formatting
-        jumlahInput.addEventListener("input", (e) => {
-          let value = e.target.value;
-          let clean = value.replace(/\D/g, "");
-          if (clean === "") {
-            e.target.value = "";
-          } else {
-            e.target.value = new Intl.NumberFormat("id-ID").format(clean);
-          }
-        });
+          jumlahInput.addEventListener("input", (e) => {
+            let value = e.target.value;
+            let clean = value.replace(/\D/g, "");
+            if (clean === "") {
+              e.target.value = "";
+            } else {
+              e.target.value = new Intl.NumberFormat("id-ID").format(clean);
+            }
+          });
+        }
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        api
+          .post("/pembayaran", {
+            transaksi_detail_id: detailId,
+            jumlah_bayar: result.value.jumlah,
+            tanggal_bayar: result.value.tanggal,
+          })
+          .then(() => {
+            Swal.fire("Berhasil!", "Pembayaran telah dicatat", "success");
+            fetchData();
+          })
+          .catch((err) => {
+            Swal.fire("Error", "Gagal menyimpan pembayaran", "error");
+          });
       }
-    },
-  }).then((result) => {
-    if (result.isConfirmed) {
-      api
-        .post("/pembayaran", {
-          transaksi_detail_id: detailId,
-          jumlah_bayar: result.value.jumlah,
-          tanggal_bayar: result.value.tanggal,
-        })
-        .then(() => {
-          Swal.fire("Berhasil!", "Pembayaran telah dicatat", "success");
-          fetchData();
-        })
-        .catch((err) => {
-          Swal.fire("Error", "Gagal menyimpan pembayaran", "error");
-        });
-    }
-  });
-};
+    });
+  };
 
   const formatProductName = (p) => {
     if (!p) return "-";
@@ -535,7 +559,7 @@ const TransaksiPage = () => {
           Tidak ada transaksi harian dengan status proses.
         </p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
           {transaksi
             .map((item) => {
               const activeDetails = getActiveDetails(item.details);
@@ -543,20 +567,20 @@ const TransaksiPage = () => {
               return (
                 <div
                   key={item.id}
-                  className="p-6 bg-white rounded-xl shadow border border-gray-100 space-y-3"
+                  className="p-4 bg-white rounded-xl shadow border border-gray-100 space-y-3"
                 >
                   <div className="flex justify-center items-start">
                     <div>
-                      <p className="text-gray-700 font-medium text-center">
+                      <p className="text-gray-700 font-medium text-center text-sm">
                         {item.customer?.name || "Umum"}
                       </p>
-                      <p className="text-gray-700 font-bold text-lg text-center">
-                        Rp.{formatRupiah(item.total)}
+                      <p className="text-gray-700 font-bold text-center text-base mt-1">
+                        Rp {formatRupiah(item.total)}
                       </p>
                     </div>
                   </div>
-                  <hr className="my-3 border-gray-200" />
-                  <div className="space-y-3">
+                  <hr className="my-2 border-gray-200" />
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                     {activeDetails.map((d) => {
                       const sisaBayar = getSisaBayar(d);
                       const isLunas = sisaBayar <= 0;
@@ -564,49 +588,35 @@ const TransaksiPage = () => {
                       return (
                         <div
                           key={d.id}
-                          className="p-3 border border-gray-200 rounded-lg bg-gray-50 text-sm text-center"
+                          className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-xs text-center"
                         >
-                          <p>
-                            <span className="font-semibold"></span>{" "}
+                          <p className="font-medium">
                             {formatProductName(d.product)}
                           </p>
-                          <p>
-                            <span className="font-semibold"></span>{" "}
-                            {formatTanggal(d.tanggal)}
-                          </p>
-                          <p>
+                          <p className="mt-1">{formatTanggal(d.tanggal)}</p>
+                          <p className="mt-1">
                             <span className="font-semibold">Qty</span> {d.qty}
                           </p>
-                          <p>
-                            <span className="font-semibold">Harga Satuan</span>{" "}
-                            Rp {formatRupiah(d.harga)}
+                          <p className="mt-1">
+                            <span className="font-semibold">Harga</span> Rp{" "}
+                            {formatRupiah(d.harga)}
                           </p>
-                          <p>
+                          <p className="mt-1">
                             <span className="font-semibold">Diskon</span> Rp{" "}
                             {formatRupiah(d.discount)}
                           </p>
-                          <p>
+                          <p className="mt-1">
                             <span className="font-semibold">Tagihan</span> Rp{" "}
                             {formatRupiah(d.subtotal)}
                           </p>
-                          
+
                           {d.catatan && (
-                            <p>
-                              <span className="font-semibold"></span>{" "}
-                              {d.catatan}
-                            </p>
+                            <p className="mt-1 italic">{d.catatan}</p>
                           )}
 
                           <div className="mt-2 pt-2 border-t border-gray-200">
-                            <div className="flex justify-center items-center mb-2">
-                              <p className="text-sm">
-                                <span className="font-semibold"></span>{" "}
-                                <span className="text-blue-600">Proses</span>
-                              </p>
-                            </div>
-
-                            <div className="mt-2">
-                              <p className="text-sm text-center">
+                            <div className="mt-1">
+                              <p className="text-xs">
                                 <span
                                   className={`font-semibold ${
                                     isLunas
@@ -623,17 +633,17 @@ const TransaksiPage = () => {
                               </p>
                             </div>
 
-                            <p className="text-xs text-gray-600 mt-1 text-center">
-                              Sudah dibayar: Rp {formatRupiah(totalBayar)} dari
-                              Rp {formatRupiah(d.subtotal)}
+                            <p className="text-[10px] text-gray-600 mt-1">
+                              Dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                              {formatRupiah(d.subtotal)}
                             </p>
 
                             {d.pembayarans && d.pembayarans.length > 0 && (
-                              <div className="mt-2 text-xs text-center">
+                              <div className="mt-1 text-[10px]">
                                 <p className="font-medium flex items-center justify-center gap-1">
-                                  <Receipt size={12} /> Riwayat Pembayaran:
+                                  <Receipt size={10} /> Riwayat:
                                 </p>
-                                <ul className="list-disc list-inside space-y-1 mt-1 inline-block text-left">
+                                <ul className="list-disc list-inside space-y-0.5 mt-0.5">
                                   {d.pembayarans.map((p) => (
                                     <li key={p.id} className="text-gray-700">
                                       Rp {formatRupiah(p.jumlah_bayar)} -{" "}
@@ -647,24 +657,24 @@ const TransaksiPage = () => {
                             {!isLunas && (
                               <button
                                 onClick={() => handleBayar(d.id)}
-                                className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-lg hover:bg-green-200 text-xs"
+                                className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] hover:bg-green-200"
                               >
-                                <Wallet size={14} /> Bayar Sekarang
+                                <Wallet size={12} /> Bayar
                               </button>
                             )}
 
-                            <div className="flex gap-2 mt-3">
+                            <div className="flex gap-1 mt-2">
                               <button
                                 onClick={() => handleSelesaiDetail(d.id)}
-                                className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-xs px-2 py-1.5 rounded-lg hover:bg-green-700"
+                                className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-[10px] px-1 py-1 rounded hover:bg-green-700"
                               >
-                                <CheckCircle size={14} /> Selesai
+                                <CheckCircle size={12} /> Selesai
                               </button>
                               <button
                                 onClick={() => handleCancelDetail(d.id)}
-                                className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-xs px-2 py-1.5 rounded-lg hover:bg-red-700"
+                                className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
                               >
-                                <XCircle size={14} /> Batal
+                                <XCircle size={12} /> Batal
                               </button>
                             </div>
                           </div>
@@ -672,12 +682,12 @@ const TransaksiPage = () => {
                       );
                     })}
                   </div>
-                  <div className="flex justify-center gap-2 mt-3">
+                  <div className="flex justify-center mt-2">
                     <button
                       onClick={() => handleEditTransaksi(item)}
-                      className="flex-1 flex items-center justify-center gap-1 bg-yellow-600 text-white text-xs px-2 py-1.5 rounded-lg hover:bg-yellow-700"
+                      className="flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700 w-full"
                     >
-                      <Pencil size={14} /> Edit
+                      <Pencil size={12} /> Edit
                     </button>
                   </div>
                 </div>

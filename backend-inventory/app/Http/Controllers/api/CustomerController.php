@@ -11,68 +11,68 @@ use Illuminate\Support\Facades\Validator;
 class CustomerController extends Controller
 {
     public function index(Request $request)
-{
-    $statusDibatalkan = DB::table('status_transaksis')
-        ->where('nama', 'Dibatalkan')
-        ->value('id');
+    {
+        $statusDibatalkan = DB::table('status_transaksis')
+            ->where('nama', 'Dibatalkan')
+            ->value('id');
 
-    $pembayaranSubquery = DB::table('pembayarans')
-        ->select('transaksi_detail_id', DB::raw('SUM(jumlah_bayar) as total_bayar'))
-        ->groupBy('transaksi_detail_id');
+        $pembayaranSubquery = DB::table('pembayarans')
+            ->select('transaksi_detail_id', DB::raw('SUM(jumlah_bayar) as total_bayar'))
+            ->groupBy('transaksi_detail_id');
 
-    $tagihanHarian = DB::table('transaksi_details as td')
-        ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-        ->leftJoinSub($pembayaranSubquery, 'p', function ($join) {
-            $join->on('td.id', '=', 'p.transaksi_detail_id');
-        })
-        ->where('t.jenis_transaksi', 'daily')
-        ->whereRaw('t.customer_id = customers.id')
-        ->when($statusDibatalkan, fn($q) => $q->where('td.status_transaksi_id', '!=', $statusDibatalkan))
-        ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal')
-        ->selectRaw('COALESCE(SUM(td.subtotal - COALESCE(p.total_bayar, 0)), 0)');
+        $tagihanHarian = DB::table('transaksi_details as td')
+            ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
+            ->leftJoinSub($pembayaranSubquery, 'p', function ($join) {
+                $join->on('td.id', '=', 'p.transaksi_detail_id');
+            })
+            ->where('t.jenis_transaksi', 'daily')
+            ->whereRaw('t.customer_id = customers.id')
+            ->when($statusDibatalkan, fn($q) => $q->where('td.status_transaksi_id', '!=', $statusDibatalkan))
+            ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal')
+            ->selectRaw('COALESCE(SUM(td.subtotal - COALESCE(p.total_bayar, 0)), 0)');
 
-    $tagihanPesanan = DB::table('transaksi_details as td')
-        ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-        ->leftJoinSub($pembayaranSubquery, 'p', function ($join) {
-            $join->on('td.id', '=', 'p.transaksi_detail_id');
-        })
-        ->where('t.jenis_transaksi', 'pesanan')
-        ->whereRaw('t.customer_id = customers.id')
-        ->when($statusDibatalkan, fn($q) => $q->where('td.status_transaksi_id', '!=', $statusDibatalkan))
-        ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal')
-        ->selectRaw('COALESCE(SUM(td.subtotal - COALESCE(p.total_bayar, 0)), 0)');
+        $tagihanPesanan = DB::table('transaksi_details as td')
+            ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
+            ->leftJoinSub($pembayaranSubquery, 'p', function ($join) {
+                $join->on('td.id', '=', 'p.transaksi_detail_id');
+            })
+            ->where('t.jenis_transaksi', 'pesanan')
+            ->whereRaw('t.customer_id = customers.id')
+            ->when($statusDibatalkan, fn($q) => $q->where('td.status_transaksi_id', '!=', $statusDibatalkan))
+            ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal')
+            ->selectRaw('COALESCE(SUM(td.subtotal - COALESCE(p.total_bayar, 0)), 0)');
 
-    $customersQuery = Customer::with([
-        'transaksi_details.transaksi',
-        'transaksi_details.product.jenis',
-        'transaksi_details.product.type',
-        'transaksi_details.pembayarans',
-    ])->addSelect([
-        'tagihan_harian_belum_lunas' => $tagihanHarian,
-        'tagihan_pesanan_belum_lunas' => $tagihanPesanan,
-    ]);
+        $customersQuery = Customer::with([
+            'transaksi_details.transaksi',
+            'transaksi_details.product.jenis',
+            'transaksi_details.product.type',
+            'transaksi_details.pembayarans',
+        ])->addSelect([
+            'tagihan_harian_belum_lunas' => $tagihanHarian,
+            'tagihan_pesanan_belum_lunas' => $tagihanPesanan,
+        ]);
 
-    if ($search = $request->query('search')) {
-        $customersQuery->where(function ($q) use ($search) {
-            $q->where('name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('phone', 'like', "%{$search}%");
+        if ($search = $request->query('search')) {
+            $customersQuery->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        $customers = $customersQuery->get();
+
+        $customers->each(function ($customer) {
+            $customer->tagihan_harian_belum_lunas = (int) max(0, $customer->tagihan_harian_belum_lunas);
+            $customer->tagihan_pesanan_belum_lunas = (int) max(0, $customer->tagihan_pesanan_belum_lunas);
         });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Berhasil mengambil data customer',
+            'data' => $customers,
+        ]);
     }
-
-    $customers = $customersQuery->get();
-
-    $customers->each(function ($customer) {
-        $customer->tagihan_harian_belum_lunas = (int) max(0, $customer->tagihan_harian_belum_lunas);
-        $customer->tagihan_pesanan_belum_lunas = (int) max(0, $customer->tagihan_pesanan_belum_lunas);
-    });
-
-    return response()->json([
-        'status' => true,
-        'message' => 'Berhasil mengambil data customer',
-        'data' => $customers,
-    ]);
-}
 
     public function store(Request $request)
     {
