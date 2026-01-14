@@ -8,6 +8,7 @@ import {
   Play,
   CheckCircle,
   XCircle,
+  Image as ImageIcon,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -42,6 +43,7 @@ const ProductionPage = () => {
   const [productions, setProductions] = useState([]);
   const [products, setProducts] = useState([]);
   const [pesanan, setPesanan] = useState([]);
+  const [karyawans, setKaryawans] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState({
@@ -49,22 +51,33 @@ const ProductionPage = () => {
     qty: 1,
     tanggal_mulai: "",
     tanggal_selesai: "",
+    karyawan_id: "",
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // 🔹 State untuk modal upload foto
+  const [uploadModal, setUploadModal] = useState({ open: false, productionId: null, productId: null });
+  const [fotoForm, setFotoForm] = useState({
+    foto_depan: null,
+    foto_samping: null,
+    foto_atas: null,
+  });
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [p, prod, pes] = await Promise.all([
+      const [p, prod, pes, kary] = await Promise.all([
         api.get("/productions"),
         api.get("/products"),
         api.get("/productions/pesanan"),
+        api.get("/karyawans"),
       ]);
 
       setProductions(p.data.data);
       setProducts(prod.data.data);
       setPesanan(pes.data.data);
+      setKaryawans(kary.data.karyawans.data || []);
     } catch {
       Swal.fire("Error", "Gagal mengambil data produksi", "error");
     } finally {
@@ -91,6 +104,11 @@ const ProductionPage = () => {
   const handleSubmitInventory = async (e) => {
     e.preventDefault();
 
+    if (!form.karyawan_id) {
+      Swal.fire("Validasi", "Pilih karyawan terlebih dahulu", "warning");
+      return;
+    }
+
     const ok = await confirmAction(
       "Buat Produksi?",
       "Produksi inventory akan dibuat"
@@ -105,12 +123,7 @@ const ProductionPage = () => {
 
       Swal.fire("Berhasil", "Produksi inventory dibuat", "success");
       setIsModalOpen(false);
-      setForm({
-        product_id: "",
-        qty: 1,
-        tanggal_mulai: "",
-        tanggal_selesai: "",
-      });
+      resetForm();
       fetchData();
     } catch (error) {
       if (error.response?.status === 422) {
@@ -122,7 +135,33 @@ const ProductionPage = () => {
     }
   };
 
+  const resetForm = () => {
+    setForm({
+      product_id: "",
+      qty: 1,
+      tanggal_mulai: "",
+      tanggal_selesai: "",
+      karyawan_id: "",
+    });
+  };
+
   const createFromPesanan = async (detailId) => {
+    const { value: karyawanId } = await Swal.fire({
+      title: "Pilih Karyawan",
+      input: "select",
+      inputOptions: karyawans.reduce((acc, k) => {
+        acc[k.id] = k.nama;
+        return acc;
+      }, {}),
+      inputPlaceholder: "Pilih karyawan",
+      showCancelButton: true,
+      inputValidator: (value) => {
+        if (!value) return "Karyawan wajib dipilih!";
+      },
+    });
+
+    if (!karyawanId) return;
+
     const { value: dates } = await Swal.fire({
       title: "Tanggal Produksi",
       html: `
@@ -143,25 +182,115 @@ const ProductionPage = () => {
       await api.post("/productions", {
         transaksi_detail_id: detailId,
         jenis_pembuatan: "pesanan",
+        karyawan_id: karyawanId,
         ...dates,
       });
 
       Swal.fire("Berhasil", "Produksi pesanan dibuat", "success");
       fetchData();
-    } catch {
-      Swal.fire("Error", "Gagal membuat produksi pesanan", "error");
+    } catch (error) {
+      if (error.response?.status === 422) {
+        const msg = Object.values(error.response.data.errors).join("<br>");
+        Swal.fire("Validasi Gagal", msg, "warning");
+      } else {
+        Swal.fire("Error", "Gagal membuat produksi pesanan", "error");
+      }
+    }
+  };
+
+  // 🔹 Fungsi baru: handle selesai dengan upload foto
+  const handleSelesaiWithUpload = async (id, production) => {
+    const ok = await confirmAction(
+      "Ubah Status?",
+      `Status akan diubah menjadi "Selesai"`
+    );
+    if (!ok) return;
+
+    try {
+      await api.put(`/productions/${id}`, { status: "selesai" });
+      fetchData();
+    } catch (error) {
+      if (error.response?.status === 422) {
+        const errorMsg = error.response.data.message || "";
+        if (errorMsg.includes("foto")) {
+          // 🔹 Tampilkan modal upload foto
+          setUploadModal({
+            open: true,
+            productionId: id,
+            productId: production.product_id,
+          });
+        } else {
+          const msg = Object.values(error.response.data.errors || { message: errorMsg })
+            .flat()
+            .join("<br>");
+          Swal.fire("Validasi Gagal", msg, "warning");
+        }
+      } else {
+        Swal.fire("Error", "Gagal mengubah status", "error");
+      }
     }
   };
 
   const updateStatus = async (id, status) => {
+    if (status === "selesai") {
+      // Cari produksi yang sesuai
+      const production = productions.find(p => p.id === id);
+      if (production) {
+        handleSelesaiWithUpload(id, production);
+      }
+      return;
+    }
+
     const ok = await confirmAction(
       "Ubah Status?",
       `Status akan diubah menjadi "${statusConfig[status].label}"`
     );
     if (!ok) return;
 
-    await api.put(`/productions/${id}`, { status });
-    fetchData();
+    try {
+      await api.put(`/productions/${id}`, { status });
+      fetchData();
+    } catch (error) {
+      if (error.response?.status === 422) {
+        const msg = Object.values(error.response.data.errors || { message: error.response.data.message })
+          .flat()
+          .join("<br>");
+        Swal.fire("Validasi Gagal", msg, "warning");
+      } else {
+        Swal.fire("Error", "Gagal mengubah status", "error");
+      }
+    }
+  };
+
+  // 🔹 Simpan foto produk
+  const handleUploadFoto = async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData();
+    if (fotoForm.foto_depan) formData.append('foto_depan', fotoForm.foto_depan);
+    if (fotoForm.foto_samping) formData.append('foto_samping', fotoForm.foto_samping);
+    if (fotoForm.foto_atas) formData.append('foto_atas', fotoForm.foto_atas);
+
+    try {
+      await api.post(`/products/${uploadModal.productId}/upload-foto`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      Swal.fire("Berhasil", "Foto produk berhasil diunggah", "success");
+      
+      // Setelah upload, coba selesaikan lagi
+      await api.put(`/productions/${uploadModal.productionId}`, { status: "selesai" });
+      setUploadModal({ open: false, productionId: null, productId: null });
+      setFotoForm({ foto_depan: null, foto_samping: null, foto_atas: null });
+      fetchData();
+    } catch (error) {
+      if (error.response?.status === 422) {
+        const msg = Object.values(error.response.data.errors).join("<br>");
+        Swal.fire("Validasi Gagal", msg, "warning");
+      } else {
+        Swal.fire("Error", "Gagal mengunggah foto", "error");
+      }
+    }
   };
 
   const formatDate = (date) => {
@@ -276,12 +405,16 @@ const ProductionPage = () => {
       )}
 
       <button
-          onClick={() => setIsModalOpen(true)}
-          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
-        >
-          <Plus size={18} />
-        </button>
+        onClick={() => {
+          resetForm();
+          setIsModalOpen(true);
+        }}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+      >
+        <Plus size={18} />
+      </button>
 
+      {/* MODAL PRODUKSI INVENTORY */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-xl">
@@ -292,6 +425,27 @@ const ProductionPage = () => {
             </div>
 
             <form onSubmit={handleSubmitInventory} className="p-5 space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">
+                  Karyawan *
+                </label>
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  value={form.karyawan_id}
+                  onChange={(e) =>
+                    setForm({ ...form, karyawan_id: e.target.value })
+                  }
+                  required
+                >
+                  <option value="">Pilih Karyawan</option>
+                  {karyawans.map((k) => (
+                    <option key={k.id} value={k.id}>
+                      {k.nama}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="text-sm font-medium text-gray-700 block mb-1">
                   Produk *
@@ -377,6 +531,61 @@ const ProductionPage = () => {
           </div>
         </div>
       )}
+
+      {/* 🔹 MODAL UPLOAD FOTO */}
+      {uploadModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl">
+            <div className="p-5 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-center">
+                Lengkapi Foto Produk
+              </h2>
+              <p className="text-sm text-gray-600 text-center mt-1">
+                Produk harus memiliki foto depan, samping, dan atas.
+              </p>
+            </div>
+
+            <form onSubmit={handleUploadFoto} className="p-5 space-y-4">
+              {['foto_depan', 'foto_samping', 'foto_atas'].map((key) => (
+                <div key={key}>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">
+                    {key === 'foto_depan' ? 'Foto Depan' : 
+                     key === 'foto_samping' ? 'Foto Samping' : 'Foto Atas'} *
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="text-gray-400" size={16} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="text-xs text-gray-600"
+                      onChange={(e) => {
+                        setFotoForm({ ...fotoForm, [key]: e.target.files[0] });
+                      }}
+                      required={!fotoForm[key]}
+                    />
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setUploadModal({ open: false, productionId: null, productId: null })}
+                  className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Unggah & Selesai
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -386,7 +595,6 @@ const ProductionCard = ({ p, updateStatus, formatProductName, formatDate }) => {
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:shadow-sm transition">
-      {/* Status */}
       <div className="flex justify-between items-start mb-2">
         <span
           className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full ${status.bg} ${status.text}`}
@@ -409,9 +617,7 @@ const ProductionCard = ({ p, updateStatus, formatProductName, formatDate }) => {
       <div className="flex items-center justify-center gap-1 mt-1 text-center">
         <User size={12} className="text-gray-500" />
         <span className="text-[11px] text-gray-700">
-          {p.jenis_pembuatan === "pesanan"
-            ? p.transaksi?.customer?.name || "Pesanan"
-            : "Inventory"}
+          {p.karyawan?.nama || "-"}
         </span>
       </div>
 

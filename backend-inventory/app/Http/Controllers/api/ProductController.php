@@ -647,4 +647,27 @@ class ProductController extends Controller
         } catch (\Exception $e) {
         }
     }
+
+    public function uploadFoto(Request $request, Product $product)
+    {
+        $request->validate([
+            'foto_depan' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'foto_samping' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'foto_atas' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+        ]);
+
+        if ($request->hasFile('foto_depan')) {
+            $product->foto_depan = $request->file('foto_depan')->store('products', 'public');
+        }
+        if ($request->hasFile('foto_samping')) {
+            $product->foto_samping = $request->file('foto_samping')->store('products', 'public');
+        }
+        if ($request->hasFile('foto_atas')) {
+            $product->foto_atas = $request->file('foto_atas')->store('products', 'public');
+        }
+
+        $product->save();
+
+        return response()->json(['status' => true, 'message' => 'Foto berhasil diunggah']);
+    }
 }

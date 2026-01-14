@@ -10,25 +10,25 @@ use Illuminate\Http\Request;
 class KaryawanController extends Controller
 {
     public function index(Request $request)
-{
-    $search = $request->query('search');
+    {
+        $search = $request->query('search');
 
-    $karyawans = Karyawan::with('jabatan')
-        ->when($search, function ($query) use ($search) {
-            $query->whereRaw(
-                'LOWER(nama) LIKE ?',
-                ['%' . strtolower($search) . '%']
-            );
-        })
-        ->orderByRaw('LOWER(nama) ASC')
-        ->paginate(10);
+        $karyawans = Karyawan::with('jabatan')
+            ->when($search, function ($query) use ($search) {
+                $query->whereRaw(
+                    'LOWER(nama) LIKE ?',
+                    ['%' . strtolower($search) . '%']
+                );
+            })
+            ->orderByRaw('LOWER(nama) ASC')
+            ->paginate(10);
 
-    return response()->json([
-        'success'   => true,
-        'karyawans'=> $karyawans,
-        'jabatans' => Jabatan::select('id', 'nama')->get()
-    ]);
-}
+        return response()->json([
+            'success'   => true,
+            'karyawans' => $karyawans,
+            'jabatans' => Jabatan::select('id', 'nama')->get()
+        ]);
+    }
 
     public function store(Request $request)
     {

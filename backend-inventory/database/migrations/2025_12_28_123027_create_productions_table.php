@@ -15,6 +15,10 @@ return new class extends Migration
                 ->constrained()
                 ->cascadeOnDelete();
 
+            $table->foreignId('karyawan_id')
+                ->constrained('karyawans')
+                ->restrictOnDelete();
+
             $table->foreignId('transaksi_detail_id')
                 ->nullable()
                 ->constrained('transaksi_details')

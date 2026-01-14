@@ -58,6 +58,7 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::get('/products/{id}', [ProductController::class, 'show']);
     Route::put('/products/{id}', [ProductController::class, 'update']);
     Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+    Route::post('/products/{product}/upload-foto', [ProductController::class, 'uploadFoto']);
 
     // Jenis Product
     Route::get('/jenis', [JenisProductController::class, 'index']);

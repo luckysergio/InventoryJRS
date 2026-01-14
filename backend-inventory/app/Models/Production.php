@@ -8,6 +8,7 @@ class Production extends Model
 {
     protected $fillable = [
         'product_id',
+        'karyawan_id',
         'transaksi_detail_id',
         'jenis_pembuatan',
         'qty',
@@ -24,6 +25,11 @@ class Production extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function karyawan()
+    {
+        return $this->belongsTo(Karyawan::class);
     }
 
     public function transaksiDetail()
