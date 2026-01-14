@@ -139,28 +139,15 @@ class ProductionController extends Controller
 
     public function update(Request $request, $id)
     {
-        $production = Production::with(['transaksiDetail', 'product'])->find($id);
-
+        $production = Production::with('transaksiDetail')->find($id);
         if (!$production) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Data produksi tidak ditemukan'
-            ], 404);
+            return response()->json(['status' => false, 'message' => 'Data produksi tidak ditemukan'], 404);
         }
-
-        $validator = Validator::make($request->all(), [
-            'status' => 'required|in:antri,produksi,selesai,batal'
-        ]);
-
+        $validator = Validator::make($request->all(), ['status' => 'required|in:antri,produksi,selesai,batal']);
         if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
-            ], 422);
+            return response()->json(['status' => false, 'message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
         }
-
-        if ($request->status === 'selesai') {
+         if ($request->status === 'selesai') {
             $product = $production->product;
 
             if (
@@ -174,58 +161,46 @@ class ProductionController extends Controller
                 ], 422);
             }
         }
-
         DB::transaction(function () use ($production, $request) {
             $status = $request->status;
-
             if ($status === 'produksi' && !$production->tanggal_mulai) {
                 $production->tanggal_mulai = now();
             }
-
             if ($status === 'selesai') {
-                $production->tanggal_mulai ??= now();
+                if (!$production->tanggal_mulai) {
+                    $production->tanggal_mulai = now();
+                }
                 $production->tanggal_selesai = now();
             }
-
             if ($status === 'batal') {
                 $production->tanggal_mulai = null;
                 $production->tanggal_selesai = null;
             }
-
             $production->status = $status;
             $production->save();
-
             if ($status === 'selesai') {
-
-                $bengkel = Place::where('kode', 'BENGKEL')->firstOrFail();
-
-                $inventory = Inventory::firstOrCreate(
-                    [
-                        'product_id' => $production->product_id,
-                        'place_id'   => $bengkel->id
-                    ],
-                    ['qty' => 0]
-                );
-
-                $inventory->increment('qty', $production->qty);
-
-                ProductMovement::create([
-                    'inventory_id' => $inventory->id,
-                    'product_id'   => $production->product_id,
-                    'tipe'         => 'produksi',
-                    'qty'          => $production->qty,
-                    'keterangan'   => 'Hasil produksi',
-                    'ref_type'     => 'production',
-                    'ref_id'       => $production->id
-                ]);
+                if ($production->jenis_pembuatan === 'inventory') {
+                    $bengkel = Place::where('kode', 'BENGKEL')->firstOrFail();
+                    $inventory = Inventory::firstOrCreate(['product_id' => $production->product_id, 'place_id' => $bengkel->id], ['qty' => 0]);
+                    $inventory->increment('qty', $production->qty);
+                    ProductMovement::create(['inventory_id' => $inventory->id, 'product_id' => $production->product_id, 'tipe' => 'produksi', 'qty' => $production->qty, 'keterangan' => 'Hasil produksi inventory', 'ref_type' => 'production', 'ref_id' => $production->id]);
+                }
+                if ($production->jenis_pembuatan === 'pesanan' && $production->transaksiDetail) {
+                    $bengkel = Place::where('kode', 'BENGKEL')->firstOrFail();
+                    $inventory = Inventory::firstOrCreate(['product_id' => $production->product_id, 'place_id' => $bengkel->id], ['qty' => 0]);
+                    $inventory->increment('qty', $production->qty);
+                    ProductMovement::create(['inventory_id' => $inventory->id, 'product_id' => $production->product_id, 'tipe' => 'produksi', 'qty' => $production->qty, 'keterangan' => 'Hasil produksi pesanan (masuk ke Bengkel)', 'ref_type' => 'production', 'ref_id' => $production->id]);
+                    if ($inventory->fresh()->qty < $production->qty) {
+                        throw new \Exception('Stok tidak mencukupi untuk mengirim pesanan');
+                    }
+                    $inventory->decrement('qty', $production->qty);
+                    ProductMovement::create(['inventory_id' => $inventory->id, 'product_id' => $production->product_id, 'tipe' => 'out', 'qty' => $production->qty, 'keterangan' => 'Kirim pesanan ke customer', 'ref_type' => 'transaksi_detail', 'ref_id' => $production->transaksi_detail_id]);
+                    $statusSiap = StatusTransaksi::where('nama', 'Siap')->firstOrFail();
+                    $production->transaksiDetail->update(['status_transaksi_id' => $statusSiap->id]);
+                }
             }
         });
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Status produksi berhasil diperbarui',
-            'data'    => $production->fresh()
-        ]);
+        return response()->json(['status' => true, 'message' => 'Status produksi berhasil diperbarui', 'data' => $production->fresh()]);
     }
 
     public function destroy($id)

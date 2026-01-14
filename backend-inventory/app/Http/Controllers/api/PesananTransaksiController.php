@@ -186,30 +186,50 @@ class PesananTransaksiController extends Controller
             'details' => $this->normalizeDetails($request->input('details', []))
         ]);
 
-        $validator = Validator::make($request->all(), [
-            'customer_id' => 'nullable|exists:customers,id',
-            'customer_baru.name' => 'required_without:customer_id|string',
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'customer_id' => 'nullable|exists:customers,id',
+                'customer_baru.name' => 'required_without:customer_id|string',
 
-            'details' => 'required|array|min:1',
-            'details.*.product_id' => 'nullable|exists:products,id',
+                'details' => 'required|array|min:1',
+                'details.*.product_id' => 'nullable|exists:products,id',
 
-            'details.*.product_baru.jenis_id' => 'nullable|exists:jenis_products,id',
-            'details.*.product_baru.jenis_nama' => 'nullable|string',
+                'details.*.product_baru.jenis_id' => 'nullable|exists:jenis_products,id',
+                'details.*.product_baru.jenis_nama' => [
+                    'string',
+                    'max:100',
+                    'regex:/^[A-Z0-9\s]+$/'
+                ],
 
-            'details.*.product_baru.type_id' => 'nullable',
-            'details.*.product_baru.type_nama' => 'nullable|string',
+                'details.*.product_baru.type_id' => 'nullable',
+                'details.*.product_baru.type_nama' => [
+                    'string',
+                    'max:100',
+                    'regex:/^[A-Z0-9\s]+$/'
+                ],
 
-            'details.*.product_baru.bahan_id' => 'nullable|exists:bahan_products,id',
-            'details.*.product_baru.bahan_nama' => 'nullable|string',
+                'details.*.product_baru.bahan_id' => 'nullable|exists:bahan_products,id',
+                'details.*.product_baru.bahan_nama' => [
+                    'string',
+                    'max:100',
+                    'regex:/^[A-Z0-9\s]+$/'
+                ],
 
-            'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null',
+                'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null',
 
-            'details.*.qty' => 'required|integer|min:1',
-            'details.*.tanggal' => 'required|date',
-            'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
+                'details.*.qty' => 'required|integer|min:1',
+                'details.*.tanggal' => 'required|date',
+                'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
 
-            'details.*.harga_baru.harga' => 'nullable|integer|min:0',
-        ]);
+                'details.*.harga_baru.harga' => 'nullable|integer|min:0',
+            ],
+            [
+                'jenis_nama.regex' => 'Nama jenis harus HURUF KAPITAL',
+                'type_nama.regex'  => 'Nama type harus HURUF KAPITAL',
+                'bahan_nama.regex' => 'Nama bahan harus HURUF KAPITAL',
+            ]
+        );
 
         if ($validator->fails()) {
             return response()->json([
@@ -364,31 +384,51 @@ class PesananTransaksiController extends Controller
             'details' => $this->normalizeDetails($request->input('details', []))
         ]);
 
-        $validator = Validator::make($request->all(), [
-            'customer_id' => 'nullable|exists:customers,id',
-            'customer_baru.name' => 'required_without:customer_id|string',
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'customer_id' => 'nullable|exists:customers,id',
+                'customer_baru.name' => 'required_without:customer_id|string',
 
-            'details' => 'required|array|min:1',
-            'details.*.id' => 'nullable|exists:transaksi_details,id',
-            'details.*.product_id' => 'nullable|exists:products,id',
+                'details' => 'required|array|min:1',
+                'details.*.id' => 'nullable|exists:transaksi_details,id',
+                'details.*.product_id' => 'nullable|exists:products,id',
 
-            'details.*.product_baru.jenis_id' => 'nullable|exists:jenis_products,id',
-            'details.*.product_baru.jenis_nama' => 'nullable|string',
+                'details.*.product_baru.jenis_id' => 'nullable|exists:jenis_products,id',
+                'details.*.product_baru.jenis_nama' => [
+                    'string',
+                    'max:100',
+                    'regex:/^[A-Z0-9\s]+$/'
+                ],
 
-            'details.*.product_baru.type_id' => 'nullable',
-            'details.*.product_baru.type_nama' => 'nullable|string',
+                'details.*.product_baru.type_id' => 'nullable',
+                'details.*.product_baru.type_nama' => [
+                    'string',
+                    'max:100',
+                    'regex:/^[A-Z0-9\s]+$/'
+                ],
 
-            'details.*.product_baru.bahan_id' => 'nullable|exists:bahan_products,id',
-            'details.*.product_baru.bahan_nama' => 'nullable|string',
+                'details.*.product_baru.bahan_id' => 'nullable|exists:bahan_products,id',
+                'details.*.product_baru.bahan_nama' => [
+                    'string',
+                    'max:100',
+                    'regex:/^[A-Z0-9\s]+$/'
+                ],
 
-            'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null',
+                'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null',
 
-            'details.*.qty' => 'required|integer|min:1',
-            'details.*.tanggal' => 'required|date',
-            'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
+                'details.*.qty' => 'required|integer|min:1',
+                'details.*.tanggal' => 'required|date',
+                'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
 
-            'details.*.harga_baru.harga' => 'nullable|integer|min:0',
-        ]);
+                'details.*.harga_baru.harga' => 'nullable|integer|min:0',
+            ],
+            [
+                'jenis_nama.regex' => 'Nama jenis harus HURUF KAPITAL',
+                'type_nama.regex'  => 'Nama type harus HURUF KAPITAL',
+                'bahan_nama.regex' => 'Nama bahan harus HURUF KAPITAL',
+            ]
+        );
 
         if ($validator->fails()) {
             return response()->json([
@@ -557,7 +597,7 @@ class PesananTransaksiController extends Controller
         }
 
         $detail->update([
-            'status_transaksi_id' => 5 // Selesai
+            'status_transaksi_id' => 5
         ]);
 
         return response()->json([

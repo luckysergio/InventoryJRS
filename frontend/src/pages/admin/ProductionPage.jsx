@@ -532,7 +532,6 @@ const ProductionPage = () => {
         </div>
       )}
 
-      {/* 🔹 MODAL UPLOAD FOTO */}
       {uploadModal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-xl">
@@ -548,11 +547,11 @@ const ProductionPage = () => {
             <form onSubmit={handleUploadFoto} className="p-5 space-y-4">
               {['foto_depan', 'foto_samping', 'foto_atas'].map((key) => (
                 <div key={key}>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">
+                  <label className="text-sm text-center font-medium text-gray-700 block mb-1">
                     {key === 'foto_depan' ? 'Foto Depan' : 
-                     key === 'foto_samping' ? 'Foto Samping' : 'Foto Atas'} *
+                     key === 'foto_samping' ? 'Foto Samping' : 'Foto Atas'}
                   </label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex justify-center items-center gap-2">
                     <ImageIcon className="text-gray-400" size={16} />
                     <input
                       type="file"
