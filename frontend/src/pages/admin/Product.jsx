@@ -52,10 +52,8 @@ const extractNumbers = (text) => {
 };
 
 const generateKode = (jenisNama, typeNama, bahanNama, ukuran) => {
-  // JENIS → 1 huruf
   const jenisKode = jenisNama ? jenisNama.charAt(0).toUpperCase() : "";
 
-  // TYPE → 1–2 huruf + semua angka
   let typeKode = "";
   if (typeNama) {
     const huruf = extractInitials(typeNama, 2);

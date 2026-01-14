@@ -189,25 +189,48 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'jenis_id'   => 'nullable|exists:jenis_products,id',
-            'jenis_nama' => 'required_without:jenis_id|string|max:100',
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'jenis_id'   => 'nullable|exists:jenis_products,id',
+                'jenis_nama' => [
+                    'required_without:jenis_id',
+                    'string',
+                    'max:100',
+                    'regex:/^[A-Z0-9\s]+$/'
+                ],
 
-            'type_id'    => 'nullable|exists:type_products,id',
-            'type_nama'  => 'required_without:type_id|string|max:100',
+                'type_id'    => 'nullable|exists:type_products,id',
+                'type_nama' => [
+                    'required_without:type_id',
+                    'string',
+                    'max:100',
+                    'regex:/^[A-Z0-9\s]+$/'
+                ],
 
-            'bahan_id'   => 'nullable|exists:bahan_products,id',
-            'bahan_nama' => 'required_without:bahan_id|string|max:100',
+                'bahan_id'   => 'nullable|exists:bahan_products,id',
+                'bahan_nama' => [
+                    'required_without:bahan_id',
+                    'string',
+                    'max:100',
+                    'regex:/^[A-Z0-9\s]+$/'
+                ],
 
-            'ukuran'     => 'required|string|max:20',
-            'keterangan' => 'nullable|string',
+                'ukuran'     => 'required|string|max:20',
+                'keterangan' => 'nullable|string',
 
-            'harga_umum' => 'required|integer|min:0',
+                'harga_umum' => 'required|integer|min:0',
 
-            'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-        ]);
+                'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+                'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+                'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+            ],
+            [
+                'jenis_nama.regex' => 'Nama jenis harus HURUF KAPITAL',
+                'type_nama.regex'  => 'Nama type harus HURUF KAPITAL',
+                'bahan_nama.regex' => 'Nama bahan harus HURUF KAPITAL',
+            ]
+        );
 
         if ($validator->fails()) {
             return response()->json([
@@ -219,14 +242,12 @@ class ProductController extends Controller
         DB::beginTransaction();
 
         try {
-            // JENIS
             $jenis = $request->filled('jenis_id')
                 ? JenisProduct::findOrFail($request->jenis_id)
                 : JenisProduct::firstOrCreate([
                     'nama' => Str::title(trim($request->jenis_nama))
                 ]);
 
-            // TYPE
             $type = $request->filled('type_id')
                 ? TypeProduct::where('id', $request->type_id)
                 ->where('jenis_id', $jenis->id)
@@ -236,7 +257,6 @@ class ProductController extends Controller
                     'jenis_id' => $jenis->id
                 ]);
 
-            // BAHAN
             $bahan = $request->filled('bahan_id')
                 ? BahanProduct::findOrFail($request->bahan_id)
                 : BahanProduct::firstOrCreate([
@@ -250,7 +270,6 @@ class ProductController extends Controller
                 $request->ukuran
             );
 
-            // FOTO
             $manager = new ImageManager(new Driver());
             $foto = [];
 
@@ -319,10 +338,20 @@ class ProductController extends Controller
         $validator = Validator::make($request->all(), [
             'jenis_id' => 'required|exists:jenis_products,id',
             'type_id'  => 'nullable|exists:type_products,id',
-            'type_nama' => 'nullable|string|max:100',
+            'type_nama' => [
+                'required_without:type_id',
+                'string',
+                'max:100',
+                'regex:/^[A-Z0-9\s]+$/'
+            ],
 
             'bahan_id' => 'nullable|exists:bahan_products,id',
-            'bahan_nama' => 'nullable|string|max:100',
+            'bahan_nama' => [
+                'required_without:bahan_id',
+                'string',
+                'max:100',
+                'regex:/^[A-Z0-9\s]+$/'
+            ],
 
             'ukuran' => 'required|string|max:20',
             'keterangan' => 'nullable|string',
@@ -332,6 +361,10 @@ class ProductController extends Controller
             'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
             'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
             'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+        ], [
+            'jenis_nama.regex' => 'Nama jenis harus HURUF KAPITAL',
+            'type_nama.regex'  => 'Nama type harus HURUF KAPITAL',
+            'bahan_nama.regex' => 'Nama bahan harus HURUF KAPITAL',
         ]);
 
         if ($validator->fails()) {

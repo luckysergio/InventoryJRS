@@ -9,6 +9,7 @@ import {
   Factory,
   ClipboardCheck,
   PersonStandingIcon,
+  Users, // 🔹 ikon untuk Karyawan
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
@@ -22,6 +23,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [productionOpen, setProductionOpen] = useState(false);
   const [stokOpnameOpen, setStokOpnameOpen] = useState(false);
+  const [karyawanOpen, setKaryawanOpen] = useState(false); // 🔹 state baru
 
   useEffect(() => {
     const path = location.pathname;
@@ -66,11 +68,18 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       path === route || path.startsWith(route + "/")
     );
 
+    // 🔹 Deteksi rute karyawan & jabatan
+    const karyawanRoutes = ["/karyawan", "/jabatan"];
+    const isKaryawanRoute = karyawanRoutes.some((route) =>
+      path === route || path.startsWith(route + "/")
+    );
+
     setProductionOpen(isProductionRoute);
     setProductOpen(isProductRoute);
     setTransaksiOpen(isTransaksiRoute);
     setInventoryOpen(isInventoryRoute);
     setStokOpnameOpen(isStokOpnameRoute);
+    setKaryawanOpen(isKaryawanRoute); // 🔹 update state
   }, [location.pathname]);
 
   const NavLink = ({ children, to, icon: Icon }) => {
@@ -146,9 +155,17 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             <NavLink to="/dashboard-admin" icon={Home}>
               Dashboard
             </NavLink>
+
+            {/* ✅ MENU CUSTOMER TETAP ADA */}
             <NavLink to="/customer" icon={PersonStandingIcon}>
               Customer
             </NavLink>
+
+            {/* 🔹 MENU BARU: KARYAWAN */}
+            <Dropdown title="Karyawan" open={karyawanOpen} setOpen={setKaryawanOpen} icon={Users}>
+              <SubNavLink to="/karyawan">Data Karyawan</SubNavLink>
+              <SubNavLink to="/jabatan">Data Jabatan</SubNavLink>
+            </Dropdown>
 
             <Dropdown title="Product" open={productOpen} setOpen={setProductOpen} icon={Boxes}>
               <SubNavLink to="/product">Product</SubNavLink>
@@ -163,13 +180,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               <SubNavLink to="/transaksi">Transaksi Daily</SubNavLink>
               <SubNavLink to="/pesanan">Transaksi Pesanan</SubNavLink>
               <SubNavLink to="/riwayat-transaksi">Riwayat Transaksi</SubNavLink>
-              {/* <SubNavLink to="/status-transaksi">Status Transaksi</SubNavLink> */}
             </Dropdown>
 
             <Dropdown title="Inventory" open={inventoryOpen} setOpen={setInventoryOpen} icon={Warehouse}>
               <SubNavLink to="/inventory">Inventory</SubNavLink>
               <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
-              {/* <SubNavLink to="/Place">Place</SubNavLink> */}
             </Dropdown>
 
             <Dropdown title="Production" open={productionOpen} setOpen={setProductionOpen} icon={Factory}>
@@ -185,6 +200,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
       </aside>
 
+      {/* Mobile Sidebar */}
       <div
         className={`fixed inset-0 z-40 bg-black/20 lg:hidden transition-opacity ${
           sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -198,7 +214,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         }`}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b">
-            <h1 className="text-xl font-bold text-gray-800">Jaya Rubber Seal</h1>
+          <h1 className="text-xl font-bold text-gray-800">Jaya Rubber Seal</h1>
           <button
             onClick={() => setSidebarOpen(false)}
             className="p-2 rounded-lg hover:bg-gray-100"
@@ -211,9 +227,17 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             <NavLink to="/dashboard-admin" icon={Home}>
               Dashboard
             </NavLink>
+
+            {/* ✅ MENU CUSTOMER TETAP ADA DI MOBILE */}
             <NavLink to="/customer" icon={PersonStandingIcon}>
               Customer
             </NavLink>
+
+            {/* 🔹 MENU KARYAWAN DI MOBILE */}
+            <Dropdown title="Karyawan" open={karyawanOpen} setOpen={setKaryawanOpen} icon={Users}>
+              <SubNavLink to="/karyawan">Data Karyawan</SubNavLink>
+              <SubNavLink to="/jabatan">Data Jabatan</SubNavLink>
+            </Dropdown>
 
             <Dropdown title="Product" open={productOpen} setOpen={setProductOpen} icon={Boxes}>
               <SubNavLink to="/product">Product</SubNavLink>
@@ -228,13 +252,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               <SubNavLink to="/transaksi">Transaksi Daily</SubNavLink>
               <SubNavLink to="/pesanan">Transaksi Pesanan</SubNavLink>
               <SubNavLink to="/riwayat-transaksi">Riwayat Transaksi</SubNavLink>
-              {/* <SubNavLink to="/status-transaksi">Status Transaksi</SubNavLink> */}
             </Dropdown>
 
             <Dropdown title="Inventory" open={inventoryOpen} setOpen={setInventoryOpen} icon={Warehouse}>
               <SubNavLink to="/inventory">Inventory</SubNavLink>
               <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
-              {/* <SubNavLink to="/Place">Place</SubNavLink> */}
             </Dropdown>
 
             <Dropdown title="Production" open={productionOpen} setOpen={setProductionOpen} icon={Factory}>

@@ -6,6 +6,9 @@ import Register from "./pages/Register";
 // Dashboard
 import Dashboard from "./pages/admin/Dashboard";
 
+import KaryawanPage from "./pages/admin/KaryawanPage";
+import JabatanPage from "./pages/admin/JabatanPage";
+
 // Inventory
 import ProductPage from "./pages/admin/Product";
 import ProductionPage from "./pages/admin/ProductionPage";
@@ -51,6 +54,32 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/karyawan"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                {({ setNavbarContent }) => (
+                  <KaryawanPage setNavbarContent={setNavbarContent} />
+                )}
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/jabatan"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                {({ setNavbarContent }) => (
+                  <JabatanPage setNavbarContent={setNavbarContent} />
+                )}
               </Layout>
             </ProtectedRoute>
           }

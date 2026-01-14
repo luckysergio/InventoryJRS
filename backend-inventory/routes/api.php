@@ -9,7 +9,9 @@ use App\Http\Controllers\api\BahanProductController;
 use App\Http\Controllers\api\CustomerController;
 use App\Http\Controllers\api\HargaProductController;
 use App\Http\Controllers\Api\InventoryController;
+use App\Http\Controllers\api\JabatanController;
 use App\Http\Controllers\api\JenisProductController;
+use App\Http\Controllers\api\KaryawanController;
 use App\Http\Controllers\api\PembayaranController;
 use App\Http\Controllers\Api\PlaceController;
 use App\Http\Controllers\api\ProductController;
@@ -27,6 +29,18 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::get('/profile', [AuthController::class, 'profile']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/refresh', [AuthController::class, 'refresh']);
+
+    Route::get('/karyawans', [KaryawanController::class, 'index']);
+    Route::post('/karyawans', [KaryawanController::class, 'store']);
+    Route::get('/karyawans/{karyawan}', [KaryawanController::class, 'show']);
+    Route::put('/karyawans/{karyawan}', [KaryawanController::class, 'update']);
+    Route::delete('/karyawans/{karyawan}', [KaryawanController::class, 'destroy']);
+
+    Route::get('/jabatans', [JabatanController::class, 'index']);
+    Route::post('/jabatans', [JabatanController::class, 'store']);
+    Route::get('/jabatans/{jabatan}', [JabatanController::class, 'show']);
+    Route::put('/jabatans/{jabatan}', [JabatanController::class, 'update']);
+    Route::delete('/jabatans/{jabatan}', [JabatanController::class, 'destroy']);
 
     // Customers
     Route::get('/customers', [CustomerController::class, 'index']);

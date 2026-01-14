@@ -3,8 +3,8 @@ import Swal from "sweetalert2";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import api from "../../services/api";
 
-const JenisProductPage = () => {
-  const [jenisData, setJenisData] = useState([]);
+const JabatanPage = () => {
+  const [jabatans, setJabatans] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState({ nama: "" });
@@ -15,10 +15,10 @@ const JenisProductPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/jenis");
-      setJenisData(res.data.data);
+      const res = await api.get("/jabatans");
+      setJabatans(res.data.data || []);
     } catch (error) {
-      Swal.fire("Error", "Gagal mengambil data", "error");
+      Swal.fire("Error", "Gagal mengambil data jabatan", "error");
     } finally {
       setLoading(false);
     }
@@ -28,16 +28,15 @@ const JenisProductPage = () => {
     fetchData();
   }, []);
 
-  // Fungsi untuk cek duplikasi (case-insensitive)
-  const isJenisNameDuplicate = (nama, excludeId = null) => {
-    return jenisData.some(
-      (jenis) =>
-        jenis.id !== excludeId &&
-        jenis.nama.toLowerCase() === nama.toLowerCase()
+  // Cek duplikasi (case-insensitive)
+  const isJabatanNameDuplicate = (nama, excludeId = null) => {
+    return jabatans.some(
+      (jabatan) =>
+        jabatan.id !== excludeId &&
+        jabatan.nama.toLowerCase() === nama.toLowerCase()
     );
   };
 
-  // Tambah
   const handleTambah = () => {
     setForm({ nama: "" });
     setIsEdit(false);
@@ -45,7 +44,6 @@ const JenisProductPage = () => {
     setIsModalOpen(true);
   };
 
-  // Edit
   const handleEdit = (item) => {
     setForm({ nama: item.nama });
     setSelectedId(item.id);
@@ -53,27 +51,37 @@ const JenisProductPage = () => {
     setIsModalOpen(true);
   };
 
-  // Simpan
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     const { nama } = form;
+    const trimmedNama = nama.trim();
 
-    if (!nama.trim()) {
-      Swal.fire("Validasi", "Nama Jenis wajib diisi", "warning");
+    if (!trimmedNama) {
+      Swal.fire("Validasi", "Nama jabatan wajib diisi", "warning");
       return;
     }
 
-    // ✅ Cek duplikasi di frontend
-    const isDuplicate = isJenisNameDuplicate(
-      nama.trim(),
+    // Validasi: Hanya huruf kapital dan spasi
+    if (!/^[A-Z\s]+$/.test(trimmedNama)) {
+      Swal.fire(
+        "Validasi Gagal",
+        "Nama jabatan harus menggunakan HURUF KAPITAL semua",
+        "warning"
+      );
+      return;
+    }
+
+    // Cek duplikasi
+    const isDuplicate = isJabatanNameDuplicate(
+      trimmedNama,
       isEdit ? selectedId : null
     );
 
     if (isDuplicate) {
       Swal.fire(
         "Duplikasi Data",
-        `Jenis "${nama}" sudah ada. Silakan gunakan nama lain.`,
+        `Jabatan "${trimmedNama}" sudah ada. Silakan gunakan nama lain.`,
         "warning"
       );
       return;
@@ -81,11 +89,11 @@ const JenisProductPage = () => {
 
     try {
       if (isEdit) {
-        await api.put(`/jenis/${selectedId}`, form);
-        Swal.fire("Berhasil", "Jenis Produk berhasil diupdate", "success");
+        await api.put(`/jabatans/${selectedId}`, { nama: trimmedNama });
+        Swal.fire("Berhasil", "Jabatan berhasil diperbarui", "success");
       } else {
-        await api.post("/jenis", form);
-        Swal.fire("Berhasil", "Jenis Produk berhasil ditambahkan", "success");
+        await api.post("/jabatans", { nama: trimmedNama });
+        Swal.fire("Berhasil", "Jabatan berhasil ditambahkan", "success");
       }
 
       setIsModalOpen(false);
@@ -100,7 +108,6 @@ const JenisProductPage = () => {
     }
   };
 
-  // Hapus
   const handleDelete = async (id) => {
     const result = await Swal.fire({
       title: "Yakin ingin menghapus?",
@@ -113,8 +120,8 @@ const JenisProductPage = () => {
 
     if (result.isConfirmed) {
       try {
-        await api.delete(`/jenis/${id}`);
-        Swal.fire("Berhasil", "Jenis Produk dihapus", "success");
+        await api.delete(`/jabatans/${id}`);
+        Swal.fire("Berhasil", "Jabatan dihapus", "success");
         fetchData();
       } catch {
         Swal.fire("Error", "Gagal menghapus data", "error");
@@ -129,13 +136,13 @@ const JenisProductPage = () => {
         <div className="text-center py-12">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
         </div>
-      ) : jenisData.length === 0 ? (
+      ) : jabatans.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
-          Belum ada data jenis product
+          Belum ada data jabatan
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {jenisData.map((item) => (
+          {jabatans.map((item) => (
             <div
               key={item.id}
               className="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 hover:shadow-sm transition bg-white"
@@ -167,11 +174,11 @@ const JenisProductPage = () => {
       )}
 
       <button
-          onClick={handleTambah}
-          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
-        >
-          <Plus size={18} />
-        </button>
+        onClick={handleTambah}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+      >
+        <Plus size={18} />
+      </button>
 
       {/* MODAL */}
       {isModalOpen && (
@@ -179,26 +186,26 @@ const JenisProductPage = () => {
           <div className="bg-white w-full max-w-md rounded-2xl shadow-xl">
             <div className="p-5 border-b border-gray-200">
               <h2 className="text-xl font-bold text-center">
-                {isEdit ? "Edit Jenis Product" : "Tambah Jenis Product"}
+                {isEdit ? "Edit Jabatan" : "Tambah Jabatan"}
               </h2>
             </div>
 
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">
-                  Nama Jenis *
-                </label>
                 <input
                   type="text"
                   value={form.nama}
                   onChange={(e) => setForm({ ...form, nama: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                  placeholder="Nama jenis"
+                  placeholder="isi nama jabatan"
                   required
                 />
+                <p className="text-xs text-center text-gray-500 mt-1">
+                  Harus HURUF KAPITAL.
+                </p>
               </div>
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-center gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -222,4 +229,4 @@ const JenisProductPage = () => {
   );
 };
 
-export default JenisProductPage;
+export default JabatanPage;
