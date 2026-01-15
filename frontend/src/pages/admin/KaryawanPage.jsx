@@ -111,7 +111,7 @@ const KaryawanPage = ({ setNavbarContent }) => {
       }
       setIsModalOpen(false);
       resetForm();
-      fetchData(1, search); // reset ke halaman 1 setelah simpan
+      fetchData(1, search);
     } catch (error) {
       if (error.response?.status === 422) {
         const msg = Object.values(error.response.data.errors)
@@ -176,70 +176,83 @@ const KaryawanPage = ({ setNavbarContent }) => {
       ) : (
         <>
           <div className="bg-white rounded-xl shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Nama
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    No HP
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Jabatan
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {karyawans.length === 0 ? (
+            {/* 🔹 Tambahkan wrapper dengan overflow-x-auto */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                   <tr>
-                    <td
-                      colSpan="5"
-                      className="px-6 py-4 text-center text-gray-500"
-                    >
-                      Tidak ada data karyawan
-                    </td>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Nama
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      No HP
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Email
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Jabatan
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Aksi
+                    </th>
                   </tr>
-                ) : (
-                  karyawans.map((k) => (
-                    <tr key={k.id} className="hover:bg-gray-50">
-                      <td className="text-center px-6 py-4 whitespace-nowrap">
-                        {k.nama}
-                      </td>
-                      <td className="text-center px-6 py-4 whitespace-nowrap">
-                        {k.no_hp}
-                      </td>
-                      <td className="text-center px-6 py-4 whitespace-nowrap">
-                        {k.email}
-                      </td>
-                      <td className="text-center px-6 py-4 whitespace-nowrap">
-                        {k.jabatan?.nama || "-"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(k)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(k.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {karyawans.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan="5"
+                        className="px-4 py-6 text-center text-gray-500"
+                      >
+                        Tidak ada data karyawan
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    karyawans.map((k) => (
+                      <tr key={k.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-500">
+                          {k.nama}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                          {k.no_hp}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                          {k.email}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                          {k.jabatan?.nama || "-"}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
+                          <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => handleEdit(k)}
+                              className="p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-full transition"
+                              title="Edit"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(k.id)}
+                              className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-full transition"
+                              title="Hapus"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="md:hidden px-4 pb-2">
+              <p className="text-xs text-gray-500 text-center">
+                Geser ke kiri/kanan untuk melihat semua kolom
+              </p>
+            </div>
           </div>
 
           {/* Pagination */}

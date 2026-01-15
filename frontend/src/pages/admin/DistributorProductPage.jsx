@@ -10,6 +10,7 @@ import {
   Camera,
   Tag,
   Warehouse,
+  Truck,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -33,9 +34,17 @@ const unformatRupiah = (str) => {
   return parseInt(String(str).replace(/\D/g, ""), 10) || 0;
 };
 
+const generateDistributorPrefix = (nama) => {
+  if (!nama) return "";
+  return nama
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("");
+};
+
 const extractInitials = (text, max = 2) => {
   if (!text) return "";
-
   return text
     .trim()
     .split(/\s+/)
@@ -51,24 +60,32 @@ const extractNumbers = (text) => {
   return matches ? matches.join("") : "";
 };
 
-const generateKode = (jenisNama, typeNama, bahanNama, ukuran) => {
+const generateKode = (
+  jenisNama,
+  typeNama,
+  bahanNama,
+  ukuran,
+  distributorNama
+) => {
   const jenisKode = jenisNama ? jenisNama.charAt(0).toUpperCase() : "";
-
   let typeKode = "";
   if (typeNama) {
     const huruf = extractInitials(typeNama, 2);
     const angka = extractNumbers(typeNama);
     typeKode = huruf + angka;
   }
-
   const bahanKode = bahanNama ? extractInitials(bahanNama, 2) : "";
-
   const ukuranAngka = extractNumbers(ukuran);
+  const baseKode = jenisKode + typeKode + bahanKode + ukuranAngka;
 
-  return jenisKode + typeKode + bahanKode + ukuranAngka;
+  const distributorPrefix = distributorNama
+    ? generateDistributorPrefix(distributorNama)
+    : "";
+
+  return distributorPrefix ? `${distributorPrefix}-${baseKode}` : baseKode;
 };
 
-export const ProductFilterBar = ({
+export const DistributorProductFilterBar = ({
   search,
   setSearch,
   filterJenis,
@@ -139,7 +156,7 @@ export const ProductFilterBar = ({
   </div>
 );
 
-const ProductPage = ({ setNavbarContent }) => {
+const DistributorProductPage = ({ setNavbarContent }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -154,6 +171,8 @@ const ProductPage = ({ setNavbarContent }) => {
     bahan_id: "",
     ukuran: "",
     keterangan: "",
+    distributor_id: "",
+    harga_beli: "",
     harga_umum: "",
   });
 
@@ -174,6 +193,7 @@ const ProductPage = ({ setNavbarContent }) => {
   const [allTypes, setAllTypes] = useState([]);
   const [filteredTypes, setFilteredTypes] = useState([]);
   const [bahan, setBahan] = useState([]);
+  const [distributors, setDistributors] = useState([]);
   const [filteredTypesForFilter, setFilteredTypesForFilter] = useState([]);
 
   const cameraInputDepan = useRef(null);
@@ -186,25 +206,22 @@ const ProductPage = ({ setNavbarContent }) => {
   const fetchData = async (params = {}) => {
     try {
       setLoading(true);
-      const res = await api.get("/products", {
+      const res = await api.get("/product-distributors", {
         params: { ...params, page: currentPage },
       });
-
-      const filteredProducts = res.data.data.filter(
-        (item) => item.distributor_id === null
-      );
-
-      setProducts(filteredProducts);
+      setProducts(res.data.data);
       setLastPage(res.data.meta?.last_page || 1);
 
-      const [jRes, tRes, bRes] = await Promise.all([
+      const [jRes, tRes, bRes, dRes] = await Promise.all([
         api.get("/jenis"),
         api.get("/type"),
         api.get("/bahan"),
+        api.get("/distributors"), // 🔹 ambil distributor
       ]);
       setJenis(jRes.data.data);
       setAllTypes(tRes.data.data);
       setBahan(bRes.data.data);
+      setDistributors(dRes.data.distributors || []); // 🔹 simpan distributor
     } catch {
       Swal.fire("Error", "Gagal mengambil data", "error");
     } finally {
@@ -231,7 +248,6 @@ const ProductPage = ({ setNavbarContent }) => {
     }
 
     const filtered = allTypes.filter((t) => t.jenis_id === Number(filterJenis));
-
     setFilteredTypesForFilter(filtered);
 
     if (prevFilterJenisRef.current !== filterJenis) {
@@ -254,7 +270,6 @@ const ProductPage = ({ setNavbarContent }) => {
     const filtered = allTypes.filter(
       (t) => t.jenis_id === Number(form.jenis_id)
     );
-
     setFilteredTypes(filtered);
 
     if (!isEdit) {
@@ -279,7 +294,19 @@ const ProductPage = ({ setNavbarContent }) => {
         ? bahanInputBaru
         : bahan.find((b) => String(b.id) === String(form.bahan_id))?.nama || "";
 
-    return generateKode(jenisNama, typeNama, bahanNama, form.ukuran);
+    const distributorNama =
+      form.distributor_id && form.distributor_id !== "new"
+        ? distributors.find((d) => String(d.id) === String(form.distributor_id))
+            ?.nama || ""
+        : "";
+
+    return generateKode(
+      jenisNama,
+      typeNama,
+      bahanNama,
+      form.ukuran,
+      distributorNama
+    );
   };
 
   const handleTambah = () => {
@@ -289,6 +316,8 @@ const ProductPage = ({ setNavbarContent }) => {
       bahan_id: "",
       ukuran: "",
       keterangan: "",
+      distributor_id: "",
+      harga_beli: "",
       harga_umum: "",
     });
     setFotoDepan(null);
@@ -308,13 +337,19 @@ const ProductPage = ({ setNavbarContent }) => {
       return;
     }
 
+    const hargaJual = item.harga_products?.length > 0 
+    ? formatRupiah(item.harga_products[0].harga) 
+    : "";
+
     setForm({
       jenis_id: item.jenis_id,
       type_id: item.type_id || "",
       bahan_id: item.bahan_id || "",
       ukuran: item.ukuran,
       keterangan: item.keterangan || "",
-      harga_umum: formatRupiah(item.harga_umum),
+      distributor_id: item.distributor_id,
+      harga_beli: formatRupiah(item.harga_beli),
+      harga_umum: hargaJual,
     });
 
     setFotoDepan(
@@ -344,11 +379,16 @@ const ProductPage = ({ setNavbarContent }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const kodeToSubmit = getKodePreview();
-    if (!kodeToSubmit || !form.ukuran) {
-      Swal.fire("Validasi", "Kode dan Ukuran wajib diisi", "warning");
+    if (!kodeToSubmit || !form.ukuran || !form.distributor_id) {
+      Swal.fire(
+        "Validasi",
+        "Kode, Ukuran, dan Distributor wajib diisi",
+        "warning"
+      );
       return;
     }
 
+    const hargaBeliNum = unformatRupiah(form.harga_beli);
     const hargaNum = unformatRupiah(form.harga_umum);
     if (hargaNum === 0) {
       const confirm = await Swal.fire({
@@ -383,6 +423,9 @@ const ProductPage = ({ setNavbarContent }) => {
       bahanNama = b ? b.nama : "";
     }
 
+    const distributor = distributors.find(
+      (d) => String(d.id) === String(form.distributor_id)
+    );
     const dataPreview = `
     <div style="text-align: center; font-size: 14px;">
       <strong>Kode:</strong> ${kodeToSubmit}<br/>
@@ -390,7 +433,9 @@ const ProductPage = ({ setNavbarContent }) => {
       <strong>Tipe:</strong> ${typeName || "-"}<br/>
       <strong>Bahan:</strong> ${bahanNama || "-"}<br/>
       <strong>Ukuran:</strong> ${form.ukuran}<br/>
-      <strong>Harga Umum:</strong> ${formatRupiah(hargaNum)}<br/>
+      <strong>Distributor:</strong> ${distributor?.nama || "-"}<br/>
+      <strong>Harga Beli:</strong> ${formatRupiah(hargaBeliNum)}<br/>
+      <strong>Harga Jual:</strong> ${formatRupiah(hargaNum)}<br/>
       ${
         form.keterangan
           ? `<strong>Keterangan:</strong> ${form.keterangan}<br/>`
@@ -407,7 +452,9 @@ const ProductPage = ({ setNavbarContent }) => {
 
     const action = isEdit ? "memperbarui" : "menambah";
     const result = await Swal.fire({
-      title: `Konfirmasi ${isEdit ? "Perubahan" : "Penambahan"} Product`,
+      title: `Konfirmasi ${
+        isEdit ? "Perubahan" : "Penambahan"
+      } Product Distributor`,
       html: dataPreview,
       icon: "info",
       showCancelButton: true,
@@ -433,7 +480,9 @@ const ProductPage = ({ setNavbarContent }) => {
       const formData = new FormData();
       formData.append("kode", kodeToSubmit);
       formData.append("ukuran", form.ukuran);
+      formData.append("distributor_id", form.distributor_id);
       formData.append("harga_umum", hargaNum);
+      formData.append("harga_beli", hargaBeliNum);
       if (form.keterangan) formData.append("keterangan", form.keterangan);
       if (form.jenis_id && form.jenis_id !== "new")
         formData.append("jenis_id", form.jenis_id);
@@ -453,15 +502,20 @@ const ProductPage = ({ setNavbarContent }) => {
       if (fotoAtas instanceof File) formData.append("foto_atas", fotoAtas);
 
       if (isEdit) {
-        await api.post(`/products/${selectedId}?_method=PUT`, formData);
+        await api.post(
+          `/product-distributors/${selectedId}?_method=PUT`,
+          formData
+        );
       } else {
-        await api.post("/products", formData);
+        await api.post("/product-distributors", formData);
       }
 
       Swal.close();
       Swal.fire(
         "Berhasil",
-        isEdit ? "Product berhasil diperbarui" : "Product berhasil ditambahkan",
+        isEdit
+          ? "Product distributor berhasil diperbarui"
+          : "Product distributor berhasil ditambahkan",
         "success"
       );
       setIsModalOpen(false);
@@ -482,7 +536,7 @@ const ProductPage = ({ setNavbarContent }) => {
 
   const handleDelete = async (id) => {
     const confirm = await Swal.fire({
-      title: "Hapus Product?",
+      title: "Hapus Product Distributor?",
       text: "Data akan dihapus permanen",
       icon: "warning",
       showCancelButton: true,
@@ -492,11 +546,11 @@ const ProductPage = ({ setNavbarContent }) => {
 
     if (confirm.isConfirmed) {
       try {
-        await api.delete(`/products/${id}`);
-        Swal.fire("Berhasil", "Product dihapus", "success");
+        await api.delete(`/product-distributors/${id}`);
+        Swal.fire("Berhasil", "Product distributor dihapus", "success");
         fetchData({ search, jenis_id: filterJenis, type_id: filterType });
       } catch {
-        Swal.fire("Error", "Gagal menghapus Product", "error");
+        Swal.fire("Error", "Gagal menghapus Product distributor", "error");
       }
     }
   };
@@ -667,7 +721,7 @@ const ProductPage = ({ setNavbarContent }) => {
 
   useEffect(() => {
     setNavbarContent(
-      <ProductFilterBar
+      <DistributorProductFilterBar
         search={search}
         setSearch={setSearch}
         filterJenis={filterJenis}
@@ -695,7 +749,7 @@ const ProductPage = ({ setNavbarContent }) => {
         </div>
       ) : products.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
-          Tidak ada Product ditemukan
+          Tidak ada Product Distributor ditemukan
         </div>
       ) : (
         <>
@@ -777,9 +831,21 @@ const ProductPage = ({ setNavbarContent }) => {
                   </div>
 
                   <div className="text-center mb-2 flex items-center justify-center gap-1 text-sm">
+                    <Truck size={14} className="text-blue-600" />
+                    <span className="font-medium text-blue-700">
+                      Beli: {formatRupiah(item.harga_beli || 0)}
+                    </span>
+                  </div>
+
+                  <div className="text-center mb-2 flex items-center justify-center gap-1 text-sm">
                     <Tag size={14} className="text-amber-600" />
                     <span className="font-medium text-amber-700">
-                      {formatRupiah(item.harga_umum)}
+                      Jual:{" "}
+                      {formatRupiah(
+                        item.harga_products?.length > 0
+                          ? item.harga_products[0].harga
+                          : 0
+                      )}
                     </span>
                   </div>
 
@@ -793,8 +859,13 @@ const ProductPage = ({ setNavbarContent }) => {
                       <span>BENGKEL: {item.qty_bengkel || 0}</span>
                     </div>
                     <div className="flex items-center justify-center gap-1">
-                      <Warehouse size={12} />{" "}
-                      <span>TOTAL PRODUCT: {totalQty}</span>
+                      <Warehouse size={12} /> <span>TOTAL: {totalQty}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-1">
+                      <Truck size={12} className="text-green-600" />
+                      <span className="text-green-700">
+                        {item.distributor?.nama || "-"}
+                      </span>
                     </div>
                   </div>
 
@@ -841,7 +912,9 @@ const ProductPage = ({ setNavbarContent }) => {
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="p-5 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800 text-center">
-                {isEdit ? "Edit Product" : "Tambah Product"}
+                {isEdit
+                  ? "Edit Product Distributor"
+                  : "Tambah Product Distributor"}
               </h2>
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-5">
@@ -859,7 +932,47 @@ const ProductPage = ({ setNavbarContent }) => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Harga Umum <span className="text-red-500">*</span>
+                  Distributor <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
+                  value={form.distributor_id}
+                  onChange={(e) =>
+                    setForm({ ...form, distributor_id: e.target.value })
+                  }
+                  required
+                >
+                  <option value="">Pilih Distributor</option>
+                  {distributors.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.nama}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Harga Beli <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
+                  value={form.harga_beli}
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/\D/g, "");
+                    const num = clean === "" ? 0 : parseInt(clean, 10);
+                    setForm({ ...form, harga_beli: formatRupiah(num) });
+                  }}
+                  placeholder="Rp0"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Harga Jual <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1072,4 +1185,4 @@ const ProductPage = ({ setNavbarContent }) => {
   );
 };
 
-export default ProductPage;
+export default DistributorProductPage;

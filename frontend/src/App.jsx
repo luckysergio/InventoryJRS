@@ -8,6 +8,8 @@ import Dashboard from "./pages/admin/Dashboard";
 
 import KaryawanPage from "./pages/admin/KaryawanPage";
 import JabatanPage from "./pages/admin/JabatanPage";
+import DistributorPage from "./pages/admin/DistributorPage";
+import DistributorProductPage from "./pages/admin/DistributorProductPage";
 
 // Inventory
 import ProductPage from "./pages/admin/Product";
@@ -79,6 +81,32 @@ function App() {
               <Layout>
                 {({ setNavbarContent }) => (
                   <JabatanPage setNavbarContent={setNavbarContent} />
+                )}
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/distributor"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                {({ setNavbarContent }) => (
+                  <DistributorPage setNavbarContent={setNavbarContent} />
+                )}
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/product-distributor"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                {({ setNavbarContent }) => (
+                  <DistributorProductPage setNavbarContent={setNavbarContent} />
                 )}
               </Layout>
             </ProtectedRoute>

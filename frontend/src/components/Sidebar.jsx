@@ -9,7 +9,8 @@ import {
   Factory,
   ClipboardCheck,
   PersonStandingIcon,
-  Users, // 🔹 ikon untuk Karyawan
+  Users,
+  Handshake,
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
@@ -23,7 +24,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [productionOpen, setProductionOpen] = useState(false);
   const [stokOpnameOpen, setStokOpnameOpen] = useState(false);
-  const [karyawanOpen, setKaryawanOpen] = useState(false); // 🔹 state baru
+  const [karyawanOpen, setKaryawanOpen] = useState(false);
 
   useEffect(() => {
     const path = location.pathname;
@@ -38,6 +39,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
     const productRoutes = [
       "/product",
+      "/product-distributor",
       "/harga-product",
       "/jenis",
       "/type",
@@ -161,6 +163,10 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               Customer
             </NavLink>
 
+            <NavLink to="/distributor" icon={Handshake}>
+              Distributor
+            </NavLink>
+
             {/* 🔹 MENU BARU: KARYAWAN */}
             <Dropdown title="Karyawan" open={karyawanOpen} setOpen={setKaryawanOpen} icon={Users}>
               <SubNavLink to="/karyawan">Data Karyawan</SubNavLink>
@@ -169,6 +175,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
             <Dropdown title="Product" open={productOpen} setOpen={setProductOpen} icon={Boxes}>
               <SubNavLink to="/product">Product</SubNavLink>
+              <SubNavLink to="/product-distributor">Product Distributor</SubNavLink>
               <SubNavLink to="/product-terlaris">Product Terlaris</SubNavLink>
               <SubNavLink to="/harga-product">Harga Product</SubNavLink>
               <SubNavLink to="/jenis">Jenis Product</SubNavLink>
@@ -233,6 +240,10 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               Customer
             </NavLink>
 
+            <NavLink to="/distributor" icon={Handshake}>
+              Distributor
+            </NavLink>
+
             {/* 🔹 MENU KARYAWAN DI MOBILE */}
             <Dropdown title="Karyawan" open={karyawanOpen} setOpen={setKaryawanOpen} icon={Users}>
               <SubNavLink to="/karyawan">Data Karyawan</SubNavLink>
@@ -241,6 +252,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
             <Dropdown title="Product" open={productOpen} setOpen={setProductOpen} icon={Boxes}>
               <SubNavLink to="/product">Product</SubNavLink>
+              <SubNavLink to="/product-distributor">Product Distributor</SubNavLink>
               <SubNavLink to="/harga-product">Harga Product</SubNavLink>
               <SubNavLink to="/jenis">Jenis Product</SubNavLink>
               <SubNavLink to="/type">Type Product</SubNavLink>

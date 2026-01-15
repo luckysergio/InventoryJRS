@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\api\AuthController;
 use App\Http\Controllers\api\BahanProductController;
 use App\Http\Controllers\api\CustomerController;
+use App\Http\Controllers\api\DistributorController;
 use App\Http\Controllers\api\HargaProductController;
 use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\api\JabatanController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\api\KaryawanController;
 use App\Http\Controllers\api\PembayaranController;
 use App\Http\Controllers\Api\PlaceController;
 use App\Http\Controllers\api\ProductController;
+use App\Http\Controllers\api\ProductDistributorController;
 use App\Http\Controllers\Api\ProductionController;
 use App\Http\Controllers\Api\ProductMovementController;
 use App\Http\Controllers\api\StatusTransaksiController;
@@ -49,6 +51,12 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::put('/customers/{id}', [CustomerController::class, 'update']);
     Route::delete('/customers/{id}', [CustomerController::class, 'destroy']);
 
+    Route::get('/distributors', [DistributorController::class, 'index']);
+    Route::post('/distributors', [DistributorController::class, 'store']);
+    Route::get('/distributors/{id}', [DistributorController::class, 'show']);
+    Route::put('/distributors/{id}', [DistributorController::class, 'update']);
+    Route::delete('/distributors/{id}', [DistributorController::class, 'destroy']);
+
     // Products
     Route::get('/products/available', [ProductController::class, 'available']);
     Route::get('/products/lowStok', [ProductController::class, 'lowStock']);
@@ -60,6 +68,12 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::delete('/products/{id}', [ProductController::class, 'destroy']);
     Route::post('/products/{product}/upload-foto', [ProductController::class, 'uploadFoto']);
 
+    Route::get('/product-distributors', [ProductDistributorController::class, 'index']);
+Route::post('/product-distributors', [ProductDistributorController::class, 'store']);
+Route::get('/product-distributors/{id}', [ProductDistributorController::class, 'show']);
+Route::put('/product-distributors/{id}', [ProductDistributorController::class, 'update']);
+Route::delete('/product-distributors/{id}', [ProductDistributorController::class, 'destroy']);
+    
     // Jenis Product
     Route::get('/jenis', [JenisProductController::class, 'index']);
     Route::post('/jenis', [JenisProductController::class, 'store']);

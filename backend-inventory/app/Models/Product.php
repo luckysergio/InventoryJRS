@@ -11,7 +11,8 @@ class Product extends Model
         'jenis_id',
         'type_id',
         'bahan_id',
-        'status_id',
+        'distributor_id',
+        'harga_beli',
         'qty',
         'foto_depan',
         'foto_samping',
@@ -33,6 +34,11 @@ class Product extends Model
     public function bahan()
     {
         return $this->belongsTo(BahanProduct::class, 'bahan_id');
+    }
+
+    public function distributor()
+    {
+        return $this->belongsTo(Distributor::class);
     }
 
     public function getFotoDepanUrlAttribute()

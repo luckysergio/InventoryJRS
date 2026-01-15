@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Swal from "sweetalert2";
 import {
   Plus,
@@ -11,6 +11,7 @@ import {
   Search,
 } from "lucide-react";
 import api from "../../services/api";
+import InvoicePrint from "../../components/InvoicePrint";
 
 const safeParseFloat = (value) => {
   if (value == null) return 0;
@@ -59,6 +60,9 @@ const TransaksiPage = ({ setNavbarContent }) => {
   const [editingId, setEditingId] = useState(null);
   const [isCreatingNewCustomer, setIsCreatingNewCustomer] = useState(false);
 
+  const [printTransaksi, setPrintTransaksi] = useState(null);
+  const printRef = useRef();
+
   const initialDetail = {
     id: "",
     product_id: "",
@@ -74,7 +78,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
   const [form, setForm] = useState({
     customer_id: "",
     customer_baru: { name: "", phone: "", email: "" },
-    details: [initialDetail],
+    details: [{ ...initialDetail }],
   });
 
   const [hargaOptions, setHargaOptions] = useState({});
@@ -282,17 +286,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
     }
   };
 
-  const cekLunas = (detail) => {
-    const subtotal = safeParseFloat(detail.subtotal);
-    const totalBayar = Array.isArray(detail.pembayarans)
-      ? detail.pembayarans.reduce(
-          (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-          0
-        )
-      : 0;
-    return subtotal - totalBayar <= 0;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -471,11 +464,11 @@ const TransaksiPage = ({ setNavbarContent }) => {
     Swal.fire({
       title: "Input Pembayaran",
       html: `
-      <p>Tagihan: Rp ${formatRupiah(detail.subtotal)}</p>
-      <p>Sisa: Rp ${formatRupiah(sisa)}</p>
-      <input type="text" id="jumlahBayar" class="swal2-input" placeholder="Jumlah bayar" value="">
-      <input type="date" id="tanggalBayar" class="swal2-input">
-    `,
+        <p>Tagihan: Rp ${formatRupiah(detail.subtotal)}</p>
+        <p>Sisa: Rp ${formatRupiah(sisa)}</p>
+        <input type="text" id="jumlahBayar" class="swal2-input" placeholder="Jumlah bayar" value="">
+        <input type="date" id="tanggalBayar" class="swal2-input">
+      `,
       preConfirm: () => {
         const jumlah = unformatRupiah(
           Swal.getPopup().querySelector("#jumlahBayar").value
@@ -504,15 +497,11 @@ const TransaksiPage = ({ setNavbarContent }) => {
 
         if (jumlahInput) {
           jumlahInput.value = formatRupiah(sisa);
-
           jumlahInput.addEventListener("input", (e) => {
             let value = e.target.value;
             let clean = value.replace(/\D/g, "");
-            if (clean === "") {
-              e.target.value = "";
-            } else {
-              e.target.value = new Intl.NumberFormat("id-ID").format(clean);
-            }
+            e.target.value =
+              clean === "" ? "" : new Intl.NumberFormat("id-ID").format(clean);
           });
         }
       },
@@ -542,6 +531,13 @@ const TransaksiPage = ({ setNavbarContent }) => {
       .join(" ");
   };
 
+  const getInvoiceNumber = (transaksiItem) => {
+    const date = new Date(transaksiItem.tanggal || new Date());
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
+  };
+
   const getStokToko = (product) => {
     if (!product || !product.inventories) return 0;
     const tokoInventory = product.inventories.find(
@@ -550,467 +546,553 @@ const TransaksiPage = ({ setNavbarContent }) => {
     return tokoInventory ? tokoInventory.qty : 0;
   };
 
+  const handlePrintInvoice = (transaksiItem) => {
+  setPrintTransaksi(transaksiItem);
+  setTimeout(() => {
+    const printContent = printRef.current;
+    if (!printContent) return;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "none";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Invoice</title>
+          <style>
+            @media print {
+              @page {
+                size: auto;
+                margin: 0;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+                font-family: 'Courier New', monospace;
+                line-height: 1.4;
+                font-size: 10px;
+                width: 80mm;
+                overflow: hidden;
+              }
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              width: 80mm;
+              font-family: 'Courier New', monospace;
+              font-size: 10px;
+              line-height: 1.4;
+            }
+          </style>
+        </head>
+        <body>
+          ${printContent.outerHTML}
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => {
+                if (window.frameElement && window.frameElement.parentNode) {
+                  window.frameElement.parentNode.removeChild(window.frameElement);
+                }
+              }, 1000);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    doc.close();
+  }, 100);
+};
+
   return (
-    <div className="space-y-8">
-      {loading ? (
-        <p className="text-center py-8 text-gray-600">Memuat data...</p>
-      ) : transaksi.length === 0 ? (
-        <p className="text-center py-8 text-gray-500">
-          Tidak ada transaksi harian dengan status proses.
-        </p>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
-          {transaksi
-            .map((item) => {
-              const activeDetails = getActiveDetails(item.details);
-              if (activeDetails.length === 0) return null;
-              return (
-                <div
-                  key={item.id}
-                  className="p-4 bg-white rounded-xl shadow border border-gray-100 space-y-3"
-                >
-                  <div className="flex justify-center items-start">
-                    <div>
-                      <p className="text-gray-700 font-medium text-center text-sm">
-                        {item.customer?.name || "Umum"}
-                      </p>
-                      <p className="text-gray-700 font-bold text-center text-base mt-1">
-                        Rp {formatRupiah(item.total)}
-                      </p>
+    <>
+      <div className="space-y-8">
+        {loading ? (
+          <p className="text-center py-8 text-gray-600">Memuat data...</p>
+        ) : transaksi.length === 0 ? (
+          <p className="text-center py-8 text-gray-500">
+            Tidak ada transaksi harian dengan status proses.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
+            {transaksi
+              .map((item) => {
+                const activeDetails = getActiveDetails(item.details);
+                if (activeDetails.length === 0) return null;
+                return (
+                  <div
+                    key={item.id}
+                    className="p-4 bg-white rounded-xl shadow border border-gray-100 space-y-3"
+                  >
+                    {/* Header: Invoice ID & Print Button */}
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-mono text-gray-600">
+                        {getInvoiceNumber(item)}
+                      </span>
+                      <button
+                        onClick={() => handlePrintInvoice(item)}
+                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 flex items-center gap-1"
+                      >
+                        <Receipt size={12} /> Print
+                      </button>
                     </div>
-                  </div>
-                  <hr className="my-2 border-gray-200" />
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                    {activeDetails.map((d) => {
-                      const sisaBayar = getSisaBayar(d);
-                      const isLunas = sisaBayar <= 0;
-                      const totalBayar = getTotalBayar(d);
-                      return (
-                        <div
-                          key={d.id}
-                          className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-xs text-center"
-                        >
-                          <p className="font-medium">
-                            {formatProductName(d.product)}
-                          </p>
-                          <p className="mt-1">{formatTanggal(d.tanggal)}</p>
-                          <p className="mt-1">
-                            <span className="font-semibold">Qty</span> {d.qty}
-                          </p>
-                          <p className="mt-1">
-                            <span className="font-semibold">Harga</span> Rp{" "}
-                            {formatRupiah(d.harga)}
-                          </p>
-                          <p className="mt-1">
-                            <span className="font-semibold">Diskon</span> Rp{" "}
-                            {formatRupiah(d.discount)}
-                          </p>
-                          <p className="mt-1">
-                            <span className="font-semibold">Tagihan</span> Rp{" "}
-                            {formatRupiah(d.subtotal)}
-                          </p>
 
-                          {d.catatan && (
-                            <p className="mt-1 italic">{d.catatan}</p>
-                          )}
-
-                          <div className="mt-2 pt-2 border-t border-gray-200">
-                            <div className="mt-1">
-                              <p className="text-xs">
-                                <span
-                                  className={`font-semibold ${
-                                    isLunas
-                                      ? "text-green-600"
-                                      : "text-orange-600"
-                                  }`}
-                                >
-                                  {isLunas
-                                    ? "✅ Lunas"
-                                    : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
-                                        sisaBayar
-                                      )})`}
-                                </span>
-                              </p>
-                            </div>
-
-                            <p className="text-[10px] text-gray-600 mt-1">
-                              Dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                    <div className="flex justify-center items-start">
+                      <div>
+                        <p className="text-gray-700 font-medium text-center text-sm">
+                          {item.customer?.name || "Umum"}
+                        </p>
+                        <p className="text-gray-700 font-bold text-center text-base mt-1">
+                          Rp {formatRupiah(item.total)}
+                        </p>
+                      </div>
+                    </div>
+                    <hr className="my-2 border-gray-200" />
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                      {activeDetails.map((d) => {
+                        const sisaBayar = getSisaBayar(d);
+                        const isLunas = sisaBayar <= 0;
+                        const totalBayar = getTotalBayar(d);
+                        return (
+                          <div
+                            key={d.id}
+                            className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-xs text-center"
+                          >
+                            <p className="font-medium">
+                              {formatProductName(d.product)}
+                            </p>
+                            <p className="mt-1">{formatTanggal(d.tanggal)}</p>
+                            <p className="mt-1">
+                              <span className="font-semibold">Qty</span> {d.qty}
+                            </p>
+                            <p className="mt-1">
+                              <span className="font-semibold">Harga</span> Rp{" "}
+                              {formatRupiah(d.harga)}
+                            </p>
+                            <p className="mt-1">
+                              <span className="font-semibold">Diskon</span> Rp{" "}
+                              {formatRupiah(d.discount)}
+                            </p>
+                            <p className="mt-1">
+                              <span className="font-semibold">Tagihan</span> Rp{" "}
                               {formatRupiah(d.subtotal)}
                             </p>
 
-                            {d.pembayarans && d.pembayarans.length > 0 && (
-                              <div className="mt-1 text-[10px]">
-                                <p className="font-medium flex items-center justify-center gap-1">
-                                  <Receipt size={10} /> Riwayat:
+                            {d.catatan && (
+                              <p className="mt-1 italic">{d.catatan}</p>
+                            )}
+
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <div className="mt-1">
+                                <p className="text-xs">
+                                  <span
+                                    className={`font-semibold ${
+                                      isLunas
+                                        ? "text-green-600"
+                                        : "text-orange-600"
+                                    }`}
+                                  >
+                                    {isLunas
+                                      ? "✅ Lunas"
+                                      : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
+                                          sisaBayar
+                                        )})`}
+                                  </span>
                                 </p>
-                                <ul className="list-disc list-inside space-y-0.5 mt-0.5">
-                                  {d.pembayarans.map((p) => (
-                                    <li key={p.id} className="text-gray-700">
-                                      Rp {formatRupiah(p.jumlah_bayar)} -{" "}
-                                      {formatTanggal(p.tanggal_bayar)}
-                                    </li>
-                                  ))}
-                                </ul>
                               </div>
-                            )}
 
-                            {!isLunas && (
-                              <button
-                                onClick={() => handleBayar(d.id)}
-                                className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] hover:bg-green-200"
-                              >
-                                <Wallet size={12} /> Bayar
-                              </button>
-                            )}
+                              <p className="text-[10px] text-gray-600 mt-1">
+                                Dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                                {formatRupiah(d.subtotal)}
+                              </p>
 
-                            <div className="flex gap-1 mt-2">
-                              <button
-                                onClick={() => handleSelesaiDetail(d.id)}
-                                className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-[10px] px-1 py-1 rounded hover:bg-green-700"
-                              >
-                                <CheckCircle size={12} /> Selesai
-                              </button>
-                              <button
-                                onClick={() => handleCancelDetail(d.id)}
-                                className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
-                              >
-                                <XCircle size={12} /> Batal
-                              </button>
+                              {d.pembayarans && d.pembayarans.length > 0 && (
+                                <div className="mt-1 text-[10px]">
+                                  <p className="font-medium flex items-center justify-center gap-1">
+                                    <Receipt size={10} /> Riwayat:
+                                  </p>
+                                  <ul className="list-disc list-inside space-y-0.5 mt-0.5">
+                                    {d.pembayarans.map((p) => (
+                                      <li key={p.id} className="text-gray-700">
+                                        Rp {formatRupiah(p.jumlah_bayar)} -{" "}
+                                        {formatTanggal(p.tanggal_bayar)}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {!isLunas && (
+                                <button
+                                  onClick={() => handleBayar(d.id)}
+                                  className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] hover:bg-green-200"
+                                >
+                                  <Wallet size={12} /> Bayar
+                                </button>
+                              )}
+
+                              <div className="flex gap-1 mt-2">
+                                <button
+                                  onClick={() => handleSelesaiDetail(d.id)}
+                                  className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-[10px] px-1 py-1 rounded hover:bg-green-700"
+                                >
+                                  <CheckCircle size={12} /> Selesai
+                                </button>
+                                <button
+                                  onClick={() => handleCancelDetail(d.id)}
+                                  className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
+                                >
+                                  <XCircle size={12} /> Batal
+                                </button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-center mt-2">
+                      <button
+                        onClick={() => handleEditTransaksi(item)}
+                        className="flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700 w-full"
+                      >
+                        <Pencil size={12} /> Edit
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex justify-center mt-2">
-                    <button
-                      onClick={() => handleEditTransaksi(item)}
-                      className="flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700 w-full"
-                    >
-                      <Pencil size={12} /> Edit
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-            .filter(Boolean)}
-        </div>
-      )}
+                );
+              })
+              .filter(Boolean)}
+          </div>
+        )}
 
-      <button
-        onClick={() => {
-          resetForm();
-          setIsModalOpen(true);
-        }}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
-      >
-        <Plus size={18} />
-      </button>
+        <button
+          onClick={() => {
+            resetForm();
+            setIsModalOpen(true);
+          }}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+        >
+          <Plus size={18} />
+        </button>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-4xl p-6 rounded-2xl overflow-y-auto max-h-[90vh]">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">
-                {editingId ? "Edit Transaksi" : "Tambah Transaksi"}
-              </h2>
-              <button
-                onClick={() => {
-                  resetForm();
-                  setIsModalOpen(false);
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <XCircle size={24} />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="bg-gray-50 p-4 rounded-xl">
-                <label className="font-semibold block mb-2">Customer</label>
-                <select
-                  className="w-full border px-3 py-2 rounded-lg"
-                  value={
-                    form.customer_id || (isCreatingNewCustomer ? "new" : "")
-                  }
-                  onChange={(e) => {
-                    const selectedValue = e.target.value;
-                    if (selectedValue === "new") {
-                      setIsCreatingNewCustomer(true);
-                      setForm({
-                        ...form,
-                        customer_id: "",
-                        customer_baru: { name: "", phone: "", email: "" },
-                      });
-                    } else {
-                      setIsCreatingNewCustomer(false);
-                      setForm({
-                        ...form,
-                        customer_id: selectedValue,
-                        customer_baru: { name: "", phone: "", email: "" },
-                      });
-                    }
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white w-full max-w-4xl p-6 rounded-2xl overflow-y-auto max-h-[90vh]">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">
+                  {editingId ? "Edit Transaksi" : "Tambah Transaksi"}
+                </h2>
+                <button
+                  onClick={() => {
+                    resetForm();
+                    setIsModalOpen(false);
                   }}
+                  className="text-gray-500 hover:text-gray-700"
                 >
-                  <option value="">Pilih Customer</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                  <option value="new">➕ Buat Customer Baru</option>
-                </select>
-
-                {isCreatingNewCustomer && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-                    <input
-                      type="text"
-                      placeholder="Nama *"
-                      className="border px-3 py-2 rounded-lg"
-                      value={form.customer_baru.name}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          customer_baru: {
-                            ...form.customer_baru,
-                            name: e.target.value,
-                          },
-                        })
-                      }
-                      required
-                    />
-                    <input
-                      type="text"
-                      placeholder="Phone"
-                      className="border px-3 py-2 rounded-lg"
-                      value={form.customer_baru.phone}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          customer_baru: {
-                            ...form.customer_baru,
-                            phone: e.target.value,
-                          },
-                        })
-                      }
-                    />
-                    <input
-                      type="email"
-                      placeholder="Email"
-                      className="border px-3 py-2 rounded-lg"
-                      value={form.customer_baru.email}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          customer_baru: {
-                            ...form.customer_baru,
-                            email: e.target.value,
-                          },
-                        })
-                      }
-                    />
-                  </div>
-                )}
+                  <XCircle size={24} />
+                </button>
               </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-center items-center">
-                  <h3 className="font-bold text-lg">Detail Transaksi</h3>
-                </div>
-                {form.details.map((d, i) => (
-                  <div
-                    key={i}
-                    className="p-4 border border-gray-200 rounded-xl bg-gray-50 space-y-4"
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="bg-gray-50 p-4 rounded-xl">
+                  <label className="font-semibold block mb-2">Customer</label>
+                  <select
+                    className="w-full border px-3 py-2 rounded-lg"
+                    value={
+                      form.customer_id || (isCreatingNewCustomer ? "new" : "")
+                    }
+                    onChange={(e) => {
+                      const selectedValue = e.target.value;
+                      if (selectedValue === "new") {
+                        setIsCreatingNewCustomer(true);
+                        setForm({
+                          ...form,
+                          customer_id: "",
+                          customer_baru: { name: "", phone: "", email: "" },
+                        });
+                      } else {
+                        setIsCreatingNewCustomer(false);
+                        setForm({
+                          ...form,
+                          customer_id: selectedValue,
+                          customer_baru: { name: "", phone: "", email: "" },
+                        });
+                      }
+                    }}
                   >
-                    <div>
-                      <label className="block mb-1 font-medium">Produk *</label>
-                      <select
-                        className="w-full border px-3 py-2 rounded-lg"
-                        value={d.product_id}
+                    <option value="">Pilih Customer</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                    <option value="new">➕ Buat Customer Baru</option>
+                  </select>
+
+                  {isCreatingNewCustomer && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                      <input
+                        type="text"
+                        placeholder="Nama *"
+                        className="border px-3 py-2 rounded-lg"
+                        value={form.customer_baru.name}
                         onChange={(e) =>
-                          handleDetailChange(i, "product_id", e.target.value)
+                          setForm({
+                            ...form,
+                            customer_baru: {
+                              ...form.customer_baru,
+                              name: e.target.value,
+                            },
+                          })
                         }
                         required
-                      >
-                        <option value="">Pilih Produk</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {formatProductName(p)} (Stok: {getStokToko(p)})
-                          </option>
-                        ))}
-                      </select>
+                      />
+                      <input
+                        type="text"
+                        placeholder="Phone"
+                        className="border px-3 py-2 rounded-lg"
+                        value={form.customer_baru.phone}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            customer_baru: {
+                              ...form.customer_baru,
+                              phone: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        className="border px-3 py-2 rounded-lg"
+                        value={form.customer_baru.email}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            customer_baru: {
+                              ...form.customer_baru,
+                              email: e.target.value,
+                            },
+                          })
+                        }
+                      />
                     </div>
+                  )}
+                </div>
 
-                    {d.product_id && (
-                      <div className="mt-3">
+                <div className="space-y-4">
+                  <div className="flex justify-center items-center">
+                    <h3 className="font-bold text-lg">Detail Transaksi</h3>
+                  </div>
+                  {form.details.map((d, i) => (
+                    <div
+                      key={i}
+                      className="p-4 border border-gray-200 rounded-xl bg-gray-50 space-y-4"
+                    >
+                      <div>
                         <label className="block mb-1 font-medium">
-                          Pilih Harga
+                          Produk *
                         </label>
                         <select
                           className="w-full border px-3 py-2 rounded-lg"
-                          value={
-                            d.harga_product_id ||
-                            (showHargaBaru[i] ? "tambah_harga_khusus" : "")
-                          }
+                          value={d.product_id}
                           onChange={(e) =>
-                            handleHargaSelection(i, e.target.value)
+                            handleDetailChange(i, "product_id", e.target.value)
                           }
+                          required
                         >
-                          <option value="">-- Pilih --</option>
-                          <optgroup label="Harga Umum">
-                            {(hargaOptions[i] || [])
-                              .filter((h) => !h.customer_id)
-                              .map((h) => (
-                                <option key={`umum-${h.id}`} value={h.id}>
-                                  Rp {formatRupiah(h.harga)} -{" "}
-                                  {h.keterangan || "Tanpa keterangan"} (
-                                  {formatTanggal(h.tanggal_berlaku)})
-                                </option>
-                              ))}
-                          </optgroup>
-                          <optgroup label="Harga Khusus Customer">
-                            {(hargaOptions[i] || [])
-                              .filter((h) => h.customer_id)
-                              .map((h) => (
-                                <option key={`khusus-${h.id}`} value={h.id}>
-                                  Rp {formatRupiah(h.harga)} - {h.keterangan} (
-                                  {formatTanggal(h.tanggal_berlaku)})
-                                </option>
-                              ))}
-                          </optgroup>
-                          <option value="tambah_harga_khusus">
-                            + Tambah Harga Khusus Customer
-                          </option>
+                          <option value="">Pilih Produk</option>
+                          {products.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {formatProductName(p)} (Stok: {getStokToko(p)})
+                            </option>
+                          ))}
                         </select>
-
-                        {showHargaBaru[i] && (
-                          <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                            <label className="block mb-2 font-medium text-blue-800">
-                              Harga Khusus Customer Baru
-                            </label>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                placeholder="Harga Baru (Rp)"
-                                className="border px-3 py-2 rounded-lg"
-                                value={
-                                  d.harga_baru.harga
-                                    ? formatRupiah(d.harga_baru.harga)
-                                    : ""
-                                }
-                                onChange={(e) => {
-                                  const raw = unformatRupiah(e.target.value);
-                                  handleHargaBaruChange(i, "harga", raw);
-                                }}
-                              />
-                              <input
-                                type="text"
-                                placeholder="Keterangan Harga"
-                                className="border px-3 py-2 rounded-lg"
-                                value={d.harga_baru.keterangan}
-                                onChange={(e) =>
-                                  handleHargaBaruChange(
-                                    i,
-                                    "keterangan",
-                                    e.target.value
-                                  )
-                                }
-                              />
-                              <input
-                                type="date"
-                                className="border px-3 py-2 rounded-lg"
-                                value={d.harga_baru.tanggal_berlaku}
-                                onChange={(e) =>
-                                  handleHargaBaruChange(
-                                    i,
-                                    "tanggal_berlaku",
-                                    e.target.value
-                                  )
-                                }
-                              />
-                            </div>
-                          </div>
-                        )}
                       </div>
-                    )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-                      <input
-                        type="date"
-                        className="border px-3 py-2 rounded-lg"
-                        value={d.tanggal}
-                        onChange={(e) =>
-                          handleDetailChange(i, "tanggal", e.target.value)
-                        }
-                        required
-                      />
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="Qty *"
-                        className="border px-3 py-2 rounded-lg"
-                        value={d.qty}
-                        onChange={(e) =>
-                          handleDetailChange(i, "qty", e.target.value)
-                        }
-                        required
-                      />
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="Diskon (Rp)"
-                        className="border px-3 py-2 rounded-lg"
-                        value={d.discount ? formatRupiah(d.discount) : ""}
-                        onChange={(e) => {
-                          const raw = unformatRupiah(e.target.value);
-                          handleDetailChange(i, "discount", raw);
-                        }}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Catatan (opsional)"
-                        className="border px-3 py-2 rounded-lg"
-                        value={d.catatan}
-                        onChange={(e) =>
-                          handleDetailChange(i, "catatan", e.target.value)
-                        }
-                      />
+                      {d.product_id && (
+                        <div className="mt-3">
+                          <label className="block mb-1 font-medium">
+                            Pilih Harga
+                          </label>
+                          <select
+                            className="w-full border px-3 py-2 rounded-lg"
+                            value={
+                              d.harga_product_id ||
+                              (showHargaBaru[i] ? "tambah_harga_khusus" : "")
+                            }
+                            onChange={(e) =>
+                              handleHargaSelection(i, e.target.value)
+                            }
+                          >
+                            <option value="">-- Pilih --</option>
+                            <optgroup label="Harga Umum">
+                              {(hargaOptions[i] || [])
+                                .filter((h) => !h.customer_id)
+                                .map((h) => (
+                                  <option key={`umum-${h.id}`} value={h.id}>
+                                    Rp {formatRupiah(h.harga)} -{" "}
+                                    {h.keterangan || "Tanpa keterangan"} (
+                                    {formatTanggal(h.tanggal_berlaku)})
+                                  </option>
+                                ))}
+                            </optgroup>
+                            <optgroup label="Harga Khusus Customer">
+                              {(hargaOptions[i] || [])
+                                .filter((h) => h.customer_id)
+                                .map((h) => (
+                                  <option key={`khusus-${h.id}`} value={h.id}>
+                                    Rp {formatRupiah(h.harga)} - {h.keterangan}{" "}
+                                    ({formatTanggal(h.tanggal_berlaku)})
+                                  </option>
+                                ))}
+                            </optgroup>
+                            <option value="tambah_harga_khusus">
+                              + Tambah Harga Khusus Customer
+                            </option>
+                          </select>
+
+                          {showHargaBaru[i] && (
+                            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                              <label className="block mb-2 font-medium text-blue-800">
+                                Harga Khusus Customer Baru
+                              </label>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  placeholder="Harga Baru (Rp)"
+                                  className="border px-3 py-2 rounded-lg"
+                                  value={
+                                    d.harga_baru.harga
+                                      ? formatRupiah(d.harga_baru.harga)
+                                      : ""
+                                  }
+                                  onChange={(e) => {
+                                    const raw = unformatRupiah(e.target.value);
+                                    handleHargaBaruChange(i, "harga", raw);
+                                  }}
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Keterangan Harga"
+                                  className="border px-3 py-2 rounded-lg"
+                                  value={d.harga_baru.keterangan}
+                                  onChange={(e) =>
+                                    handleHargaBaruChange(
+                                      i,
+                                      "keterangan",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                                <input
+                                  type="date"
+                                  className="border px-3 py-2 rounded-lg"
+                                  value={d.harga_baru.tanggal_berlaku}
+                                  onChange={(e) =>
+                                    handleHargaBaruChange(
+                                      i,
+                                      "tanggal_berlaku",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                        <input
+                          type="date"
+                          className="border px-3 py-2 rounded-lg"
+                          value={d.tanggal}
+                          onChange={(e) =>
+                            handleDetailChange(i, "tanggal", e.target.value)
+                          }
+                          required
+                        />
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Qty *"
+                          className="border px-3 py-2 rounded-lg"
+                          value={d.qty}
+                          onChange={(e) =>
+                            handleDetailChange(i, "qty", e.target.value)
+                          }
+                          required
+                        />
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Diskon (Rp)"
+                          className="border px-3 py-2 rounded-lg"
+                          value={d.discount ? formatRupiah(d.discount) : ""}
+                          onChange={(e) => {
+                            const raw = unformatRupiah(e.target.value);
+                            handleDetailChange(i, "discount", raw);
+                          }}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Catatan (opsional)"
+                          className="border px-3 py-2 rounded-lg"
+                          value={d.catatan}
+                          onChange={(e) =>
+                            handleDetailChange(i, "catatan", e.target.value)
+                          }
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeDetailRow(i)}
+                        className="w-full mt-2 bg-red-100 text-red-600 py-2 rounded-lg hover:bg-red-200 flex items-center justify-center gap-1"
+                      >
+                        <Trash2 size={16} /> Hapus Detail
+                      </button>
                     </div>
+                  ))}
+                </div>
 
-                    <button
-                      type="button"
-                      onClick={() => removeDetailRow(i)}
-                      className="w-full mt-2 bg-red-100 text-red-600 py-2 rounded-lg hover:bg-red-200 flex items-center justify-center gap-1"
-                    >
-                      <Trash2 size={16} /> Hapus Detail
-                    </button>
-                  </div>
-                ))}
-              </div>
+                <div className="flex justify-center items-center">
+                  <button
+                    type="button"
+                    onClick={addDetailRow}
+                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm"
+                  >
+                    + Tambah Detail
+                  </button>
+                </div>
 
-              <div className="flex justify-center items-center">
-                <button
-                  type="button"
-                  onClick={addDetailRow}
-                  className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm"
-                >
-                  + Tambah Detail
-                </button>
-              </div>
-
-              <div className="flex justify-center gap-3 pt-4 border-t">
-                <button
-                  type="submit"
-                  className="px-6 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  {editingId ? "Simpan Perubahan" : "Simpan Transaksi"}
-                </button>
-              </div>
-            </form>
+                <div className="flex justify-center gap-3 pt-4 border-t">
+                  <button
+                    type="submit"
+                    className="px-6 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    {editingId ? "Simpan Perubahan" : "Simpan Transaksi"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      <div className="hidden">
+        <InvoicePrint ref={printRef} transaksi={printTransaksi} />
+      </div>
+    </>
   );
 };
 

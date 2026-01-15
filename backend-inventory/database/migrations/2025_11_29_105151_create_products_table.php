@@ -32,6 +32,13 @@ return new class extends Migration
 
             $table->string('ukuran');
 
+            $table->foreignId('distributor_id')
+                ->nullable()
+                ->constrained('distributors')
+                ->nullOnDelete();
+
+            $table->integer('harga_beli')->nullable();
+
             $table->string('foto_depan')->nullable();
             $table->string('foto_samping')->nullable();
             $table->string('foto_atas')->nullable();

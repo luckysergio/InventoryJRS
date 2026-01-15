@@ -186,7 +186,6 @@ class ProductController extends Controller
         return $this->makeUniqueKode($baseKode, $ignoreProductId);
     }
 
-
     public function store(Request $request)
     {
         $validator = Validator::make(
@@ -377,7 +376,6 @@ class ProductController extends Controller
         DB::beginTransaction();
 
         try {
-            // TYPE
             if ($request->filled('type_nama')) {
                 $type = TypeProduct::firstOrCreate([
                     'nama' => Str::title(trim($request->type_nama)),
@@ -388,7 +386,6 @@ class ProductController extends Controller
                 $type_id = $request->type_id;
             }
 
-            // BAHAN
             if ($request->filled('bahan_nama')) {
                 $bahan = BahanProduct::firstOrCreate([
                     'nama' => Str::title(trim($request->bahan_nama))

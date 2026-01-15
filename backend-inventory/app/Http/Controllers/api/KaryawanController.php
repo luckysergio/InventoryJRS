@@ -38,7 +38,12 @@ class KaryawanController extends Controller
             'email' => 'required|email|unique:karyawans,email',
 
             'jabatan_id' => 'nullable|exists:jabatans,id',
-            'jabatan_nama' => 'nullable|string|max:255'
+            'jabatan_nama' => [
+                'string',
+                'max:100',
+                'unique:jabatans,nama',
+                'regex:/^[A-Z\s]+$/'
+            ]
         ]);
 
         $jabatanId = $this->resolveJabatan($request);
