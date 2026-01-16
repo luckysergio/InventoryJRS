@@ -699,14 +699,15 @@ const ProductPage = ({ setNavbarContent }) => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
             {products.map((item) => {
               const totalQty = (item.qty_toko || 0) + (item.qty_bengkel || 0);
               return (
                 <div
                   key={item.id}
-                  className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-5 flex flex-col"
+                  className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-4 flex flex-col h-full"
                 >
+                  {/* Foto Produk */}
                   <div className="flex justify-center gap-2 mb-3">
                     {item.foto_depan && (
                       <img
@@ -714,7 +715,7 @@ const ProductPage = ({ setNavbarContent }) => {
                           item.foto_depan
                         }`}
                         alt="Foto Depan"
-                        className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
+                        className="w-14 h-14 object-cover rounded cursor-pointer border hover:shadow transition"
                         onClick={() =>
                           openFotoModal(
                             `${import.meta.env.VITE_ASSET_URL}/storage/${
@@ -730,7 +731,7 @@ const ProductPage = ({ setNavbarContent }) => {
                           item.foto_samping
                         }`}
                         alt="Foto Samping"
-                        className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
+                        className="w-14 h-14 object-cover rounded cursor-pointer border hover:shadow transition"
                         onClick={() =>
                           openFotoModal(
                             `${import.meta.env.VITE_ASSET_URL}/storage/${
@@ -746,7 +747,7 @@ const ProductPage = ({ setNavbarContent }) => {
                           item.foto_atas
                         }`}
                         alt="Foto Atas"
-                        className="w-16 h-16 object-cover rounded cursor-pointer border hover:shadow"
+                        className="w-14 h-14 object-cover rounded cursor-pointer border hover:shadow transition"
                         onClick={() =>
                           openFotoModal(
                             `${import.meta.env.VITE_ASSET_URL}/storage/${
@@ -759,72 +760,78 @@ const ProductPage = ({ setNavbarContent }) => {
                     {!item.foto_depan &&
                       !item.foto_samping &&
                       !item.foto_atas && (
-                        <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
-                          <ImageIcon className="text-gray-400" size={24} />
+                        <div className="w-14 h-14 bg-gray-100 rounded flex items-center justify-center">
+                          <ImageIcon className="text-gray-400" size={20} />
                         </div>
                       )}
                   </div>
 
+                  {/* Kode Produk */}
                   <div className="text-center mb-2">
-                    <p className="font-bold text-xl text-gray-800">
+                    <p className="font-bold text-lg text-gray-800 truncate">
                       {item.kode}
                     </p>
                   </div>
-                  <div className="text-center mb-2 min-h-[24px]">
-                    <p className="text-sm text-gray-600">
+
+                  {/* Nama Produk */}
+                  <div className="text-center mb-2 min-h-[32px]">
+                    <p className="text-xs text-gray-600 leading-tight">
                       {formatProductName(item)}
                     </p>
                   </div>
 
+                  {/* Harga */}
                   <div className="text-center mb-2 flex items-center justify-center gap-1 text-sm">
-                    <Tag size={14} className="text-amber-600" />
-                    <span className="font-medium text-amber-700">
+                    <Tag size={14} className="text-amber-600 flex-shrink-0" />
+                    <span className="font-medium text-amber-700 truncate">
                       {formatRupiah(item.harga_umum)}
                     </span>
                   </div>
 
-                  <div className="text-center mb-2 text-xs text-gray-600 space-y-0.5">
+                  {/* Stok */}
+                  <div className="text-center mb-3 text-xs text-gray-600 space-y-0.5">
                     <div className="flex items-center justify-center gap-1">
-                      <Warehouse size={12} />{" "}
+                      <Warehouse size={12} className="flex-shrink-0" />{" "}
                       <span>TOKO: {item.qty_toko || 0}</span>
                     </div>
                     <div className="flex items-center justify-center gap-1">
-                      <Warehouse size={12} />{" "}
+                      <Warehouse size={12} className="flex-shrink-0" />{" "}
                       <span>BENGKEL: {item.qty_bengkel || 0}</span>
                     </div>
-                    <div className="flex items-center justify-center gap-1">
-                      <Warehouse size={12} />{" "}
-                      <span>TOTAL PRODUCT: {totalQty}</span>
+                    <div className="flex items-center justify-center gap-1 font-medium">
+                      <Warehouse size={12} className="flex-shrink-0" />{" "}
+                      <span>TOTAL: {totalQty}</span>
                     </div>
                   </div>
 
+                  {/* Keterangan */}
                   {item.keterangan && (
                     <div className="text-center mb-3 flex-1">
-                      <p className="text-xs italic text-gray-500">
+                      <p className="text-xs italic text-gray-500 line-clamp-2">
                         "{item.keterangan}"
                       </p>
                     </div>
                   )}
 
-                  <div className="flex gap-2 mt-auto pt-2">
+                  {/* Aksi */}
+                  <div className="flex gap-2 pt-2 mt-auto">
                     <button
                       onClick={() => handleEdit(item)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-sm font-medium transition"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-xs font-medium transition-colors duration-200"
                     >
-                      <Pencil size={14} />
+                      <Pencil size={12} />
                     </button>
                     <button
                       onClick={() => handleDelete(item.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-sm font-medium transition"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-xs font-medium transition-colors duration-200"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={12} />
                     </button>
                   </div>
                 </div>
               );
             })}
           </div>
-
           {lastPage > 1 && renderPagination()}
         </>
       )}

@@ -51,7 +51,6 @@ class ProductController extends Controller
         $products = $query->orderBy('kode', 'asc')->paginate(15);
 
         $products->getCollection()->transform(function ($product) {
-            // Ambil harga umum terbaru
             $hargaUmum = $product->hargaProducts->first();
             $product->harga_umum = $hargaUmum ? $hargaUmum->harga : null;
 

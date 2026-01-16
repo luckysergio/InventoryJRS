@@ -16,28 +16,17 @@ const Layout = ({ children }) => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* SIDEBAR */}
-      <Sidebar
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-      />
+      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* MAIN AREA */}
       <div className="flex flex-col flex-1 min-w-0">
-        {/* NAVBAR */}
-        <Navbar
-          setSidebarOpen={setSidebarOpen}
-          centerContent={navbarContent}
-        />
+        <Navbar setSidebarOpen={setSidebarOpen} centerContent={navbarContent} />
 
-        {/* CONTENT */}
         <main className="flex-1 overflow-y-auto px-6 py-6">
           {typeof children === "function"
             ? children({ setNavbarContent })
             : children}
         </main>
 
-        {/* FOOTER */}
         <Footer />
       </div>
     </div>

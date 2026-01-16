@@ -216,12 +216,12 @@ const DistributorProductPage = ({ setNavbarContent }) => {
         api.get("/jenis"),
         api.get("/type"),
         api.get("/bahan"),
-        api.get("/distributors"), // 🔹 ambil distributor
+        api.get("/distributors"),
       ]);
       setJenis(jRes.data.data);
       setAllTypes(tRes.data.data);
       setBahan(bRes.data.data);
-      setDistributors(dRes.data.distributors || []); // 🔹 simpan distributor
+      setDistributors(dRes.data.distributors || []);
     } catch {
       Swal.fire("Error", "Gagal mengambil data", "error");
     } finally {
@@ -337,9 +337,10 @@ const DistributorProductPage = ({ setNavbarContent }) => {
       return;
     }
 
-    const hargaJual = item.harga_products?.length > 0 
-    ? formatRupiah(item.harga_products[0].harga) 
-    : "";
+    const hargaJual =
+      item.harga_products?.length > 0
+        ? formatRupiah(item.harga_products[0].harga)
+        : "";
 
     setForm({
       jenis_id: item.jenis_id,
@@ -753,14 +754,15 @@ const DistributorProductPage = ({ setNavbarContent }) => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
             {products.map((item) => {
               const totalQty = (item.qty_toko || 0) + (item.qty_bengkel || 0);
               return (
                 <div
                   key={item.id}
-                  className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-5 flex flex-col"
+                  className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-4 flex flex-col h-full min-h-[320px]"
                 >
+                  {/* Foto Produk */}
                   <div className="flex justify-center gap-2 mb-3">
                     {item.foto_depan && (
                       <img
@@ -819,17 +821,21 @@ const DistributorProductPage = ({ setNavbarContent }) => {
                       )}
                   </div>
 
+                  {/* Kode Produk */}
                   <div className="text-center mb-2">
-                    <p className="font-bold text-xl text-gray-800">
+                    <p className="font-bold text-xl text-gray-800 truncate">
                       {item.kode}
                     </p>
                   </div>
+
+                  {/* Nama Produk */}
                   <div className="text-center mb-2 min-h-[24px]">
                     <p className="text-sm text-gray-600">
                       {formatProductName(item)}
                     </p>
                   </div>
 
+                  {/* Harga Beli */}
                   <div className="text-center mb-2 flex items-center justify-center gap-1 text-sm">
                     <Truck size={14} className="text-blue-600" />
                     <span className="font-medium text-blue-700">
@@ -837,6 +843,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
                     </span>
                   </div>
 
+                  {/* Harga Jual */}
                   <div className="text-center mb-2 flex items-center justify-center gap-1 text-sm">
                     <Tag size={14} className="text-amber-600" />
                     <span className="font-medium text-amber-700">
@@ -849,6 +856,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
                     </span>
                   </div>
 
+                  {/* Stok & Distributor */}
                   <div className="text-center mb-2 text-xs text-gray-600 space-y-0.5">
                     <div className="flex items-center justify-center gap-1">
                       <Warehouse size={12} />{" "}
@@ -869,15 +877,17 @@ const DistributorProductPage = ({ setNavbarContent }) => {
                     </div>
                   </div>
 
+                  {/* Keterangan (opsional) */}
                   {item.keterangan && (
-                    <div className="text-center mb-3 flex-1">
-                      <p className="text-xs italic text-gray-500">
+                    <div className="text-center mb-3 flex-1 flex flex-col justify-start">
+                      <p className="text-xs italic text-gray-500 line-clamp-2">
                         "{item.keterangan}"
                       </p>
                     </div>
                   )}
 
-                  <div className="flex gap-2 mt-auto pt-2">
+                  {/* Aksi */}
+                  <div className="flex gap-2 pt-2 mt-auto">
                     <button
                       onClick={() => handleEdit(item)}
                       className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-sm font-medium transition"
@@ -895,7 +905,6 @@ const DistributorProductPage = ({ setNavbarContent }) => {
               );
             })}
           </div>
-
           {lastPage > 1 && renderPagination()}
         </>
       )}

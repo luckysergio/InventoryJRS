@@ -22,12 +22,12 @@ use Intervention\Image\Drivers\Gd\Driver;
 
 class ProductDistributorController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product::with([
-            'jenis', 
-            'type', 
-            'bahan', 
+        $query = Product::with([
+            'jenis',
+            'type',
+            'bahan',
             'distributor',
             'hargaProducts' => function ($q) {
                 $q->whereNull('customer_id')
@@ -36,17 +36,48 @@ class ProductDistributorController extends Controller
             },
             'inventories.place' => function ($q) {
                 $q->whereIn('kode', ['TOKO', 'BENGKEL']);
-            }])
-            ->whereNotNull('distributor_id')
-            ->orderBy('kode')
-            ->paginate(15);
+            }
+        ])
+            ->whereNotNull('distributor_id'); // tetap pertahankan filter distributor
+
+        if ($request->filled('search')) {
+            $query->where('kode', 'like', "%{$request->search}%");
+        }
+
+        if ($request->filled('jenis_id')) {
+            $query->where('jenis_id', $request->jenis_id);
+        }
+
+        if ($request->filled('type_id')) {
+            $query->where('type_id', $request->type_id);
+        }
+
+        $products = $query->orderBy('kode', 'asc')->paginate(15);
+
+        $products->getCollection()->transform(function ($product) {
+            $hargaUmum = $product->hargaProducts->first();
+            $product->harga_umum = $hargaUmum ? $hargaUmum->harga : null;
+
+            $toko = $product->inventories->firstWhere('place.kode', 'TOKO');
+            $bengkel = $product->inventories->firstWhere('place.kode', 'BENGKEL');
+
+            $product->qty_toko = $toko ? $toko->qty : 0;
+            $product->qty_bengkel = $bengkel ? $bengkel->qty : 0;
+
+            unset($product->hargaProducts);
+            unset($product->inventories);
+
+            return $product;
+        });
 
         return response()->json([
-            'status' => true,
-            'data'   => $products->items(),
-            'meta'   => [
+            'status'  => true,
+            'message' => 'Berhasil mengambil data product distributor',
+            'data'    => $products->items(),
+            'meta'    => [
                 'current_page' => $products->currentPage(),
                 'last_page'    => $products->lastPage(),
+                'per_page'     => $products->perPage(),
                 'total'        => $products->total(),
             ]
         ]);
@@ -201,11 +232,11 @@ class ProductDistributorController extends Controller
         return Validator::make($request->all(), [
             'jenis_id' => 'required_without:jenis_nama|exists:jenis_products,id',
             'jenis_nama' => [
-                    'required_without:jenis_id',
-                    'string',
-                    'max:100',
-                    'regex:/^[A-Z0-9\s]+$/'
-                ],
+                'required_without:jenis_id',
+                'string',
+                'max:100',
+                'regex:/^[A-Z0-9\s]+$/'
+            ],
             'type_id' => 'nullable|exists:type_products,id',
             'type_nama' => [
                 'required_without:type_id',

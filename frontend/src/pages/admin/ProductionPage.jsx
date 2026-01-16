@@ -323,7 +323,7 @@ const ProductionPage = () => {
   const byStatus = (s) => productions.filter((p) => p.status === s);
 
   return (
-    <div className="space-y-12 p-4 md:p-6 max-w-7xl mx-auto">
+    <div className="space-y-12 p-4 md:p-2 max-w-7xl mx-auto">
       {/* PESANAN MENUNGGU PRODUKSI */}
       {pesanan.length > 0 && (
         <div>
