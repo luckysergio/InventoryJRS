@@ -569,17 +569,24 @@ class PesananTransaksiController extends Controller
         }
     }
 
-    public function cancel($id)
+    public function cancel($detailId)
     {
-        $transaksi = Transaksi::where('jenis_transaksi', 'pesanan')->findOrFail($id);
+        $detail = TransaksiDetail::findOrFail($detailId);
 
-        DB::transaction(function () use ($transaksi) {
-            $transaksi->details()
-                ->whereNotIn('status_transaksi_id', [5, 6])
-                ->update(['status_transaksi_id' => 6]);
+        // Optional: pastikan hanya pesanan yang bisa dibatalkan
+        if ($detail->transaksi->jenis_transaksi !== 'pesanan') {
+            return response()->json(['message' => 'Transaksi bukan pesanan'], 400);
+        }
+
+        if (in_array($detail->status_transaksi_id, [5, 6])) {
+            return response()->json(['message' => 'Detail sudah selesai atau dibatalkan'], 400);
+        }
+
+        DB::transaction(function () use ($detail) {
+            $detail->update(['status_transaksi_id' => 6]);
         });
 
-        return response()->json(['message' => 'Pesanan dibatalkan']);
+        return response()->json(['message' => 'Detail pesanan dibatalkan']);
     }
 
     public function selesai($detailId)

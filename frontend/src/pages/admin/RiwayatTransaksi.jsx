@@ -290,6 +290,13 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
     };
   };
 
+  const getInvoiceNumber = (transaksiItem) => {
+    const date = new Date(transaksiItem.tanggal || new Date());
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
+  };
+
   const handleReset = () => {
     setSelectedJenis("all");
     setSelectedStatus("all");
@@ -356,6 +363,11 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
                 key={item.id}
                 className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden flex flex-col"
               >
+                <div className="flex justify-center items-center mt-2">
+                  <span className="text-xs font-mono text-gray-600">
+                    {getInvoiceNumber(item)}
+                  </span>
+                </div>
                 <div className="p-3 bg-gray-50 border-b border-gray-200">
                   <div className="text-center">
                     <div className="flex justify-center mb-1">

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import InvoicePrint from "../../components/InvoicePrint";
+import { useReactToPrint } from "react-to-print";
 
 const safeParseFloat = (value) => {
   if (value == null) return 0;
@@ -62,6 +63,11 @@ const TransaksiPage = ({ setNavbarContent }) => {
 
   const [printTransaksi, setPrintTransaksi] = useState(null);
   const printRef = useRef();
+
+  const handlePrintInvoice = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: "Invoice",
+  });
 
   const initialDetail = {
     id: "",
@@ -120,6 +126,15 @@ const TransaksiPage = ({ setNavbarContent }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onPrintClick = (transaksiItem) => {
+    setPrintTransaksi(transaksiItem);
+    setTimeout(() => {
+      if (printRef.current) {
+        handlePrintInvoice();
+      }
+    }, 150);
   };
 
   useEffect(() => {
@@ -546,70 +561,11 @@ const TransaksiPage = ({ setNavbarContent }) => {
     return tokoInventory ? tokoInventory.qty : 0;
   };
 
-  const handlePrintInvoice = (transaksiItem) => {
-  setPrintTransaksi(transaksiItem);
-  setTimeout(() => {
-    const printContent = printRef.current;
-    if (!printContent) return;
-
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "none";
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentDocument || iframe.contentWindow.document;
-    doc.open();
-    doc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Invoice</title>
-          <style>
-            @media print {
-              @page {
-                size: auto;
-                margin: 0;
-              }
-              body {
-                margin: 0;
-                padding: 0;
-                font-family: 'Courier New', monospace;
-                line-height: 1.4;
-                font-size: 10px;
-                width: 80mm;
-                overflow: hidden;
-              }
-            }
-            body {
-              margin: 0;
-              padding: 0;
-              width: 80mm;
-              font-family: 'Courier New', monospace;
-              font-size: 10px;
-              line-height: 1.4;
-            }
-          </style>
-        </head>
-        <body>
-          ${printContent.outerHTML}
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(() => {
-                if (window.frameElement && window.frameElement.parentNode) {
-                  window.frameElement.parentNode.removeChild(window.frameElement);
-                }
-              }, 1000);
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    doc.close();
-  }, 100);
-};
+  const calculateActiveTotal = (details, statusProsesId) => {
+    return details
+      .filter((d) => d.status_transaksi_id === statusProsesId)
+      .reduce((sum, d) => sum + safeParseFloat(d.subtotal), 0);
+  };
 
   return (
     <>
@@ -637,7 +593,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         {getInvoiceNumber(item)}
                       </span>
                       <button
-                        onClick={() => handlePrintInvoice(item)}
+                        onClick={() => onPrintClick(item)}
                         className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 flex items-center gap-1"
                       >
                         <Receipt size={12} /> Print
@@ -650,7 +606,10 @@ const TransaksiPage = ({ setNavbarContent }) => {
                           {item.customer?.name || "Umum"}
                         </p>
                         <p className="text-gray-700 font-bold text-center text-base mt-1">
-                          Rp {formatRupiah(item.total)}
+                          Rp{" "}
+                          {formatRupiah(
+                            calculateActiveTotal(item.details, statusProsesId)
+                          )}
                         </p>
                       </div>
                     </div>
@@ -1090,7 +1049,11 @@ const TransaksiPage = ({ setNavbarContent }) => {
       </div>
 
       <div className="hidden">
-        <InvoicePrint ref={printRef} transaksi={printTransaksi} />
+        <InvoicePrint
+          key={printTransaksi?.id}
+          ref={printRef}
+          transaksi={printTransaksi}
+        />
       </div>
     </>
   );

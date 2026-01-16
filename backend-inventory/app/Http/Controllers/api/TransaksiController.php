@@ -150,6 +150,9 @@ class TransaksiController extends Controller
     {
         $query = Transaksi::with([
             'customer',
+            'details' => function ($q) {
+                $q->where('status_transaksi_id', 1);
+            },
             'details.product.jenis',
             'details.product.type',
             'details.product.bahan',
@@ -157,7 +160,11 @@ class TransaksiController extends Controller
             'details.pembayarans'
         ])
             ->where('jenis_transaksi', 'daily')
-            ->whereHas('details', fn($q) => $q->where('status_transaksi_id', 1));
+            ->whereHas(
+                'details',
+                fn($q) =>
+                $q->where('status_transaksi_id', 1)
+            );
 
         if ($request->filled('search')) {
             $searchTerm = '%' . $request->search . '%';
@@ -170,6 +177,7 @@ class TransaksiController extends Controller
 
         return response()->json($data);
     }
+
 
     public function riwayat()
     {

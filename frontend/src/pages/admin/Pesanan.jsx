@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Swal from "sweetalert2";
 import {
   Plus,
@@ -11,6 +11,8 @@ import {
   Search,
 } from "lucide-react";
 import api from "../../services/api";
+import InvoicePrint from "../../components/InvoicePrint";
+import { useReactToPrint } from "react-to-print";
 
 const safeParseFloat = (value) => {
   if (value == null) return 0;
@@ -64,6 +66,14 @@ const PesananPage = ({ setNavbarContent }) => {
   const [showProductBaru, setShowProductBaru] = useState({});
   const [hargaOptions, setHargaOptions] = useState({});
   const [showHargaBaru, setShowHargaBaru] = useState({});
+
+  const [printTransaksi, setPrintTransaksi] = useState(null);
+  const printRef = useRef();
+
+  const handlePrintInvoice = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: "Invoice",
+  });
 
   const initialDetail = {
     id: "",
@@ -128,6 +138,15 @@ const PesananPage = ({ setNavbarContent }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onPrintClick = (transaksiItem) => {
+    setPrintTransaksi(transaksiItem);
+    setTimeout(() => {
+      if (printRef.current) {
+        handlePrintInvoice();
+      }
+    }, 150);
   };
 
   useEffect(() => {
@@ -696,626 +715,513 @@ const PesananPage = ({ setNavbarContent }) => {
     );
   };
 
+  const getInvoiceNumber = (transaksiItem) => {
+    const date = new Date(transaksiItem.tanggal || new Date());
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
+  };
+
+  const calculateActiveTotalForPesanan = (details) => {
+    return details
+      .filter((d) => ![5, 6].includes(d.status_transaksi_id)) // kecualikan Selesai & Dibatalkan
+      .reduce((sum, d) => sum + safeParseFloat(d.subtotal), 0);
+  };
+
   return (
-    <div className="space-y-8">
-      {loading ? (
-        <p className="text-center py-8 text-gray-600">Memuat data...</p>
-      ) : pesanan.length === 0 ? (
-        <p className="text-center py-8 text-gray-500">
-          Tidak ada pesanan aktif.
-        </p>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-5">
-          {pesanan
-            .map((item) => {
-              const isCompletedOrCancelled = item.details.every((d) =>
-                [statusSelesaiId, statusDibatalkanId].includes(
-                  d.status_transaksi_id
-                )
-              );
-              if (isCompletedOrCancelled) return null;
+    <>
+      <div className="space-y-8">
+        {loading ? (
+          <p className="text-center py-8 text-gray-600">Memuat data...</p>
+        ) : pesanan.length === 0 ? (
+          <p className="text-center py-8 text-gray-500">
+            Tidak ada pesanan aktif.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-5">
+            {pesanan
+              .map((item) => {
+                const isCompletedOrCancelled = item.details.every((d) =>
+                  [statusSelesaiId, statusDibatalkanId].includes(
+                    d.status_transaksi_id
+                  )
+                );
+                if (isCompletedOrCancelled) return null;
 
-              return (
-                <div
-                  key={item.id}
-                  className="p-4 bg-white rounded-xl shadow border border-gray-200 space-y-3 hover:shadow-md transition-shadow"
-                >
-                  <div className="text-center">
-                    <p className="text-gray-700 font-medium text-sm truncate">
-                      {item.customer?.name || "Umum"}
-                    </p>
-                    <p className="text-gray-800 font-bold mt-1 text-base">
-                      Rp {formatRupiah(item.total)}
-                    </p>
-                  </div>
-                  <hr className="my-2 border-gray-200" />
-                  <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-                    {item.details.map((d) => {
-                      const sisaBayar = getSisaBayar(d);
-                      const isLunas = sisaBayar <= 0;
-                      const totalBayar = getTotalBayar(d);
-                      return (
-                        <div
-                          key={d.id}
-                          className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-xs text-center"
-                        >
-                          <p className="font-medium">
-                            {formatProductName(d.product)}
-                          </p>
-                          <p className="mt-1">{formatTanggal(d.tanggal)}</p>
-                          <p className="mt-1">
-                            <span className="font-semibold">Qty</span> {d.qty}
-                          </p>
-                          <p className="mt-1">
-                            <span className="font-semibold">Harga</span> Rp{" "}
-                            {formatRupiah(d.harga)}
-                          </p>
-                          <p className="mt-1">
-                            <span className="font-semibold">Diskon</span> Rp{" "}
-                            {formatRupiah(d.discount)}
-                          </p>
-                          <p className="mt-1">
-                            <span className="font-semibold">Tagihan</span> Rp{" "}
-                            {formatRupiah(d.subtotal)}
-                          </p>
-
-                          {d.catatan && (
-                            <p className="mt-1 italic text-[10px] line-clamp-1">
-                              {d.catatan}
+                return (
+                  <div
+                    key={item.id}
+                    className="p-4 bg-white rounded-xl shadow border border-gray-200 space-y-3 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-mono text-gray-600">
+                        {getInvoiceNumber(item)}
+                      </span>
+                      <button
+                        onClick={() => onPrintClick(item)}
+                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 flex items-center gap-1"
+                      >
+                        <Receipt size={12} /> Print
+                      </button>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-gray-700 font-medium text-sm truncate">
+                        {item.customer?.name || "Umum"}
+                      </p>
+                      <p className="text-gray-800 font-bold mt-1 text-base">
+                        Rp{" "}
+                        {formatRupiah(
+                          calculateActiveTotalForPesanan(item.details)
+                        )}
+                      </p>
+                    </div>
+                    <hr className="my-2 border-gray-200" />
+                    <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                      {item.details.map((d) => {
+                        const sisaBayar = getSisaBayar(d);
+                        const isLunas = sisaBayar <= 0;
+                        const totalBayar = getTotalBayar(d);
+                        return (
+                          <div
+                            key={d.id}
+                            className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-xs text-center"
+                          >
+                            <p className="font-medium">
+                              {formatProductName(d.product)}
                             </p>
-                          )}
-
-                          <div className="mt-2 pt-2 border-t border-gray-200">
-                            <p className="text-[10px]">
-                              <span
-                                className={`font-semibold ${
-                                  isLunas ? "text-green-600" : "text-orange-600"
-                                }`}
-                              >
-                                {isLunas
-                                  ? "✅ Lunas"
-                                  : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
-                                      sisaBayar
-                                    )})`}
-                              </span>
+                            <p className="mt-1">{formatTanggal(d.tanggal)}</p>
+                            <p className="mt-1">
+                              <span className="font-semibold">Qty</span> {d.qty}
                             </p>
-
-                            <p className="text-[9px] text-gray-600 mt-1">
-                              Dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                            <p className="mt-1">
+                              <span className="font-semibold">Harga</span> Rp{" "}
+                              {formatRupiah(d.harga)}
+                            </p>
+                            <p className="mt-1">
+                              <span className="font-semibold">Diskon</span> Rp{" "}
+                              {formatRupiah(d.discount)}
+                            </p>
+                            <p className="mt-1">
+                              <span className="font-semibold">Tagihan</span> Rp{" "}
                               {formatRupiah(d.subtotal)}
                             </p>
 
-                            {d.pembayarans && d.pembayarans.length > 0 && (
-                              <div className="mt-1 text-[9px]">
-                                <p className="font-medium flex items-center justify-center gap-1">
-                                  <Receipt size={10} /> Riwayat:
-                                </p>
-                                <ul className="list-disc list-inside space-y-0.5 mt-0.5">
-                                  {d.pembayarans.slice(0, 2).map((p) => (
-                                    <li key={p.id} className="text-gray-700">
-                                      Rp {formatRupiah(p.jumlah_bayar)} -{" "}
-                                      {formatTanggal(p.tanggal_bayar)}
-                                    </li>
-                                  ))}
-                                  {d.pembayarans.length > 2 && (
-                                    <li className="text-gray-500 italic">
-                                      +{d.pembayarans.length - 2} lainnya
-                                    </li>
-                                  )}
-                                </ul>
+                            {d.catatan && (
+                              <p className="mt-1 italic text-[10px] line-clamp-1">
+                                {d.catatan}
+                              </p>
+                            )}
+
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <p className="text-[10px]">
+                                <span
+                                  className={`font-semibold ${
+                                    isLunas
+                                      ? "text-green-600"
+                                      : "text-orange-600"
+                                  }`}
+                                >
+                                  {isLunas
+                                    ? "✅ Lunas"
+                                    : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
+                                        sisaBayar
+                                      )})`}
+                                </span>
+                              </p>
+
+                              <p className="text-[9px] text-gray-600 mt-1">
+                                Dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                                {formatRupiah(d.subtotal)}
+                              </p>
+
+                              {d.pembayarans && d.pembayarans.length > 0 && (
+                                <div className="mt-1 text-[9px]">
+                                  <p className="font-medium flex items-center justify-center gap-1">
+                                    <Receipt size={10} /> Riwayat:
+                                  </p>
+                                  <ul className="list-disc list-inside space-y-0.5 mt-0.5">
+                                    {d.pembayarans.slice(0, 2).map((p) => (
+                                      <li key={p.id} className="text-gray-700">
+                                        Rp {formatRupiah(p.jumlah_bayar)} -{" "}
+                                        {formatTanggal(p.tanggal_bayar)}
+                                      </li>
+                                    ))}
+                                    {d.pembayarans.length > 2 && (
+                                      <li className="text-gray-500 italic">
+                                        +{d.pembayarans.length - 2} lainnya
+                                      </li>
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {!isLunas && (
+                                <button
+                                  onClick={() => handleBayar(d.id)}
+                                  className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] hover:bg-green-200"
+                                >
+                                  <Wallet size={12} /> Bayar
+                                </button>
+                              )}
+
+                              <div className="flex gap-1 mt-2">
+                                <button
+                                  onClick={() => handleSelesaiDetail(d.id)}
+                                  className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-[10px] px-1 py-1 rounded hover:bg-green-700"
+                                >
+                                  <CheckCircle size={12} /> Selesai
+                                </button>
+                                <button
+                                  onClick={() => handleCancelDetail(d.id)}
+                                  className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
+                                >
+                                  <XCircle size={12} /> Batal
+                                </button>
                               </div>
-                            )}
-
-                            {!isLunas && (
-                              <button
-                                onClick={() => handleBayar(d.id)}
-                                className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] hover:bg-green-200"
-                              >
-                                <Wallet size={12} /> Bayar
-                              </button>
-                            )}
-
-                            <div className="flex gap-1 mt-2">
-                              <button
-                                onClick={() => handleSelesaiDetail(d.id)}
-                                className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-[10px] px-1 py-1 rounded hover:bg-green-700"
-                              >
-                                <CheckCircle size={12} /> Selesai
-                              </button>
-                              <button
-                                onClick={() => handleCancelDetail(d.id)}
-                                className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
-                              >
-                                <XCircle size={12} /> Batal
-                              </button>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-2">
-                    <button
-                      onClick={() => handleEditTransaksi(item)}
-                      className="w-full flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700"
-                    >
-                      <Pencil size={12} /> Edit
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-            .filter(Boolean)}
-        </div>
-      )}
-
-      <button
-        onClick={() => {
-          resetForm();
-          setIsModalOpen(true);
-        }}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
-      >
-        <Plus size={18} />
-      </button>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl">
-            <div className="flex justify-between items-center p-6 border-b">
-              <h2 className="text-xl font-bold text-gray-800">
-                {editingId ? "Edit Pesanan" : "Tambah Pesanan"}
-              </h2>
-              <button
-                onClick={() => {
-                  resetForm();
-                  setIsModalOpen(false);
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <XCircle size={24} />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* CUSTOMER */}
-              <div className="bg-gray-50 p-4 rounded-xl">
-                <label className="font-semibold block mb-2 text-gray-700">
-                  Customer *
-                </label>
-                <select
-                  className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  value={
-                    form.customer_id || (isCreatingNewCustomer ? "new" : "")
-                  }
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === "new") {
-                      setIsCreatingNewCustomer(true);
-                      setForm({
-                        ...form,
-                        customer_id: "",
-                        customer_baru: { name: "", phone: "", email: "" },
-                      });
-                    } else {
-                      setIsCreatingNewCustomer(false);
-                      setForm({
-                        ...form,
-                        customer_id: val,
-                        customer_baru: { name: "", phone: "", email: "" },
-                      });
-                    }
-                  }}
-                >
-                  <option value="">Pilih Customer</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                  <option value="new">➕ Buat Customer Baru</option>
-                </select>
-                {isCreatingNewCustomer && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-                    <input
-                      type="text"
-                      placeholder="Nama *"
-                      className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      value={form.customer_baru.name}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          customer_baru: {
-                            ...form.customer_baru,
-                            name: e.target.value,
-                          },
-                        })
-                      }
-                      required
-                    />
-                    <input
-                      type="text"
-                      placeholder="Phone"
-                      className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      value={form.customer_baru.phone}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          customer_baru: {
-                            ...form.customer_baru,
-                            phone: e.target.value,
-                          },
-                        })
-                      }
-                    />
-                    <input
-                      type="email"
-                      placeholder="Email"
-                      className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      value={form.customer_baru.email}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          customer_baru: {
-                            ...form.customer_baru,
-                            email: e.target.value,
-                          },
-                        })
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-center items-center">
-                  <h3 className="font-bold text-lg">Detail Transaksi</h3>
-                </div>
-                {form.details.map((d, i) => (
-                  <div
-                    key={i}
-                    className="p-4 border border-gray-200 rounded-xl bg-gray-50 space-y-4"
-                  >
-                    <div>
-                      <label className="block mb-1 font-medium text-gray-700">
-                        Produk *
-                      </label>
-                      <select
-                        value={d.product_id ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          handleDetailChange(
-                            i,
-                            "product_id",
-                            val === "new" ? "new" : val
-                          );
-                        }}
-                        className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        );
+                      })}
+                    </div>
+                    <div className="mt-2">
+                      <button
+                        onClick={() => handleEditTransaksi(item)}
+                        className="w-full flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700"
                       >
-                        <option value="">Pilih Produk</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {formatProductName(p)}
-                          </option>
-                        ))}
-                        <option value="new">➕ Produk Baru</option>
-                      </select>
+                        <Pencil size={12} /> Edit
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+              .filter(Boolean)}
+          </div>
+        )}
 
-                      {showProductBaru[i] && (
-                        <div className="mt-4 space-y-4 p-4 bg-blue-50 rounded-lg">
-                          {/* Jenis */}
-                          <div>
-                            <label className="block text-sm font-medium mb-1 text-gray-700">
-                              Jenis Produk *
-                            </label>
-                            <select
-                              className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
-                              value={d.product_baru.jenis_id || ""}
-                              onChange={(e) =>
-                                handleProductBaruChange(
-                                  i,
-                                  "jenis_id",
-                                  e.target.value
-                                )
-                              }
-                              required
-                            >
-                              <option value="">Pilih Jenis</option>
-                              {jenisProducts.map((j) => (
-                                <option key={j.id} value={j.id}>
-                                  {j.nama}
-                                </option>
-                              ))}
-                              <option value="new">➕ Buat Jenis Baru</option>
-                            </select>
-                            {d.product_baru.jenis_id === "new" && (
-                              <input
-                                type="text"
-                                placeholder="Nama Jenis Baru *"
-                                className="w-full border px-3 py-2 rounded-lg mt-2 focus:ring-2 focus:ring-blue-500"
-                                value={d.product_baru.jenis_nama || ""}
+        <button
+          onClick={() => {
+            resetForm();
+            setIsModalOpen(true);
+          }}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+        >
+          <Plus size={18} />
+        </button>
+
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl">
+              <div className="flex justify-between items-center p-6 border-b">
+                <h2 className="text-xl font-bold text-gray-800">
+                  {editingId ? "Edit Pesanan" : "Tambah Pesanan"}
+                </h2>
+                <button
+                  onClick={() => {
+                    resetForm();
+                    setIsModalOpen(false);
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <XCircle size={24} />
+                </button>
+              </div>
+              <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                {/* CUSTOMER */}
+                <div className="bg-gray-50 p-4 rounded-xl">
+                  <label className="font-semibold block mb-2 text-gray-700">
+                    Customer *
+                  </label>
+                  <select
+                    className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    value={
+                      form.customer_id || (isCreatingNewCustomer ? "new" : "")
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "new") {
+                        setIsCreatingNewCustomer(true);
+                        setForm({
+                          ...form,
+                          customer_id: "",
+                          customer_baru: { name: "", phone: "", email: "" },
+                        });
+                      } else {
+                        setIsCreatingNewCustomer(false);
+                        setForm({
+                          ...form,
+                          customer_id: val,
+                          customer_baru: { name: "", phone: "", email: "" },
+                        });
+                      }
+                    }}
+                  >
+                    <option value="">Pilih Customer</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                    <option value="new">➕ Buat Customer Baru</option>
+                  </select>
+                  {isCreatingNewCustomer && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                      <input
+                        type="text"
+                        placeholder="Nama *"
+                        className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        value={form.customer_baru.name}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            customer_baru: {
+                              ...form.customer_baru,
+                              name: e.target.value,
+                            },
+                          })
+                        }
+                        required
+                      />
+                      <input
+                        type="text"
+                        placeholder="Phone"
+                        className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        value={form.customer_baru.phone}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            customer_baru: {
+                              ...form.customer_baru,
+                              phone: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        value={form.customer_baru.email}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            customer_baru: {
+                              ...form.customer_baru,
+                              email: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex justify-center items-center">
+                    <h3 className="font-bold text-lg">Detail Transaksi</h3>
+                  </div>
+                  {form.details.map((d, i) => (
+                    <div
+                      key={i}
+                      className="p-4 border border-gray-200 rounded-xl bg-gray-50 space-y-4"
+                    >
+                      <div>
+                        <label className="block mb-1 font-medium text-gray-700">
+                          Produk *
+                        </label>
+                        <select
+                          value={d.product_id ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            handleDetailChange(
+                              i,
+                              "product_id",
+                              val === "new" ? "new" : val
+                            );
+                          }}
+                          className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">Pilih Produk</option>
+                          {products.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {formatProductName(p)}
+                            </option>
+                          ))}
+                          <option value="new">➕ Produk Baru</option>
+                        </select>
+
+                        {showProductBaru[i] && (
+                          <div className="mt-4 space-y-4 p-4 bg-blue-50 rounded-lg">
+                            {/* Jenis */}
+                            <div>
+                              <label className="block text-sm font-medium mb-1 text-gray-700">
+                                Jenis Produk *
+                              </label>
+                              <select
+                                className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                value={d.product_baru.jenis_id || ""}
                                 onChange={(e) =>
                                   handleProductBaruChange(
                                     i,
-                                    "jenis_nama",
+                                    "jenis_id",
                                     e.target.value
                                   )
                                 }
                                 required
-                              />
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium mb-1 text-gray-700">
-                              Tipe Produk
-                            </label>
-                            {d.product_baru.jenis_id === "new" ? (
-                              <input
-                                type="text"
-                                placeholder="Nama Tipe Baru"
-                                className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                value={d.product_baru.type_nama || ""}
-                                onChange={(e) =>
-                                  handleProductBaruChange(
-                                    i,
-                                    "type_nama",
-                                    e.target.value
-                                  )
-                                }
-                              />
-                            ) : d.product_baru.jenis_id ? (
-                              <>
-                                <select
-                                  className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                  value={d.product_baru.type_id || ""}
+                              >
+                                <option value="">Pilih Jenis</option>
+                                {jenisProducts.map((j) => (
+                                  <option key={j.id} value={j.id}>
+                                    {j.nama}
+                                  </option>
+                                ))}
+                                <option value="new">➕ Buat Jenis Baru</option>
+                              </select>
+                              {d.product_baru.jenis_id === "new" && (
+                                <input
+                                  type="text"
+                                  placeholder="Nama Jenis Baru *"
+                                  className="w-full border px-3 py-2 rounded-lg mt-2 focus:ring-2 focus:ring-blue-500"
+                                  value={d.product_baru.jenis_nama || ""}
                                   onChange={(e) =>
                                     handleProductBaruChange(
                                       i,
-                                      "type_id",
+                                      "jenis_nama",
                                       e.target.value
                                     )
                                   }
-                                >
-                                  <option value="">Pilih Tipe</option>
-                                  {(typeOptions[i] || []).map((t) => (
-                                    <option key={t.id} value={t.id}>
-                                      {t.nama}
-                                    </option>
-                                  ))}
-                                  <option value="new">➕ Buat Tipe Baru</option>
-                                </select>
-                                {d.product_baru.type_id === "new" && (
-                                  <input
-                                    type="text"
-                                    placeholder="Nama Tipe Baru"
-                                    className="w-full border px-3 py-2 rounded-lg mt-2 focus:ring-2 focus:ring-blue-500"
-                                    value={d.product_baru.type_nama || ""}
+                                  required
+                                />
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium mb-1 text-gray-700">
+                                Tipe Produk
+                              </label>
+                              {d.product_baru.jenis_id === "new" ? (
+                                <input
+                                  type="text"
+                                  placeholder="Nama Tipe Baru"
+                                  className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                  value={d.product_baru.type_nama || ""}
+                                  onChange={(e) =>
+                                    handleProductBaruChange(
+                                      i,
+                                      "type_nama",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              ) : d.product_baru.jenis_id ? (
+                                <>
+                                  <select
+                                    className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    value={d.product_baru.type_id || ""}
                                     onChange={(e) =>
                                       handleProductBaruChange(
                                         i,
-                                        "type_nama",
+                                        "type_id",
                                         e.target.value
                                       )
                                     }
-                                  />
-                                )}
-                              </>
-                            ) : (
-                              <p className="text-sm text-gray-500 italic">
-                                Pilih Jenis terlebih dahulu
-                              </p>
-                            )}
-                          </div>
+                                  >
+                                    <option value="">Pilih Tipe</option>
+                                    {(typeOptions[i] || []).map((t) => (
+                                      <option key={t.id} value={t.id}>
+                                        {t.nama}
+                                      </option>
+                                    ))}
+                                    <option value="new">
+                                      ➕ Buat Tipe Baru
+                                    </option>
+                                  </select>
+                                  {d.product_baru.type_id === "new" && (
+                                    <input
+                                      type="text"
+                                      placeholder="Nama Tipe Baru"
+                                      className="w-full border px-3 py-2 rounded-lg mt-2 focus:ring-2 focus:ring-blue-500"
+                                      value={d.product_baru.type_nama || ""}
+                                      onChange={(e) =>
+                                        handleProductBaruChange(
+                                          i,
+                                          "type_nama",
+                                          e.target.value
+                                        )
+                                      }
+                                    />
+                                  )}
+                                </>
+                              ) : (
+                                <p className="text-sm text-gray-500 italic">
+                                  Pilih Jenis terlebih dahulu
+                                </p>
+                              )}
+                            </div>
 
-                          <div>
-                            <label className="block text-sm font-medium mb-1 text-gray-700">
-                              Bahan Produk
-                            </label>
-                            <select
-                              className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
-                              value={d.product_baru.bahan_id || ""}
-                              onChange={(e) =>
-                                handleProductBaruChange(
-                                  i,
-                                  "bahan_id",
-                                  e.target.value
-                                )
-                              }
-                            >
-                              <option value="">Pilih Bahan</option>
-                              {bahanProducts.map((b) => (
-                                <option key={b.id} value={b.id}>
-                                  {b.nama}
-                                </option>
-                              ))}
-                              <option value="new">➕ Buat Bahan Baru</option>
-                            </select>
-                            {d.product_baru.bahan_id === "new" && (
-                              <input
-                                type="text"
-                                placeholder="Nama Bahan Baru"
-                                className="w-full border px-3 py-2 rounded-lg mt-2 focus:ring-2 focus:ring-blue-500"
-                                value={d.product_baru.bahan_nama || ""}
+                            <div>
+                              <label className="block text-sm font-medium mb-1 text-gray-700">
+                                Bahan Produk
+                              </label>
+                              <select
+                                className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                value={d.product_baru.bahan_id || ""}
                                 onChange={(e) =>
                                   handleProductBaruChange(
                                     i,
-                                    "bahan_nama",
+                                    "bahan_id",
                                     e.target.value
                                   )
                                 }
-                              />
-                            )}
-                          </div>
+                              >
+                                <option value="">Pilih Bahan</option>
+                                {bahanProducts.map((b) => (
+                                  <option key={b.id} value={b.id}>
+                                    {b.nama}
+                                  </option>
+                                ))}
+                                <option value="new">➕ Buat Bahan Baru</option>
+                              </select>
+                              {d.product_baru.bahan_id === "new" && (
+                                <input
+                                  type="text"
+                                  placeholder="Nama Bahan Baru"
+                                  className="w-full border px-3 py-2 rounded-lg mt-2 focus:ring-2 focus:ring-blue-500"
+                                  value={d.product_baru.bahan_nama || ""}
+                                  onChange={(e) =>
+                                    handleProductBaruChange(
+                                      i,
+                                      "bahan_nama",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              )}
+                            </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <input
-                              type="text"
-                              placeholder="Ukuran *"
-                              className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
-                              value={d.product_baru.ukuran}
-                              onChange={(e) =>
-                                handleProductBaruChange(
-                                  i,
-                                  "ukuran",
-                                  e.target.value
-                                )
-                              }
-                              required
-                            />
-                            <input
-                              type="text"
-                              placeholder="Keterangan"
-                              className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
-                              value={d.product_baru.keterangan}
-                              onChange={(e) =>
-                                handleProductBaruChange(
-                                  i,
-                                  "keterangan",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* HARGA */}
-                    {(d.product_id || showProductBaru[i]) && (
-                      <div className="mt-3">
-                        <label className="block mb-1 font-medium">
-                          Pilih Harga
-                        </label>
-                        {showProductBaru[i] ? (
-                          <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                            <label className="block mb-2 font-medium text-blue-800">
-                              Harga Khusus Customer Baru
-                            </label>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <input
                                 type="text"
-                                inputMode="numeric"
-                                placeholder="Harga Baru (Rp)"
-                                className="border px-3 py-2 rounded-lg"
-                                value={
-                                  d.harga_baru.harga
-                                    ? formatRupiah(d.harga_baru.harga)
-                                    : ""
+                                placeholder="Ukuran *"
+                                className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                value={d.product_baru.ukuran}
+                                onChange={(e) =>
+                                  handleProductBaruChange(
+                                    i,
+                                    "ukuran",
+                                    e.target.value
+                                  )
                                 }
-                                onChange={(e) => {
-                                  const raw = unformatRupiah(e.target.value);
-                                  handleHargaBaruChange(i, "harga", raw);
-                                }}
                                 required
                               />
                               <input
                                 type="text"
-                                placeholder="Keterangan Harga"
-                                className="border px-3 py-2 rounded-lg"
-                                value={d.harga_baru.keterangan}
+                                placeholder="Keterangan"
+                                className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                value={d.product_baru.keterangan}
                                 onChange={(e) =>
-                                  handleHargaBaruChange(
+                                  handleProductBaruChange(
                                     i,
                                     "keterangan",
-                                    e.target.value
-                                  )
-                                }
-                              />
-                              <input
-                                type="date"
-                                className="border px-3 py-2 rounded-lg"
-                                value={d.harga_baru.tanggal_berlaku}
-                                onChange={(e) =>
-                                  handleHargaBaruChange(
-                                    i,
-                                    "tanggal_berlaku",
-                                    e.target.value
-                                  )
-                                }
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          <select
-                            className="w-full border px-3 py-2 rounded-lg"
-                            value={
-                              d.harga_product_id ||
-                              (showHargaBaru[i] ? "tambah_harga_khusus" : "")
-                            }
-                            onChange={(e) =>
-                              handleHargaSelection(i, e.target.value)
-                            }
-                          >
-                            <option value="">-- Pilih --</option>
-                            <optgroup label="Harga Umum">
-                              {(hargaOptions[i] || [])
-                                .filter((h) => !h.customer_id)
-                                .map((h) => (
-                                  <option key={`umum-${h.id}`} value={h.id}>
-                                    Rp {formatRupiah(h.harga)} -{" "}
-                                    {h.keterangan || "Tanpa keterangan"} (
-                                    {formatTanggal(h.tanggal_berlaku)})
-                                  </option>
-                                ))}
-                            </optgroup>
-                            <optgroup label="Harga Khusus Customer">
-                              {(hargaOptions[i] || [])
-                                .filter((h) => h.customer_id)
-                                .map((h) => (
-                                  <option key={`khusus-${h.id}`} value={h.id}>
-                                    Rp {formatRupiah(h.harga)} - {h.keterangan}{" "}
-                                    ({formatTanggal(h.tanggal_berlaku)})
-                                  </option>
-                                ))}
-                            </optgroup>
-                            <option value="tambah_harga_khusus">
-                              + Tambah Harga Khusus Customer
-                            </option>
-                          </select>
-                        )}
-
-                        {!showProductBaru[i] && showHargaBaru[i] && (
-                          <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                            <label className="block mb-2 font-medium text-blue-800">
-                              Harga Khusus Customer Baru
-                            </label>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                placeholder="Harga Baru (Rp)"
-                                className="border px-3 py-2 rounded-lg"
-                                value={
-                                  d.harga_baru.harga
-                                    ? formatRupiah(d.harga_baru.harga)
-                                    : ""
-                                }
-                                onChange={(e) => {
-                                  const raw = unformatRupiah(e.target.value);
-                                  handleHargaBaruChange(i, "harga", raw);
-                                }}
-                              />
-                              <input
-                                type="text"
-                                placeholder="Keterangan Harga"
-                                className="border px-3 py-2 rounded-lg"
-                                value={d.harga_baru.keterangan}
-                                onChange={(e) =>
-                                  handleHargaBaruChange(
-                                    i,
-                                    "keterangan",
-                                    e.target.value
-                                  )
-                                }
-                              />
-                              <input
-                                type="date"
-                                className="border px-3 py-2 rounded-lg"
-                                value={d.harga_baru.tanggal_berlaku}
-                                onChange={(e) =>
-                                  handleHargaBaruChange(
-                                    i,
-                                    "tanggal_berlaku",
                                     e.target.value
                                   )
                                 }
@@ -1324,85 +1230,240 @@ const PesananPage = ({ setNavbarContent }) => {
                           </div>
                         )}
                       </div>
-                    )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-                      <input
-                        type="date"
-                        className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        value={d.tanggal}
-                        onChange={(e) =>
-                          handleDetailChange(i, "tanggal", e.target.value)
-                        }
-                        required
-                      />
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="Qty *"
-                        className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        value={d.qty}
-                        onChange={(e) =>
-                          handleDetailChange(i, "qty", e.target.value)
-                        }
-                        required
-                      />
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="Diskon (Rp)"
-                        className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        value={d.discount ? formatRupiah(d.discount) : ""}
-                        onChange={(e) => {
-                          const raw = unformatRupiah(e.target.value);
-                          handleDetailChange(i, "discount", raw);
-                        }}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Catatan (opsional)"
-                        className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        value={d.catatan}
-                        onChange={(e) =>
-                          handleDetailChange(i, "catatan", e.target.value)
-                        }
-                      />
+                      {/* HARGA */}
+                      {(d.product_id || showProductBaru[i]) && (
+                        <div className="mt-3">
+                          <label className="block mb-1 font-medium">
+                            Pilih Harga
+                          </label>
+                          {showProductBaru[i] ? (
+                            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                              <label className="block mb-2 font-medium text-blue-800">
+                                Harga Khusus Customer Baru
+                              </label>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  placeholder="Harga Baru (Rp)"
+                                  className="border px-3 py-2 rounded-lg"
+                                  value={
+                                    d.harga_baru.harga
+                                      ? formatRupiah(d.harga_baru.harga)
+                                      : ""
+                                  }
+                                  onChange={(e) => {
+                                    const raw = unformatRupiah(e.target.value);
+                                    handleHargaBaruChange(i, "harga", raw);
+                                  }}
+                                  required
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Keterangan Harga"
+                                  className="border px-3 py-2 rounded-lg"
+                                  value={d.harga_baru.keterangan}
+                                  onChange={(e) =>
+                                    handleHargaBaruChange(
+                                      i,
+                                      "keterangan",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                                <input
+                                  type="date"
+                                  className="border px-3 py-2 rounded-lg"
+                                  value={d.harga_baru.tanggal_berlaku}
+                                  onChange={(e) =>
+                                    handleHargaBaruChange(
+                                      i,
+                                      "tanggal_berlaku",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <select
+                              className="w-full border px-3 py-2 rounded-lg"
+                              value={
+                                d.harga_product_id ||
+                                (showHargaBaru[i] ? "tambah_harga_khusus" : "")
+                              }
+                              onChange={(e) =>
+                                handleHargaSelection(i, e.target.value)
+                              }
+                            >
+                              <option value="">-- Pilih --</option>
+                              <optgroup label="Harga Umum">
+                                {(hargaOptions[i] || [])
+                                  .filter((h) => !h.customer_id)
+                                  .map((h) => (
+                                    <option key={`umum-${h.id}`} value={h.id}>
+                                      Rp {formatRupiah(h.harga)} -{" "}
+                                      {h.keterangan || "Tanpa keterangan"} (
+                                      {formatTanggal(h.tanggal_berlaku)})
+                                    </option>
+                                  ))}
+                              </optgroup>
+                              <optgroup label="Harga Khusus Customer">
+                                {(hargaOptions[i] || [])
+                                  .filter((h) => h.customer_id)
+                                  .map((h) => (
+                                    <option key={`khusus-${h.id}`} value={h.id}>
+                                      Rp {formatRupiah(h.harga)} -{" "}
+                                      {h.keterangan} (
+                                      {formatTanggal(h.tanggal_berlaku)})
+                                    </option>
+                                  ))}
+                              </optgroup>
+                              <option value="tambah_harga_khusus">
+                                + Tambah Harga Khusus Customer
+                              </option>
+                            </select>
+                          )}
+
+                          {!showProductBaru[i] && showHargaBaru[i] && (
+                            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                              <label className="block mb-2 font-medium text-blue-800">
+                                Harga Khusus Customer Baru
+                              </label>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  placeholder="Harga Baru (Rp)"
+                                  className="border px-3 py-2 rounded-lg"
+                                  value={
+                                    d.harga_baru.harga
+                                      ? formatRupiah(d.harga_baru.harga)
+                                      : ""
+                                  }
+                                  onChange={(e) => {
+                                    const raw = unformatRupiah(e.target.value);
+                                    handleHargaBaruChange(i, "harga", raw);
+                                  }}
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Keterangan Harga"
+                                  className="border px-3 py-2 rounded-lg"
+                                  value={d.harga_baru.keterangan}
+                                  onChange={(e) =>
+                                    handleHargaBaruChange(
+                                      i,
+                                      "keterangan",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                                <input
+                                  type="date"
+                                  className="border px-3 py-2 rounded-lg"
+                                  value={d.harga_baru.tanggal_berlaku}
+                                  onChange={(e) =>
+                                    handleHargaBaruChange(
+                                      i,
+                                      "tanggal_berlaku",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                        <input
+                          type="date"
+                          className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          value={d.tanggal}
+                          onChange={(e) =>
+                            handleDetailChange(i, "tanggal", e.target.value)
+                          }
+                          required
+                        />
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Qty *"
+                          className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          value={d.qty}
+                          onChange={(e) =>
+                            handleDetailChange(i, "qty", e.target.value)
+                          }
+                          required
+                        />
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Diskon (Rp)"
+                          className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          value={d.discount ? formatRupiah(d.discount) : ""}
+                          onChange={(e) => {
+                            const raw = unformatRupiah(e.target.value);
+                            handleDetailChange(i, "discount", raw);
+                          }}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Catatan (opsional)"
+                          className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          value={d.catatan}
+                          onChange={(e) =>
+                            handleDetailChange(i, "catatan", e.target.value)
+                          }
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeDetailRow(i)}
+                        className="w-full mt-2 bg-red-100 text-red-600 py-2 rounded-lg hover:bg-red-200 flex items-center justify-center gap-1"
+                      >
+                        <Trash2 size={16} /> Hapus Detail
+                      </button>
                     </div>
+                  ))}
+                </div>
 
-                    <button
-                      type="button"
-                      onClick={() => removeDetailRow(i)}
-                      className="w-full mt-2 bg-red-100 text-red-600 py-2 rounded-lg hover:bg-red-200 flex items-center justify-center gap-1"
-                    >
-                      <Trash2 size={16} /> Hapus Detail
-                    </button>
-                  </div>
-                ))}
-              </div>
+                <div className="flex justify-center items-center">
+                  <button
+                    type="button"
+                    onClick={addDetailRow}
+                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm"
+                  >
+                    + Tambah Detail
+                  </button>
+                </div>
 
-              <div className="flex justify-center items-center">
-                <button
-                  type="button"
-                  onClick={addDetailRow}
-                  className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm"
-                >
-                  + Tambah Detail
-                </button>
-              </div>
-
-              <div className="flex justify-center gap-3 pt-4 border-t">
-                <button
-                  type="submit"
-                  className="px-6 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow transition"
-                >
-                  {editingId ? "Simpan Perubahan" : "Simpan Pesanan"}
-                </button>
-              </div>
-            </form>
+                <div className="flex justify-center gap-3 pt-4 border-t">
+                  <button
+                    type="submit"
+                    className="px-6 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow transition"
+                  >
+                    {editingId ? "Simpan Perubahan" : "Simpan Pesanan"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      <div className="hidden">
+        <InvoicePrint
+          key={printTransaksi?.id}
+          ref={printRef}
+          transaksi={printTransaksi}
+        />
+      </div>
+    </>
   );
 };
 

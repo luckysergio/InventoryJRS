@@ -11,4 +11,15 @@ export default defineConfig({
     host: true,
     port: 5173,
   },
+  theme: {
+    extend: {
+      fontSize: {
+        '9px': '9px',
+        '10px': '10px',
+      },
+      colors: {
+        'text-gray': '#666',
+      },
+    },
+  },
 })

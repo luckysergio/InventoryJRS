@@ -69,11 +69,11 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::post('/products/{product}/upload-foto', [ProductController::class, 'uploadFoto']);
 
     Route::get('/product-distributors', [ProductDistributorController::class, 'index']);
-Route::post('/product-distributors', [ProductDistributorController::class, 'store']);
-Route::get('/product-distributors/{id}', [ProductDistributorController::class, 'show']);
-Route::put('/product-distributors/{id}', [ProductDistributorController::class, 'update']);
-Route::delete('/product-distributors/{id}', [ProductDistributorController::class, 'destroy']);
-    
+    Route::post('/product-distributors', [ProductDistributorController::class, 'store']);
+    Route::get('/product-distributors/{id}', [ProductDistributorController::class, 'show']);
+    Route::put('/product-distributors/{id}', [ProductDistributorController::class, 'update']);
+    Route::delete('/product-distributors/{id}', [ProductDistributorController::class, 'destroy']);
+
     // Jenis Product
     Route::get('/jenis', [JenisProductController::class, 'index']);
     Route::post('/jenis', [JenisProductController::class, 'store']);
