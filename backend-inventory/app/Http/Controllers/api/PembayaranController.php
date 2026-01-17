@@ -32,9 +32,9 @@ class PembayaranController extends Controller
             'tanggal_bayar'       => 'required|date',
         ], [
             'transaksi_detail_id.exists' => 'Detail transaksi tidak ditemukan.',
-            'jumlah_bayar.min'          => 'Jumlah bayar minimal 0.',
-            'jumlah_bayar.required'     => 'Jumlah bayar wajib diisi.',
-            'tanggal_bayar.required'    => 'Tanggal bayar wajib diisi.',
+            'jumlah_bayar.min'           => 'Jumlah bayar minimal 0.',
+            'jumlah_bayar.required'      => 'Jumlah bayar wajib diisi.',
+            'tanggal_bayar.required'     => 'Tanggal bayar wajib diisi.',
         ]);
 
         if ($validator->fails()) {
@@ -45,8 +45,10 @@ class PembayaranController extends Controller
             ], 422);
         }
 
-        $detail = TransaksiDetail::with('pembayarans', 'transaksi')->findOrFail($request->transaksi_detail_id);
+        $detail = TransaksiDetail::with('pembayarans')
+            ->findOrFail($request->transaksi_detail_id);
 
+        // Hitung sisa tagihan
         $totalBayarSebelumnya = $detail->pembayarans->sum('jumlah_bayar');
         $sisaTagihan = $detail->subtotal - $totalBayarSebelumnya;
 
@@ -58,32 +60,40 @@ class PembayaranController extends Controller
             ], 422);
         }
 
-        $pembayaranTerakhir = $detail->pembayarans->sortByDesc('tanggal_bayar')->first();
+        // Ambil pembayaran terakhir (yang punya tanggal)
+        $pembayaranTerakhir = $detail->pembayarans
+            ->whereNotNull('tanggal_bayar')
+            ->sortByDesc('tanggal_bayar')
+            ->first();
 
-        $tanggalBayarBaru = Carbon::parse($request->tanggal_bayar)->startOfDay();
+        // Parse tanggal bayar baru dengan aman
+        try {
+            $tanggalBayarBaru = Carbon::parse($request->tanggal_bayar)->startOfDay();
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Format tanggal bayar tidak valid'
+            ], 422);
+        }
 
+        // Validasi: tidak boleh lebih awal dari pembayaran terakhir
         if ($pembayaranTerakhir) {
             $tanggalTerakhir = Carbon::parse($pembayaranTerakhir->tanggal_bayar)->startOfDay();
+
             if ($tanggalBayarBaru->lt($tanggalTerakhir)) {
                 return response()->json([
                     'status'  => false,
-                    'message' => 'Tanggal pembayaran tidak boleh lebih awal dari pembayaran sebelumnya (' . $tanggalTerakhir->format('d M Y') . ').'
+                    'message' => 'Tanggal pembayaran tidak boleh lebih awal dari pembayaran terakhir (' .
+                        $tanggalTerakhir->format('d M Y') . ').'
                 ], 422);
             }
         }
 
-        $tanggalTransaksi = Carbon::parse($detail->transaksi->tanggal)->startOfDay();
-        if ($tanggalBayarBaru->lt($tanggalTransaksi)) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Tanggal pembayaran tidak boleh lebih awal dari tanggal transaksi (' . $tanggalTransaksi->format('d M Y') . ').'
-            ], 422);
-        }
-
+        // Simpan pembayaran
         $pembayaran = Pembayaran::create([
             'transaksi_detail_id' => $request->transaksi_detail_id,
             'jumlah_bayar'        => $request->jumlah_bayar,
-            'tanggal_bayar'       => $request->tanggal_bayar,
+            'tanggal_bayar'       => $tanggalBayarBaru->toDateString(),
         ]);
 
         return response()->json([
@@ -102,7 +112,7 @@ class PembayaranController extends Controller
 
         return response()->json([
             'status' => true,
-            'data' => $pembayaran
+            'data'   => $pembayaran
         ]);
     }
 
@@ -115,19 +125,44 @@ class PembayaranController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'Validasi gagal',
-                'errors' => $validator->errors()
+                'errors'  => $validator->errors()
             ], 422);
         }
 
         $pembayaran = Pembayaran::findOrFail($id);
+
+        if ($request->has('tanggal_bayar')) {
+            $detail = $pembayaran->transaksiDetail;
+
+            $pembayaranTerakhir = $detail->pembayarans
+                ->where('id', '!=', $pembayaran->id)
+                ->whereNotNull('tanggal_bayar')
+                ->sortByDesc('tanggal_bayar')
+                ->first();
+
+            $tanggalBaru = Carbon::parse($request->tanggal_bayar)->startOfDay();
+
+            if ($pembayaranTerakhir) {
+                $tanggalTerakhir = Carbon::parse($pembayaranTerakhir->tanggal_bayar)->startOfDay();
+
+                if ($tanggalBaru->lt($tanggalTerakhir)) {
+                    return response()->json([
+                        'status'  => false,
+                        'message' => 'Tanggal pembayaran tidak boleh lebih awal dari pembayaran terakhir (' .
+                            $tanggalTerakhir->format('d M Y') . ').'
+                    ], 422);
+                }
+            }
+        }
+
         $pembayaran->update($request->only(['jumlah_bayar', 'tanggal_bayar']));
 
         return response()->json([
-            'status' => true,
+            'status'  => true,
             'message' => 'Pembayaran berhasil diupdate',
-            'data' => $pembayaran->load('transaksiDetail')
+            'data'    => $pembayaran->load('transaksiDetail')
         ]);
     }
 
@@ -137,7 +172,7 @@ class PembayaranController extends Controller
         $pembayaran->delete();
 
         return response()->json([
-            'status' => true,
+            'status'  => true,
             'message' => 'Pembayaran berhasil dihapus'
         ]);
     }
