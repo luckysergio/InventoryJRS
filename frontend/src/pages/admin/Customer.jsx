@@ -105,7 +105,6 @@ const CustomerPage = ({ setNavbarContent }) => {
         return harian > 0 || pesanan > 0;
       };
 
-      // Pisahkan
       const withTagihan = [];
       const withoutTagihan = [];
 
@@ -380,7 +379,6 @@ const CustomerPage = ({ setNavbarContent }) => {
         <Plus size={20} />
       </button>
 
-      {/* MODAL TAMBAH/EDIT CUSTOMER */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-lg">
@@ -446,7 +444,6 @@ const CustomerPage = ({ setNavbarContent }) => {
         </div>
       )}
 
-      {/* MODAL DAFTAR TAGIHAN CUSTOMER — SUDAH FRESH */}
       {customerModal &&
         (() => {
           const customer = findCustomerById(
@@ -455,12 +452,18 @@ const CustomerPage = ({ setNavbarContent }) => {
           );
           if (!customer) return null;
 
+          const STATUS_DIBATALKAN_ID = 6;
+
           const filteredDetails = (
             Array.isArray(customer.transaksi_details)
               ? customer.transaksi_details
               : []
           ).filter((detail) => {
             if (!detail || !detail.transaksi || !detail.product) return false;
+
+            if (detail.status_transaksi_id === STATUS_DIBATALKAN_ID)
+              return false;
+
             if (
               customerModal.jenisFilter === "daily" &&
               detail.transaksi.jenis_transaksi !== "daily"

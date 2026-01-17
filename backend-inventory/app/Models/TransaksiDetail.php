@@ -10,7 +10,6 @@ class TransaksiDetail extends Model
         'transaksi_id',
         'product_id',
         'status_transaksi_id',
-        'tanggal',
         'qty',
         'harga',
         'subtotal',

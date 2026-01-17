@@ -297,10 +297,10 @@ class TransaksiController extends Controller
             'customer_baru.name' => 'nullable|string',
             'customer_baru.phone' => 'nullable|string',
             'customer_baru.email' => 'nullable|email',
+            'tanggal' => 'required|date',
             'details' => 'required|array|min:1',
             'details.*.product_id' => 'required|exists:products,id',
             'details.*.qty' => 'required|integer|min:1',
-            'details.*.tanggal' => 'required|date',
             'details.*.discount' => 'nullable|numeric|min:0',
             'details.*.catatan' => 'nullable|string',
             'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
@@ -320,15 +320,17 @@ class TransaksiController extends Controller
             $toko = $this->getTokoPlace();
             $customer_id = $this->createOrUpdateCustomer($request->all());
 
-            // Validasi stok
             $stockErrors = $this->validateStockForDetails($request->details, $toko->id);
             if (!empty($stockErrors)) {
                 return response()->json(['errors' => $stockErrors], 422);
             }
 
+            $tanggal = $request->tanggal;
+
             $transaksi = Transaksi::create([
                 'customer_id' => $customer_id,
                 'jenis_transaksi' => 'daily',
+                'tanggal' => $tanggal,
                 'total' => 0,
             ]);
 
@@ -344,7 +346,6 @@ class TransaksiController extends Controller
                 $subtotal = ($harga * $qty) - $discount;
                 $total_transaksi += $subtotal;
 
-                // Kurangi stok
                 $this->updateInventoryAndMovement(
                     $product->id,
                     -$qty,
@@ -357,7 +358,6 @@ class TransaksiController extends Controller
                     'product_id' => $product->id,
                     'harga_product_id' => $hp->id,
                     'status_transaksi_id' => $d['status_transaksi_id'],
-                    'tanggal' => $d['tanggal'],
                     'qty' => $qty,
                     'harga' => $harga,
                     'subtotal' => $subtotal,
@@ -390,6 +390,7 @@ class TransaksiController extends Controller
 
         $validator = Validator::make($request->all(), [
             'customer_id' => 'nullable|exists:customers,id',
+            'tanggal' => 'required|date',
             'customer_baru.name' => 'nullable|string',
             'customer_baru.phone' => 'nullable|string',
             'customer_baru.email' => 'nullable|email',
@@ -397,7 +398,6 @@ class TransaksiController extends Controller
             'details.*.id' => 'nullable|exists:transaksi_details,id,transaksi_id,' . $transaksi->id,
             'details.*.product_id' => 'required|exists:products,id',
             'details.*.qty' => 'required|integer|min:1',
-            'details.*.tanggal' => 'required|date',
             'details.*.discount' => 'nullable|numeric|min:0',
             'details.*.catatan' => 'nullable|string',
             'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
@@ -416,7 +416,7 @@ class TransaksiController extends Controller
         try {
             $toko = $this->getTokoPlace();
             $customer_id = $this->createOrUpdateCustomer($request->all());
-            $transaksi->update(['customer_id' => $customer_id]);
+            $transaksi->update(['customer_id' => $customer_id,'tanggal' => $request->tanggal,]);
 
             $existingDetailIds = $transaksi->details->pluck('id')->toArray();
             $incomingDetailIds = collect($request->details)
@@ -466,7 +466,6 @@ class TransaksiController extends Controller
                         'product_id' => $product->id,
                         'harga_product_id' => $hp->id,
                         'status_transaksi_id' => $d['status_transaksi_id'],
-                        'tanggal' => $d['tanggal'],
                         'qty' => $qtyBaru,
                         'harga' => $hp->harga,
                         'subtotal' => $subtotal,
@@ -486,7 +485,6 @@ class TransaksiController extends Controller
                         'product_id' => $product->id,
                         'harga_product_id' => $hp->id,
                         'status_transaksi_id' => $d['status_transaksi_id'],
-                        'tanggal' => $d['tanggal'],
                         'qty' => $qtyBaru,
                         'harga' => $hp->harga,
                         'subtotal' => $subtotal,

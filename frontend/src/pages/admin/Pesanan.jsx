@@ -91,7 +91,6 @@ const PesananPage = ({ setNavbarContent }) => {
     harga_product_id: "",
     harga_baru: { harga: "", tanggal_berlaku: "", keterangan: "" },
     qty: "",
-    tanggal: "",
     status_transaksi_id: "",
     discount: 0,
     catatan: "",
@@ -100,6 +99,7 @@ const PesananPage = ({ setNavbarContent }) => {
   const [form, setForm] = useState({
     customer_id: "",
     customer_baru: { name: "", phone: "", email: "" },
+    tanggal: "",
     details: [{ ...initialDetail, status_transaksi_id: "" }],
   });
 
@@ -324,7 +324,6 @@ const PesananPage = ({ setNavbarContent }) => {
           harga_product_id: d.harga_product_id || "",
           harga_baru: { harga: "", tanggal_berlaku: "", keterangan: "" },
           qty: d.qty || "",
-          tanggal: d.tanggal || "",
           status_transaksi_id: d.status_transaksi_id || statusDiPesanId,
           discount: d.discount || 0,
           catatan: d.catatan || "",
@@ -350,6 +349,7 @@ const PesananPage = ({ setNavbarContent }) => {
       setForm({
         customer_id: isCustomerBaru ? "" : data.customer_id,
         customer_baru: customerBaru,
+        tanggal: data.tanggal || "",
         details,
       });
 
@@ -359,7 +359,6 @@ const PesananPage = ({ setNavbarContent }) => {
       setTypeOptions(typeOptionsMap);
       setEditingId(data.id);
     } else {
-      /** CREATE MODE */
       setForm({
         customer_id: "",
         customer_baru: { name: "", phone: "", email: "" },
@@ -379,6 +378,11 @@ const PesananPage = ({ setNavbarContent }) => {
     e.preventDefault();
     if (!form.customer_id && !form.customer_baru.name.trim()) {
       Swal.fire("Error", "Nama customer wajib diisi", "warning");
+      return;
+    }
+
+    if (!form.tanggal) {
+      Swal.fire("Error", "Tanggal pesanan wajib diisi", "warning");
       return;
     }
 
@@ -443,7 +447,6 @@ const PesananPage = ({ setNavbarContent }) => {
             }
           : {}),
         qty: Number(detail.qty),
-        tanggal: detail.tanggal,
         status_transaksi_id:
           Number(detail.status_transaksi_id) || Number(statusDiPesanId),
         discount: Number(detail.discount) || 0,
@@ -453,6 +456,7 @@ const PesananPage = ({ setNavbarContent }) => {
 
     const payload = {
       customer_id: form.customer_id ? Number(form.customer_id) : null,
+      tanggal: form.tanggal,
       ...(form.customer_id
         ? {}
         : {
@@ -724,7 +728,7 @@ const PesananPage = ({ setNavbarContent }) => {
 
   const calculateActiveTotalForPesanan = (details) => {
     return details
-      .filter((d) => ![5, 6].includes(d.status_transaksi_id)) // kecualikan Selesai & Dibatalkan
+      .filter((d) => ![5, 6].includes(d.status_transaksi_id))
       .reduce((sum, d) => sum + safeParseFloat(d.subtotal), 0);
   };
 
@@ -764,16 +768,19 @@ const PesananPage = ({ setNavbarContent }) => {
                         <Receipt size={12} /> Print
                       </button>
                     </div>
-                    <div className="text-center">
-                      <p className="text-gray-700 font-medium text-sm truncate">
-                        {item.customer?.name || "Umum"}
-                      </p>
-                      <p className="text-gray-800 font-bold mt-1 text-base">
-                        Rp{" "}
-                        {formatRupiah(
-                          calculateActiveTotalForPesanan(item.details)
-                        )}
-                      </p>
+                    <div className="flex justify-center items-start">
+                      <div>
+                        <p className="text-gray-700 font-medium text-center text-sm">
+                          {item.customer?.name || "Umum"} –{" "}
+                          {formatTanggal(item.tanggal)}
+                        </p>
+                        <p className="text-gray-700 font-bold text-center text-base mt-1">
+                          Rp{" "}
+                          {formatRupiah(
+                            calculateActiveTotalForPesanan(item.details)
+                          )}
+                        </p>
+                      </div>
                     </div>
                     <hr className="my-2 border-gray-200" />
                     <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
@@ -789,13 +796,14 @@ const PesananPage = ({ setNavbarContent }) => {
                             <p className="font-medium">
                               {formatProductName(d.product)}
                             </p>
-                            <p className="mt-1">{formatTanggal(d.tanggal)}</p>
                             <p className="mt-1">
                               <span className="font-semibold">Qty</span> {d.qty}
                             </p>
                             <p className="mt-1">
-                              <span className="font-semibold">Harga</span> Rp{" "}
-                              {formatRupiah(d.harga)}
+                              <span className="font-semibold">
+                                Harga satuan
+                              </span>{" "}
+                              Rp {formatRupiah(d.harga)}
                             </p>
                             <p className="mt-1">
                               <span className="font-semibold">Diskon</span> Rp{" "}
@@ -926,95 +934,111 @@ const PesananPage = ({ setNavbarContent }) => {
                 </button>
               </div>
               <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                {/* CUSTOMER */}
-                <div className="bg-gray-50 p-4 rounded-xl">
-                  <label className="font-semibold block mb-2 text-gray-700">
-                    Customer *
-                  </label>
-                  <select
-                    className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    value={
-                      form.customer_id || (isCreatingNewCustomer ? "new" : "")
-                    }
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === "new") {
-                        setIsCreatingNewCustomer(true);
-                        setForm({
-                          ...form,
-                          customer_id: "",
-                          customer_baru: { name: "", phone: "", email: "" },
-                        });
-                      } else {
-                        setIsCreatingNewCustomer(false);
-                        setForm({
-                          ...form,
-                          customer_id: val,
-                          customer_baru: { name: "", phone: "", email: "" },
-                        });
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Customer */}
+                  <div>
+                    <label className="font-semibold block mb-2">Customer</label>
+                    <select
+                      className="w-full border px-3 py-2 rounded-lg"
+                      value={
+                        form.customer_id || (isCreatingNewCustomer ? "new" : "")
                       }
-                    }}
-                  >
-                    <option value="">Pilih Customer</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                    <option value="new">➕ Buat Customer Baru</option>
-                  </select>
-                  {isCreatingNewCustomer && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-                      <input
-                        type="text"
-                        placeholder="Nama *"
-                        className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        value={form.customer_baru.name}
-                        onChange={(e) =>
+                      onChange={(e) => {
+                        const selectedValue = e.target.value;
+                        if (selectedValue === "new") {
+                          setIsCreatingNewCustomer(true);
                           setForm({
                             ...form,
-                            customer_baru: {
-                              ...form.customer_baru,
-                              name: e.target.value,
-                            },
-                          })
-                        }
-                        required
-                      />
-                      <input
-                        type="text"
-                        placeholder="Phone"
-                        className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        value={form.customer_baru.phone}
-                        onChange={(e) =>
+                            customer_id: "",
+                            customer_baru: { name: "", phone: "", email: "" },
+                          });
+                        } else {
+                          setIsCreatingNewCustomer(false);
                           setForm({
                             ...form,
-                            customer_baru: {
-                              ...form.customer_baru,
-                              phone: e.target.value,
-                            },
-                          })
+                            customer_id: selectedValue,
+                            customer_baru: { name: "", phone: "", email: "" },
+                          });
                         }
-                      />
-                      <input
-                        type="email"
-                        placeholder="Email"
-                        className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        value={form.customer_baru.email}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            customer_baru: {
-                              ...form.customer_baru,
-                              email: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
+                      }}
+                    >
+                      <option value="">Pilih Customer</option>
+                      {customers.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                      <option value="new">➕ Buat Customer Baru</option>
+                    </select>
 
+                    {isCreatingNewCustomer && (
+                      <div className="grid grid-cols-1 gap-2 mt-3">
+                        <input
+                          type="text"
+                          placeholder="Nama *"
+                          className="border px-3 py-2 rounded-lg"
+                          value={form.customer_baru.name}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              customer_baru: {
+                                ...form.customer_baru,
+                                name: e.target.value,
+                              },
+                            })
+                          }
+                          required
+                        />
+                        <input
+                          type="text"
+                          placeholder="Phone"
+                          className="border px-3 py-2 rounded-lg"
+                          value={form.customer_baru.phone}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              customer_baru: {
+                                ...form.customer_baru,
+                                phone: e.target.value,
+                              },
+                            })
+                          }
+                        />
+                        <input
+                          type="email"
+                          placeholder="Email"
+                          className="border px-3 py-2 rounded-lg"
+                          value={form.customer_baru.email}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              customer_baru: {
+                                ...form.customer_baru,
+                                email: e.target.value,
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tanggal Transaksi */}
+                  <div>
+                    <label className="font-semibold block mb-2">
+                      Tanggal Transaksi *
+                    </label>
+                    <input
+                      type="date"
+                      className="w-full border px-3 py-2 rounded-lg"
+                      value={form.tanggal}
+                      onChange={(e) =>
+                        setForm({ ...form, tanggal: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
                 <div className="space-y-4">
                   <div className="flex justify-center items-center">
                     <h3 className="font-bold text-lg">Detail Transaksi</h3>
@@ -1043,7 +1067,7 @@ const PesananPage = ({ setNavbarContent }) => {
                           <option value="">Pilih Produk</option>
                           {products.map((p) => (
                             <option key={p.id} value={p.id}>
-                              {formatProductName(p)}
+                              {p.kode} - {formatProductName(p)}
                             </option>
                           ))}
                           <option value="new">➕ Produk Baru</option>
@@ -1380,40 +1404,45 @@ const PesananPage = ({ setNavbarContent }) => {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                         <input
-                          type="date"
-                          className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                          value={d.tanggal}
-                          onChange={(e) =>
-                            handleDetailChange(i, "tanggal", e.target.value)
-                          }
-                          required
-                        />
-                        <input
                           type="number"
                           min="1"
+                          max="9999"
                           placeholder="Qty *"
-                          className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          className="border px-3 py-2 rounded-lg"
                           value={d.qty}
-                          onChange={(e) =>
-                            handleDetailChange(i, "qty", e.target.value)
-                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (
+                              val === "" ||
+                              (Number(val) >= 1 && Number(val) <= 9999)
+                            ) {
+                              handleDetailChange(i, "qty", val);
+                            }
+                          }}
                           required
                         />
+
                         <input
                           type="text"
                           inputMode="numeric"
                           placeholder="Diskon (Rp)"
-                          className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          className="border px-3 py-2 rounded-lg"
                           value={d.discount ? formatRupiah(d.discount) : ""}
                           onChange={(e) => {
-                            const raw = unformatRupiah(e.target.value);
-                            handleDetailChange(i, "discount", raw);
+                            let raw = unformatRupiah(e.target.value);
+                            if (
+                              raw === "" ||
+                              (Number(raw) >= 0 && Number(raw) <= 999999)
+                            ) {
+                              handleDetailChange(i, "discount", raw);
+                            }
                           }}
                         />
+
                         <input
                           type="text"
                           placeholder="Catatan (opsional)"
-                          className="border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          className="border px-3 py-2 rounded-lg col-span-2 md:col-span-1 lg:col-span-2"
                           value={d.catatan}
                           onChange={(e) =>
                             handleDetailChange(i, "catatan", e.target.value)

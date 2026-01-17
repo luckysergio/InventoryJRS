@@ -243,7 +243,7 @@ class ProductController extends Controller
             $jenis = $request->filled('jenis_id')
                 ? JenisProduct::findOrFail($request->jenis_id)
                 : JenisProduct::firstOrCreate([
-                    'nama' => Str::title(trim($request->jenis_nama))
+                    'nama' => strtoupper(trim($request->jenis_nama))
                 ]);
 
             $type = $request->filled('type_id')
@@ -251,14 +251,14 @@ class ProductController extends Controller
                 ->where('jenis_id', $jenis->id)
                 ->firstOrFail()
                 : TypeProduct::firstOrCreate([
-                    'nama' => Str::title(trim($request->type_nama)),
+                    'nama' => strtoupper(trim($request->type_nama)),
                     'jenis_id' => $jenis->id
                 ]);
 
             $bahan = $request->filled('bahan_id')
                 ? BahanProduct::findOrFail($request->bahan_id)
                 : BahanProduct::firstOrCreate([
-                    'nama' => Str::title(trim($request->bahan_nama))
+                    'nama' => strtoupper(trim($request->bahan_nama))
                 ]);
 
             $kode = $this->buildProductKode(

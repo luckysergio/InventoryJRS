@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('customer_id')->constrained()->cascadeOnDelete();
             $table->enum('jenis_transaksi', ['pesanan', 'daily']);
+            $table->date('tanggal');
             $table->decimal('total', 15, 2)->default(0);
             $table->timestamps();
         });

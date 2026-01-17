@@ -337,10 +337,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
       return;
     }
 
-    const hargaJual =
-      item.harga_products?.length > 0
-        ? formatRupiah(item.harga_products[0].harga)
-        : "";
+    const hargaJual = item.harga_umum ? formatRupiah(item.harga_umum) : "";
 
     setForm({
       jenis_id: item.jenis_id,
@@ -847,12 +844,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
                   <div className="text-center mb-2 flex items-center justify-center gap-1 text-sm">
                     <Tag size={14} className="text-amber-600" />
                     <span className="font-medium text-amber-700">
-                      Jual:{" "}
-                      {formatRupiah(
-                        item.harga_products?.length > 0
-                          ? item.harga_products[0].harga
-                          : 0
-                      )}
+                      Jual: {formatRupiah(item.harga_umum || 0)}
                     </span>
                   </div>
 

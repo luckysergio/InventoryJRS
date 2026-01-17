@@ -191,6 +191,7 @@ class PesananTransaksiController extends Controller
             [
                 'customer_id' => 'nullable|exists:customers,id',
                 'customer_baru.name' => 'required_without:customer_id|string',
+                'tanggal' => 'required|date',
 
                 'details' => 'required|array|min:1',
                 'details.*.product_id' => 'nullable|exists:products,id',
@@ -219,7 +220,6 @@ class PesananTransaksiController extends Controller
                 'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null',
 
                 'details.*.qty' => 'required|integer|min:1',
-                'details.*.tanggal' => 'required|date',
                 'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
 
                 'details.*.harga_baru.harga' => 'nullable|integer|min:0',
@@ -245,9 +245,11 @@ class PesananTransaksiController extends Controller
                 ? Customer::findOrFail($request->customer_id)
                 : Customer::create($request->customer_baru);
 
+            $tanggal = $request->tanggal;
             $transaksi = Transaksi::create([
                 'customer_id' => $customer->id,
                 'jenis_transaksi' => 'pesanan',
+                'tanggal' => $tanggal,
                 'total' => 0
             ]);
 
@@ -355,7 +357,6 @@ class PesananTransaksiController extends Controller
                     'product_id' => $product->id,
                     'harga_product_id' => $harga->id,
                     'status_transaksi_id' => $d['status_transaksi_id'],
-                    'tanggal' => $d['tanggal'],
                     'qty' => $d['qty'],
                     'harga' => $harga->harga,
                     'subtotal' => $subtotal,
@@ -389,6 +390,7 @@ class PesananTransaksiController extends Controller
             [
                 'customer_id' => 'nullable|exists:customers,id',
                 'customer_baru.name' => 'required_without:customer_id|string',
+                'tanggal' => 'required|date',
 
                 'details' => 'required|array|min:1',
                 'details.*.id' => 'nullable|exists:transaksi_details,id',
@@ -418,7 +420,6 @@ class PesananTransaksiController extends Controller
                 'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null',
 
                 'details.*.qty' => 'required|integer|min:1',
-                'details.*.tanggal' => 'required|date',
                 'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
 
                 'details.*.harga_baru.harga' => 'nullable|integer|min:0',
@@ -450,7 +451,8 @@ class PesananTransaksiController extends Controller
                 );
 
             $transaksi->update([
-                'customer_id' => $customer->id
+                'customer_id' => $customer->id,
+                'tanggal' => $request->tanggal,
             ]);
 
             $total = 0;
@@ -539,7 +541,6 @@ class PesananTransaksiController extends Controller
                         'product_id' => $product->id,
                         'harga_product_id' => $harga->id,
                         'status_transaksi_id' => $d['status_transaksi_id'],
-                        'tanggal' => $d['tanggal'],
                         'qty' => $d['qty'],
                         'harga' => $harga->harga,
                         'subtotal' => $subtotal,
@@ -573,7 +574,6 @@ class PesananTransaksiController extends Controller
     {
         $detail = TransaksiDetail::findOrFail($detailId);
 
-        // Optional: pastikan hanya pesanan yang bisa dibatalkan
         if ($detail->transaksi->jenis_transaksi !== 'pesanan') {
             return response()->json(['message' => 'Transaksi bukan pesanan'], 400);
         }

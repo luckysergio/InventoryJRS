@@ -75,7 +75,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
     harga_product_id: "",
     harga_baru: { harga: "", tanggal_berlaku: "", keterangan: "" },
     qty: "",
-    tanggal: "",
     status_transaksi_id: "",
     discount: 0,
     catatan: "",
@@ -84,6 +83,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
   const [form, setForm] = useState({
     customer_id: "",
     customer_baru: { name: "", phone: "", email: "" },
+    tanggal: "",
     details: [{ ...initialDetail }],
   });
 
@@ -262,7 +262,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
             keterangan: "",
           },
           qty: d.qty || "",
-          tanggal: d.tanggal || "",
           status_transaksi_id: d.status_transaksi_id,
           discount: d.discount || 0,
           catatan: d.catatan || "",
@@ -282,6 +281,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
       setForm({
         customer_id: isCustomerBaru ? "" : data.customer_id,
         customer_baru: customerBaru,
+        tanggal: data.tanggal || "",
         details,
       });
       setIsCreatingNewCustomer(isCustomerBaru);
@@ -313,17 +313,14 @@ const TransaksiPage = ({ setNavbarContent }) => {
       return;
     }
 
-    const hasEmpty = form.details.some(
-      (d) => !d.product_id || !d.qty || !d.tanggal || d.qty <= 0
-    );
-    if (hasEmpty) {
-      Swal.fire(
-        "Error",
-        "Lengkapi semua field wajib di detail transaksi",
-        "warning"
-      );
+    if (!form.tanggal) {
+      Swal.fire("Error", "Tanggal transaksi wajib diisi", "warning");
       return;
     }
+
+    const hasEmpty = form.details.some(
+      (d) => !d.product_id || !d.qty || d.qty <= 0
+    );
 
     const cleanedDetails = form.details.map((detail) => {
       const cleaned = { ...detail };
@@ -587,7 +584,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                     key={item.id}
                     className="p-4 bg-white rounded-xl shadow border border-gray-100 space-y-3"
                   >
-                    {/* Header: Invoice ID & Print Button */}
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-xs font-mono text-gray-600">
                         {getInvoiceNumber(item)}
@@ -603,7 +599,8 @@ const TransaksiPage = ({ setNavbarContent }) => {
                     <div className="flex justify-center items-start">
                       <div>
                         <p className="text-gray-700 font-medium text-center text-sm">
-                          {item.customer?.name || "Umum"}
+                          {item.customer?.name || "Umum"} –{" "}
+                          {formatTanggal(item.tanggal)}
                         </p>
                         <p className="text-gray-700 font-bold text-center text-base mt-1">
                           Rp{" "}
@@ -627,12 +624,11 @@ const TransaksiPage = ({ setNavbarContent }) => {
                             <p className="font-medium">
                               {formatProductName(d.product)}
                             </p>
-                            <p className="mt-1">{formatTanggal(d.tanggal)}</p>
                             <p className="mt-1">
                               <span className="font-semibold">Qty</span> {d.qty}
                             </p>
                             <p className="mt-1">
-                              <span className="font-semibold">Harga</span> Rp{" "}
+                              <span className="font-semibold">Harga Satuan</span> Rp{" "}
                               {formatRupiah(d.harga)}
                             </p>
                             <p className="mt-1">
@@ -760,92 +756,115 @@ const TransaksiPage = ({ setNavbarContent }) => {
               </div>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="bg-gray-50 p-4 rounded-xl">
-                  <label className="font-semibold block mb-2">Customer</label>
-                  <select
-                    className="w-full border px-3 py-2 rounded-lg"
-                    value={
-                      form.customer_id || (isCreatingNewCustomer ? "new" : "")
-                    }
-                    onChange={(e) => {
-                      const selectedValue = e.target.value;
-                      if (selectedValue === "new") {
-                        setIsCreatingNewCustomer(true);
-                        setForm({
-                          ...form,
-                          customer_id: "",
-                          customer_baru: { name: "", phone: "", email: "" },
-                        });
-                      } else {
-                        setIsCreatingNewCustomer(false);
-                        setForm({
-                          ...form,
-                          customer_id: selectedValue,
-                          customer_baru: { name: "", phone: "", email: "" },
-                        });
-                      }
-                    }}
-                  >
-                    <option value="">Pilih Customer</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                    <option value="new">➕ Buat Customer Baru</option>
-                  </select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Customer */}
+                    <div>
+                      <label className="font-semibold block mb-2">
+                        Customer
+                      </label>
+                      <select
+                        className="w-full border px-3 py-2 rounded-lg"
+                        value={
+                          form.customer_id ||
+                          (isCreatingNewCustomer ? "new" : "")
+                        }
+                        onChange={(e) => {
+                          const selectedValue = e.target.value;
+                          if (selectedValue === "new") {
+                            setIsCreatingNewCustomer(true);
+                            setForm({
+                              ...form,
+                              customer_id: "",
+                              customer_baru: { name: "", phone: "", email: "" },
+                            });
+                          } else {
+                            setIsCreatingNewCustomer(false);
+                            setForm({
+                              ...form,
+                              customer_id: selectedValue,
+                              customer_baru: { name: "", phone: "", email: "" },
+                            });
+                          }
+                        }}
+                      >
+                        <option value="">Pilih Customer</option>
+                        {customers.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                        <option value="new">➕ Buat Customer Baru</option>
+                      </select>
 
-                  {isCreatingNewCustomer && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                      {isCreatingNewCustomer && (
+                        <div className="grid grid-cols-1 gap-2 mt-3">
+                          <input
+                            type="text"
+                            placeholder="Nama *"
+                            className="border px-3 py-2 rounded-lg"
+                            value={form.customer_baru.name}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                customer_baru: {
+                                  ...form.customer_baru,
+                                  name: e.target.value,
+                                },
+                              })
+                            }
+                            required
+                          />
+                          <input
+                            type="text"
+                            placeholder="Phone"
+                            className="border px-3 py-2 rounded-lg"
+                            value={form.customer_baru.phone}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                customer_baru: {
+                                  ...form.customer_baru,
+                                  phone: e.target.value,
+                                },
+                              })
+                            }
+                          />
+                          <input
+                            type="email"
+                            placeholder="Email"
+                            className="border px-3 py-2 rounded-lg"
+                            value={form.customer_baru.email}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                customer_baru: {
+                                  ...form.customer_baru,
+                                  email: e.target.value,
+                                },
+                              })
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Tanggal Transaksi */}
+                    <div>
+                      <label className="font-semibold block mb-2">
+                        Tanggal Transaksi *
+                      </label>
                       <input
-                        type="text"
-                        placeholder="Nama *"
-                        className="border px-3 py-2 rounded-lg"
-                        value={form.customer_baru.name}
+                        type="date"
+                        className="w-full border px-3 py-2 rounded-lg"
+                        value={form.tanggal}
                         onChange={(e) =>
-                          setForm({
-                            ...form,
-                            customer_baru: {
-                              ...form.customer_baru,
-                              name: e.target.value,
-                            },
-                          })
+                          setForm({ ...form, tanggal: e.target.value })
                         }
                         required
                       />
-                      <input
-                        type="text"
-                        placeholder="Phone"
-                        className="border px-3 py-2 rounded-lg"
-                        value={form.customer_baru.phone}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            customer_baru: {
-                              ...form.customer_baru,
-                              phone: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                      <input
-                        type="email"
-                        placeholder="Email"
-                        className="border px-3 py-2 rounded-lg"
-                        value={form.customer_baru.email}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            customer_baru: {
-                              ...form.customer_baru,
-                              email: e.target.value,
-                            },
-                          })
-                        }
-                      />
                     </div>
-                  )}
+                  </div>
                 </div>
-
                 <div className="space-y-4">
                   <div className="flex justify-center items-center">
                     <h3 className="font-bold text-lg">Detail Transaksi</h3>
@@ -870,7 +889,8 @@ const TransaksiPage = ({ setNavbarContent }) => {
                           <option value="">Pilih Produk</option>
                           {products.map((p) => (
                             <option key={p.id} value={p.id}>
-                              {formatProductName(p)} (Stok: {getStokToko(p)})
+                              {p.kode} - {formatProductName(p)} (Stok:{" "}
+                              {getStokToko(p)})
                             </option>
                           ))}
                         </select>
@@ -972,25 +992,24 @@ const TransaksiPage = ({ setNavbarContent }) => {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                         <input
-                          type="date"
-                          className="border px-3 py-2 rounded-lg"
-                          value={d.tanggal}
-                          onChange={(e) =>
-                            handleDetailChange(i, "tanggal", e.target.value)
-                          }
-                          required
-                        />
-                        <input
                           type="number"
                           min="1"
+                          max="9999"
                           placeholder="Qty *"
                           className="border px-3 py-2 rounded-lg"
                           value={d.qty}
-                          onChange={(e) =>
-                            handleDetailChange(i, "qty", e.target.value)
-                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (
+                              val === "" ||
+                              (Number(val) >= 1 && Number(val) <= 9999)
+                            ) {
+                              handleDetailChange(i, "qty", val);
+                            }
+                          }}
                           required
                         />
+
                         <input
                           type="text"
                           inputMode="numeric"
@@ -998,14 +1017,20 @@ const TransaksiPage = ({ setNavbarContent }) => {
                           className="border px-3 py-2 rounded-lg"
                           value={d.discount ? formatRupiah(d.discount) : ""}
                           onChange={(e) => {
-                            const raw = unformatRupiah(e.target.value);
-                            handleDetailChange(i, "discount", raw);
+                            let raw = unformatRupiah(e.target.value);
+                            if (
+                              raw === "" ||
+                              (Number(raw) >= 0 && Number(raw) <= 999999)
+                            ) {
+                              handleDetailChange(i, "discount", raw);
+                            }
                           }}
                         />
+
                         <input
                           type="text"
                           placeholder="Catatan (opsional)"
-                          className="border px-3 py-2 rounded-lg"
+                          className="border px-3 py-2 rounded-lg col-span-2 md:col-span-1 lg:col-span-2"
                           value={d.catatan}
                           onChange={(e) =>
                             handleDetailChange(i, "catatan", e.target.value)

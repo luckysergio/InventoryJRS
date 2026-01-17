@@ -12,7 +12,6 @@ import {
   Handshake,
   ArrowLeft,
 } from "lucide-react";
-
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -27,12 +26,20 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const [stokOpnameOpen, setStokOpnameOpen] = useState(false);
   const [karyawanOpen, setKaryawanOpen] = useState(false);
 
+  // 🔧 Cegah scroll otomatis ke atas saat ganti route
+  useEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+  }, []);
+
+  // 🔍 Deteksi active route
   useEffect(() => {
     const path = location.pathname;
 
     const productionRoutes = ["/production", "/RiwayatProduction"];
-    const isProductionRoute = productionRoutes.some((route) =>
-      path === route || path.startsWith(route + "/")
+    const isProductionRoute = productionRoutes.some(
+      (route) => path === route || path.startsWith(route + "/")
     );
 
     const productRoutes = [
@@ -44,8 +51,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       "/bahan",
       "/product-terlaris",
     ];
-    const isProductRoute = productRoutes.some((route) =>
-      path === route || path.startsWith(route + "/")
+    const isProductRoute = productRoutes.some(
+      (route) => path === route || path.startsWith(route + "/")
     );
 
     const transaksiRoutes = [
@@ -54,23 +61,23 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       "/riwayat-transaksi",
       "/status-transaksi",
     ];
-    const isTransaksiRoute = transaksiRoutes.some((route) =>
-      path === route || path.startsWith(route + "/")
+    const isTransaksiRoute = transaksiRoutes.some(
+      (route) => path === route || path.startsWith(route + "/")
     );
 
     const inventoryRoutes = ["/inventory", "/ProductMovement"];
-    const isInventoryRoute = inventoryRoutes.some((route) =>
-      path === route || path.startsWith(route + "/")
+    const isInventoryRoute = inventoryRoutes.some(
+      (route) => path === route || path.startsWith(route + "/")
     );
 
     const stokOpnameRoutes = ["/StokOpname", "/Riwayat-StokOpname"];
-    const isStokOpnameRoute = stokOpnameRoutes.some((route) =>
-      path === route || path.startsWith(route + "/")
+    const isStokOpnameRoute = stokOpnameRoutes.some(
+      (route) => path === route || path.startsWith(route + "/")
     );
 
     const karyawanRoutes = ["/karyawan", "/jabatan"];
-    const isKaryawanRoute = karyawanRoutes.some((route) =>
-      path === route || path.startsWith(route + "/")
+    const isKaryawanRoute = karyawanRoutes.some(
+      (route) => path === route || path.startsWith(route + "/")
     );
 
     setProductionOpen(isProductionRoute);
@@ -81,6 +88,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     setKaryawanOpen(isKaryawanRoute);
   }, [location.pathname]);
 
+  // 🧩 Komponen Reusable
   const NavLink = ({ children, to, icon: Icon }) => {
     const isActive = location.pathname === to;
     return (
@@ -120,19 +128,21 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         }`}
       >
         <div className="flex items-center gap-3">
-          <Icon className={`w-5 h-5 transition-all duration-300 ${
-            open 
-              ? "text-blue-600 scale-110" 
-              : "text-gray-400 group-hover:text-blue-500 group-hover:scale-110"
-          }`} />
-          {!isMinimized && (
-            <span className="font-medium">{title}</span>
-          )}
+          <Icon
+            className={`w-5 h-5 transition-all duration-300 ${
+              open
+                ? "text-blue-600 scale-110"
+                : "text-gray-400 group-hover:text-blue-500 group-hover:scale-110"
+            }`}
+          />
+          {!isMinimized && <span className="font-medium">{title}</span>}
         </div>
         {!isMinimized && (
-          <div className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`}>
-            <ChevronDown className="w-4 h-4 text-gray-400" />
-          </div>
+          <ChevronDown
+            className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${
+              open ? "rotate-180" : ""
+            }`}
+          />
         )}
       </button>
 
@@ -171,87 +181,142 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     );
   };
 
+  const LogoSection = () => (
+    <div className="flex items-center gap-3">
+      <div className="relative w-8 h-8">
+        <img
+          src="/Favicon/favJRS.webp"
+          alt="JRS Logo"
+          className="w-full h-full object-contain"
+          onError={(e) => {
+            e.target.style.display = "none";
+            const fallback = document.createElement("div");
+            fallback.className =
+              "w-full h-full flex items-center justify-center bg-blue-100 rounded";
+            fallback.innerHTML =
+              "<span class='text-xs font-bold text-blue-600'>JRS</span>";
+            e.target.parentNode.appendChild(fallback);
+          }}
+        />
+      </div>
+      {!isMinimized && (
+        <h1 className="text-lg font-bold text-gray-800 whitespace-nowrap">
+          Jaya Rubber Seal
+        </h1>
+      )}
+    </div>
+  );
+
   const SidebarHeader = () => (
     <div className="px-6 py-6 border-b border-gray-200/50 bg-gradient-to-br from-blue-50 to-white">
-      <div className="flex items-center gap-3">
-        {!isMinimized && (
-          <div>
-            <h1 className="text-lg font-bold text-gray-800">Jaya Rubber Seal</h1>
-          </div>
-        )}
-        {/* Minimize button hanya di desktop */}
+      <div className="flex items-center">
+        <LogoSection />
         <button
           onClick={() => setIsMinimized(!isMinimized)}
           className="ml-auto p-1.5 rounded-lg hover:bg-white/80 transition-all duration-200 group lg:block hidden"
         >
-          <ArrowLeft 
+          <ArrowLeft
             className={`w-4 h-4 text-gray-600 group-hover:text-gray-900 transition-transform duration-300 ${
               isMinimized ? "rotate-180" : ""
-            }`} 
+            }`}
           />
         </button>
       </div>
     </div>
   );
 
+  const SidebarContent = () => (
+    <>
+      <NavLink to="/dashboard-admin" icon={Home}>
+        Dashboard
+      </NavLink>
+      <NavLink to="/customer" icon={PersonStanding}>
+        Customer
+      </NavLink>
+      <NavLink to="/distributor" icon={Handshake}>
+        Distributor
+      </NavLink>
+
+      <Dropdown
+        title="Karyawan"
+        open={karyawanOpen}
+        setOpen={setKaryawanOpen}
+        icon={Users}
+      >
+        <SubNavLink to="/karyawan">Data Karyawan</SubNavLink>
+        <SubNavLink to="/jabatan">Data Jabatan</SubNavLink>
+      </Dropdown>
+
+      <Dropdown
+        title="Product"
+        open={productOpen}
+        setOpen={setProductOpen}
+        icon={Boxes}
+      >
+        <SubNavLink to="/product">Product</SubNavLink>
+        <SubNavLink to="/product-distributor">Product Distributor</SubNavLink>
+        <SubNavLink to="/product-terlaris">Product Terlaris</SubNavLink>
+        <SubNavLink to="/harga-product">Harga Product</SubNavLink>
+        <SubNavLink to="/jenis">Jenis Product</SubNavLink>
+        <SubNavLink to="/type">Type Product</SubNavLink>
+        <SubNavLink to="/bahan">Bahan Product</SubNavLink>
+      </Dropdown>
+
+      <Dropdown
+        title="Transaksi"
+        open={transaksiOpen}
+        setOpen={setTransaksiOpen}
+        icon={Receipt}
+      >
+        <SubNavLink to="/transaksi">Transaksi Daily</SubNavLink>
+        <SubNavLink to="/pesanan">Transaksi Pesanan</SubNavLink>
+        <SubNavLink to="/riwayat-transaksi">Riwayat Transaksi</SubNavLink>
+      </Dropdown>
+
+      <Dropdown
+        title="Inventory"
+        open={inventoryOpen}
+        setOpen={setInventoryOpen}
+        icon={Warehouse}
+      >
+        <SubNavLink to="/inventory">Inventory</SubNavLink>
+        <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
+      </Dropdown>
+
+      <Dropdown
+        title="Production"
+        open={productionOpen}
+        setOpen={setProductionOpen}
+        icon={Factory}
+      >
+        <SubNavLink to="/production">Production</SubNavLink>
+        <SubNavLink to="/RiwayatProduction">Riwayat Production</SubNavLink>
+      </Dropdown>
+
+      <Dropdown
+        title="Stok Opname"
+        open={stokOpnameOpen}
+        setOpen={setStokOpnameOpen}
+        icon={ClipboardCheck}
+      >
+        <SubNavLink to="/StokOpname">Stok Opname</SubNavLink>
+        <SubNavLink to="/Riwayat-StokOpname">Riwayat SO</SubNavLink>
+      </Dropdown>
+    </>
+  );
+
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside 
+      <aside
         className={`hidden lg:flex bg-white border-r border-gray-200/50 flex-col overflow-hidden shadow-xl transition-all duration-300 ${
-          isMinimized ? 'w-20' : 'w-72'
+          isMinimized ? "w-20" : "w-72"
         }`}
       >
         <div className="flex flex-col h-full">
           <SidebarHeader />
           <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-            <NavLink to="/dashboard-admin" icon={Home}>
-              Dashboard
-            </NavLink>
-
-            <NavLink to="/customer" icon={PersonStanding}>
-              Customer
-            </NavLink>
-
-            <NavLink to="/distributor" icon={Handshake}>
-              Distributor
-            </NavLink>
-
-            <Dropdown title="Karyawan" open={karyawanOpen} setOpen={setKaryawanOpen} icon={Users}>
-              <SubNavLink to="/karyawan">Data Karyawan</SubNavLink>
-              <SubNavLink to="/jabatan">Data Jabatan</SubNavLink>
-            </Dropdown>
-
-            <Dropdown title="Product" open={productOpen} setOpen={setProductOpen} icon={Boxes}>
-              <SubNavLink to="/product">Product</SubNavLink>
-              <SubNavLink to="/product-distributor">Product Distributor</SubNavLink>
-              <SubNavLink to="/product-terlaris">Product Terlaris</SubNavLink>
-              <SubNavLink to="/harga-product">Harga Product</SubNavLink>
-              <SubNavLink to="/jenis">Jenis Product</SubNavLink>
-              <SubNavLink to="/type">Type Product</SubNavLink>
-              <SubNavLink to="/bahan">Bahan Product</SubNavLink>
-            </Dropdown>
-
-            <Dropdown title="Transaksi" open={transaksiOpen} setOpen={setTransaksiOpen} icon={Receipt}>
-              <SubNavLink to="/transaksi">Transaksi Daily</SubNavLink>
-              <SubNavLink to="/pesanan">Transaksi Pesanan</SubNavLink>
-              <SubNavLink to="/riwayat-transaksi">Riwayat Transaksi</SubNavLink>
-            </Dropdown>
-
-            <Dropdown title="Inventory" open={inventoryOpen} setOpen={setInventoryOpen} icon={Warehouse}>
-              <SubNavLink to="/inventory">Inventory</SubNavLink>
-              <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
-            </Dropdown>
-
-            <Dropdown title="Production" open={productionOpen} setOpen={setProductionOpen} icon={Factory}>
-              <SubNavLink to="/production">Production</SubNavLink>
-              <SubNavLink to="/RiwayatProduction">Riwayat Production</SubNavLink>
-            </Dropdown>
-
-            <Dropdown title="Stok Opname" open={stokOpnameOpen} setOpen={setStokOpnameOpen} icon={ClipboardCheck}>
-              <SubNavLink to="/StokOpname">Stok Opname</SubNavLink>
-              <SubNavLink to="/Riwayat-StokOpname">Riwayat SO</SubNavLink>
-            </Dropdown>
+            <SidebarContent />
           </nav>
         </div>
       </aside>
@@ -273,11 +338,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         {sidebarOpen && (
           <>
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/50 bg-gradient-to-br from-blue-50 to-white">
-              <div className="flex items-center gap-3">
-                <div>
-                  <h1 className="text-lg font-bold text-gray-800">Jaya Rubber Seal</h1>
-                </div>
-              </div>
+              <LogoSection />
               <button
                 onClick={() => setSidebarOpen(false)}
                 className="p-2 rounded-lg hover:bg-white/80 transition-all duration-200 group"
@@ -287,53 +348,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             </div>
             <div className="flex flex-col h-full overflow-hidden">
               <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-                <NavLink to="/dashboard-admin" icon={Home}>
-                  Dashboard
-                </NavLink>
-
-                <NavLink to="/customer" icon={PersonStanding}>
-                  Customer
-                </NavLink>
-
-                <NavLink to="/distributor" icon={Handshake}>
-                  Distributor
-                </NavLink>
-
-                <Dropdown title="Karyawan" open={karyawanOpen} setOpen={setKaryawanOpen} icon={Users}>
-                  <SubNavLink to="/karyawan">Data Karyawan</SubNavLink>
-                  <SubNavLink to="/jabatan">Data Jabatan</SubNavLink>
-                </Dropdown>
-
-                <Dropdown title="Product" open={productOpen} setOpen={setProductOpen} icon={Boxes}>
-                  <SubNavLink to="/product">Product</SubNavLink>
-                  <SubNavLink to="/product-distributor">Product Distributor</SubNavLink>
-                  <SubNavLink to="/product-terlaris">Product Terlaris</SubNavLink>
-                  <SubNavLink to="/harga-product">Harga Product</SubNavLink>
-                  <SubNavLink to="/jenis">Jenis Product</SubNavLink>
-                  <SubNavLink to="/type">Type Product</SubNavLink>
-                  <SubNavLink to="/bahan">Bahan Product</SubNavLink>
-                </Dropdown>
-
-                <Dropdown title="Transaksi" open={transaksiOpen} setOpen={setTransaksiOpen} icon={Receipt}>
-                  <SubNavLink to="/transaksi">Transaksi Daily</SubNavLink>
-                  <SubNavLink to="/pesanan">Transaksi Pesanan</SubNavLink>
-                  <SubNavLink to="/riwayat-transaksi">Riwayat Transaksi</SubNavLink>
-                </Dropdown>
-
-                <Dropdown title="Inventory" open={inventoryOpen} setOpen={setInventoryOpen} icon={Warehouse}>
-                  <SubNavLink to="/inventory">Inventory</SubNavLink>
-                  <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
-                </Dropdown>
-
-                <Dropdown title="Production" open={productionOpen} setOpen={setProductionOpen} icon={Factory}>
-                  <SubNavLink to="/production">Production</SubNavLink>
-                  <SubNavLink to="/RiwayatProduction">Riwayat Production</SubNavLink>
-                </Dropdown>
-
-                <Dropdown title="Stok Opname" open={stokOpnameOpen} setOpen={setStokOpnameOpen} icon={ClipboardCheck}>
-                  <SubNavLink to="/StokOpname">Stok Opname</SubNavLink>
-                  <SubNavLink to="/Riwayat-StokOpname">Riwayat SO</SubNavLink>
-                </Dropdown>
+                <SidebarContent />
               </nav>
             </div>
           </>

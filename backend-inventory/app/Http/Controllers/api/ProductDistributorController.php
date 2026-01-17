@@ -38,7 +38,7 @@ class ProductDistributorController extends Controller
                 $q->whereIn('kode', ['TOKO', 'BENGKEL']);
             }
         ])
-            ->whereNotNull('distributor_id'); // tetap pertahankan filter distributor
+            ->whereNotNull('distributor_id');
 
         if ($request->filled('search')) {
             $query->where('kode', 'like', "%{$request->search}%");
@@ -266,18 +266,24 @@ class ProductDistributorController extends Controller
     {
         $jenis = $request->filled('jenis_id')
             ? JenisProduct::findOrFail($request->jenis_id)
-            : JenisProduct::firstOrCreate(['nama' => Str::title(trim($request->jenis_nama))]);
+            : JenisProduct::firstOrCreate(['nama' => strtoupper(trim($request->jenis_nama))]);
 
-        $type = $request->filled('type_nama')
-            ? TypeProduct::firstOrCreate([
-                'nama' => Str::title(trim($request->type_nama)),
+        $type = null;
+        if ($request->filled('type_nama')) {
+            $type = TypeProduct::firstOrCreate([
+                'nama' => strtoupper(trim($request->type_nama)),
                 'jenis_id' => $jenis->id
-            ])
-            : ($request->filled('type_id') ? TypeProduct::findOrFail($request->type_id) : null);
+            ]);
+        } elseif ($request->filled('type_id')) {
+            $type = TypeProduct::findOrFail($request->type_id);
+        }
 
-        $bahan = $request->filled('bahan_nama')
-            ? BahanProduct::firstOrCreate(['nama' => Str::title(trim($request->bahan_nama))])
-            : ($request->filled('bahan_id') ? BahanProduct::findOrFail($request->bahan_id) : null);
+        $bahan = null;
+        if ($request->filled('bahan_nama')) {
+            $bahan = BahanProduct::firstOrCreate(['nama' => strtoupper(trim($request->bahan_nama))]);
+        } elseif ($request->filled('bahan_id')) {
+            $bahan = BahanProduct::findOrFail($request->bahan_id);
+        }
 
         return [$jenis, $type, $bahan];
     }
