@@ -64,9 +64,43 @@ const TransaksiPage = ({ setNavbarContent }) => {
   const [printTransaksi, setPrintTransaksi] = useState(null);
   const printRef = useRef();
 
+  const getInvoiceNumber = (transaksiItem) => {
+    const date = new Date(transaksiItem.tanggal || new Date());
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
+  };
+
+  const getSafeFileName = (transaksiItem) => {
+    if (!transaksiItem) return "Invoice-JRS";
+
+    const invoiceNum = getInvoiceNumber(transaksiItem);
+    const customerName = transaksiItem.customer?.name || "Umum";
+
+    const safeInvoiceNum = invoiceNum.replace(/\//g, "-");
+    const safeCustomerName = customerName
+      .replace(/[^a-zA-Z0-9\s\-_]/g, "")
+      .trim()
+      .replace(/\s+/g, "_");
+
+    return `${safeInvoiceNum}-${safeCustomerName}`;
+  };
+
   const handlePrintInvoice = useReactToPrint({
     contentRef: printRef,
-    documentTitle: "Invoice",
+    documentTitle: getSafeFileName(printTransaksi), // 👈 ini akan jadi nama file
+    pageStyle: `
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    @media print {
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  `,
   });
 
   const initialDetail = {
@@ -109,13 +143,13 @@ const TransaksiPage = ({ setNavbarContent }) => {
       setStatusList(statuses);
 
       const selesai = statuses.find((s) =>
-        s.nama.toLowerCase().includes("selesai")
+        s.nama.toLowerCase().includes("selesai"),
       );
       const proses = statuses.find((s) =>
-        s.nama.toLowerCase().includes("proses")
+        s.nama.toLowerCase().includes("proses"),
       );
       const dibatalkan = statuses.find((s) =>
-        s.nama.toLowerCase().includes("dibatalkan")
+        s.nama.toLowerCase().includes("dibatalkan"),
       );
 
       setStatusSelesaiId(selesai?.id || null);
@@ -144,7 +178,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
   useEffect(() => {
     if (typeof setNavbarContent === "function") {
       setNavbarContent(
-        <TransaksiFilterBar search={search} setSearch={setSearch} />
+        <TransaksiFilterBar search={search} setSearch={setSearch} />,
       );
     }
   }, [search, setNavbarContent]);
@@ -156,7 +190,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
   const fetchHargaByProduct = async (
     productId,
     rowIndex,
-    customerId = null
+    customerId = null,
   ) => {
     if (!productId) {
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: [] }));
@@ -308,7 +342,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
       Swal.fire(
         "Error",
         "Nama customer wajib diisi jika membuat customer baru",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -319,7 +353,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
     }
 
     const hasEmpty = form.details.some(
-      (d) => !d.product_id || !d.qty || d.qty <= 0
+      (d) => !d.product_id || !d.qty || d.qty <= 0,
     );
 
     const cleanedDetails = form.details.map((detail) => {
@@ -374,13 +408,13 @@ const TransaksiPage = ({ setNavbarContent }) => {
       safeParseFloat(detail.subtotal) -
       (detail.pembayarans?.reduce(
         (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-        0
+        0,
       ) || 0);
     if (sisa > 0) {
       Swal.fire(
         "Peringatan",
         "Selesaikan pembayaran terlebih dahulu!",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -451,7 +485,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
       : [];
     const totalBayar = pembayarans.reduce(
       (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-      0
+      0,
     );
     return subtotal - totalBayar;
   };
@@ -463,7 +497,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
       : [];
     return pembayarans.reduce(
       (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-      0
+      0,
     );
   };
 
@@ -483,14 +517,14 @@ const TransaksiPage = ({ setNavbarContent }) => {
       `,
       preConfirm: () => {
         const jumlah = unformatRupiah(
-          Swal.getPopup().querySelector("#jumlahBayar").value
+          Swal.getPopup().querySelector("#jumlahBayar").value,
         );
         const tanggal = Swal.getPopup().querySelector("#tanggalBayar").value;
         if (!jumlah || jumlah <= 0) {
           Swal.showValidationMessage("Jumlah bayar harus lebih dari 0");
         } else if (jumlah > sisa) {
           Swal.showValidationMessage(
-            "Jumlah bayar tidak boleh melebihi sisa tagihan"
+            "Jumlah bayar tidak boleh melebihi sisa tagihan",
           );
         } else if (!tanggal) {
           Swal.showValidationMessage("Tanggal bayar wajib diisi");
@@ -543,17 +577,10 @@ const TransaksiPage = ({ setNavbarContent }) => {
       .join(" ");
   };
 
-  const getInvoiceNumber = (transaksiItem) => {
-    const date = new Date(transaksiItem.tanggal || new Date());
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
-  };
-
   const getStokToko = (product) => {
     if (!product || !product.inventories) return 0;
     const tokoInventory = product.inventories.find(
-      (inv) => inv.place && inv.place.kode === "TOKO"
+      (inv) => inv.place && inv.place.kode === "TOKO",
     );
     return tokoInventory ? tokoInventory.qty : 0;
   };
@@ -605,7 +632,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         <p className="text-gray-700 font-bold text-center text-base mt-1">
                           Rp{" "}
                           {formatRupiah(
-                            calculateActiveTotal(item.details, statusProsesId)
+                            calculateActiveTotal(item.details, statusProsesId),
                           )}
                         </p>
                       </div>
@@ -628,8 +655,10 @@ const TransaksiPage = ({ setNavbarContent }) => {
                               <span className="font-semibold">Qty</span> {d.qty}
                             </p>
                             <p className="mt-1">
-                              <span className="font-semibold">Harga Satuan</span> Rp{" "}
-                              {formatRupiah(d.harga)}
+                              <span className="font-semibold">
+                                Harga Satuan
+                              </span>{" "}
+                              Rp {formatRupiah(d.harga)}
                             </p>
                             <p className="mt-1">
                               <span className="font-semibold">Diskon</span> Rp{" "}
@@ -657,7 +686,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                     {isLunas
                                       ? "✅ Lunas"
                                       : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
-                                          sisaBayar
+                                          sisaBayar,
                                         )})`}
                                   </span>
                                 </p>
@@ -968,7 +997,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                     handleHargaBaruChange(
                                       i,
                                       "keterangan",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                 />
@@ -980,7 +1009,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                     handleHargaBaruChange(
                                       i,
                                       "tanggal_berlaku",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                 />
