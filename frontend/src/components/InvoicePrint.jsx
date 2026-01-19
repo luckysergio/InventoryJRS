@@ -409,18 +409,6 @@ const InvoicePrint = forwardRef(({ transaksi }, ref) => {
                   >
                     {productInfo}
                   </div>
-                  {d.catatan && (
-                    <div
-                      style={{
-                        fontSize: "9px",
-                        fontStyle: "italic",
-                        color: "#64748b",
-                        marginTop: "4px",
-                      }}
-                    >
-                      Catatan: {d.catatan}
-                    </div>
-                  )}
                 </td>
                 <td
                   style={{

@@ -6,6 +6,7 @@ import Register from "./pages/Register";
 // Dashboard
 import Dashboard from "./pages/admin/Dashboard";
 
+import UserPage from "./pages/admin/UserPage";
 import KaryawanPage from "./pages/admin/KaryawanPage";
 import JabatanPage from "./pages/admin/JabatanPage";
 import DistributorPage from "./pages/admin/DistributorPage";
@@ -56,6 +57,19 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/user"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                {({ setNavbarContent }) => (
+                  <UserPage setNavbarContent={setNavbarContent} />
+                )}
               </Layout>
             </ProtectedRoute>
           }

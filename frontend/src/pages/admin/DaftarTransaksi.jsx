@@ -11,7 +11,7 @@ import {
   Search,
 } from "lucide-react";
 import api from "../../services/api";
-import InvoicePrint from "../../components/InvoicePrint";
+import InvoiceSimplePrint from "../../components/InvoiceSimplePrint";
 import { useReactToPrint } from "react-to-print";
 
 const safeParseFloat = (value) => {
@@ -88,19 +88,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
 
   const handlePrintInvoice = useReactToPrint({
     contentRef: printRef,
-    documentTitle: getSafeFileName(printTransaksi), // 👈 ini akan jadi nama file
-    pageStyle: `
-    @page {
-      size: A4;
-      margin: 0;
-    }
-    @media print {
-      body {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-    }
-  `,
+    documentTitle: getSafeFileName(printTransaksi),
   });
 
   const initialDetail = {
@@ -1102,12 +1090,17 @@ const TransaksiPage = ({ setNavbarContent }) => {
         )}
       </div>
 
-      <div className="hidden">
-        <InvoicePrint
-          key={printTransaksi?.id}
-          ref={printRef}
-          transaksi={printTransaksi}
-        />
+      <div
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: "0",
+          width: "210mm",
+          padding: "20mm",
+          boxSizing: "border-box",
+        }}
+      >
+        <InvoiceSimplePrint ref={printRef} transaksi={printTransaksi} />
       </div>
     </>
   );

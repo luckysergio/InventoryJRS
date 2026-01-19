@@ -112,7 +112,6 @@ export const RiwayatTransaksiFilterBar = ({
       </button>
     </div>
 
-    {/* MOBILE */}
     <div className="sm:hidden flex flex-wrap items-center gap-2 w-full justify-center">
       <select
         className="py-1 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[100px]"
@@ -174,31 +173,30 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
       );
       let data = res.data || [];
 
-      // Filter status
-      if (selectedStatus !== "all") {
-        const statusIdMap = { selesai: 5, dibatalkan: 6 };
-        const targetStatusId = statusIdMap[selectedStatus];
-        data = data.filter((item) =>
-          item.details.some((d) => d.status_transaksi_id === targetStatusId)
-        );
-      }
+      // Filter berdasarkan status (masih di detail)
+if (selectedStatus !== "all") {
+  const statusIdMap = { selesai: 5, dibatalkan: 6 };
+  const targetStatusId = statusIdMap[selectedStatus];
+  data = data.filter((item) =>
+    item.details.some((d) => d.status_transaksi_id === targetStatusId)
+  );
+}
 
-      // Filter rentang tanggal
-      if (tanggalDari || tanggalSampai) {
-        const dari = tanggalDari ? new Date(tanggalDari) : null;
-        const sampai = tanggalSampai
-          ? new Date(new Date(tanggalSampai).setHours(23, 59, 59, 999))
-          : null;
+// Filter berdasarkan tanggal (sekarang di level transaksi)
+if (tanggalDari || tanggalSampai) {
+  const dari = tanggalDari ? new Date(tanggalDari) : null;
+  const sampai = tanggalSampai
+    ? new Date(new Date(tanggalSampai).setHours(23, 59, 59, 999))
+    : null;
 
-        data = data.filter((item) =>
-          item.details.some((d) => {
-            const detailDate = new Date(d.tanggal);
-            return (
-              (!dari || detailDate >= dari) && (!sampai || detailDate <= sampai)
-            );
-          })
-        );
-      }
+  data = data.filter((item) => {
+    const transaksiDate = new Date(item.tanggal); // ← ambil dari item, bukan detail
+    return (
+      (!dari || transaksiDate >= dari) &&
+      (!sampai || transaksiDate <= sampai)
+    );
+  });
+}
 
       setTransaksi(data);
 

@@ -70,9 +70,43 @@ const PesananPage = ({ setNavbarContent }) => {
   const [printTransaksi, setPrintTransaksi] = useState(null);
   const printRef = useRef();
 
+  const getInvoiceNumber = (transaksiItem) => {
+    const date = new Date(transaksiItem.tanggal || new Date());
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
+  };
+
+  const getSafeFileName = (transaksiItem) => {
+    if (!transaksiItem) return "Invoice-JRS";
+
+    const invoiceNum = getInvoiceNumber(transaksiItem);
+    const customerName = transaksiItem.customer?.name || "Umum";
+
+    const safeInvoiceNum = invoiceNum.replace(/\//g, "-");
+    const safeCustomerName = customerName
+      .replace(/[^a-zA-Z0-9\s\-_]/g, "")
+      .trim()
+      .replace(/\s+/g, "_");
+
+    return `${safeInvoiceNum}-${safeCustomerName}`;
+  };
+
   const handlePrintInvoice = useReactToPrint({
     contentRef: printRef,
-    documentTitle: "Invoice",
+    documentTitle: getSafeFileName(printTransaksi), // 👈 ini akan jadi nama file
+    pageStyle: `
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    @media print {
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  `,
   });
 
   const initialDetail = {
@@ -717,13 +751,6 @@ const PesananPage = ({ setNavbarContent }) => {
         textClass: "text-gray-800",
       }
     );
-  };
-
-  const getInvoiceNumber = (transaksiItem) => {
-    const date = new Date(transaksiItem.tanggal || new Date());
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
   };
 
   const calculateActiveTotalForPesanan = (details) => {

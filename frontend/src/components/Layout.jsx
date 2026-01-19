@@ -1,4 +1,3 @@
-// components/Layout.jsx
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
@@ -15,16 +14,18 @@ const Layout = ({ children }) => {
   }, [location.pathname]);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       <div className="flex flex-col flex-1 min-w-0">
         <Navbar setSidebarOpen={setSidebarOpen} centerContent={navbarContent} />
 
         <main className="flex-1 overflow-y-auto px-6 py-6">
-          {typeof children === "function"
-            ? children({ setNavbarContent })
-            : children}
+          <div className="max-w-7xl mx-auto w-full">
+            {typeof children === "function"
+              ? children({ setNavbarContent })
+              : children}
+          </div>
         </main>
 
         <Footer />

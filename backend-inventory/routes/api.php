@@ -3,6 +3,8 @@
 use App\Http\Controllers\api\PesananTransaksiController;
 use App\Http\Controllers\api\StatusProductController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\api\AuthController;
 use App\Http\Controllers\api\BahanProductController;
@@ -23,14 +25,32 @@ use App\Http\Controllers\api\StatusTransaksiController;
 use App\Http\Controllers\api\StokOpnameController;
 use App\Http\Controllers\api\TransaksiController;
 use App\Http\Controllers\api\TypeProductController;
+use App\Http\Controllers\Api\UserController;
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+RateLimiter::for('login', function (Request $request) {
+    $email = (string) $request->input('email');
+
+    return Limit::perMinute(5)->by(
+        strtolower($email) . '|' . $request->ip()
+    );
+});
+
+Route::post('/register', [AuthController::class, 'register'])
+    ->middleware('throttle:3,1');
+
+Route::post('/login', [AuthController::class, 'login'])
+    ->middleware('throttle:login');
 
 Route::group(['middleware' => ['jwt.auth']], function () {
     Route::get('/profile', [AuthController::class, 'profile']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/refresh', [AuthController::class, 'refresh']);
+
+    Route::get('/users', [UserController::class, 'index']);
+    Route::get('/users/{id}', [UserController::class, 'show']);
+    Route::post('/users', [UserController::class, 'store']);
+    Route::put('/users/{id}', [UserController::class, 'update']);
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
     Route::get('/karyawans', [KaryawanController::class, 'index']);
     Route::post('/karyawans', [KaryawanController::class, 'store']);

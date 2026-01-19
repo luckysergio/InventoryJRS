@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   PersonStanding,
   Users,
+  UserCircle,
   Handshake,
   ArrowLeft,
 } from "lucide-react";
@@ -88,7 +89,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     setKaryawanOpen(isKaryawanRoute);
   }, [location.pathname]);
 
-  // 🧩 Komponen Reusable
   const NavLink = ({ children, to, icon: Icon }) => {
     const isActive = location.pathname === to;
     return (
@@ -208,7 +208,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   );
 
   const SidebarHeader = () => (
-    <div className="px-6 py-6 border-b border-gray-200/50 bg-gradient-to-br from-blue-50 to-white">
+    <div className="px-6 py-3 border-b border-gray-200/50 bg-gradient-to-br from-blue-50 to-white">
       <div className="flex items-center">
         <LogoSection />
         <button
@@ -229,6 +229,9 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     <>
       <NavLink to="/dashboard-admin" icon={Home}>
         Dashboard
+      </NavLink>
+      <NavLink to="/user" icon={UserCircle}>
+        User
       </NavLink>
       <NavLink to="/customer" icon={PersonStanding}>
         Customer
@@ -315,7 +318,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       >
         <div className="flex flex-col h-full">
           <SidebarHeader />
-          <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+          <nav className="flex-1 px-4 py-3 space-y-1.5 overflow-y-auto">
             <SidebarContent />
           </nav>
         </div>
@@ -347,7 +350,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               </button>
             </div>
             <div className="flex flex-col h-full overflow-hidden">
-              <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+              <nav className="flex-1 px-4 py-3 space-y-1.5 overflow-y-auto">
                 <SidebarContent />
               </nav>
             </div>

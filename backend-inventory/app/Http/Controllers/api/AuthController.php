@@ -45,13 +45,28 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'email'    => 'required|email',
+            'password' => 'required|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Data tidak valid'
+            ], 422);
+        }
+
         $credentials = $request->only('email', 'password');
 
         if (!$token = JWTAuth::attempt($credentials)) {
+
+            usleep(500000);
+
             return response()->json([
                 'status'  => false,
                 'message' => 'Email atau password salah'
-            ], 401);
+            ], 422);
         }
 
         return response()->json([
@@ -79,7 +94,7 @@ class AuthController extends Controller
             'message' => 'Logout berhasil'
         ]);
     }
-    
+
     public function refresh()
     {
         $token = JWTAuth::refresh(JWTAuth::getToken());
