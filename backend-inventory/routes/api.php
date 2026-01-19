@@ -42,156 +42,156 @@ Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:login');
 
 Route::group(['middleware' => ['jwt.auth']], function () {
-    Route::get('/profile', [AuthController::class, 'profile']);
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::post('/refresh', [AuthController::class, 'refresh']);
+    Route::get('/profile', [AuthController::class, 'profile'])->middleware('role:admin,kasir,operator');
+    Route::post('/logout', [AuthController::class, 'logout'])->middleware('role:admin,kasir,operator');
+    Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('role:admin,kasir,operator');
 
-    Route::get('/users', [UserController::class, 'index']);
-    Route::get('/users/{id}', [UserController::class, 'show']);
-    Route::post('/users', [UserController::class, 'store']);
-    Route::put('/users/{id}', [UserController::class, 'update']);
-    Route::delete('/users/{id}', [UserController::class, 'destroy']);
+    Route::get('/users', [UserController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::get('/users/{id}', [UserController::class, 'show'])->middleware('role:admin');
+    Route::post('/users', [UserController::class, 'store'])->middleware('role:admin');
+    Route::put('/users/{id}', [UserController::class, 'update'])->middleware('role:admin');
+    Route::delete('/users/{id}', [UserController::class, 'destroy'])->middleware('role:admin');
 
-    Route::get('/karyawans', [KaryawanController::class, 'index']);
-    Route::post('/karyawans', [KaryawanController::class, 'store']);
-    Route::get('/karyawans/{karyawan}', [KaryawanController::class, 'show']);
-    Route::put('/karyawans/{karyawan}', [KaryawanController::class, 'update']);
-    Route::delete('/karyawans/{karyawan}', [KaryawanController::class, 'destroy']);
+    Route::get('/karyawans', [KaryawanController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/karyawans', [KaryawanController::class, 'store'])->middleware('role:admin');
+    Route::get('/karyawans/{karyawan}', [KaryawanController::class, 'show'])->middleware('role:admin');
+    Route::put('/karyawans/{karyawan}', [KaryawanController::class, 'update'])->middleware('role:admin');
+    Route::delete('/karyawans/{karyawan}', [KaryawanController::class, 'destroy'])->middleware('role:admin');
 
-    Route::get('/jabatans', [JabatanController::class, 'index']);
-    Route::post('/jabatans', [JabatanController::class, 'store']);
-    Route::get('/jabatans/{jabatan}', [JabatanController::class, 'show']);
-    Route::put('/jabatans/{jabatan}', [JabatanController::class, 'update']);
-    Route::delete('/jabatans/{jabatan}', [JabatanController::class, 'destroy']);
+    Route::get('/jabatans', [JabatanController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/jabatans', [JabatanController::class, 'store'])->middleware('role:admin');
+    Route::get('/jabatans/{jabatan}', [JabatanController::class, 'show'])->middleware('role:admin');
+    Route::put('/jabatans/{jabatan}', [JabatanController::class, 'update'])->middleware('role:admin');
+    Route::delete('/jabatans/{jabatan}', [JabatanController::class, 'destroy'])->middleware('role:admin');
 
     // Customers
-    Route::get('/customers', [CustomerController::class, 'index']);
-    Route::post('/customers', [CustomerController::class, 'store']);
-    Route::get('/customers/{id}', [CustomerController::class, 'show']);
-    Route::put('/customers/{id}', [CustomerController::class, 'update']);
-    Route::delete('/customers/{id}', [CustomerController::class, 'destroy']);
+    Route::get('/customers', [CustomerController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/customers', [CustomerController::class, 'store'])->middleware('role:admin,kasir');
+    Route::get('/customers/{id}', [CustomerController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::put('/customers/{id}', [CustomerController::class, 'update'])->middleware('role:admin,kasir');
+    Route::delete('/customers/{id}', [CustomerController::class, 'destroy'])->middleware('role:admin');
 
-    Route::get('/distributors', [DistributorController::class, 'index']);
-    Route::post('/distributors', [DistributorController::class, 'store']);
-    Route::get('/distributors/{id}', [DistributorController::class, 'show']);
-    Route::put('/distributors/{id}', [DistributorController::class, 'update']);
-    Route::delete('/distributors/{id}', [DistributorController::class, 'destroy']);
+    Route::get('/distributors', [DistributorController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/distributors', [DistributorController::class, 'store'])->middleware('role:admin,kasir');
+    Route::get('/distributors/{id}', [DistributorController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::put('/distributors/{id}', [DistributorController::class, 'update'])->middleware('role:admin,kasir');
+    Route::delete('/distributors/{id}', [DistributorController::class, 'destroy'])->middleware('role:admin');
 
     // Products
-    Route::get('/products/available', [ProductController::class, 'available']);
-    Route::get('/products/lowStok', [ProductController::class, 'lowStock']);
-    Route::get('/products/best-seller', [ProductController::class, 'bestSeller']);
-    Route::get('/products', [ProductController::class, 'index']);
-    Route::post('/products', [ProductController::class, 'store']);
-    Route::get('/products/{id}', [ProductController::class, 'show']);
-    Route::put('/products/{id}', [ProductController::class, 'update']);
-    Route::delete('/products/{id}', [ProductController::class, 'destroy']);
-    Route::post('/products/{product}/upload-foto', [ProductController::class, 'uploadFoto']);
+    Route::get('/products/available', [ProductController::class, 'available'])->middleware('role:admin,kasir,operator');
+    Route::get('/products/lowStok', [ProductController::class, 'lowStock'])->middleware('role:admin,kasir,operator');
+    Route::get('/products/best-seller', [ProductController::class, 'bestSeller'])->middleware('role:admin,kasir,operator');
+    Route::get('/products', [ProductController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/products', [ProductController::class, 'store'])->middleware('role:admin,kasir');
+    Route::get('/products/{id}', [ProductController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::put('/products/{id}', [ProductController::class, 'update'])->middleware('role:admin');
+    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->middleware('role:admin');
+    Route::post('/products/{product}/upload-foto', [ProductController::class, 'uploadFoto'])->middleware('role:admin,kasir,operator');
 
-    Route::get('/product-distributors', [ProductDistributorController::class, 'index']);
-    Route::post('/product-distributors', [ProductDistributorController::class, 'store']);
-    Route::get('/product-distributors/{id}', [ProductDistributorController::class, 'show']);
-    Route::put('/product-distributors/{id}', [ProductDistributorController::class, 'update']);
-    Route::delete('/product-distributors/{id}', [ProductDistributorController::class, 'destroy']);
+    Route::get('/product-distributors', [ProductDistributorController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/product-distributors', [ProductDistributorController::class, 'store'])->middleware('role:admin,kasir');
+    Route::get('/product-distributors/{id}', [ProductDistributorController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::put('/product-distributors/{id}', [ProductDistributorController::class, 'update'])->middleware('role:admin');
+    Route::delete('/product-distributors/{id}', [ProductDistributorController::class, 'destroy'])->middleware('role:admin');
 
     // Jenis Product
-    Route::get('/jenis', [JenisProductController::class, 'index']);
-    Route::post('/jenis', [JenisProductController::class, 'store']);
-    Route::get('/jenis/{id}', [JenisProductController::class, 'show']);
-    Route::put('/jenis/{jenisProduct}', [JenisProductController::class, 'update']);
-    Route::delete('/jenis/{jenisProduct}', [JenisProductController::class, 'destroy']);
+    Route::get('/jenis', [JenisProductController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/jenis', [JenisProductController::class, 'store'])->middleware('role:admin,kasir');
+    Route::get('/jenis/{id}', [JenisProductController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::put('/jenis/{jenisProduct}', [JenisProductController::class, 'update'])->middleware('role:admin,kasie');
+    Route::delete('/jenis/{jenisProduct}', [JenisProductController::class, 'destroy'])->middleware('role:admin');
 
     // Bahan Product
-    Route::get('/bahan', [BahanProductController::class, 'index']);
-    Route::get('/bahan/{id}', [BahanProductController::class, 'show']);
-    Route::post('/bahan', [BahanProductController::class, 'store']);
-    Route::put('/bahan/{id}', [BahanProductController::class, 'update']);
-    Route::delete('/bahan/{id}', [BahanProductController::class, 'destroy']);
+    Route::get('/bahan', [BahanProductController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::get('/bahan/{id}', [BahanProductController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::post('/bahan', [BahanProductController::class, 'store'])->middleware('role:admin,kasir');
+    Route::put('/bahan/{id}', [BahanProductController::class, 'update'])->middleware('role:admin,kasir');
+    Route::delete('/bahan/{id}', [BahanProductController::class, 'destroy'])->middleware('role:admin');
 
     // // Type Product
-    Route::get('/type', [TypeProductController::class, 'index']);
-    Route::post('/type', [TypeProductController::class, 'store']);
-    Route::get('/type/by-jenis/{jenisId}', [TypeProductController::class, 'getByJenis']);
-    Route::get('/type/{id}', [TypeProductController::class, 'show']);
-    Route::put('/type/{id}', [TypeProductController::class, 'update']);
-    Route::delete('/type/{id}', [TypeProductController::class, 'destroy']);
+    Route::get('/type', [TypeProductController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/type', [TypeProductController::class, 'store'])->middleware('role:admin,kasir');
+    Route::get('/type/by-jenis/{jenisId}', [TypeProductController::class, 'getByJenis'])->middleware('role:admin,kasir,operator');
+    Route::get('/type/{id}', [TypeProductController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::put('/type/{id}', [TypeProductController::class, 'update'])->middleware('role:admin,kasir');
+    Route::delete('/type/{id}', [TypeProductController::class, 'destroy'])->middleware('role:admin');
 
     // Harga Product
-    Route::get('/harga', [HargaProductController::class, 'index']);
-    Route::post('/harga', [HargaProductController::class, 'store']);
-    Route::get('/harga/{id}', [HargaProductController::class, 'show']);
-    Route::put('/harga/{id}', [HargaProductController::class, 'update']);
-    Route::delete('/harga/{id}', [HargaProductController::class, 'destroy']);
-    Route::get('/harga/by-product/{id}', [HargaProductController::class, 'byProduct']);
+    Route::get('/harga', [HargaProductController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/harga', [HargaProductController::class, 'store'])->middleware('role:admin,kasir');
+    Route::get('/harga/{id}', [HargaProductController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::put('/harga/{id}', [HargaProductController::class, 'update'])->middleware('role:admin,kasir');
+    Route::delete('/harga/{id}', [HargaProductController::class, 'destroy'])->middleware('role:admin');
+    Route::get('/harga/by-product/{id}', [HargaProductController::class, 'byProduct'])->middleware('role:admin,kasir,operator');
 
     // Status Transaksi
-    Route::get('/status-transaksi', [StatusTransaksiController::class, 'index']);
-    Route::post('/status-transaksi', [StatusTransaksiController::class, 'store']);
-    Route::put('/status-transaksi/{id}', [StatusTransaksiController::class, 'update']);
-    Route::delete('/status-transaksi/{id}', [StatusTransaksiController::class, 'destroy']);
+    Route::get('/status-transaksi', [StatusTransaksiController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/status-transaksi', [StatusTransaksiController::class, 'store'])->middleware('role:admin');
+    Route::put('/status-transaksi/{id}', [StatusTransaksiController::class, 'update'])->middleware('role:admin');
+    Route::delete('/status-transaksi/{id}', [StatusTransaksiController::class, 'destroy'])->middleware('role:admin');
 
     // Transaksi
-    Route::get('/transaksi', [TransaksiController::class, 'index']);
-    Route::get('/transaksi/aktif', [TransaksiController::class, 'aktif']);
-    Route::get('/transaksi/riwayat/all', [TransaksiController::class, 'riwayatAll']);
-    Route::get('/transaksi/riwayat/customer/{customerId}', [TransaksiController::class, 'riwayatByCustomer']);
-    Route::post('/transaksi', [TransaksiController::class, 'store']);
-    Route::get('/transaksi/{id}', [TransaksiController::class, 'show']);
-    Route::delete('/transaksi/{id}', [TransaksiController::class, 'destroy']);
-    Route::patch('/transaksi-detail/{id}/status', [TransaksiController::class, 'updateStatus']);
-    Route::put('/transaksi/{id}', [TransaksiController::class, 'update']);
-    Route::post('/transaksi-detail/{detailId}/cancel', [TransaksiController::class, 'cancelDetail']);
+    Route::get('/transaksi', [TransaksiController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::get('/transaksi/aktif', [TransaksiController::class, 'aktif'])->middleware('role:admin,kasir,operator');
+    Route::get('/transaksi/riwayat/all', [TransaksiController::class, 'riwayatAll'])->middleware('role:admin,kasir,operator');
+    Route::get('/transaksi/riwayat/customer/{customerId}', [TransaksiController::class, 'riwayatByCustomer'])->middleware('role:admin,kasir,operator');
+    Route::post('/transaksi', [TransaksiController::class, 'store'])->middleware('role:admin,kasir,operator');
+    Route::get('/transaksi/{id}', [TransaksiController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::delete('/transaksi/{id}', [TransaksiController::class, 'destroy'])->middleware('role:admin');
+    Route::patch('/transaksi-detail/{id}/status', [TransaksiController::class, 'updateStatus'])->middleware('role:admin,kasir');
+    Route::put('/transaksi/{id}', [TransaksiController::class, 'update'])->middleware('role:admin,kasir');
+    Route::post('/transaksi-detail/{detailId}/cancel', [TransaksiController::class, 'cancelDetail'])->middleware('role:admin');
 
     // Transaksi Pesanan
-    Route::get('/pesanan', [PesananTransaksiController::class, 'index']);
-    Route::get('/pesanan/aktif', [PesananTransaksiController::class, 'aktif']);
-    Route::get('/pesanan/{id}', [PesananTransaksiController::class, 'show']);
-    Route::post('/pesanan', [PesananTransaksiController::class, 'store']);
-    Route::put('/pesanan/{id}', [PesananTransaksiController::class, 'update']);
-    Route::delete('/pesanan/{id}', [PesananTransaksiController::class, 'destroy']);
-    Route::post('/pesanan/{id}/cancel', [PesananTransaksiController::class, 'cancel']);
-    Route::patch('/pesanan/{id}/selesai', [PesananTransaksiController::class, 'selesai']);
-    Route::post('/pesanan/detail/{id}/status', [PesananTransaksiController::class, 'updateStatus']);
-    Route::get('/pesanan/{id}/print', [PesananTransaksiController::class, 'printNota']);
+    Route::get('/pesanan', [PesananTransaksiController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::get('/pesanan/aktif', [PesananTransaksiController::class, 'aktif'])->middleware('role:admin,kasir,operator');
+    Route::get('/pesanan/{id}', [PesananTransaksiController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::post('/pesanan', [PesananTransaksiController::class, 'store'])->middleware('role:admin,kasir');
+    Route::put('/pesanan/{id}', [PesananTransaksiController::class, 'update'])->middleware('role:admin,kasir');
+    Route::delete('/pesanan/{id}', [PesananTransaksiController::class, 'destroy'])->middleware('role:admin');
+    Route::post('/pesanan/{id}/cancel', [PesananTransaksiController::class, 'cancel'])->middleware('role:admin');
+    Route::patch('/pesanan/{id}/selesai', [PesananTransaksiController::class, 'selesai'])->middleware('role:admin,kasir');
+    Route::post('/pesanan/detail/{id}/status', [PesananTransaksiController::class, 'updateStatus'])->middleware('role:admin');
+    Route::get('/pesanan/{id}/print', [PesananTransaksiController::class, 'printNota'])->middleware('role:admin');
 
     // Pembayaran
-    Route::get('/pembayaran', [PembayaranController::class, 'index']);
-    Route::post('/pembayaran', [PembayaranController::class, 'store']);
-    Route::get('/pembayaran/{id}', [PembayaranController::class, 'show']);
-    Route::put('/pembayaran/{id}', [PembayaranController::class, 'update']);
-    Route::delete('/pembayaran/{id}', [PembayaranController::class, 'destroy']);
+    Route::get('/pembayaran', [PembayaranController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/pembayaran', [PembayaranController::class, 'store'])->middleware('role:admin,kasir');
+    Route::get('/pembayaran/{id}', [PembayaranController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::put('/pembayaran/{id}', [PembayaranController::class, 'update'])->middleware('role:admin');
+    Route::delete('/pembayaran/{id}', [PembayaranController::class, 'destroy'])->middleware('role:admin');
 
     // Place
-    Route::get('/places', [PlaceController::class, 'index']);
-    Route::post('/places', [PlaceController::class, 'store']);
-    Route::get('/places/{id}', [PlaceController::class, 'show']);
-    Route::put('/places/{id}', [PlaceController::class, 'update']);
-    Route::delete('/places/{id}', [PlaceController::class, 'destroy']);
+    Route::get('/places', [PlaceController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/places', [PlaceController::class, 'store'])->middleware('role:admin');
+    Route::get('/places/{id}', [PlaceController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::put('/places/{id}', [PlaceController::class, 'update'])->middleware('role:admin');
+    Route::delete('/places/{id}', [PlaceController::class, 'destroy'])->middleware('role:admin');
 
     // Production
-    Route::get('/productions/pesanan', [ProductionController::class, 'pesananDipesan']);
-    Route::get('/productions', [ProductionController::class, 'index']);
-    Route::post('/productions', [ProductionController::class, 'store']);
-    Route::get('/productions/{id}', [ProductionController::class, 'show']);
-    Route::put('/productions/{id}', [ProductionController::class, 'update']);
-    Route::delete('/productions/{id}', [ProductionController::class, 'destroy']);
+    Route::get('/productions/pesanan', [ProductionController::class, 'pesananDipesan'])->middleware('role:admin,kasir,operator');
+    Route::get('/productions', [ProductionController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/productions', [ProductionController::class, 'store'])->middleware('role:admin,operator');
+    Route::get('/productions/{id}', [ProductionController::class, 'show'])->middleware('role:admin,kasir,operator');
+    Route::put('/productions/{id}', [ProductionController::class, 'update'])->middleware('role:admin,operator');
+    Route::delete('/productions/{id}', [ProductionController::class, 'destroy'])->middleware('role:admin');
 
     // Product Movement
-    Route::get('/product-movements', [ProductMovementController::class, 'index']);
-    Route::post('/product-movements', [ProductMovementController::class, 'store']);
+    Route::get('/product-movements', [ProductMovementController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/product-movements', [ProductMovementController::class, 'store'])->middleware('role:admin,kasir,operator');
 
     // Inventory
-    Route::get('/inventories', [InventoryController::class, 'index']);
-    Route::get('/inventories/place/{placeId}', [InventoryController::class, 'byPlace']);
-    Route::get('/inventories/product/{productId}', [InventoryController::class, 'byProduct']);
-    Route::get('/inventories/product/{productId}/total', [InventoryController::class, 'totalProduct']);
+    Route::get('/inventories', [InventoryController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::get('/inventories/place/{placeId}', [InventoryController::class, 'byPlace'])->middleware('role:admin,kasir,operator');
+    Route::get('/inventories/product/{productId}', [InventoryController::class, 'byProduct'])->middleware('role:admin,kasir,operator');
+    Route::get('/inventories/product/{productId}/total', [InventoryController::class, 'totalProduct'])->middleware('role:admin,kasir,operator');
 
     // Stok Opname
-    Route::get('/stok-opname', [StokOpnameController::class, 'index']);
-    Route::post('/stok-opname', [StokOpnameController::class, 'store']);
-    Route::get('/stok-opname/{id}', [StokOpnameController::class, 'show']);
+    Route::get('/stok-opname', [StokOpnameController::class, 'index'])->middleware('role:admin,kasir,operator');
+    Route::post('/stok-opname', [StokOpnameController::class, 'store'])->middleware('role:admin');
+    Route::get('/stok-opname/{id}', [StokOpnameController::class, 'show'])->middleware('role:admin,kasir,operator');
 
-    Route::post('/stok-opname/{id}/detail', [StokOpnameController::class, 'storeDetail']);
-    Route::post('/stok-opname/{id}/selesai', [StokOpnameController::class, 'selesai']);
-    Route::post('/stok-opname/{id}/batal', [StokOpnameController::class, 'batalkan']);
+    Route::post('/stok-opname/{id}/detail', [StokOpnameController::class, 'storeDetail'])->middleware('role:admin,kasir,operator');
+    Route::post('/stok-opname/{id}/selesai', [StokOpnameController::class, 'selesai'])->middleware('role:admin');
+    Route::post('/stok-opname/{id}/batal', [StokOpnameController::class, 'batalkan'])->middleware('role:admin');
 });

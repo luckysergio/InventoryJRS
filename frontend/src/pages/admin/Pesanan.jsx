@@ -11,7 +11,7 @@ import {
   Search,
 } from "lucide-react";
 import api from "../../services/api";
-import InvoicePrint from "../../components/InvoicePrint";
+import InvoiceSimplePrint from "../../components/InvoiceSimplePrint";
 import { useReactToPrint } from "react-to-print";
 
 const safeParseFloat = (value) => {
@@ -94,19 +94,7 @@ const PesananPage = ({ setNavbarContent }) => {
 
   const handlePrintInvoice = useReactToPrint({
     contentRef: printRef,
-    documentTitle: getSafeFileName(printTransaksi), // 👈 ini akan jadi nama file
-    pageStyle: `
-    @page {
-      size: A4;
-      margin: 0;
-    }
-    @media print {
-      body {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-    }
-  `,
+    documentTitle: getSafeFileName(printTransaksi),
   });
 
   const initialDetail = {
@@ -190,7 +178,7 @@ const PesananPage = ({ setNavbarContent }) => {
   useEffect(() => {
     if (typeof setNavbarContent === "function") {
       setNavbarContent(
-        <PesananFilterBar search={search} setSearch={setSearch} />
+        <PesananFilterBar search={search} setSearch={setSearch} />,
       );
     }
   }, [search, setNavbarContent]);
@@ -212,7 +200,7 @@ const PesananPage = ({ setNavbarContent }) => {
   const fetchHargaByProduct = async (
     productId,
     rowIndex,
-    customerId = null
+    customerId = null,
   ) => {
     if (!productId) {
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: [] }));
@@ -434,8 +422,8 @@ const PesananPage = ({ setNavbarContent }) => {
                   detail.product_baru.jenis_id === "new"
                     ? null
                     : detail.product_baru.jenis_id
-                    ? Number(detail.product_baru.jenis_id)
-                    : null,
+                      ? Number(detail.product_baru.jenis_id)
+                      : null,
 
                 jenis_nama:
                   detail.product_baru.jenis_id === "new"
@@ -472,14 +460,14 @@ const PesananPage = ({ setNavbarContent }) => {
         ...(detail.harga_product_id
           ? {}
           : detail.harga_baru?.harga
-          ? {
-              harga_baru: {
-                harga: Number(detail.harga_baru.harga),
-                keterangan: detail.harga_baru.keterangan || "",
-                tanggal_berlaku: detail.harga_baru.tanggal_berlaku || null,
-              },
-            }
-          : {}),
+            ? {
+                harga_baru: {
+                  harga: Number(detail.harga_baru.harga),
+                  keterangan: detail.harga_baru.keterangan || "",
+                  tanggal_berlaku: detail.harga_baru.tanggal_berlaku || null,
+                },
+              }
+            : {}),
         qty: Number(detail.qty),
         status_transaksi_id:
           Number(detail.status_transaksi_id) || Number(statusDiPesanId),
@@ -535,13 +523,13 @@ const PesananPage = ({ setNavbarContent }) => {
       safeParseFloat(detail.subtotal) -
       (detail.pembayarans?.reduce(
         (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-        0
+        0,
       ) || 0);
     if (sisa > 0) {
       Swal.fire(
         "Peringatan",
         "Selesaikan pembayaran terlebih dahulu!",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -610,7 +598,7 @@ const PesananPage = ({ setNavbarContent }) => {
       : [];
     const totalBayar = pembayarans.reduce(
       (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-      0
+      0,
     );
     return subtotal - totalBayar;
   };
@@ -622,7 +610,7 @@ const PesananPage = ({ setNavbarContent }) => {
       : [];
     return pembayarans.reduce(
       (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-      0
+      0,
     );
   };
 
@@ -631,7 +619,7 @@ const PesananPage = ({ setNavbarContent }) => {
     const totalBayar = Array.isArray(detail.pembayarans)
       ? detail.pembayarans.reduce(
           (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-          0
+          0,
         )
       : 0;
     return subtotal - totalBayar <= 0;
@@ -660,14 +648,14 @@ const PesananPage = ({ setNavbarContent }) => {
     `,
       preConfirm: () => {
         const jumlah = unformatRupiah(
-          Swal.getPopup().querySelector("#jumlahBayar").value
+          Swal.getPopup().querySelector("#jumlahBayar").value,
         );
         const tanggal = Swal.getPopup().querySelector("#tanggalBayar").value;
         if (!jumlah || jumlah <= 0) {
           Swal.showValidationMessage("Jumlah bayar harus lebih dari 0");
         } else if (jumlah > sisa) {
           Swal.showValidationMessage(
-            "Jumlah bayar tidak boleh melebihi sisa tagihan"
+            "Jumlah bayar tidak boleh melebihi sisa tagihan",
           );
         } else if (!tanggal) {
           Swal.showValidationMessage("Tanggal bayar wajib diisi");
@@ -774,8 +762,8 @@ const PesananPage = ({ setNavbarContent }) => {
               .map((item) => {
                 const isCompletedOrCancelled = item.details.every((d) =>
                   [statusSelesaiId, statusDibatalkanId].includes(
-                    d.status_transaksi_id
-                  )
+                    d.status_transaksi_id,
+                  ),
                 );
                 if (isCompletedOrCancelled) return null;
 
@@ -804,7 +792,7 @@ const PesananPage = ({ setNavbarContent }) => {
                         <p className="text-gray-700 font-bold text-center text-base mt-1">
                           Rp{" "}
                           {formatRupiah(
-                            calculateActiveTotalForPesanan(item.details)
+                            calculateActiveTotalForPesanan(item.details),
                           )}
                         </p>
                       </div>
@@ -859,7 +847,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                   {isLunas
                                     ? "✅ Lunas"
                                     : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
-                                        sisaBayar
+                                        sisaBayar,
                                       )})`}
                                 </span>
                               </p>
@@ -1086,7 +1074,7 @@ const PesananPage = ({ setNavbarContent }) => {
                             handleDetailChange(
                               i,
                               "product_id",
-                              val === "new" ? "new" : val
+                              val === "new" ? "new" : val,
                             );
                           }}
                           className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
@@ -1114,7 +1102,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                   handleProductBaruChange(
                                     i,
                                     "jenis_id",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 required
@@ -1137,7 +1125,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                     handleProductBaruChange(
                                       i,
                                       "jenis_nama",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   required
@@ -1159,7 +1147,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                     handleProductBaruChange(
                                       i,
                                       "type_nama",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                 />
@@ -1172,7 +1160,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                       handleProductBaruChange(
                                         i,
                                         "type_id",
-                                        e.target.value
+                                        e.target.value,
                                       )
                                     }
                                   >
@@ -1196,7 +1184,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                         handleProductBaruChange(
                                           i,
                                           "type_nama",
-                                          e.target.value
+                                          e.target.value,
                                         )
                                       }
                                     />
@@ -1220,7 +1208,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                   handleProductBaruChange(
                                     i,
                                     "bahan_id",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                               >
@@ -1242,7 +1230,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                     handleProductBaruChange(
                                       i,
                                       "bahan_nama",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                 />
@@ -1259,7 +1247,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                   handleProductBaruChange(
                                     i,
                                     "ukuran",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 required
@@ -1273,7 +1261,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                   handleProductBaruChange(
                                     i,
                                     "keterangan",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                               />
@@ -1319,7 +1307,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                     handleHargaBaruChange(
                                       i,
                                       "keterangan",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                 />
@@ -1331,7 +1319,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                     handleHargaBaruChange(
                                       i,
                                       "tanggal_berlaku",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                 />
@@ -1407,7 +1395,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                     handleHargaBaruChange(
                                       i,
                                       "keterangan",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                 />
@@ -1419,7 +1407,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                     handleHargaBaruChange(
                                       i,
                                       "tanggal_berlaku",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                 />
@@ -1512,12 +1500,17 @@ const PesananPage = ({ setNavbarContent }) => {
         )}
       </div>
 
-      <div className="hidden">
-        <InvoicePrint
-          key={printTransaksi?.id}
-          ref={printRef}
-          transaksi={printTransaksi}
-        />
+      <div
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: "0",
+          width: "210mm",
+          padding: "20mm",
+          boxSizing: "border-box",
+        }}
+      >
+        <InvoiceSimplePrint ref={printRef} transaksi={printTransaksi} />
       </div>
     </>
   );

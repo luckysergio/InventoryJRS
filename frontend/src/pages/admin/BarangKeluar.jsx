@@ -1,4 +1,3 @@
-// src/pages/admin/BarangKeluarPage.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
 import { Calendar } from "lucide-react";
@@ -20,7 +19,6 @@ export const BarangKeluarFilterBar = ({
   setFilterSampai,
 }) => (
   <div className="flex items-center gap-2 w-full">
-    {/* Dari Tanggal */}
     <div className="relative flex-1 min-w-[100px] sm:min-w-[150px]">
       <Calendar className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
       <input
@@ -31,7 +29,6 @@ export const BarangKeluarFilterBar = ({
       />
     </div>
 
-    {/* Sampai Tanggal */}
     <div className="relative flex-1 min-w-[100px] sm:min-w-[150px]">
       <Calendar className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
       <input

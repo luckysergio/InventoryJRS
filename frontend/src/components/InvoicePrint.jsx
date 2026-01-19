@@ -683,53 +683,6 @@ const InvoicePrint = forwardRef(({ transaksi }, ref) => {
         </div>
       </div>
 
-      {/* Syarat & Ketentuan — Full Width */}
-      <div
-        style={{
-          marginTop: "25px",
-          textAlign: "center",
-          padding: "15px",
-          backgroundColor: "#f0f9ff",
-          borderRadius: "8px",
-          border: "1px solid #bae6fd",
-          width: "100%",
-          boxSizing: "border-box",
-        }}
-      >
-        <div
-          style={{
-            fontSize: "12px",
-            fontWeight: "700",
-            color: "#0369a1",
-            marginBottom: "12px",
-            textTransform: "uppercase",
-          }}
-        >
-          Syarat & Ketentuan
-        </div>
-        <div
-          style={{
-            fontSize: "9px",
-            color: "#64748b",
-            lineHeight: 1.7,
-            display: "flex",
-            flexDirection: "column",
-            gap: "6px",
-            maxWidth: "600px",
-            margin: "0 auto",
-          }}
-        >
-          <div>• Pembayaran dianggap sah setelah dikonfirmasi oleh admin</div>
-          <div>• Invoice ini berlaku sebagai bukti transaksi yang sah</div>
-          <div>• Pengiriman barang dilakukan setelah pembayaran lunas</div>
-          <div>
-            • Klaim kerusakan harus diajukan maksimal 3 hari setelah barang
-            diterima
-          </div>
-          <div>• Harga sudah termasuk PPN 11% (jika berlaku)</div>
-        </div>
-      </div>
-
       {/* Footer */}
       <div
         style={{

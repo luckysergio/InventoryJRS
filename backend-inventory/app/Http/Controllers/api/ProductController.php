@@ -588,17 +588,19 @@ class ProductController extends Controller
                 ->join('products as p', 'p.id', '=', 'td.product_id')
                 ->join('status_transaksis as st', 'st.id', '=', 'td.status_transaksi_id')
                 ->where('st.nama', 'Selesai');
+
+            // ✅ Filter berdasarkan tanggal transaksi (header), bukan detail
             if ($dari) {
-                $query->whereDate('td.tanggal', '>=', $dari);
+                $query->whereDate('t.tanggal', '>=', $dari);
             }
             if ($sampai) {
-                $query->whereDate('td.tanggal', '<=', $sampai);
+                $query->whereDate('t.tanggal', '<=', $sampai);
             }
 
             $aggregated = $query->select(
                 'td.product_id',
                 DB::raw('SUM(td.qty) as total_qty'),
-                DB::raw('MAX(td.tanggal) as transaksi_terakhir')
+                DB::raw('MAX(t.tanggal) as transaksi_terakhir') // ✅ ambil dari t.tanggal
             )
                 ->groupBy('td.product_id')
                 ->orderByDesc('total_qty')
@@ -615,7 +617,7 @@ class ProductController extends Controller
                 ]);
             }
 
-            // Ambil Product dengan relasi (sama seperti lowStock)
+            // Ambil Product dengan relasi
             $products = Product::with(['jenis', 'type', 'bahan'])
                 ->whereIn('id', $productIds)
                 ->get()
@@ -626,7 +628,6 @@ class ProductController extends Controller
             foreach ($aggregated as $item) {
                 if (isset($products[$item->product_id])) {
                     $product = $products[$item->product_id];
-                    // Tambahkan atribut dinamis
                     $product->total_qty = (int) $item->total_qty;
                     $product->transaksi_terakhir = $item->transaksi_terakhir;
                     $result[] = $product;
@@ -641,6 +642,12 @@ class ProductController extends Controller
                 'data' => $result
             ]);
         } catch (\Exception $e) {
+            // ⚠️ Jangan biarkan catch kosong!
+            return response()->json([
+                'status' => false,
+                'message' => 'Terjadi kesalahan saat mengambil data',
+                'error' => env('APP_DEBUG', false) ? $e->getMessage() : null
+            ], 500);
         }
     }
 

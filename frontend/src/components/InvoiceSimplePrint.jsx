@@ -21,10 +21,15 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
   const invoiceDate = transaksi.tanggal
     ? new Date(transaksi.tanggal)
     : new Date();
-  const options = { day: "2-digit", month: "2-digit", year: "numeric" };
-  const formattedDate = invoiceDate.toLocaleDateString("id-ID", options);
 
-  // Format nomor invoice: JRS/INV/YYYY/MM/{id}
+  const formattedDate = invoiceDate
+    .toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    })
+    .replace(/\s+/g, " ");
+
   const year = invoiceDate.getFullYear();
   const month = String(invoiceDate.getMonth() + 1).padStart(2, "0");
   const invoiceNumber = `JRS/INV/${year}/${month}/${transaksi.id}`;
@@ -45,14 +50,23 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
 
   const totalAfterDiscount = totalSubtotal - totalDiscount;
 
+  const totalPaid = activeDetails.reduce((sum, d) => {
+    const paid = Array.isArray(d.pembayarans)
+      ? d.pembayarans.reduce((s, p) => s + safeParseFloat(p.jumlah_bayar), 0)
+      : 0;
+    return sum + paid;
+  }, 0);
+
+  const sisaTagihan = totalAfterDiscount - totalPaid;
+
   return (
     <div
       ref={ref}
       className="invoice-a4"
       style={{
-        width: "297mm", // ✅ Landscape: lebar = 297mm
-        minHeight: "210mm", // ✅ Landscape: tinggi = 210mm
-        padding: "15mm", // ✅ Lebih kecil karena ruang lebih luas
+        width: "297mm",
+        minHeight: "210mm",
+        padding: "15mm",
         margin: "0 auto",
         backgroundColor: "white",
         fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
@@ -140,13 +154,15 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
             </div>
           </div>
           <div>
-            <div style={{ fontWeight: "600", color: "#1f2937" }}>Tanggal Transaksi</div>
+            <div style={{ fontWeight: "600", color: "#1f2937" }}>
+              Tanggal Transaksi
+            </div>
             <div>{formattedDate}</div>
           </div>
         </div>
       </div>
 
-      {/* Tabel Produk — lebih lebar, kolom lebih seimbang */}
+      {/* Tabel Produk */}
       <table
         style={{
           width: "100%",
@@ -294,7 +310,7 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
         </tbody>
       </table>
 
-      {/* Ringkasan Total — tetap di kanan */}
+      {/* Ringkasan Total */}
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <div style={{ width: "280px", fontSize: "11px" }}>
           <div
@@ -345,10 +361,55 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
               {formatRupiah(totalAfterDiscount)}
             </span>
           </div>
+
+          {/* ✅ Summary Pembayaran — hanya tampilkan jika ada pembayaran */}
+          {totalPaid > 0 && (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "10px 0",
+                  backgroundColor: "#f0fdf4",
+                  borderRadius: "4px",
+                  marginTop: "12px",
+                }}
+              >
+                <span style={{ fontWeight: "600", color: "#059669" }}>
+                  Dibayar
+                </span>
+                <span style={{ fontWeight: "600", color: "#059669" }}>
+                  {formatRupiah(totalPaid)}
+                </span>
+              </div>
+
+              {/* ✅ Sisa Tagihan — hanya tampilkan jika ada sisa */}
+              {sisaTagihan > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "10px 0",
+                    backgroundColor: "#fef2f2",
+                    borderRadius: "4px",
+                    marginTop: "8px",
+                    border: "1px solid #fecaca",
+                  }}
+                >
+                  <span style={{ fontWeight: "700", color: "#dc2626" }}>
+                    Sisa Tagihan
+                  </span>
+                  <span style={{ fontWeight: "800", color: "#dc2626" }}>
+                    {formatRupiah(sisaTagihan)}
+                  </span>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Tanda Tangan — tetap dua kolom */}
+      {/* Tanda Tangan */}
       <div
         style={{
           display: "grid",
@@ -368,9 +429,7 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
               marginBottom: "8px",
             }}
           />
-          <div style={{ fontSize: "10px", color: "#64748b" }}>
-            
-          </div>
+          <div style={{ fontSize: "10px", color: "#64748b" }}></div>
         </div>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontWeight: "600", marginBottom: "70px" }}>

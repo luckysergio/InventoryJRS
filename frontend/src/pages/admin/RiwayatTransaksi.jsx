@@ -84,15 +84,6 @@ export const RiwayatTransaksiFilterBar = ({
         <option value="pesanan">Pesanan</option>
       </select>
       <select
-        className="py-1.5 px-3 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[120px]"
-        value={selectedStatus}
-        onChange={(e) => setSelectedStatus(e.target.value)}
-      >
-        <option value="all">Semua Status</option>
-        <option value="selesai">Selesai</option>
-        <option value="dibatalkan">Dibatalkan</option>
-      </select>
-      <select
         className="py-1.5 px-3 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[140px]"
         value={selectedCustomer}
         onChange={(e) => setSelectedCustomer(e.target.value)}
