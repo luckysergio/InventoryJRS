@@ -164,6 +164,8 @@ const DistributorProductPage = ({ setNavbarContent }) => {
   const [filterType, setFilterType] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
+  const user = JSON.parse(localStorage.getItem("user"));
+  const role = user?.role;
 
   const [form, setForm] = useState({
     jenis_id: "",
@@ -880,18 +882,23 @@ const DistributorProductPage = ({ setNavbarContent }) => {
 
                   {/* Aksi */}
                   <div className="flex gap-2 pt-2 mt-auto">
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-sm font-medium transition"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-sm font-medium transition"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {(role === "admin" || role === "kasir") && (
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-xs font-medium transition-colors duration-200"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                    )}
+
+                    {role === "kasir" && (
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-xs font-medium transition-colors duration-200"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -901,12 +908,14 @@ const DistributorProductPage = ({ setNavbarContent }) => {
         </>
       )}
 
-      <button
-        onClick={handleTambah}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
-      >
-        <Plus size={18} />
-      </button>
+      {(role === "admin" || role === "kasir") && (
+        <button
+          onClick={handleTambah}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+        >
+          <Plus size={18} />
+        </button>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

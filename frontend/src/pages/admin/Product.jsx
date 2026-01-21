@@ -147,6 +147,8 @@ const ProductPage = ({ setNavbarContent }) => {
   const [filterType, setFilterType] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
+  const user = JSON.parse(localStorage.getItem("user"));
+  const role = user?.role;
 
   const [form, setForm] = useState({
     jenis_id: "",
@@ -191,7 +193,7 @@ const ProductPage = ({ setNavbarContent }) => {
       });
 
       const filteredProducts = res.data.data.filter(
-        (item) => item.distributor_id === null
+        (item) => item.distributor_id === null,
       );
 
       setProducts(filteredProducts);
@@ -252,7 +254,7 @@ const ProductPage = ({ setNavbarContent }) => {
     }
 
     const filtered = allTypes.filter(
-      (t) => t.jenis_id === Number(form.jenis_id)
+      (t) => t.jenis_id === Number(form.jenis_id),
     );
 
     setFilteredTypes(filtered);
@@ -320,17 +322,17 @@ const ProductPage = ({ setNavbarContent }) => {
     setFotoDepan(
       item.foto_depan
         ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`
-        : null
+        : null,
     );
     setFotoSamping(
       item.foto_samping
         ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`
-        : null
+        : null,
     );
     setFotoAtas(
       item.foto_atas
         ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`
-        : null
+        : null,
     );
 
     setJenisInputBaru("");
@@ -462,7 +464,7 @@ const ProductPage = ({ setNavbarContent }) => {
       Swal.fire(
         "Berhasil",
         isEdit ? "Product berhasil diperbarui" : "Product berhasil ditambahkan",
-        "success"
+        "success",
       );
       setIsModalOpen(false);
       setCurrentPage(1);
@@ -504,7 +506,7 @@ const ProductPage = ({ setNavbarContent }) => {
   const formatProductName = (p) => {
     if (!p) return "-";
     const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(
-      (part) => part != null && part !== ""
+      (part) => part != null && part !== "",
     );
     return parts.length > 0 ? parts.join(" ") : "-";
   };
@@ -601,7 +603,7 @@ const ProductPage = ({ setNavbarContent }) => {
     setFoto,
     label,
     fileInputRef,
-    cameraInputRef
+    cameraInputRef,
   ) => (
     <div className="space-y-1.5">
       <label className="block text-xs font-medium text-gray-600 text-center">
@@ -676,7 +678,7 @@ const ProductPage = ({ setNavbarContent }) => {
         setFilterType={setFilterType}
         jenis={jenis}
         filteredTypesForFilter={filteredTypesForFilter}
-      />
+      />,
     );
   }, [
     search,
@@ -720,7 +722,7 @@ const ProductPage = ({ setNavbarContent }) => {
                           openFotoModal(
                             `${import.meta.env.VITE_ASSET_URL}/storage/${
                               item.foto_depan
-                            }`
+                            }`,
                           )
                         }
                       />
@@ -736,7 +738,7 @@ const ProductPage = ({ setNavbarContent }) => {
                           openFotoModal(
                             `${import.meta.env.VITE_ASSET_URL}/storage/${
                               item.foto_samping
-                            }`
+                            }`,
                           )
                         }
                       />
@@ -752,7 +754,7 @@ const ProductPage = ({ setNavbarContent }) => {
                           openFotoModal(
                             `${import.meta.env.VITE_ASSET_URL}/storage/${
                               item.foto_atas
-                            }`
+                            }`,
                           )
                         }
                       />
@@ -815,18 +817,23 @@ const ProductPage = ({ setNavbarContent }) => {
 
                   {/* Aksi */}
                   <div className="flex gap-2 pt-2 mt-auto">
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-xs font-medium transition-colors duration-200"
-                    >
-                      <Pencil size={12} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-xs font-medium transition-colors duration-200"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                    {(role === "admin" || role === "kasir") && (
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-xs font-medium transition-colors duration-200"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                    )}
+
+                    {role === "kasir" && (
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-xs font-medium transition-colors duration-200"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -836,13 +843,15 @@ const ProductPage = ({ setNavbarContent }) => {
         </>
       )}
 
-      <button
-        onClick={handleTambah}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
-      >
-        <Plus size={18} />
-      </button>
-
+      {(role === "admin" || role === "kasir") && (
+        <button
+          onClick={handleTambah}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+        >
+          <Plus size={18} />
+        </button>
+      )}
+      
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
@@ -1002,21 +1011,21 @@ const ProductPage = ({ setNavbarContent }) => {
                   setFotoDepan,
                   "Depan",
                   fileInputDepan,
-                  cameraInputDepan
+                  cameraInputDepan,
                 )}
                 {renderFotoPreview(
                   fotoSamping,
                   setFotoSamping,
                   "Samping",
                   fileInputSamping,
-                  cameraInputSamping
+                  cameraInputSamping,
                 )}
                 {renderFotoPreview(
                   fotoAtas,
                   setFotoAtas,
                   "Atas",
                   fileInputAtas,
-                  cameraInputAtas
+                  cameraInputAtas,
                 )}
               </div>
 

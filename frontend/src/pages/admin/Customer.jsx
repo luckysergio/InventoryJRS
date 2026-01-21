@@ -80,6 +80,8 @@ const CustomerPage = ({ setNavbarContent }) => {
   const [detailModal, setDetailModal] = useState(null);
   const [bayarModal, setBayarModal] = useState(null);
   const [jumlahBayar, setJumlahBayar] = useState("");
+  const user = JSON.parse(localStorage.getItem("user"));
+  const role = user?.role;
 
   const [form, setForm] = useState({
     name: "",
@@ -136,7 +138,7 @@ const CustomerPage = ({ setNavbarContent }) => {
 
   useEffect(() => {
     setNavbarContent(
-      <CustomerFilterBar search={search} setSearch={setSearch} />
+      <CustomerFilterBar search={search} setSearch={setSearch} />,
     );
   }, [search]);
 
@@ -212,7 +214,7 @@ const CustomerPage = ({ setNavbarContent }) => {
     const totalBayar = Array.isArray(transaksiDetail.pembayarans)
       ? transaksiDetail.pembayarans.reduce(
           (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-          0
+          0,
         )
       : 0;
     const sisaTagihan = safeParseFloat(transaksiDetail.subtotal) - totalBayar;
@@ -234,7 +236,7 @@ const CustomerPage = ({ setNavbarContent }) => {
     const totalBayar = Array.isArray(bayarModal.transaksiDetail.pembayarans)
       ? bayarModal.transaksiDetail.pembayarans.reduce(
           (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-          0
+          0,
         )
       : 0;
     const sisaTagihan =
@@ -249,9 +251,9 @@ const CustomerPage = ({ setNavbarContent }) => {
       Swal.fire(
         "Error",
         `Jumlah bayar tidak boleh melebihi sisa tagihan (Rp ${formatRupiah(
-          sisaTagihan
+          sisaTagihan,
         )})`,
-        "warning"
+        "warning",
       );
       return;
     }
@@ -289,7 +291,7 @@ const CustomerPage = ({ setNavbarContent }) => {
           {customers.map((item) => {
             const tagihanHarian = Number(item.tagihan_harian_belum_lunas || 0);
             const tagihanPesanan = Number(
-              item.tagihan_pesanan_belum_lunas || 0
+              item.tagihan_pesanan_belum_lunas || 0,
             );
 
             return (
@@ -351,20 +353,25 @@ const CustomerPage = ({ setNavbarContent }) => {
                 </div>
 
                 <div className="flex gap-2 mt-3">
-                  <button
-                    onClick={() => handleEdit(item)}
-                    className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 text-[10px]"
-                  >
-                    <Pencil size={12} />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-[10px]"
-                  >
-                    <Trash2 size={12} />
-                    Hapus
-                  </button>
+                  {(role === "admin" || role === "kasir") && (
+                    <button
+                      onClick={() => handleEdit(item)}
+                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 text-[10px]"
+                    >
+                      <Pencil size={12} />
+                      Edit
+                    </button>
+                  )}
+
+                  {role === "kasir" && (
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-[10px]"
+                    >
+                      <Trash2 size={12} />
+                      Hapus
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -372,12 +379,14 @@ const CustomerPage = ({ setNavbarContent }) => {
         </div>
       )}
 
-      <button
-        onClick={handleTambah}
-        className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg transition"
-      >
-        <Plus size={20} />
-      </button>
+      {(role === "admin" || role === "kasir") && (
+        <button
+          onClick={handleTambah}
+          className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg transition"
+        >
+          <Plus size={20} />
+        </button>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -448,7 +457,7 @@ const CustomerPage = ({ setNavbarContent }) => {
         (() => {
           const customer = findCustomerById(
             customers,
-            customerModal.customerId
+            customerModal.customerId,
           );
           if (!customer) return null;
 
@@ -479,7 +488,7 @@ const CustomerPage = ({ setNavbarContent }) => {
             const totalBayar = Array.isArray(detail.pembayarans)
               ? detail.pembayarans.reduce(
                   (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-                  0
+                  0,
                 )
               : 0;
             const sisaBayar = subtotal - totalBayar;
@@ -498,8 +507,8 @@ const CustomerPage = ({ setNavbarContent }) => {
                       {customerModal.jenisFilter === "daily"
                         ? "Transaksi Harian"
                         : customerModal.jenisFilter === "pesanan"
-                        ? "Transaksi Pesanan"
-                        : "Semua Tagihan Belum Lunas"}
+                          ? "Transaksi Pesanan"
+                          : "Semua Tagihan Belum Lunas"}
                     </p>
                   </div>
                   <button
@@ -518,8 +527,8 @@ const CustomerPage = ({ setNavbarContent }) => {
                         {customerModal.jenisFilter === "daily"
                           ? "Tidak ada tagihan harian yang belum lunas"
                           : customerModal.jenisFilter === "pesanan"
-                          ? "Tidak ada tagihan pesanan yang belum lunas"
-                          : "Tidak ada tagihan yang belum lunas"}
+                            ? "Tidak ada tagihan pesanan yang belum lunas"
+                            : "Tidak ada tagihan yang belum lunas"}
                       </p>
                     </div>
                   ) : (
@@ -529,7 +538,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                         const totalBayar = Array.isArray(detail.pembayarans)
                           ? detail.pembayarans.reduce(
                               (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-                              0
+                              0,
                             )
                           : 0;
                         const sisaBayar = subtotal - totalBayar;
@@ -543,7 +552,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                             onClick={() =>
                               openDetailModal(
                                 detail.id,
-                                customerModal.customerName
+                                customerModal.customerName,
                               )
                             }
                           >
@@ -593,7 +602,7 @@ const CustomerPage = ({ setNavbarContent }) => {
         (() => {
           const transaksiDetail = findTransaksiDetailById(
             customers,
-            detailModal.id
+            detailModal.id,
           );
           if (!transaksiDetail) return null;
 
@@ -602,7 +611,7 @@ const CustomerPage = ({ setNavbarContent }) => {
           const totalBayar = Array.isArray(transaksiDetail.pembayarans)
             ? transaksiDetail.pembayarans.reduce(
                 (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-                0
+                0,
               )
             : 0;
           const sisaTagihan = subtotal - totalBayar;
@@ -677,7 +686,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                       onClick={() =>
                         openBayarModal(
                           transaksiDetail,
-                          detailModal.customerName
+                          detailModal.customerName,
                         )
                       }
                       className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg transition"
@@ -729,7 +738,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                   <span>
                     Rp{" "}
                     {formatRupiah(
-                      safeParseFloat(bayarModal.transaksiDetail.subtotal)
+                      safeParseFloat(bayarModal.transaksiDetail.subtotal),
                     )}
                   </span>
                 </div>
@@ -742,9 +751,9 @@ const CustomerPage = ({ setNavbarContent }) => {
                       Array.isArray(bayarModal.transaksiDetail.pembayarans)
                         ? bayarModal.transaksiDetail.pembayarans.reduce(
                             (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-                            0
+                            0,
                           )
-                        : 0
+                        : 0,
                     )}
                   </span>
                 </div>
@@ -758,9 +767,9 @@ const CustomerPage = ({ setNavbarContent }) => {
                         (Array.isArray(bayarModal.transaksiDetail.pembayarans)
                           ? bayarModal.transaksiDetail.pembayarans.reduce(
                               (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-                              0
+                              0,
                             )
-                          : 0)
+                          : 0),
                     )}
                   </span>
                 </div>

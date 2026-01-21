@@ -30,15 +30,15 @@ const DistributorPage = ({ setNavbarContent }) => {
     no_hp: "",
     email: "",
   });
+  const user = JSON.parse(localStorage.getItem("user"));
+  const role = user?.role;
 
-  // 🔁 fetchData tanpa pagination
   const fetchData = async (searchTerm = "") => {
     try {
       setLoading(true);
       const res = await api.get("/distributors", {
         params: { search: searchTerm },
       });
-      // Ambil semua data (tanpa .data karena tidak pakai paginate)
       setDistributors(res.data.distributors || []);
     } catch (err) {
       Swal.fire("Error", "Gagal memuat data", "error");
@@ -54,7 +54,7 @@ const DistributorPage = ({ setNavbarContent }) => {
   useEffect(() => {
     if (typeof setNavbarContent === "function") {
       setNavbarContent(
-        <DistributorFilterBar search={search} setSearch={setSearch} />
+        <DistributorFilterBar search={search} setSearch={setSearch} />,
       );
     }
   }, [search, setNavbarContent]);
@@ -147,20 +147,25 @@ const DistributorPage = ({ setNavbarContent }) => {
                 </p>
 
                 <div className="flex gap-2 mt-3">
-                  <button
-                    onClick={() => handleEdit(d)}
-                    className="flex-1 flex items-center justify-center gap-1 bg-yellow-100 text-yellow-700 text-[10px] px-2 py-1 rounded hover:bg-yellow-200"
-                  >
-                    <Pencil size={12} />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(d.id)}
-                    className="flex-1 flex items-center justify-center gap-1 bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded hover:bg-red-200"
-                  >
-                    <Trash2 size={12} />
-                    Hapus
-                  </button>
+                  {(role === "admin" || role === "kasir") && (
+                    <button
+                      onClick={() => handleEdit(d)}
+                      className="flex-1 flex items-center justify-center gap-1 bg-yellow-100 text-yellow-700 text-[10px] px-2 py-1 rounded hover:bg-yellow-200"
+                    >
+                      <Pencil size={12} />
+                      Edit
+                    </button>
+                  )}
+
+                  {role === "kasir" && (
+                    <button
+                      onClick={() => handleDelete(d.id)}
+                      className="flex-1 flex items-center justify-center gap-1 bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded hover:bg-red-200"
+                    >
+                      <Trash2 size={12} />
+                      Hapus
+                    </button>
+                  )}
                 </div>
               </div>
             ))
@@ -168,15 +173,17 @@ const DistributorPage = ({ setNavbarContent }) => {
         </div>
       )}
 
-      <button
-        onClick={() => {
-          resetForm();
-          setIsModalOpen(true);
-        }}
-        className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg transition"
-      >
-        <Plus size={18} />
-      </button>
+      {(role === "admin" || role === "kasir") && (
+        <button
+          onClick={() => {
+            resetForm();
+            setIsModalOpen(true);
+          }}
+          className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg transition"
+        >
+          <Plus size={18} />
+        </button>
+      )}
 
       {/* Modal Form */}
       {isModalOpen && (

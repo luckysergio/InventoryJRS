@@ -83,12 +83,6 @@ const Navbar = ({ setSidebarOpen, centerContent }) => {
 
         {/* Right Section - User Menu */}
         <div className="flex items-center gap-3">
-          {/* Status Indicator */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-medium text-emerald-700">Online</span>
-          </div>
-
           {/* User Profile */}
           <div className="relative" ref={ref}>
             <button

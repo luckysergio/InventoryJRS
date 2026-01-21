@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\RateLimiter;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
 class AuthController extends Controller
@@ -57,10 +58,23 @@ class AuthController extends Controller
             ], 422);
         }
 
+        $key = strtolower($request->email) . '|' . $request->ip();
+
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            $seconds = RateLimiter::availableIn($key);
+
+            return response()->json([
+                'status'  => false,
+                'message' => 'Terlalu banyak percobaan login. Coba lagi dalam '
+                            . ceil($seconds / 60) . ' menit.'
+            ], 429);
+        }
+
         $credentials = $request->only('email', 'password');
 
         if (!$token = JWTAuth::attempt($credentials)) {
 
+            RateLimiter::hit($key, 600);
             usleep(500000);
 
             return response()->json([
@@ -68,6 +82,8 @@ class AuthController extends Controller
                 'message' => 'Email atau password salah'
             ], 422);
         }
+
+        RateLimiter::clear($key);
 
         return response()->json([
             'status'  => true,

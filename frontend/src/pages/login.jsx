@@ -52,8 +52,6 @@ const Login = () => {
           text = data?.message || "Email dan password wajib diisi";
         } else if (status === 401) {
           text = data?.message || "Email atau password salah";
-        } else if (status === 429) {
-          text = "Terlalu banyak percobaan. Coba lagi dalam 1 menit.";
         }
       } else if (error.request) {
         text =

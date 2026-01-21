@@ -27,19 +27,8 @@ use App\Http\Controllers\api\TransaksiController;
 use App\Http\Controllers\api\TypeProductController;
 use App\Http\Controllers\Api\UserController;
 
-RateLimiter::for('login', function (Request $request) {
-    $email = (string) $request->input('email');
 
-    return Limit::perMinute(5)->by(
-        strtolower($email) . '|' . $request->ip()
-    );
-});
-
-Route::post('/register', [AuthController::class, 'register'])
-    ->middleware('throttle:3,1');
-
-Route::post('/login', [AuthController::class, 'login'])
-    ->middleware('throttle:login');
+Route::post('/login', [AuthController::class, 'login']);
 
 Route::group(['middleware' => ['jwt.auth']], function () {
     Route::get('/profile', [AuthController::class, 'profile'])->middleware('role:admin,kasir,operator');
@@ -98,7 +87,7 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::get('/jenis', [JenisProductController::class, 'index'])->middleware('role:admin,kasir,operator');
     Route::post('/jenis', [JenisProductController::class, 'store'])->middleware('role:admin,kasir');
     Route::get('/jenis/{id}', [JenisProductController::class, 'show'])->middleware('role:admin,kasir,operator');
-    Route::put('/jenis/{jenisProduct}', [JenisProductController::class, 'update'])->middleware('role:admin,kasie');
+    Route::put('/jenis/{jenisProduct}', [JenisProductController::class, 'update'])->middleware('role:admin,kasir');
     Route::delete('/jenis/{jenisProduct}', [JenisProductController::class, 'destroy'])->middleware('role:admin');
 
     // Bahan Product

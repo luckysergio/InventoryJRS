@@ -14,7 +14,6 @@ const unformatRupiah = (value) => {
   return value.replace(/\D/g, "");
 };
 
-// ✅ Komponen Filter untuk Navbar
 export const HargaFilterBar = ({
   searchKode,
   setSearchKode,
@@ -104,6 +103,8 @@ const HargaProductPage = ({ setNavbarContent }) => {
   const [searchKode, setSearchKode] = useState("");
   const [filterJenis, setFilterJenis] = useState("");
   const [filterType, setFilterType] = useState("");
+  const user = JSON.parse(localStorage.getItem("user"));
+  const role = user?.role;
 
   const [form, setForm] = useState({
     product_id: "",
@@ -356,21 +357,23 @@ const HargaProductPage = ({ setNavbarContent }) => {
                     )}
 
                     <div className="flex justify-between gap-1 mt-2">
+                      {(role === "admin" || role === "kasir") && (
                       <button
                         onClick={() => handleEdit(item)}
-                        className="flex-1 flex items-center justify-center gap-1 text-[10px] bg-amber-50 text-amber-700 px-1.5 py-1 rounded-md hover:bg-amber-100 transition"
-                        title="Edit"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-xs font-medium transition-colors duration-200"
                       >
-                        <Pencil size={10} />
+                        <Pencil size={12} />
                       </button>
+                    )}
 
+                    {role === "kasir" && (
                       <button
                         onClick={() => handleDelete(item.id)}
-                        className="flex-1 flex items-center justify-center gap-1 text-[10px] bg-rose-50 text-rose-700 px-1.5 py-1 rounded-md hover:bg-rose-100 transition"
-                        title="Hapus"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-xs font-medium transition-colors duration-200"
                       >
-                        <Trash2 size={10} />
+                        <Trash2 size={12} />
                       </button>
+                    )}
                     </div>
                   </div>
                 ))}
@@ -380,13 +383,14 @@ const HargaProductPage = ({ setNavbarContent }) => {
         </div>
       )}
 
-      {/* 🔹 Floating Button Tambah */}
-      <button
-        onClick={handleTambah}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
-      >
-        <Plus size={18} />
-      </button>
+      {(role === "admin" || role === "kasir") && (
+        <button
+          onClick={handleTambah}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+        >
+          <Plus size={18} />
+        </button>
+      )}
 
       {/* Modal */}
       {isModalOpen && (

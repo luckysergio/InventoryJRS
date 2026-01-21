@@ -6,6 +6,15 @@ const api = axios.create({
   withCredentials: false,
 })
 
+const darkSwal = (options) =>
+  Swal.fire({
+    background: "#020617", // slate-950 (hitam)
+    color: "#f8fafc",      // slate-50
+    confirmButtonColor: "#2563eb",
+    cancelButtonColor: "#dc2626",
+    ...options,
+  })
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token")
@@ -15,7 +24,6 @@ api.interceptors.request.use(
     }
 
     config.headers.Accept = "application/json"
-
     return config
   },
   (error) => Promise.reject(error)
@@ -25,7 +33,7 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (!error.response) {
-      await Swal.fire({
+      await darkSwal({
         icon: "error",
         title: "Koneksi Gagal",
         text: "Tidak dapat terhubung ke server.",
@@ -34,11 +42,21 @@ api.interceptors.response.use(
     }
 
     const status = error.response.status
+    const message = error.response.data?.message
+
+    if (status === 429) {
+      await darkSwal({
+        icon: "error",
+        title: "Login Diblokir",
+        text: message || "Terlalu banyak percobaan login.",
+      })
+      return Promise.reject(error)
+    }
 
     if (status === 401 || status === 419) {
       localStorage.removeItem("token")
 
-      await Swal.fire({
+      await darkSwal({
         icon: "warning",
         title: "Sesi Berakhir",
         text: "Silakan login kembali.",
@@ -46,6 +64,7 @@ api.interceptors.response.use(
       })
 
       window.location.href = "/login"
+      return Promise.reject(error)
     }
 
     return Promise.reject(error)

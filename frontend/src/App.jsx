@@ -65,7 +65,7 @@ function App() {
         <Route
           path="/user"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin"]}>
               <Layout>
                 {({ setNavbarContent }) => (
                   <UserPage setNavbarContent={setNavbarContent} />
@@ -78,7 +78,7 @@ function App() {
         <Route
           path="/karyawan"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin"]}>
               <Layout>
                 {({ setNavbarContent }) => (
                   <KaryawanPage setNavbarContent={setNavbarContent} />
@@ -91,7 +91,7 @@ function App() {
         <Route
           path="/jabatan"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin"]}>
               <Layout>
                 {({ setNavbarContent }) => (
                   <JabatanPage setNavbarContent={setNavbarContent} />
@@ -131,7 +131,7 @@ function App() {
         <Route
           path="/jenis"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin"]}>
               <Layout>
                 <JenisPage />
               </Layout>
@@ -142,7 +142,7 @@ function App() {
         <Route
           path="/type"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin"]}>
               <Layout>
                 <TypePage />
               </Layout>
@@ -153,7 +153,7 @@ function App() {
         <Route
           path="/bahan"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin"]}>
               <Layout>
                 <BahanProductPage />
               </Layout>
@@ -177,7 +177,7 @@ function App() {
         <Route
           path="/status-transaksi"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin"]}>
               <Layout>
                 <StatusTransaksiPage />
               </Layout>
@@ -188,7 +188,7 @@ function App() {
         <Route
           path="/Place"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin"]}>
               <Layout>
                 <PlacePage />
               </Layout>

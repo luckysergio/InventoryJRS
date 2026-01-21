@@ -8,10 +8,9 @@ import {
   Factory,
   ClipboardCheck,
   PersonStanding,
-  Users,
-  UserCircle,
   Handshake,
   ArrowLeft,
+  Database,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -20,21 +19,26 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const location = useLocation();
   const [isMinimized, setIsMinimized] = useState(false);
 
+  const [masterDataOpen, setMasterDataOpen] = useState(false);
   const [productOpen, setProductOpen] = useState(false);
   const [transaksiOpen, setTransaksiOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [productionOpen, setProductionOpen] = useState(false);
   const [stokOpnameOpen, setStokOpnameOpen] = useState(false);
-  const [karyawanOpen, setKaryawanOpen] = useState(false);
 
-  // 🔧 Cegah scroll otomatis ke atas saat ganti route
+  // Ambil role dari localStorage
+  const storedUser = localStorage.getItem("user");
+  const userRole = storedUser ? JSON.parse(storedUser).role : null;
+  const isAdmin = userRole === "admin";
+
+  // Cegah scroll otomatis
   useEffect(() => {
     if ("scrollRestoration" in window.history) {
       window.history.scrollRestoration = "manual";
     }
   }, []);
 
-  // 🔍 Deteksi active route
+  // Deteksi route aktif
   useEffect(() => {
     const path = location.pathname;
 
@@ -43,25 +47,12 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       (route) => path === route || path.startsWith(route + "/")
     );
 
-    const productRoutes = [
-      "/product",
-      "/product-distributor",
-      "/harga-product",
-      "/jenis",
-      "/type",
-      "/bahan",
-      "/product-terlaris",
-    ];
+    const productRoutes = ["/product", "/product-distributor", "/harga-product", "/product-terlaris"];
     const isProductRoute = productRoutes.some(
       (route) => path === route || path.startsWith(route + "/")
     );
 
-    const transaksiRoutes = [
-      "/transaksi",
-      "/pesanan",
-      "/riwayat-transaksi",
-      "/status-transaksi",
-    ];
+    const transaksiRoutes = ["/transaksi", "/pesanan", "/riwayat-transaksi"];
     const isTransaksiRoute = transaksiRoutes.some(
       (route) => path === route || path.startsWith(route + "/")
     );
@@ -76,8 +67,16 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       (route) => path === route || path.startsWith(route + "/")
     );
 
-    const karyawanRoutes = ["/karyawan", "/jabatan"];
-    const isKaryawanRoute = karyawanRoutes.some(
+    const masterDataRoutes = [
+      "/user",
+      "/karyawan",
+      "/jenis",
+      "/type",
+      "/bahan",
+      "/status-transaksi",
+      "/jabatan",
+    ];
+    const isMasterDataRoute = masterDataRoutes.some(
       (route) => path === route || path.startsWith(route + "/")
     );
 
@@ -86,104 +85,200 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     setTransaksiOpen(isTransaksiRoute);
     setInventoryOpen(isInventoryRoute);
     setStokOpnameOpen(isStokOpnameRoute);
-    setKaryawanOpen(isKaryawanRoute);
+    setMasterDataOpen(isMasterDataRoute);
   }, [location.pathname]);
 
   const NavLink = ({ children, to, icon: Icon }) => {
     const isActive = location.pathname === to;
+    
     return (
-      <Link
-        to={to}
-        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative overflow-hidden ${
-          isActive
-            ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 scale-[1.02]"
-            : "text-gray-600 hover:bg-gray-100/80 hover:text-gray-900"
-        }`}
-      >
-        {isActive && (
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-transparent animate-pulse" />
+      <div className="relative group">
+        <Link
+          to={to}
+          className={`
+            flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300
+            group-hover:scale-[1.02] group-hover:shadow-sm
+            ${isActive
+              ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30"
+              : "text-gray-600 hover:bg-gray-50/90 hover:text-gray-900"
+            }
+            ${isMinimized ? "justify-center px-3" : ""}
+          `}
+        >
+          {/* Active indicator */}
+          {isActive && !isMinimized && (
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-white rounded-r-full" />
+          )}
+          
+          <div className="relative">
+            <Icon
+              className={`
+                w-5 h-5 transition-all duration-300
+                ${isActive
+                  ? "text-white"
+                  : "text-gray-500 group-hover:text-blue-500"
+                }
+                ${isMinimized ? "group-hover:scale-110" : ""}
+              `}
+            />
+            
+            {/* Active dot indicator for minimized state */}
+            {isActive && isMinimized && (
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-300 rounded-full animate-pulse" />
+            )}
+          </div>
+          
+          {!isMinimized && (
+            <span className="font-medium text-sm whitespace-nowrap">
+              {children}
+            </span>
+          )}
+        </Link>
+        
+        {/* Tooltip for minimized state */}
+        {isMinimized && (
+          <div className="
+            absolute left-full top-1/2 -translate-y-1/2 ml-2
+            px-3 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg
+            shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200
+            pointer-events-none whitespace-nowrap z-50
+            before:absolute before:right-full before:top-1/2 before:-translate-y-1/2
+            before:border-4 before:border-transparent before:border-r-gray-900
+          ">
+            {children}
+          </div>
         )}
-        <Icon
-          className={`w-5 h-5 transition-all duration-300 relative z-10 ${
-            isActive
-              ? "text-white drop-shadow-sm"
-              : "text-gray-400 group-hover:text-blue-500 group-hover:scale-110"
-          }`}
-        />
-        {!isMinimized && (
-          <span className="font-medium relative z-10">{children}</span>
-        )}
-      </Link>
+      </div>
     );
   };
 
+  // Dropdown untuk menu bertingkat
   const Dropdown = ({ title, open, setOpen, children, icon: Icon }) => (
     <div className="space-y-1">
       <button
         onClick={() => setOpen(!open)}
-        className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-300 group ${
-          open
-            ? "bg-gradient-to-r from-gray-100 to-gray-50 text-gray-900"
-            : "text-gray-600 hover:bg-gray-100/80 hover:text-gray-900"
-        }`}
+        className={`
+          flex items-center justify-between w-full px-4 py-3.5 rounded-xl
+          transition-all duration-300 group hover:scale-[1.02]
+          ${open
+            ? "bg-gradient-to-r from-gray-50 to-gray-100/80 text-gray-900 border border-gray-200/50"
+            : "text-gray-600 hover:bg-gray-50/90 hover:text-gray-900"
+          }
+          ${isMinimized ? "justify-center px-3" : ""}
+        `}
       >
         <div className="flex items-center gap-3">
-          <Icon
-            className={`w-5 h-5 transition-all duration-300 ${
-              open
-                ? "text-blue-600 scale-110"
-                : "text-gray-400 group-hover:text-blue-500 group-hover:scale-110"
-            }`}
-          />
-          {!isMinimized && <span className="font-medium">{title}</span>}
+          <div className="relative">
+            <Icon
+              className={`
+                w-5 h-5 transition-all duration-300
+                ${open
+                  ? "text-blue-600"
+                  : "text-gray-500 group-hover:text-blue-500"
+                }
+                ${isMinimized ? "group-hover:scale-110" : ""}
+              `}
+            />
+            
+            {/* Indicator for active dropdown in minimized state */}
+            {open && isMinimized && (
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+            )}
+          </div>
+          
+          {!isMinimized && (
+            <span className="font-medium text-sm whitespace-nowrap">
+              {title}
+            </span>
+          )}
         </div>
+        
         {!isMinimized && (
           <ChevronDown
-            className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${
-              open ? "rotate-180" : ""
-            }`}
+            className={`
+              w-4 h-4 text-gray-400 transition-transform duration-300 flex-shrink-0
+              ${open ? "rotate-180" : ""}
+            `}
           />
         )}
       </button>
 
       {!isMinimized && (
         <div
-          className={`overflow-hidden transition-all duration-300 ease-in-out ${
-            open ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-          }`}
+          className={`
+            overflow-hidden transition-all duration-300 ease-in-out
+            ${open ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0"}
+          `}
         >
-          <div className="ml-4 pl-4 mt-2 space-y-1 border-l-2 border-gray-200">
+          <div className="ml-5 pl-4 space-y-0.5 border-l-2 border-gray-200/60">
             {children}
           </div>
+        </div>
+      )}
+      
+      {/* Tooltip for dropdown in minimized state */}
+      {isMinimized && (
+        <div className="
+          absolute left-full top-1/2 -translate-y-1/2 ml-2
+          px-3 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg
+          shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200
+          pointer-events-none whitespace-nowrap z-50
+          before:absolute before:right-full before:top-1/2 before:-translate-y-1/2
+          before:border-4 before:border-transparent before:border-r-gray-900
+        ">
+          {title}
         </div>
       )}
     </div>
   );
 
+  // Submenu link
   const SubNavLink = ({ children, to }) => {
     const isActive = location.pathname === to;
+    
     return (
       <Link
         to={to}
-        className={`block px-4 py-2.5 text-sm rounded-lg transition-all duration-300 relative ${
-          isActive
-            ? "bg-blue-50 text-blue-700 font-medium shadow-sm"
-            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:translate-x-1"
-        }`}
+        className={`
+          block px-4 py-2.5 text-sm rounded-lg transition-all duration-300
+          group relative
+          ${isActive
+            ? "bg-blue-50/80 text-blue-700 font-medium shadow-sm"
+            : "text-gray-600 hover:bg-gray-50/70 hover:text-gray-900"
+          }
+        `}
       >
-        {isActive && !isMinimized && (
+        {isActive && (
           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-blue-600 rounded-r" />
         )}
-        {!isMinimized && (
-          <span className={isActive ? "ml-2" : ""}>{children}</span>
+        
+        <span className={`
+          ${isActive ? "ml-2" : ""}
+          transition-all duration-200 group-hover:translate-x-1
+        `}>
+          {children}
+        </span>
+        
+        {/* Hover indicator */}
+        {!isActive && (
+          <div className="
+            absolute left-0 top-1/2 -translate-y-1/2 w-1 h-2
+            bg-gray-300 rounded-r opacity-0 group-hover:opacity-100
+            transition-all duration-300
+          " />
         )}
       </Link>
     );
   };
 
+  // Logo section
   const LogoSection = () => (
     <div className="flex items-center gap-3">
-      <div className="relative w-8 h-8">
+      <div className={`
+        relative flex items-center justify-center
+        ${isMinimized ? "w-10 h-10" : "w-9 h-9"}
+        transition-all duration-300
+      `}>
         <img
           src="/Favicon/favJRS.webp"
           alt="JRS Logo"
@@ -191,48 +286,91 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           onError={(e) => {
             e.target.style.display = "none";
             const fallback = document.createElement("div");
-            fallback.className =
-              "w-full h-full flex items-center justify-center bg-blue-100 rounded";
+            fallback.className = `
+              w-full h-full flex items-center justify-center rounded-xl
+              bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200/50
+            `;
             fallback.innerHTML =
-              "<span class='text-xs font-bold text-blue-600'>JRS</span>";
+              '<span class="text-xs font-bold text-blue-600">JRS</span>';
             e.target.parentNode.appendChild(fallback);
           }}
         />
       </div>
+      
       {!isMinimized && (
-        <h1 className="text-lg font-bold text-gray-800 whitespace-nowrap">
-          Jaya Rubber Seal
-        </h1>
+        <div className="overflow-hidden">
+          <h1 className="text-base font-bold text-gray-800 whitespace-nowrap">
+            Jaya Rubber Seal
+          </h1>
+          <p className="text-[10px] text-gray-500 mt-0.5 font-medium">
+            Manufacturing System
+          </p>
+        </div>
       )}
     </div>
   );
 
+  // Header sidebar
   const SidebarHeader = () => (
-    <div className="px-6 py-3 border-b border-gray-200/50 bg-gradient-to-br from-blue-50 to-white">
-      <div className="flex items-center">
+    <div className={`
+      px-5 py-3.5 border-b border-gray-200/50 
+      bg-gradient-to-br from-white to-gray-50/50
+      backdrop-blur-sm
+    `}>
+      <div className="flex items-center justify-between">
         <LogoSection />
+        
         <button
           onClick={() => setIsMinimized(!isMinimized)}
-          className="ml-auto p-1.5 rounded-lg hover:bg-white/80 transition-all duration-200 group lg:block hidden"
+          className={`
+            p-2 rounded-xl hover:bg-gray-100 transition-all duration-300
+            group border border-transparent hover:border-gray-200
+            ${isMinimized ? "mx-auto" : ""}
+            lg:flex hidden items-center justify-center
+          `}
+          title={isMinimized ? "Expand sidebar" : "Minimize sidebar"}
         >
           <ArrowLeft
-            className={`w-4 h-4 text-gray-600 group-hover:text-gray-900 transition-transform duration-300 ${
-              isMinimized ? "rotate-180" : ""
-            }`}
+            className={`
+              w-4 h-4 text-gray-500 group-hover:text-gray-700
+              transition-transform duration-300
+              ${isMinimized ? "rotate-180" : ""}
+            `}
           />
         </button>
       </div>
     </div>
   );
 
+  // Konten utama sidebar
   const SidebarContent = () => (
-    <>
+    <div className="px-2.5 py-3 space-y-0.5">
+      {/* Dashboard */}
       <NavLink to="/dashboard-admin" icon={Home}>
         Dashboard
       </NavLink>
-      <NavLink to="/user" icon={UserCircle}>
-        User
-      </NavLink>
+
+      {/* Master Data - Hanya untuk admin */}
+      {isAdmin && (
+        <div className="relative">
+          <Dropdown
+            title="Master Data"
+            open={masterDataOpen}
+            setOpen={setMasterDataOpen}
+            icon={Database}
+          >
+            <SubNavLink to="/user">User</SubNavLink>
+            <SubNavLink to="/karyawan">Karyawan</SubNavLink>
+            <SubNavLink to="/jabatan">Data Jabatan</SubNavLink>
+            <SubNavLink to="/jenis">Jenis Product</SubNavLink>
+            <SubNavLink to="/type">Type Product</SubNavLink>
+            <SubNavLink to="/bahan">Bahan Product</SubNavLink>
+            <SubNavLink to="/status-transaksi">Status Transaksi</SubNavLink>
+          </Dropdown>
+        </div>
+      )}
+
+      {/* Customer & Distributor */}
       <NavLink to="/customer" icon={PersonStanding}>
         Customer
       </NavLink>
@@ -240,16 +378,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         Distributor
       </NavLink>
 
-      <Dropdown
-        title="Karyawan"
-        open={karyawanOpen}
-        setOpen={setKaryawanOpen}
-        icon={Users}
-      >
-        <SubNavLink to="/karyawan">Data Karyawan</SubNavLink>
-        <SubNavLink to="/jabatan">Data Jabatan</SubNavLink>
-      </Dropdown>
-
+      {/* Product */}
       <Dropdown
         title="Product"
         open={productOpen}
@@ -260,11 +389,9 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         <SubNavLink to="/product-distributor">Product Distributor</SubNavLink>
         <SubNavLink to="/product-terlaris">Product Terlaris</SubNavLink>
         <SubNavLink to="/harga-product">Harga Product</SubNavLink>
-        <SubNavLink to="/jenis">Jenis Product</SubNavLink>
-        <SubNavLink to="/type">Type Product</SubNavLink>
-        <SubNavLink to="/bahan">Bahan Product</SubNavLink>
       </Dropdown>
 
+      {/* Transaksi */}
       <Dropdown
         title="Transaksi"
         open={transaksiOpen}
@@ -276,6 +403,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         <SubNavLink to="/riwayat-transaksi">Riwayat Transaksi</SubNavLink>
       </Dropdown>
 
+      {/* Inventory */}
       <Dropdown
         title="Inventory"
         open={inventoryOpen}
@@ -286,6 +414,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
       </Dropdown>
 
+      {/* Production */}
       <Dropdown
         title="Production"
         open={productionOpen}
@@ -296,6 +425,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         <SubNavLink to="/RiwayatProduction">Riwayat Production</SubNavLink>
       </Dropdown>
 
+      {/* Stok Opname */}
       <Dropdown
         title="Stok Opname"
         open={stokOpnameOpen}
@@ -305,54 +435,72 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         <SubNavLink to="/StokOpname">Stok Opname</SubNavLink>
         <SubNavLink to="/Riwayat-StokOpname">Riwayat SO</SubNavLink>
       </Dropdown>
-    </>
+    </div>
   );
 
   return (
     <>
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden lg:flex bg-white border-r border-gray-200/50 flex-col overflow-hidden shadow-xl transition-all duration-300 ${
-          isMinimized ? "w-20" : "w-72"
-        }`}
+        className={`
+          hidden lg:flex bg-white/95 backdrop-blur-sm border-r border-gray-200/50
+          flex-col overflow-hidden shadow-xl transition-all duration-300
+          ${isMinimized ? "w-[88px]" : "w-[280px]"}
+        `}
       >
         <div className="flex flex-col h-full">
           <SidebarHeader />
-          <nav className="flex-1 px-4 py-3 space-y-1.5 overflow-y-auto">
+          
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <SidebarContent />
-          </nav>
+          </div>
+          
+          {/* Minimized indicator */}
+          {isMinimized && (
+            <div className="px-4 py-3 border-t border-gray-200/50">
+              <div className="text-center">
+                <div className="w-6 h-0.5 bg-gray-300 mx-auto rounded-full"></div>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
 
       {/* Mobile Overlay */}
       <div
-        className={`fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden transition-all duration-300 ${
-          sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
+        className={`
+          fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden
+          transition-all duration-300
+          ${sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"}
+        `}
         onClick={() => setSidebarOpen(false)}
       />
 
       {/* Mobile Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full bg-white shadow-2xl transform transition-all duration-300 lg:hidden ${
-          sidebarOpen ? "w-80 translate-x-0" : "w-0 -translate-x-full"
-        }`}
+        className={`
+          fixed top-0 left-0 z-50 h-full bg-white/95 backdrop-blur-sm
+          shadow-2xl transform transition-all duration-300 lg:hidden
+          ${sidebarOpen ? "w-80 translate-x-0" : "w-0 -translate-x-full"}
+        `}
       >
         {sidebarOpen && (
           <>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/50 bg-gradient-to-br from-blue-50 to-white">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200/50">
               <LogoSection />
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="p-2 rounded-lg hover:bg-white/80 transition-all duration-200 group"
+                className="p-2 rounded-xl hover:bg-gray-100 transition-all duration-200"
               >
-                <X className="w-5 h-5 text-gray-600 group-hover:text-gray-900 group-hover:rotate-90 transition-all duration-300" />
+                <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
+            
             <div className="flex flex-col h-full overflow-hidden">
-              <nav className="flex-1 px-4 py-3 space-y-1.5 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto px-2.5 py-3">
                 <SidebarContent />
-              </nav>
+              </div>
             </div>
           </>
         )}
