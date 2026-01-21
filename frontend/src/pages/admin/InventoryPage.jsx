@@ -1,4 +1,3 @@
-// src/pages/admin/InventoryPage.jsx
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Swal from "sweetalert2";
 import { Search, Plus, Minus, RefreshCw } from "lucide-react";
@@ -6,7 +5,9 @@ import api from "../../services/api";
 
 const formatProductName = (p) => {
   if (!p) return "-";
-  const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(Boolean);
+  const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(
+    Boolean,
+  );
   return parts.join(" ");
 };
 
@@ -96,6 +97,8 @@ const InventoryPage = ({ setNavbarContent }) => {
 
   const [modal, setModal] = useState(null);
   const [selectedInventory, setSelectedInventory] = useState(null);
+  const user = JSON.parse(localStorage.getItem("user"));
+  const role = user?.role;
 
   const [form, setForm] = useState({
     qty: 1,
@@ -149,13 +152,23 @@ const InventoryPage = ({ setNavbarContent }) => {
     return Array.from(productMap.values());
   }, [allInventories]);
 
-  const placeToko = useMemo(() => places.find(p => p.kode === 'TOKO'), [places]);
-  const placeBengkel = useMemo(() => places.find(p => p.kode === 'BENGKEL'), [places]);
+  const placeToko = useMemo(
+    () => places.find((p) => p.kode === "TOKO"),
+    [places],
+  );
+  const placeBengkel = useMemo(
+    () => places.find((p) => p.kode === "BENGKEL"),
+    [places],
+  );
 
   const produkLengkap = useMemo(() => {
-    return produkWithInventori.map(item => {
-      const inventoriToko = item.inventories.find(inv => inv.place_id === placeToko?.id);
-      const inventoriBengkel = item.inventories.find(inv => inv.place_id === placeBengkel?.id);
+    return produkWithInventori.map((item) => {
+      const inventoriToko = item.inventories.find(
+        (inv) => inv.place_id === placeToko?.id,
+      );
+      const inventoriBengkel = item.inventories.find(
+        (inv) => inv.place_id === placeBengkel?.id,
+      );
 
       return {
         ...item,
@@ -187,8 +200,12 @@ const InventoryPage = ({ setNavbarContent }) => {
     });
 
     return {
-      jenisList: Array.from(jenisMap.values()).sort((a, b) => a.nama.localeCompare(b.nama)),
-      typeList: Array.from(typeMap.values()).sort((a, b) => a.nama.localeCompare(b.nama)),
+      jenisList: Array.from(jenisMap.values()).sort((a, b) =>
+        a.nama.localeCompare(b.nama),
+      ),
+      typeList: Array.from(typeMap.values()).sort((a, b) =>
+        a.nama.localeCompare(b.nama),
+      ),
     };
   }, [produkLengkap, selectedJenisId]);
 
@@ -196,20 +213,20 @@ const InventoryPage = ({ setNavbarContent }) => {
     let result = [...produkLengkap];
 
     if (selectedJenisId) {
-      result = result.filter(item => 
-        item.product?.jenis?.id === Number(selectedJenisId)
+      result = result.filter(
+        (item) => item.product?.jenis?.id === Number(selectedJenisId),
       );
     }
 
     if (selectedTypeId) {
-      result = result.filter(item => 
-        item.product?.type?.id === Number(selectedTypeId)
+      result = result.filter(
+        (item) => item.product?.type?.id === Number(selectedTypeId),
       );
     }
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      result = result.filter(item => {
+      result = result.filter((item) => {
         const product = item.product;
         if (!product) return false;
         return (
@@ -234,9 +251,16 @@ const InventoryPage = ({ setNavbarContent }) => {
         setSelectedTypeId={setSelectedTypeId}
         jenisList={jenisList}
         typeList={typeList}
-      />
+      />,
     );
-  }, [searchTerm, selectedJenisId, selectedTypeId, jenisList, typeList, setNavbarContent]);
+  }, [
+    searchTerm,
+    selectedJenisId,
+    selectedTypeId,
+    jenisList,
+    typeList,
+    setNavbarContent,
+  ]);
 
   const openModal = (type, inventory) => {
     if (!inventory) {
@@ -282,7 +306,7 @@ const InventoryPage = ({ setNavbarContent }) => {
       Swal.fire(
         "Error",
         err.response?.data?.message || "Terjadi kesalahan",
-        "error"
+        "error",
       );
     }
   };
@@ -300,91 +324,103 @@ const InventoryPage = ({ setNavbarContent }) => {
     <div className="space-y-6 p-2 md:p-4 max-w-7xl mx-auto">
       {filteredProducts.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">Tidak ada inventory ditemukan.</p>
+          <p className="text-gray-500 text-lg">
+            Tidak ada inventory ditemukan.
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredProducts.map((item) => (
-            <div
-              key={item.product.id}
-              className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-4"
-            >
-              {/* Info Produk */}
-              <div className="text-center mb-3">
-                <p className="text-sm text-gray-500 font-medium">{item.product.kode}</p>
-                <p className="font-medium text-gray-800 mt-1 text-sm min-h-[40px]">
-                  {formatProductName(item.product)}
-                </p>
-              </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+  {filteredProducts.map((item) => (
+    <div
+      key={item.product.id}
+      className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-4"
+    >
+      {/* Info Produk */}
+      <div className="text-center mb-3">
+        <p className="text-sm text-gray-500 font-medium truncate">
+          {item.product.kode}
+        </p>
+        <p className="font-medium text-gray-800 mt-1 text-sm min-h-[40px] leading-tight px-1">
+          {formatProductName(item.product)}
+        </p>
+      </div>
 
-              {/* === TOKO === */}
-              <div className="border border-green-200 rounded-lg p-3 mb-4 bg-green-50">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-xs font-medium text-green-800">TOKO</span>
-                    <p className="font-bold text-lg text-green-700 mt-1">{item.stok_toko}</p>
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => openModal("in", item.inv_toko)}
-                      className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
-                      title="Stok Masuk"
-                    >
-                      <Plus size={10} />
-                    </button>
-                    <button
-                      onClick={() => openModal("out", item.inv_toko)}
-                      className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
-                      title="Stok Keluar"
-                    >
-                      <Minus size={10} />
-                    </button>
-                    <button
-                      onClick={() => openModal("transfer", item.inv_toko)}
-                      className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
-                      title="Transfer"
-                    >
-                      <RefreshCw size={10} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* === BENGKEL === */}
-              <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-xs font-medium text-blue-800">BENGKEL</span>
-                    <p className="font-bold text-lg text-blue-700 mt-1">{item.stok_bengkel}</p>
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => openModal("in", item.inv_bengkel)}
-                      className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
-                      title="Stok Masuk"
-                    >
-                      <Plus size={10} />
-                    </button>
-                    <button
-                      onClick={() => openModal("out", item.inv_bengkel)}
-                      className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
-                      title="Stok Keluar"
-                    >
-                      <Minus size={10} />
-                    </button>
-                    <button
-                      onClick={() => openModal("transfer", item.inv_bengkel)}
-                      className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
-                      title="Transfer"
-                    >
-                      <RefreshCw size={10} />
-                    </button>
-                  </div>
-                </div>
-              </div>
+      {/* === TOKO === */}
+      <div className="border border-green-200 rounded-lg p-3 mb-4 bg-green-50">
+        <div className={`flex items-start ${role === "admin" ? "justify-between" : "justify-center"}`}>
+          <div className="text-center">
+            <span className="text-xs font-medium text-green-800">TOKO</span>
+            <p className="font-bold text-lg text-green-700 mt-1">
+              {item.stok_toko}
+            </p>
+          </div>
+          {role === "admin" && (
+            <div className="flex gap-1">
+              <button
+                onClick={() => openModal("in", item.inv_toko)}
+                className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
+                title="Stok Masuk"
+              >
+                <Plus size={10} />
+              </button>
+              <button
+                onClick={() => openModal("out", item.inv_toko)}
+                className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
+                title="Stok Keluar"
+              >
+                <Minus size={10} />
+              </button>
+              <button
+                onClick={() => openModal("transfer", item.inv_toko)}
+                className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
+                title="Transfer"
+              >
+                <RefreshCw size={10} />
+              </button>
             </div>
-          ))}
+          )}
         </div>
+      </div>
+
+      {/* === BENGKEL === */}
+      <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
+        <div className={`flex items-start ${role === "admin" ? "justify-between" : "justify-center"}`}>
+          <div className="text-center">
+            <span className="text-xs font-medium text-blue-800">BENGKEL</span>
+            <p className="font-bold text-lg text-blue-700 mt-1">
+              {item.stok_bengkel}
+            </p>
+          </div>
+          {role === "admin" && (
+            <div className="flex gap-1">
+              <button
+                onClick={() => openModal("in", item.inv_bengkel)}
+                className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
+                title="Stok Masuk"
+              >
+                <Plus size={10} />
+              </button>
+              <button
+                onClick={() => openModal("out", item.inv_bengkel)}
+                className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
+                title="Stok Keluar"
+              >
+                <Minus size={10} />
+              </button>
+              <button
+                onClick={() => openModal("transfer", item.inv_bengkel)}
+                className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
+                title="Transfer"
+              >
+                <RefreshCw size={10} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
       )}
 
       {/* MODAL */}
@@ -395,13 +431,15 @@ const InventoryPage = ({ setNavbarContent }) => {
               {modal === "in"
                 ? "Stok Masuk"
                 : modal === "out"
-                ? "Stok Keluar"
-                : "Transfer Stok"}
+                  ? "Stok Keluar"
+                  : "Transfer Stok"}
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Jumlah
+                </label>
                 <input
                   type="number"
                   min="1"
@@ -419,7 +457,9 @@ const InventoryPage = ({ setNavbarContent }) => {
                   <select
                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                     value={form.to_place_id}
-                    onChange={(e) => setForm({ ...form, to_place_id: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, to_place_id: e.target.value })
+                    }
                   >
                     <option value="">Pilih Tempat Tujuan</option>
                     {places
@@ -434,12 +474,16 @@ const InventoryPage = ({ setNavbarContent }) => {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Keterangan
+                </label>
                 <textarea
                   rows={3}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                   value={form.keterangan}
-                  onChange={(e) => setForm({ ...form, keterangan: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, keterangan: e.target.value })
+                  }
                 />
               </div>
 

@@ -45,6 +45,8 @@ const ProductionPage = () => {
   const [pesanan, setPesanan] = useState([]);
   const [karyawans, setKaryawans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const user = JSON.parse(localStorage.getItem("user"));
+  const role = user?.role;
 
   const [form, setForm] = useState({
     product_id: "",
@@ -55,9 +57,13 @@ const ProductionPage = () => {
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   // 🔹 State untuk modal upload foto
-  const [uploadModal, setUploadModal] = useState({ open: false, productionId: null, productId: null });
+  const [uploadModal, setUploadModal] = useState({
+    open: false,
+    productionId: null,
+    productId: null,
+  });
   const [fotoForm, setFotoForm] = useState({
     foto_depan: null,
     foto_samping: null,
@@ -111,7 +117,7 @@ const ProductionPage = () => {
 
     const ok = await confirmAction(
       "Buat Produksi?",
-      "Produksi inventory akan dibuat"
+      "Produksi inventory akan dibuat",
     );
     if (!ok) return;
 
@@ -202,7 +208,7 @@ const ProductionPage = () => {
   const handleSelesaiWithUpload = async (id, production) => {
     const ok = await confirmAction(
       "Ubah Status?",
-      `Status akan diubah menjadi "Selesai"`
+      `Status akan diubah menjadi "Selesai"`,
     );
     if (!ok) return;
 
@@ -220,7 +226,9 @@ const ProductionPage = () => {
             productId: production.product_id,
           });
         } else {
-          const msg = Object.values(error.response.data.errors || { message: errorMsg })
+          const msg = Object.values(
+            error.response.data.errors || { message: errorMsg },
+          )
             .flat()
             .join("<br>");
           Swal.fire("Validasi Gagal", msg, "warning");
@@ -234,7 +242,7 @@ const ProductionPage = () => {
   const updateStatus = async (id, status) => {
     if (status === "selesai") {
       // Cari produksi yang sesuai
-      const production = productions.find(p => p.id === id);
+      const production = productions.find((p) => p.id === id);
       if (production) {
         handleSelesaiWithUpload(id, production);
       }
@@ -243,7 +251,7 @@ const ProductionPage = () => {
 
     const ok = await confirmAction(
       "Ubah Status?",
-      `Status akan diubah menjadi "${statusConfig[status].label}"`
+      `Status akan diubah menjadi "${statusConfig[status].label}"`,
     );
     if (!ok) return;
 
@@ -252,7 +260,11 @@ const ProductionPage = () => {
       fetchData();
     } catch (error) {
       if (error.response?.status === 422) {
-        const msg = Object.values(error.response.data.errors || { message: error.response.data.message })
+        const msg = Object.values(
+          error.response.data.errors || {
+            message: error.response.data.message,
+          },
+        )
           .flat()
           .join("<br>");
         Swal.fire("Validasi Gagal", msg, "warning");
@@ -265,21 +277,28 @@ const ProductionPage = () => {
   // 🔹 Simpan foto produk
   const handleUploadFoto = async (e) => {
     e.preventDefault();
-    
+
     const formData = new FormData();
-    if (fotoForm.foto_depan) formData.append('foto_depan', fotoForm.foto_depan);
-    if (fotoForm.foto_samping) formData.append('foto_samping', fotoForm.foto_samping);
-    if (fotoForm.foto_atas) formData.append('foto_atas', fotoForm.foto_atas);
+    if (fotoForm.foto_depan) formData.append("foto_depan", fotoForm.foto_depan);
+    if (fotoForm.foto_samping)
+      formData.append("foto_samping", fotoForm.foto_samping);
+    if (fotoForm.foto_atas) formData.append("foto_atas", fotoForm.foto_atas);
 
     try {
-      await api.post(`/products/${uploadModal.productId}/upload-foto`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      await api.post(
+        `/products/${uploadModal.productId}/upload-foto`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
 
       Swal.fire("Berhasil", "Foto produk berhasil diunggah", "success");
-      
+
       // Setelah upload, coba selesaikan lagi
-      await api.put(`/productions/${uploadModal.productionId}`, { status: "selesai" });
+      await api.put(`/productions/${uploadModal.productionId}`, {
+        status: "selesai",
+      });
       setUploadModal({ open: false, productionId: null, productId: null });
       setFotoForm({ foto_depan: null, foto_samping: null, foto_atas: null });
       fetchData();
@@ -369,7 +388,9 @@ const ProductionPage = () => {
       {/* PRODUKSI: ANTRI */}
       {byStatus("antri").length > 0 && (
         <div>
-          <h2 className="text-xl text-center font-bold text-gray-800 mb-4">Antri</h2>
+          <h2 className="text-xl text-center font-bold text-gray-800 mb-4">
+            Antri
+          </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {byStatus("antri").map((p) => (
               <ProductionCard
@@ -378,6 +399,7 @@ const ProductionPage = () => {
                 updateStatus={updateStatus}
                 formatProductName={formatProductName}
                 formatDate={formatDate}
+                role={role} // ✅ Kirim role ke card
               />
             ))}
           </div>
@@ -398,21 +420,24 @@ const ProductionPage = () => {
                 updateStatus={updateStatus}
                 formatProductName={formatProductName}
                 formatDate={formatDate}
+                role={role}
               />
             ))}
           </div>
         </div>
       )}
 
-      <button
-        onClick={() => {
-          resetForm();
-          setIsModalOpen(true);
-        }}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
-      >
-        <Plus size={18} />
-      </button>
+      {(role === "admin" || role === "operator") && (
+        <button
+          onClick={() => {
+            resetForm();
+            setIsModalOpen(true);
+          }}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+        >
+          <Plus size={18} />
+        </button>
+      )}
 
       {/* MODAL PRODUKSI INVENTORY */}
       {isModalOpen && (
@@ -545,11 +570,14 @@ const ProductionPage = () => {
             </div>
 
             <form onSubmit={handleUploadFoto} className="p-5 space-y-4">
-              {['foto_depan', 'foto_samping', 'foto_atas'].map((key) => (
+              {["foto_depan", "foto_samping", "foto_atas"].map((key) => (
                 <div key={key}>
                   <label className="text-sm text-center font-medium text-gray-700 block mb-1">
-                    {key === 'foto_depan' ? 'Foto Depan' : 
-                     key === 'foto_samping' ? 'Foto Samping' : 'Foto Atas'}
+                    {key === "foto_depan"
+                      ? "Foto Depan"
+                      : key === "foto_samping"
+                        ? "Foto Samping"
+                        : "Foto Atas"}
                   </label>
                   <div className="flex justify-center items-center gap-2">
                     <ImageIcon className="text-gray-400" size={16} />
@@ -569,7 +597,13 @@ const ProductionPage = () => {
               <div className="flex justify-center gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setUploadModal({ open: false, productionId: null, productId: null })}
+                  onClick={() =>
+                    setUploadModal({
+                      open: false,
+                      productionId: null,
+                      productId: null,
+                    })
+                  }
                   className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700"
                 >
                   Batal
@@ -589,7 +623,13 @@ const ProductionPage = () => {
   );
 };
 
-const ProductionCard = ({ p, updateStatus, formatProductName, formatDate }) => {
+const ProductionCard = ({
+  p,
+  updateStatus,
+  formatProductName,
+  formatDate,
+  role,
+}) => {
   const status = statusConfig[p.status] || statusConfig.antri;
 
   return (
@@ -631,7 +671,8 @@ const ProductionCard = ({ p, updateStatus, formatProductName, formatDate }) => {
       </div>
 
       <div className="flex gap-1 mt-2">
-        {p.status === "antri" && (
+        {/* Tombol "Mulai" — hanya untuk admin/operator */}
+        {p.status === "antri" && (role === "admin" || role === "operator") && (
           <button
             onClick={() => updateStatus(p.id, "produksi")}
             className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-[10px] py-1 rounded transition"
@@ -640,16 +681,19 @@ const ProductionCard = ({ p, updateStatus, formatProductName, formatDate }) => {
           </button>
         )}
 
-        {p.status === "produksi" && (
-          <button
-            onClick={() => updateStatus(p.id, "selesai")}
-            className="flex-1 bg-green-100 hover:bg-green-200 text-green-700 text-[10px] py-1 rounded transition"
-          >
-            Selesai
-          </button>
-        )}
+        {/* Tombol "Selesai" — hanya untuk admin/operator */}
+        {p.status === "produksi" &&
+          (role === "admin" || role === "operator") && (
+            <button
+              onClick={() => updateStatus(p.id, "selesai")}
+              className="flex-1 bg-green-100 hover:bg-green-200 text-green-700 text-[10px] py-1 rounded transition"
+            >
+              Selesai
+            </button>
+          )}
 
-        {p.status !== "selesai" && (
+        {/* Tombol "Batal" — hanya untuk admin */}
+        {p.status !== "selesai" && role === "admin" && (
           <button
             onClick={() => updateStatus(p.id, "batal")}
             className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 text-[10px] py-1 rounded transition"

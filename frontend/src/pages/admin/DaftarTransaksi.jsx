@@ -60,6 +60,8 @@ const TransaksiPage = ({ setNavbarContent }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [isCreatingNewCustomer, setIsCreatingNewCustomer] = useState(false);
+  const user = JSON.parse(localStorage.getItem("user"));
+  const role = user?.role;
 
   const [printTransaksi, setPrintTransaksi] = useState(null);
   const printRef = useRef();
@@ -90,6 +92,15 @@ const TransaksiPage = ({ setNavbarContent }) => {
     contentRef: printRef,
     documentTitle: getSafeFileName(printTransaksi),
   });
+
+  const onPrintClick = (transaksiItem) => {
+    setPrintTransaksi(transaksiItem);
+    setTimeout(() => {
+      if (printRef.current) {
+        handlePrintInvoice();
+      }
+    }, 150);
+  };
 
   const initialDetail = {
     id: "",
@@ -148,15 +159,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const onPrintClick = (transaksiItem) => {
-    setPrintTransaksi(transaksiItem);
-    setTimeout(() => {
-      if (printRef.current) {
-        handlePrintInvoice();
-      }
-    }, 150);
   };
 
   useEffect(() => {
@@ -717,12 +719,14 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                 >
                                   <CheckCircle size={12} /> Selesai
                                 </button>
-                                <button
-                                  onClick={() => handleCancelDetail(d.id)}
-                                  className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
-                                >
-                                  <XCircle size={12} /> Batal
-                                </button>
+                                {role === "admin" && (
+                                  <button
+                                    onClick={() => handleCancelDetail(d.id)}
+                                    className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
+                                  >
+                                    <XCircle size={12} /> Batal
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -730,12 +734,14 @@ const TransaksiPage = ({ setNavbarContent }) => {
                       })}
                     </div>
                     <div className="flex justify-center mt-2">
-                      <button
-                        onClick={() => handleEditTransaksi(item)}
-                        className="flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700 w-full"
-                      >
-                        <Pencil size={12} /> Edit
-                      </button>
+                      {role === "admin" && (
+                        <button
+                          onClick={() => handleEditTransaksi(item)}
+                          className="w-full flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700"
+                        >
+                          <Pencil size={12} /> Edit
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

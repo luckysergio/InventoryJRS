@@ -66,6 +66,8 @@ const PesananPage = ({ setNavbarContent }) => {
   const [showProductBaru, setShowProductBaru] = useState({});
   const [hargaOptions, setHargaOptions] = useState({});
   const [showHargaBaru, setShowHargaBaru] = useState({});
+  const user = JSON.parse(localStorage.getItem("user"));
+  const role = user?.role;
 
   const [printTransaksi, setPrintTransaksi] = useState(null);
   const printRef = useRef();
@@ -96,6 +98,15 @@ const PesananPage = ({ setNavbarContent }) => {
     contentRef: printRef,
     documentTitle: getSafeFileName(printTransaksi),
   });
+
+  const onPrintClick = (transaksiItem) => {
+    setPrintTransaksi(transaksiItem);
+    setTimeout(() => {
+      if (printRef.current) {
+        handlePrintInvoice();
+      }
+    }, 150);
+  };
 
   const initialDetail = {
     id: "",
@@ -162,14 +173,6 @@ const PesananPage = ({ setNavbarContent }) => {
     }
   };
 
-  const onPrintClick = (transaksiItem) => {
-    setPrintTransaksi(transaksiItem);
-    setTimeout(() => {
-      if (printRef.current) {
-        handlePrintInvoice();
-      }
-    }, 150);
-  };
 
   useEffect(() => {
     fetchData(search);
@@ -894,12 +897,14 @@ const PesananPage = ({ setNavbarContent }) => {
                                 >
                                   <CheckCircle size={12} /> Selesai
                                 </button>
-                                <button
-                                  onClick={() => handleCancelDetail(d.id)}
-                                  className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
-                                >
-                                  <XCircle size={12} /> Batal
-                                </button>
+                                {role === "admin" && (
+                                  <button
+                                    onClick={() => handleCancelDetail(d.id)}
+                                    className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
+                                  >
+                                    <XCircle size={12} /> Batal
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -907,12 +912,14 @@ const PesananPage = ({ setNavbarContent }) => {
                       })}
                     </div>
                     <div className="mt-2">
-                      <button
-                        onClick={() => handleEditTransaksi(item)}
-                        className="w-full flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700"
-                      >
-                        <Pencil size={12} /> Edit
-                      </button>
+                      {role === "admin" && (
+                        <button
+                          onClick={() => handleEditTransaksi(item)}
+                          className="w-full flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700"
+                        >
+                          <Pencil size={12} /> Edit
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

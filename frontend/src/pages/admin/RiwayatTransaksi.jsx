@@ -149,6 +149,8 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
   const [tanggalSampai, setTanggalSampai] = useState("");
   const [selectedTransaksi, setSelectedTransaksi] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const user = JSON.parse(localStorage.getItem("user"));
+  const role = user?.role;
 
   const fetchData = async () => {
     try {
@@ -160,34 +162,34 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
       const res = await api.get(
         `/transaksi/riwayat/all${
           params.toString() ? `?${params.toString()}` : ""
-        }`
+        }`,
       );
       let data = res.data || [];
 
       // Filter berdasarkan status (masih di detail)
-if (selectedStatus !== "all") {
-  const statusIdMap = { selesai: 5, dibatalkan: 6 };
-  const targetStatusId = statusIdMap[selectedStatus];
-  data = data.filter((item) =>
-    item.details.some((d) => d.status_transaksi_id === targetStatusId)
-  );
-}
+      if (selectedStatus !== "all") {
+        const statusIdMap = { selesai: 5, dibatalkan: 6 };
+        const targetStatusId = statusIdMap[selectedStatus];
+        data = data.filter((item) =>
+          item.details.some((d) => d.status_transaksi_id === targetStatusId),
+        );
+      }
 
-// Filter berdasarkan tanggal (sekarang di level transaksi)
-if (tanggalDari || tanggalSampai) {
-  const dari = tanggalDari ? new Date(tanggalDari) : null;
-  const sampai = tanggalSampai
-    ? new Date(new Date(tanggalSampai).setHours(23, 59, 59, 999))
-    : null;
+      // Filter berdasarkan tanggal (sekarang di level transaksi)
+      if (tanggalDari || tanggalSampai) {
+        const dari = tanggalDari ? new Date(tanggalDari) : null;
+        const sampai = tanggalSampai
+          ? new Date(new Date(tanggalSampai).setHours(23, 59, 59, 999))
+          : null;
 
-  data = data.filter((item) => {
-    const transaksiDate = new Date(item.tanggal); // ← ambil dari item, bukan detail
-    return (
-      (!dari || transaksiDate >= dari) &&
-      (!sampai || transaksiDate <= sampai)
-    );
-  });
-}
+        data = data.filter((item) => {
+          const transaksiDate = new Date(item.tanggal); // ← ambil dari item, bukan detail
+          return (
+            (!dari || transaksiDate >= dari) &&
+            (!sampai || transaksiDate <= sampai)
+          );
+        });
+      }
 
       setTransaksi(data);
 
@@ -283,7 +285,7 @@ if (tanggalDari || tanggalSampai) {
         sum +
         (d.pembayarans?.reduce(
           (s, p) => s + safeParseFloat(p.jumlah_bayar),
-          0
+          0,
         ) || 0)
       );
     }, 0);
@@ -312,7 +314,7 @@ if (tanggalDari || tanggalSampai) {
         setSelectedCustomer={setSelectedCustomer}
         customers={customers}
         handleReset={handleReset}
-      />
+      />,
     );
   }, [
     tanggalDari,
@@ -367,15 +369,17 @@ if (tanggalDari || tanggalSampai) {
                         {getInvoiceNumber(item)}
                       </span>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(item.id);
-                      }}
-                      className="text-gray-400 hover:text-red-500 transition"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {role === "admin" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(item.id);
+                        }}
+                        className="text-gray-400 hover:text-red-500 transition"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                   <div className="flex justify-center items-center">
                     <span className="text-sm font-medium text-gray-800 mt-2 truncate">
@@ -527,7 +531,7 @@ if (tanggalDari || tanggalSampai) {
                                 Rp{" "}
                                 {formatRupiah(
                                   safeParseFloat(d.qty) *
-                                    safeParseFloat(d.harga)
+                                    safeParseFloat(d.harga),
                                 )}
                               </span>
                             </div>
@@ -546,7 +550,7 @@ if (tanggalDari || tanggalSampai) {
                                 {formatRupiah(
                                   safeParseFloat(d.qty) *
                                     safeParseFloat(d.harga) -
-                                    safeParseFloat(d.discount)
+                                    safeParseFloat(d.discount),
                                 )}
                               </span>
                             </div>

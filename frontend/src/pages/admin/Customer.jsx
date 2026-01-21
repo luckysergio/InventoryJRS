@@ -363,7 +363,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                     </button>
                   )}
 
-                  {role === "kasir" && (
+                  {role === "admin" && (
                     <button
                       onClick={() => handleDelete(item.id)}
                       className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-[10px]"
@@ -556,7 +556,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                               )
                             }
                           >
-                            <div className="flex justify-between items-start mb-2">
+                            <div className="flex justify-center items-center mb-2">
                               <span
                                 className={`px-2 py-1 rounded-full text-xs font-medium ${
                                   isHarian
@@ -565,9 +565,6 @@ const CustomerPage = ({ setNavbarContent }) => {
                                 }`}
                               >
                                 {isHarian ? "Harian" : "Pesanan"}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {formatTanggal(detail.tanggal)}
                               </span>
                             </div>
 

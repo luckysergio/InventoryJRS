@@ -66,25 +66,26 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
       style={{
         width: "297mm",
         minHeight: "210mm",
-        padding: "15mm",
+        padding: "10mm 12mm",
         margin: "0 auto",
         backgroundColor: "white",
         fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
-        fontSize: "11px",
-        lineHeight: 1.5,
+        fontSize: "10px",
+        lineHeight: 1.4,
         color: "#1f2937",
         boxSizing: "border-box",
       }}
     >
       {/* Header */}
-      <div style={{ textAlign: "center", marginBottom: "20px" }}>
+      <div style={{ textAlign: "center", marginBottom: "12px" }}>
         <h1
           style={{
-            fontSize: "28px",
+            fontSize: "22px",
             fontWeight: "800",
             margin: "0",
             color: "#0ea5e9",
             letterSpacing: "1px",
+            marginBottom: "4px",
           }}
         >
           INVOICE
@@ -96,18 +97,18 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
-          gap: "30px",
-          marginBottom: "20px",
+          gap: "20px",
+          marginBottom: "15px",
         }}
       >
-        {/* Kolom Kiri: Info Pelanggan — format "label : value" */}
+        {/* Kolom Kiri: Info Pelanggan */}
         <div>
-          <div style={{ marginBottom: "6px", fontSize: "11px" }}>
+          <div style={{ marginBottom: "4px", fontSize: "10px" }}>
             <span
               style={{
                 fontWeight: "600",
                 color: "#1f2937",
-                minWidth: "120px",
+                minWidth: "100px",
                 display: "inline-block",
               }}
             >
@@ -115,12 +116,12 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
             </span>
             <span>: PT Jaya Rubber Seal Indonesia</span>
           </div>
-          <div style={{ marginBottom: "6px", fontSize: "11px" }}>
+          <div style={{ marginBottom: "4px", fontSize: "10px" }}>
             <span
               style={{
                 fontWeight: "600",
                 color: "#1f2937",
-                minWidth: "120px",
+                minWidth: "100px",
                 display: "inline-block",
               }}
             >
@@ -128,12 +129,12 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
             </span>
             <span>: {transaksi.customer?.name || "Umum"}</span>
           </div>
-          <div style={{ fontSize: "11px" }}>
+          <div style={{ fontSize: "10px" }}>
             <span
               style={{
                 fontWeight: "600",
                 color: "#1f2937",
-                minWidth: "120px",
+                minWidth: "100px",
                 display: "inline-block",
               }}
             >
@@ -143,9 +144,9 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
           </div>
         </div>
 
-        {/* Kolom Kanan: Info Invoice — rata kanan */}
-        <div style={{ textAlign: "right", fontSize: "11px" }}>
-          <div style={{ marginBottom: "6px" }}>
+        {/* Kolom Kanan: Info Invoice */}
+        <div style={{ textAlign: "right", fontSize: "10px" }}>
+          <div style={{ marginBottom: "4px" }}>
             <div style={{ fontWeight: "600", color: "#1f2937" }}>
               No. Invoice
             </div>
@@ -167,8 +168,8 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          marginBottom: "20px",
-          fontSize: "11px",
+          marginBottom: "15px",
+          fontSize: "9.5px",
           tableLayout: "auto",
         }}
       >
@@ -177,12 +178,12 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
             <th
               style={{
                 border: "1px solid #d1d5db",
-                padding: "10px 8px",
+                padding: "6px 4px",
                 textAlign: "center",
                 fontWeight: "600",
                 backgroundColor: "#f9fafb",
                 color: "#1f2937",
-                width: "50px",
+                width: "35px",
               }}
             >
               No.
@@ -190,7 +191,7 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
             <th
               style={{
                 border: "1px solid #d1d5db",
-                padding: "10px 8px",
+                padding: "6px 4px",
                 textAlign: "center",
                 fontWeight: "600",
                 backgroundColor: "#f9fafb",
@@ -202,12 +203,12 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
             <th
               style={{
                 border: "1px solid #d1d5db",
-                padding: "10px 8px",
+                padding: "6px 4px",
                 textAlign: "center",
                 fontWeight: "600",
                 backgroundColor: "#f9fafb",
                 color: "#1f2937",
-                width: "80px",
+                width: "40px",
               }}
             >
               Qty
@@ -215,12 +216,12 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
             <th
               style={{
                 border: "1px solid #d1d5db",
-                padding: "10px 8px",
+                padding: "6px 4px",
                 textAlign: "center",
                 fontWeight: "600",
                 backgroundColor: "#f9fafb",
                 color: "#1f2937",
-                width: "100px",
+                width: "80px",
               }}
             >
               Harga Satuan
@@ -228,12 +229,12 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
             <th
               style={{
                 border: "1px solid #d1d5db",
-                padding: "10px 8px",
+                padding: "6px 4px",
                 textAlign: "center",
                 fontWeight: "600",
                 backgroundColor: "#f9fafb",
                 color: "#1f2937",
-                width: "110px",
+                width: "90px",
               }}
             >
               Jumlah
@@ -257,7 +258,7 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
                 <td
                   style={{
                     border: "1px solid #d1d5db",
-                    padding: "10px 8px",
+                    padding: "6px 4px",
                     textAlign: "center",
                     color: "#64748b",
                   }}
@@ -268,8 +269,11 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
                   style={{
                     border: "1px solid #d1d5db",
                     textAlign: "center",
-                    padding: "10px 8px",
+                    padding: "6px 4px",
                     fontWeight: "500",
+                    fontSize: "9px",
+                    lineHeight: "1.3",
+                    wordWrap: "break-word",
                   }}
                 >
                   {productInfo || "Produk"}
@@ -277,7 +281,7 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
                 <td
                   style={{
                     border: "1px solid #d1d5db",
-                    padding: "10px 8px",
+                    padding: "6px 4px",
                     textAlign: "center",
                   }}
                 >
@@ -286,7 +290,7 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
                 <td
                   style={{
                     border: "1px solid #d1d5db",
-                    padding: "10px 8px",
+                    padding: "6px 4px",
                     textAlign: "center",
                     color: "#64748b",
                   }}
@@ -296,7 +300,7 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
                 <td
                   style={{
                     border: "1px solid #d1d5db",
-                    padding: "10px 8px",
+                    padding: "6px 4px",
                     textAlign: "center",
                     fontWeight: "600",
                     color: "#1f2937",
@@ -312,12 +316,12 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
 
       {/* Ringkasan Total */}
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <div style={{ width: "280px", fontSize: "11px" }}>
+        <div style={{ width: "250px", fontSize: "10px" }}>
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
-              padding: "8px 0",
+              padding: "5px 0",
               borderBottom: "1px solid #e5e7eb",
             }}
           >
@@ -330,7 +334,7 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              padding: "8px 0",
+              padding: "5px 0",
               borderBottom: "1px solid #e5e7eb",
             }}
           >
@@ -345,34 +349,34 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              padding: "10px 0",
-              marginTop: "8px",
+              padding: "6px 0",
+              marginTop: "4px",
               borderTop: "2px solid #0ea5e9",
             }}
           >
             <span
-              style={{ fontWeight: "700", fontSize: "12px", color: "#1f2937" }}
+              style={{ fontWeight: "700", fontSize: "11px", color: "#1f2937" }}
             >
               TOTAL TAGIHAN
             </span>
             <span
-              style={{ fontWeight: "800", fontSize: "13px", color: "#0ea5e9" }}
+              style={{ fontWeight: "800", fontSize: "12px", color: "#0ea5e9" }}
             >
               {formatRupiah(totalAfterDiscount)}
             </span>
           </div>
 
-          {/* ✅ Summary Pembayaran — hanya tampilkan jika ada pembayaran */}
+          {/* Summary Pembayaran */}
           {totalPaid > 0 && (
             <>
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  padding: "10px 0",
+                  padding: "6px 0",
                   backgroundColor: "#f0fdf4",
-                  borderRadius: "4px",
-                  marginTop: "12px",
+                  borderRadius: "3px",
+                  marginTop: "8px",
                 }}
               >
                 <span style={{ fontWeight: "600", color: "#059669" }}>
@@ -383,16 +387,16 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
                 </span>
               </div>
 
-              {/* ✅ Sisa Tagihan — hanya tampilkan jika ada sisa */}
+              {/* Sisa Tagihan */}
               {sisaTagihan > 0 && (
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
-                    padding: "10px 0",
+                    padding: "6px 0",
                     backgroundColor: "#fef2f2",
-                    borderRadius: "4px",
-                    marginTop: "8px",
+                    borderRadius: "3px",
+                    marginTop: "6px",
                     border: "1px solid #fecaca",
                   }}
                 >
@@ -414,35 +418,35 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
-          gap: "50px",
-          marginTop: "40px",
+          gap: "30px",
+          marginTop: activeDetails.length <= 2 ? "60px" : "30px", // Sesuaikan margin berdasarkan jumlah produk
         }}
       >
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontWeight: "600", marginBottom: "70px" }}>
+          <div style={{ fontWeight: "600", marginBottom: "50px" }}>
             Penerima
           </div>
           <div
             style={{
               height: "1px",
               backgroundColor: "#000",
-              marginBottom: "8px",
+              marginBottom: "6px",
             }}
           />
-          <div style={{ fontSize: "10px", color: "#64748b" }}></div>
+          <div style={{ fontSize: "9px", color: "#64748b" }}></div>
         </div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontWeight: "600", marginBottom: "70px" }}>
+          <div style={{ fontWeight: "600", marginBottom: "50px" }}>
             Dengan Hormat,
           </div>
           <div
             style={{
               height: "1px",
               backgroundColor: "#000",
-              marginBottom: "8px",
+              marginBottom: "6px",
             }}
           />
-          <div style={{ fontSize: "10px", color: "#64748b" }}>
+          <div style={{ fontSize: "9px", color: "#64748b" }}>
             PT Jaya Rubber Seal Indonesia
           </div>
         </div>
@@ -451,11 +455,11 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
       {/* Footer */}
       <div
         style={{
-          marginTop: "25px",
-          paddingTop: "10px",
+          marginTop: "15px",
+          paddingTop: "6px",
           borderTop: "1px solid #e5e7eb",
           textAlign: "center",
-          fontSize: "9px",
+          fontSize: "8px",
           color: "#94a3b8",
         }}
       >

@@ -157,7 +157,7 @@ const DistributorPage = ({ setNavbarContent }) => {
                     </button>
                   )}
 
-                  {role === "kasir" && (
+                  {role === "admin" && (
                     <button
                       onClick={() => handleDelete(d.id)}
                       className="flex-1 flex items-center justify-center gap-1 bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded hover:bg-red-200"

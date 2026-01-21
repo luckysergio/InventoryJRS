@@ -366,7 +366,7 @@ const HargaProductPage = ({ setNavbarContent }) => {
                       </button>
                     )}
 
-                    {role === "kasir" && (
+                    {role === "admin" && (
                       <button
                         onClick={() => handleDelete(item.id)}
                         className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-xs font-medium transition-colors duration-200"

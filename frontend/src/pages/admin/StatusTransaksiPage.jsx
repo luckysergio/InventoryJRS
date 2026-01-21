@@ -18,7 +18,6 @@ const StatusTransaksiPage = () => {
       const res = await api.get("/status-transaksi");
       setStatusData(res.data.data || []);
     } catch (error) {
-      console.error(error);
       Swal.fire("Error", "Gagal mengambil data status transaksi", "error");
     } finally {
       setLoading(false);
@@ -29,7 +28,15 @@ const StatusTransaksiPage = () => {
     fetchData();
   }, []);
 
-  // Buka modal tambah
+  // ✅ Fungsi cek duplikasi (case-insensitive)
+  const isStatusNameDuplicate = (nama, excludeId = null) => {
+    return statusData.some(
+      (status) =>
+        status.id !== excludeId &&
+        status.nama.toLowerCase() === nama.toLowerCase()
+    );
+  };
+
   const handleTambah = () => {
     setForm({ nama: "" });
     setIsEdit(false);
@@ -37,7 +44,6 @@ const StatusTransaksiPage = () => {
     setIsModalOpen(true);
   };
 
-  // Buka modal edit
   const handleEdit = (item) => {
     setForm({ nama: item.nama });
     setSelectedId(item.id);
@@ -45,9 +51,30 @@ const StatusTransaksiPage = () => {
     setIsModalOpen(true);
   };
 
-  // Simpan (tambah / edit)
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const { nama } = form;
+
+    if (!nama.trim()) {
+      Swal.fire("Validasi", "Nama Status wajib diisi", "warning");
+      return;
+    }
+
+    // ✅ Cek duplikasi di frontend
+    const isDuplicate = isStatusNameDuplicate(
+      nama.trim(),
+      isEdit ? selectedId : null
+    );
+
+    if (isDuplicate) {
+      Swal.fire(
+        "Duplikasi Data",
+        `Status "${nama}" sudah ada. Silakan gunakan nama lain.`,
+        "warning"
+      );
+      return;
+    }
 
     try {
       if (isEdit) {
@@ -55,20 +82,14 @@ const StatusTransaksiPage = () => {
         Swal.fire("Berhasil", "Status Transaksi berhasil diupdate", "success");
       } else {
         await api.post("/status-transaksi", form);
-        Swal.fire(
-          "Berhasil",
-          "Status Transaksi berhasil ditambahkan",
-          "success"
-        );
+        Swal.fire("Berhasil", "Status Transaksi berhasil ditambahkan", "success");
       }
 
       setIsModalOpen(false);
       fetchData();
     } catch (error) {
       if (error.response?.status === 422) {
-        const msg = Object.values(error.response.data.errors)
-          .flat()
-          .join("<br>");
+        const msg = Object.values(error.response.data.errors).join("<br>");
         Swal.fire("Validasi Gagal", msg, "warning");
       } else {
         Swal.fire("Error", "Terjadi kesalahan", "error");
@@ -76,7 +97,6 @@ const StatusTransaksiPage = () => {
     }
   };
 
-  // Hapus data
   const handleDelete = async (id) => {
     const result = await Swal.fire({
       title: "Yakin ingin menghapus?",
@@ -92,103 +112,100 @@ const StatusTransaksiPage = () => {
         await api.delete(`/status-transaksi/${id}`);
         Swal.fire("Berhasil", "Status Transaksi dihapus", "success");
         fetchData();
-      } catch (err) {
+      } catch {
         Swal.fire("Error", "Gagal menghapus data", "error");
       }
     }
   };
 
   return (
-    <div className="space-y-8">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Status Transaksi</h1>
-          <p className="text-gray-600 mt-2">Daftar status alur transaksi</p>
+    <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
+      {/* CONTENT */}
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
         </div>
+      ) : statusData.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          Belum ada data status transaksi
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {statusData.map((item) => (
+            <div
+              key={item.id}
+              className="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 hover:shadow-sm transition bg-white"
+            >
+              <h3 className="font-medium text-gray-800 text-center truncate">
+                {item.nama}
+              </h3>
 
-        <button
-          onClick={handleTambah}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition"
-        >
-          <Plus size={18} />
-          Tambah Status
-        </button>
-      </div>
+              <div className="flex justify-between gap-1 mt-3">
+                <button
+                  onClick={() => handleEdit(item)}
+                  className="flex-1 flex items-center justify-center gap-1 text-xs bg-amber-50 text-amber-700 px-2 py-1.5 rounded-md hover:bg-amber-100 transition"
+                  title="Edit"
+                >
+                  <Pencil size={12} />
+                </button>
 
-      {/* LOADING */}
-      {loading && <p className="text-center text-gray-500">Memuat data...</p>}
-
-      {/* DATA KOSONG */}
-      {!loading && statusData.length === 0 && (
-        <p className="text-center text-gray-500">Belum ada data</p>
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="flex-1 flex items-center justify-center gap-1 text-xs bg-rose-50 text-rose-700 px-2 py-1.5 rounded-md hover:bg-rose-100 transition"
+                  title="Hapus"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
-      {/* LIST DATA */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {statusData.map((item) => (
-          <div
-            key={item.id}
-            className="group bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition"
-          >
-            <h3 className="text-lg font-bold text-gray-900">{item.nama}</h3>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => handleEdit(item)}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-yellow-100 text-yellow-700 rounded-xl hover:bg-yellow-200"
-              >
-                <Pencil size={16} />
-                Edit
-              </button>
-
-              <button
-                onClick={() => handleDelete(item.id)}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-xl hover:bg-red-200"
-              >
-                <Trash2 size={16} />
-                Hapus
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+      <button
+        onClick={handleTambah}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+      >
+        <Plus size={18} />
+      </button>
 
       {/* MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-lg">
-            <h2 className="text-xl font-bold mb-4">
-              {isEdit ? "Edit Status Transaksi" : "Tambah Status Transaksi"}
-            </h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl">
+            <div className="p-5 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-center">
+                {isEdit ? "Edit Status Transaksi" : "Tambah Status Transaksi"}
+              </h2>
+            </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-600">
-                  Nama Status
+                <label className="text-sm font-medium text-gray-700 block mb-1">
+                  Nama Status *
                 </label>
                 <input
                   type="text"
                   value={form.nama}
                   onChange={(e) => setForm({ ...form, nama: e.target.value })}
-                  className="mt-1 w-full border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Masukkan nama status"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  placeholder="Nama Status"
                   required
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200"
+                  className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700"
                 >
                   Batal
                 </button>
 
                 <button
                   type="submit"
-                  className="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
                   {isEdit ? "Update" : "Simpan"}
                 </button>

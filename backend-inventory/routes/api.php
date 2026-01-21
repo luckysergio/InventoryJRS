@@ -1,10 +1,6 @@
 <?php
 
 use App\Http\Controllers\api\PesananTransaksiController;
-use App\Http\Controllers\api\StatusProductController;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\api\AuthController;
 use App\Http\Controllers\api\BahanProductController;
@@ -177,7 +173,7 @@ Route::group(['middleware' => ['jwt.auth']], function () {
 
     // Stok Opname
     Route::get('/stok-opname', [StokOpnameController::class, 'index'])->middleware('role:admin,kasir,operator');
-    Route::post('/stok-opname', [StokOpnameController::class, 'store'])->middleware('role:admin');
+    Route::post('/stok-opname', [StokOpnameController::class, 'store'])->middleware('role:admin,kasir,operator');
     Route::get('/stok-opname/{id}', [StokOpnameController::class, 'show'])->middleware('role:admin,kasir,operator');
 
     Route::post('/stok-opname/{id}/detail', [StokOpnameController::class, 'storeDetail'])->middleware('role:admin,kasir,operator');

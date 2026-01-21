@@ -36,6 +36,8 @@ const StokOpnamePage = () => {
   const [selectedInventoryIds, setSelectedInventoryIds] = useState(new Set());
   const [selectedPlaceId, setSelectedPlaceId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const user = JSON.parse(localStorage.getItem("user"));
+  const role = user?.role;
 
   const fetchData = async () => {
     try {
@@ -86,7 +88,11 @@ const StokOpnamePage = () => {
 
   const toggleInventorySelection = (id) => {
     const newSet = new Set(selectedInventoryIds);
-    newSet.has(id) ? newSet.delete(id) : newSet.add(id);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
     setSelectedInventoryIds(newSet);
   };
 
@@ -141,31 +147,27 @@ const StokOpnamePage = () => {
     const { value: result } = await Swal.fire({
       title: "Input Stok Fisik & Keterangan",
       html: `
-        <input type="number" id="stokReal" class="swal2-input" placeholder="Stok Fisik" value="${
-          currentReal || ""
-        }">
-        <input type="text" id="keterangan" class="swal2-input" placeholder="Keterangan (opsional)" value="${
-          currentKeterangan || ""
-        }">
+        <input type="number" id="stokReal" class="swal2-input" placeholder="Stok Fisik" value="${currentReal || ""}">
+        <input type="text" id="keterangan" class="swal2-input" placeholder="Keterangan (opsional)" value="${currentKeterangan || ""}">
       `,
       preConfirm: () => {
-        const stokRealInput = Swal.getPopup().querySelector("#stokReal").value;
-        const keterangan = Swal.getPopup().querySelector("#keterangan").value;
+        const stokRealInput = document.getElementById("stokReal").value;
+        const keterangan = document.getElementById("keterangan").value;
 
         if (stokRealInput === "") {
           return { stokReal: null, keterangan };
         }
 
-        const stokReal = parseInt(stokRealInput);
+        const stokReal = parseInt(stokRealInput, 10);
         if (isNaN(stokReal) || stokReal < 0) {
           Swal.showValidationMessage("Stok fisik harus ≥ 0 atau dikosongkan");
-        } else {
-          return { stokReal, keterangan };
+          return false;
         }
+        return { stokReal, keterangan };
       },
     });
 
-    if (result) {
+    if (result && result !== false) {
       try {
         const opname = stokOpnames.find((o) =>
           o.details?.some((d) => d.id === detailId)
@@ -250,14 +252,69 @@ const StokOpnamePage = () => {
     }
   };
 
+  const formatDateForPrint = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
   const handlePrint = (opname) => {
-    const statusLabel = "Draft (Belum Selesai)";
+    const opnameDate = new Date(opname.tgl_opname);
+    const year = opnameDate.getFullYear();
+    const month = String(opnameDate.getMonth() + 1).padStart(2, "0");
     const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      Swal.fire("Error", "Gagal membuka jendela cetak", "error");
+      return;
+    }
+
+    let detailsHtml = "";
+    if (opname.details && opname.details.length > 0) {
+      // ✅ Urutkan detail untuk cetak: BENGKEL dulu, lalu TOKO
+      const sortedDetails = [...opname.details].sort((a, b) => {
+        const getPriority = (kode) => {
+          if (kode === "BENGKEL") return 0;
+          if (kode === "TOKO") return 1;
+          return 2;
+        };
+        const prioA = getPriority(a.inventory?.place?.kode);
+        const prioB = getPriority(b.inventory?.place?.kode);
+        return prioA - prioB;
+      });
+
+      detailsHtml = sortedDetails
+        .map((d) => {
+          const productName = formatProductName(d.inventory?.product) || "-";
+          const placeName = d.inventory?.place?.nama || "–";
+          const stokSistem = d.stok_sistem || 0;
+          const stokReal = d.stok_real !== null && d.stok_real !== undefined ? d.stok_real : " ";
+          const selisih = d.selisih !== null && d.selisih !== undefined ? d.selisih : " ";
+          const selisihClass = selisih > 0 ? "pos" : selisih < 0 ? "neg" : "";
+          const keteranganHtml = d.keterangan
+            ? `<div class="card-row"><span class="label">Keterangan:</span> <span>${d.keterangan}</span></div>`
+            : "";
+
+          return `
+            <div class="card">
+              <div class="card-title">${productName} | ${placeName}</div>
+              <div class="card-row"><span class="label">Stok Sistem:</span> <span>${stokSistem}</span></div>
+              <div class="card-row"><span class="label">Stok Fisik:</span> <span>${stokReal}</span></div>
+              <div class="card-row"><span class="label">Selisih:</span> <span class="selisih ${selisihClass}">${selisih}</span></div>
+              ${keteranganHtml}
+            </div>
+          `;
+        })
+        .join("");
+    }
+
     const content = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Stok Opname #${opname.id}</title>
+          <title>Stok Opname JRS/SO/${year}/${month}/${opname.id}</title>
           <style>
             body {
               font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -274,6 +331,7 @@ const StokOpnamePage = () => {
               text-align: center;
               color: #4f46e5;
               margin-bottom: 20px;
+              line-height: 1.4;
             }
             .header {
               margin-bottom: 30px;
@@ -283,85 +341,53 @@ const StokOpnamePage = () => {
             .card {
               background: #f9fafb;
               border: 1px solid #e5e7eb;
-              border-radius: 12px;
-              padding: 16px;
-              margin-bottom: 12px;
+              border-radius: 10px;
+              padding: 14px;
+              margin-bottom: 10px;
+              page-break-inside: avoid;
             }
             .card-title {
               font-weight: 600;
               color: #1f2937;
-              margin-bottom: 8px;
+              margin-bottom: 6px;
+              font-size: 10px;
+              line-height: 1.4;
+              word-wrap: break-word;
+              hyphens: auto;
             }
             .card-row {
               display: flex;
               justify-content: space-between;
-              margin: 4px 0;
+              margin: 3px 0;
+              font-size: 11px;
             }
             .label { color: #6b7280; }
             .value { font-weight: 500; }
             .selisih.pos { color: #10b981; }
             .selisih.neg { color: #ef4444; }
-
-            /* Print layout: 4 columns */
             .print-grid {
               display: grid;
-              grid-template-columns: repeat(4, 1fr);
-              gap: 12px;
+              grid-template-columns: repeat(5, 1fr);
+              gap: 10px;
             }
           </style>
         </head>
         <body>
-          <h1>
-  Laporan Stok Opname (Draft)
-  JRS/SO/${new Date().getFullYear()}/${String(
-      new Date().getMonth() + 1
-    ).padStart(2, "0")}/${opname.id}
-</h1>
+          <h1>Laporan Stok Opname (Draft)<br>JRS/SO/${year}/${month}/${opname.id}</h1>
           <div class="header">
-            <div class="card-row"><span class="label">Tanggal:</span> <span class="value">${new Date(
-              opname.tgl_opname
-            ).toLocaleDateString("id-ID")}</span></div>
-            <div class="card-row"><span class="label">Status:</span> <span class="value">${statusLabel}</span></div>
+            <div class="card-row"><span class="label">Tanggal:</span> <span class="value">${formatDateForPrint(opname.tgl_opname)}</span></div>
+            <div class="card-row"><span class="label">Status:</span> <span class="value">Draft (Belum Selesai)</span></div>
             <div class="card-row"><span class="label">Oleh:</span> <span class="value">${
               opname.user?.name || "–"
             }</span></div>
           </div>
           <div class="print-grid">
-            ${opname.details
-              .map(
-                (d) => `
-                <div class="card">
-                  <div class="card-title">${formatProductName(
-                    d.inventory?.product
-                  )} | ${d.inventory?.place?.nama || "–"}</div>
-                  <div class="card-row"><span class="label">Stok Sistem:</span> <span>${
-                    d.stok_sistem
-                  }</span></div>
-                  <div class="card-row"><span class="label">Stok Fisik:</span> <span>${
-                    d.stok_real !== null && d.stok_real !== undefined
-                      ? d.stok_real
-                      : " "
-                  }</span></div>
-                  <div class="card-row"><span class="label">Selisih:</span> <span class="selisih ${
-                    d.selisih > 0 ? "pos" : d.selisih < 0 ? "neg" : ""
-                  }">${
-                  d.selisih !== null && d.selisih !== undefined
-                    ? d.selisih
-                    : " "
-                }</span></div>
-                  ${
-                    d.keterangan
-                      ? `<div class="card-row"><span class="label">Keterangan:</span> <span>${d.keterangan}</span></div>`
-                      : ""
-                  }
-                </div>
-              `
-              )
-              .join("")}
+            ${detailsHtml}
           </div>
         </body>
       </html>
     `;
+
     printWindow.document.write(content);
     printWindow.document.close();
     printWindow.print();
@@ -391,12 +417,14 @@ const StokOpnamePage = () => {
           <p className="text-gray-600 mt-2">
             Buat stok opname baru untuk memulai proses pencocokan stok.
           </p>
-          <button
-            onClick={() => setIsCreating(true)}
-            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
-          >
-            Buat Opname Sekarang
-          </button>
+          {(role === "admin" || role === "operator") && (
+            <button
+              onClick={() => setIsCreating(true)}
+              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+            >
+              Buat Opname Sekarang
+            </button>
+          )}
         </div>
       ) : (
         draftOpnames.map((op) => (
@@ -408,12 +436,16 @@ const StokOpnamePage = () => {
               <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
                 <div>
                   <h3 className="text-lg font-bold text-gray-800">
-                    {op.keterangan || `Opname #${op.id}`}
+                    {op.keterangan || `JRS/SO/${new Date(op.tgl_opname).getFullYear()}/${String(new Date(op.tgl_opname).getMonth() + 1).padStart(2, "0")}/${op.id}`}
                   </h3>
                   <p className="text-sm text-gray-600 mt-1">
                     Tanggal:{" "}
                     <span className="font-medium">
-                      {new Date(op.tgl_opname).toLocaleDateString("id-ID")}
+                      {new Date(op.tgl_opname).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
                     </span>
                   </p>
                   <p className="text-sm text-gray-600">
@@ -428,18 +460,22 @@ const StokOpnamePage = () => {
                   >
                     <Printer size={14} /> Cetak
                   </button>
-                  <button
-                    onClick={() => handleSelesaiOpname(op.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition no-print"
-                  >
-                    <CheckCircle size={14} /> Selesai
-                  </button>
-                  <button
-                    onClick={() => handleBatalkanOpname(op.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition no-print"
-                  >
-                    <XCircle size={14} /> Batal
-                  </button>
+                  {role === "admin" && (
+                    <button
+                      onClick={() => handleSelesaiOpname(op.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition no-print"
+                    >
+                      <CheckCircle size={14} /> Selesai
+                    </button>
+                  )}
+                  {role === "admin" && (
+                    <button
+                      onClick={() => handleBatalkanOpname(op.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition no-print"
+                    >
+                      <XCircle size={14} /> Batal
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -450,83 +486,97 @@ const StokOpnamePage = () => {
                   Tidak ada item dalam opname ini.
                 </p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {op.details.map((d) => (
-                    <div
-                      key={d.id}
-                      className="border border-gray-200 rounded-xl p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="font-semibold text-gray-800 text-sm mb-2 text-center">
-                        {formatProductName(d.inventory?.product)}
-                      </div>
-                      <p className="text-xs text-gray-600 mb-1 text-center">
-                        {d.inventory?.place?.nama || "–"}
-                      </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {/* ✅ URUTKAN DI SINI: BENGKEL dulu, lalu TOKO */}
+                  {(() => {
+                    const sortedDetails = [...op.details].sort((a, b) => {
+                      const getPriority = (kode) => {
+                        if (kode === "BENGKEL") return 0;
+                        if (kode === "TOKO") return 1;
+                        return 2;
+                      };
+                      const prioA = getPriority(a.inventory?.place?.kode);
+                      const prioB = getPriority(b.inventory?.place?.kode);
+                      return prioA - prioB;
+                    });
 
-                      <div className="space-y-1.5 mt-3 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Stok Sistem</span>
-                          <span className="font-medium">{d.stok_sistem}</span>
+                    return sortedDetails.map((d) => (
+                      <div
+                        key={d.id}
+                        className="border border-gray-200 rounded-xl p-4 bg-gray-50 hover:bg-gray-100 transition-colors min-w-[160px]"
+                      >
+                        <div className="font-semibold text-gray-800 text-sm mb-2 text-center break-words">
+                          {formatProductName(d.inventory?.product)}
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Stok Fisik</span>
-                          <span
-                            className="font-medium text-indigo-700 underline cursor-pointer"
-                            onClick={() =>
-                              handleUpdateStokReal(
-                                d.id,
-                                d.inventory_id,
-                                d.stok_real,
-                                d.keterangan
-                              )
-                            }
-                          >
-                            {d.stok_real !== null && d.stok_real !== undefined
-                              ? d.stok_real
-                              : "-"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Selisih</span>
-                          <span
-                            className={`font-medium ${
-                              d.selisih > 0
-                                ? "text-green-600"
-                                : d.selisih < 0
-                                ? "text-red-600"
-                                : "text-gray-500"
-                            }`}
-                          >
-                            {d.selisih !== null && d.selisih !== undefined
-                              ? d.selisih
-                              : "-"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {d.keterangan ? (
-                        <p className="text-xs text-gray-600 mt-2 text-center">
-                          <span className="font-medium"></span> {d.keterangan}
+                        <p className="text-xs text-gray-600 mb-1 text-center">
+                          {d.inventory?.place?.nama || "–"}
                         </p>
-                      ) : (
-                        <div className="flex justify-center">
-                          <button
-                            onClick={() =>
-                              handleUpdateStokReal(
-                                d.id,
-                                d.inventory_id,
-                                d.stok_real,
-                                d.keterangan
-                              )
-                            }
-                            className="text-xs text-indigo-600 hover:text-indigo-800 underline mt-2"
-                          >
-                            + Tambah Keterangan
-                          </button>
+
+                        <div className="space-y-1.5 mt-3 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Stok Sistem</span>
+                            <span className="font-medium">{d.stok_sistem}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Stok Fisik</span>
+                            <span
+                              className="font-medium text-indigo-700 underline cursor-pointer"
+                              onClick={() =>
+                                handleUpdateStokReal(
+                                  d.id,
+                                  d.inventory_id,
+                                  d.stok_real,
+                                  d.keterangan
+                                )
+                              }
+                            >
+                              {d.stok_real !== null && d.stok_real !== undefined
+                                ? d.stok_real
+                                : "-"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Selisih</span>
+                            <span
+                              className={`font-medium ${
+                                d.selisih > 0
+                                  ? "text-green-600"
+                                  : d.selisih < 0
+                                  ? "text-red-600"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              {d.selisih !== null && d.selisih !== undefined
+                                ? d.selisih
+                                : "-"}
+                            </span>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  ))}
+
+                        {d.keterangan ? (
+                          <p className="text-xs text-gray-600 mt-2 text-center">
+                            {d.keterangan}
+                          </p>
+                        ) : (
+                          <div className="flex justify-center">
+                            <button
+                              onClick={() =>
+                                handleUpdateStokReal(
+                                  d.id,
+                                  d.inventory_id,
+                                  d.stok_real,
+                                  d.keterangan
+                                )
+                              }
+                              className="text-xs text-indigo-600 hover:text-indigo-800 underline mt-2"
+                            >
+                              + Tambah Keterangan
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ));
+                  })()}
                 </div>
               )}
             </div>
@@ -534,7 +584,7 @@ const StokOpnamePage = () => {
         ))
       )}
 
-      <button
+        <button
           onClick={() => setIsCreating(true)}
           className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
         >
@@ -558,7 +608,9 @@ const StokOpnamePage = () => {
 
             <div className="p-5 space-y-6">
               <div className="bg-gray-50 p-4 rounded-xl">
-                <h3 className="text-lg font-semibold mb-3 text-center">Informasi Opname</h3>
+                <h3 className="text-lg font-semibold mb-3 text-center">
+                  Informasi Opname
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -641,12 +693,11 @@ const StokOpnamePage = () => {
                     Tidak ada inventory ditemukan.
                   </p>
                 ) : (
-                  // ✅ Sama: responsive di modal juga
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {filteredInventories.map((inv) => (
                       <div
                         key={inv.id}
-                        className={`border-2 rounded-xl p-4 cursor-pointer relative ${
+                        className={`border-2 rounded-xl p-4 cursor-pointer relative min-w-[160px] ${
                           selectedInventoryIds.has(inv.id)
                             ? "border-indigo-500 bg-indigo-50 shadow-sm"
                             : "border-gray-200 hover:border-gray-300"
@@ -654,7 +705,7 @@ const StokOpnamePage = () => {
                         onClick={() => toggleInventorySelection(inv.id)}
                       >
                         <div className="text-center">
-                          <p className="font-semibold text-gray-800 mt-1 text-sm">
+                          <p className="font-semibold text-gray-800 mt-1 text-sm break-words">
                             {formatProductName(inv.product)}
                           </p>
                           <p className="text-xs text-gray-600 mt-1">
