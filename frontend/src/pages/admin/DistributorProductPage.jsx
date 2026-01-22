@@ -34,17 +34,52 @@ const unformatRupiah = (str) => {
   return parseInt(String(str).replace(/\D/g, ""), 10) || 0;
 };
 
-const generateDistributorPrefix = (nama) => {
+const generateDistributorPrefix = (nama, noHp) => {
   if (!nama) return "";
-  return nama
+
+  const initial = nama
     .trim()
     .split(/\s+/)
     .map((word) => word.charAt(0).toUpperCase())
     .join("");
+
+  const hpAngka = (noHp || "").replace(/\D/g, "");
+  const last4 = hpAngka.slice(-4);
+
+  return initial + last4;
+};
+
+const extractJenisKode = (text) => {
+  if (!text) return "";
+  const clean = text.trim().toUpperCase();
+  if (clean.length === 1) return clean;
+  return clean.charAt(0) + clean.charAt(clean.length - 1);
+};
+
+const extractTypeKode = (text) => {
+  if (!text) return "";
+
+  const words = text.trim().toUpperCase().split(/\s+/);
+  const angka = extractNumbers(text);
+  let huruf = "";
+
+  if (words.length === 1) {
+    // 1 kata → 3 huruf
+    huruf = words[0].substring(0, 3);
+  } else if (words.length === 2) {
+    // 2 kata → 2 + 1
+    huruf = words[0].substring(0, 2) + words[1].substring(0, 1);
+  } else {
+    // >2 kata → 1 tiap kata
+    huruf = words.map((w) => w.charAt(0)).join("");
+  }
+
+  return huruf + angka;
 };
 
 const extractInitials = (text, max = 2) => {
   if (!text) return "";
+
   return text
     .trim()
     .split(/\s+/)
@@ -65,22 +100,25 @@ const generateKode = (
   typeNama,
   bahanNama,
   ukuran,
-  distributorNama
+  distributorNama,
+  distributorHp,
 ) => {
-  const jenisKode = jenisNama ? jenisNama.charAt(0).toUpperCase() : "";
-  let typeKode = "";
-  if (typeNama) {
-    const huruf = extractInitials(typeNama, 2);
-    const angka = extractNumbers(typeNama);
-    typeKode = huruf + angka;
-  }
+  const jenisKode = extractJenisKode(jenisNama);
+  const typeKode = extractTypeKode(typeNama);
   const bahanKode = bahanNama ? extractInitials(bahanNama, 2) : "";
-  const ukuranAngka = extractNumbers(ukuran);
-  const baseKode = jenisKode + typeKode + bahanKode + ukuranAngka;
+  const ukuranKode = extractNumbers(ukuran);
 
-  const distributorPrefix = distributorNama
-    ? generateDistributorPrefix(distributorNama)
-    : "";
+  const baseKode = (
+    jenisKode +
+    typeKode +
+    bahanKode +
+    ukuranKode
+  ).toUpperCase();
+
+  const distributorPrefix = generateDistributorPrefix(
+    distributorNama,
+    distributorHp,
+  );
 
   return distributorPrefix ? `${distributorPrefix}-${baseKode}` : baseKode;
 };
@@ -270,7 +308,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
     }
 
     const filtered = allTypes.filter(
-      (t) => t.jenis_id === Number(form.jenis_id)
+      (t) => t.jenis_id === Number(form.jenis_id),
     );
     setFilteredTypes(filtered);
 
@@ -280,34 +318,47 @@ const DistributorProductPage = ({ setNavbarContent }) => {
   }, [form.jenis_id, allTypes, isEdit]);
 
   const getKodePreview = () => {
+    // JENIS
     const jenisNama =
       form.jenis_id === "new"
         ? jenisInputBaru
         : jenis.find((j) => String(j.id) === String(form.jenis_id))?.nama || "";
 
+    // TYPE
     const typeNama =
       form.type_id === "new"
         ? typeInputBaru
         : allTypes.find((t) => String(t.id) === String(form.type_id))?.nama ||
           "";
 
+    // BAHAN
     const bahanNama =
       form.bahan_id === "new"
         ? bahanInputBaru
         : bahan.find((b) => String(b.id) === String(form.bahan_id))?.nama || "";
 
-    const distributorNama =
-      form.distributor_id && form.distributor_id !== "new"
-        ? distributors.find((d) => String(d.id) === String(form.distributor_id))
-            ?.nama || ""
-        : "";
+    // DISTRIBUTOR
+    let distributorNama = "";
+    let distributorHp = "";
+
+    if (form.distributor_id === "new") {
+      distributorNama = distributorInputBaru;
+      distributorHp = distributorHpBaru;
+    } else if (form.distributor_id) {
+      const dist = distributors.find(
+        (d) => String(d.id) === String(form.distributor_id),
+      );
+      distributorNama = dist?.nama || "";
+      distributorHp = dist?.no_hp || "";
+    }
 
     return generateKode(
       jenisNama,
       typeNama,
       bahanNama,
       form.ukuran,
-      distributorNama
+      distributorNama,
+      distributorHp,
     );
   };
 
@@ -355,17 +406,17 @@ const DistributorProductPage = ({ setNavbarContent }) => {
     setFotoDepan(
       item.foto_depan
         ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`
-        : null
+        : null,
     );
     setFotoSamping(
       item.foto_samping
         ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`
-        : null
+        : null,
     );
     setFotoAtas(
       item.foto_atas
         ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`
-        : null
+        : null,
     );
 
     setJenisInputBaru("");
@@ -383,7 +434,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
       Swal.fire(
         "Validasi",
         "Kode, Ukuran, dan Distributor wajib diisi",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -424,7 +475,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
     }
 
     const distributor = distributors.find(
-      (d) => String(d.id) === String(form.distributor_id)
+      (d) => String(d.id) === String(form.distributor_id),
     );
     const dataPreview = `
     <div style="text-align: center; font-size: 14px;">
@@ -504,7 +555,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
       if (isEdit) {
         await api.post(
           `/product-distributors/${selectedId}?_method=PUT`,
-          formData
+          formData,
         );
       } else {
         await api.post("/product-distributors", formData);
@@ -516,7 +567,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
         isEdit
           ? "Product distributor berhasil diperbarui"
           : "Product distributor berhasil ditambahkan",
-        "success"
+        "success",
       );
       setIsModalOpen(false);
       setCurrentPage(1);
@@ -558,7 +609,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
   const formatProductName = (p) => {
     if (!p) return "-";
     const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(
-      (part) => part != null && part !== ""
+      (part) => part != null && part !== "",
     );
     return parts.length > 0 ? parts.join(" ") : "-";
   };
@@ -655,7 +706,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
     setFoto,
     label,
     fileInputRef,
-    cameraInputRef
+    cameraInputRef,
   ) => (
     <div className="space-y-1.5">
       <label className="block text-xs font-medium text-gray-600 text-center">
@@ -730,7 +781,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
         setFilterType={setFilterType}
         jenis={jenis}
         filteredTypesForFilter={filteredTypesForFilter}
-      />
+      />,
     );
   }, [
     search,
@@ -774,7 +825,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
                           openFotoModal(
                             `${import.meta.env.VITE_ASSET_URL}/storage/${
                               item.foto_depan
-                            }`
+                            }`,
                           )
                         }
                       />
@@ -790,7 +841,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
                           openFotoModal(
                             `${import.meta.env.VITE_ASSET_URL}/storage/${
                               item.foto_samping
-                            }`
+                            }`,
                           )
                         }
                       />
@@ -806,7 +857,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
                           openFotoModal(
                             `${import.meta.env.VITE_ASSET_URL}/storage/${
                               item.foto_atas
-                            }`
+                            }`,
                           )
                         }
                       />
@@ -822,7 +873,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
 
                   {/* Kode Produk */}
                   <div className="text-center mb-2">
-                    <p className="font-bold text-xl text-gray-800 truncate">
+                    <p className="font-semibold text-sm text-gray-800 break-all">
                       {item.kode}
                     </p>
                   </div>
@@ -1118,21 +1169,21 @@ const DistributorProductPage = ({ setNavbarContent }) => {
                   setFotoDepan,
                   "Depan",
                   fileInputDepan,
-                  cameraInputDepan
+                  cameraInputDepan,
                 )}
                 {renderFotoPreview(
                   fotoSamping,
                   setFotoSamping,
                   "Samping",
                   fileInputSamping,
-                  cameraInputSamping
+                  cameraInputSamping,
                 )}
                 {renderFotoPreview(
                   fotoAtas,
                   setFotoAtas,
                   "Atas",
                   fileInputAtas,
-                  cameraInputAtas
+                  cameraInputAtas,
                 )}
               </div>
 

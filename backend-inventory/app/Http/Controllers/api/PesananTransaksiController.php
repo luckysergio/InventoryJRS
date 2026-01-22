@@ -455,11 +455,17 @@ class PesananTransaksiController extends Controller
                 'tanggal' => $request->tanggal,
             ]);
 
-            $total = 0;
+            $placeToko = Place::where('kode', 'TOKO')->first();
+            if (!$placeToko) {
+                throw new \Exception("Place 'TOKO' tidak ditemukan");
+            }
+
             $existingDetailIds = [];
 
             foreach ($request->details as $d) {
-                if (!empty($d['product_id'])) {
+                $isNewProduct = empty($d['product_id']); // ✅ Deteksi product baru
+
+                if (!$isNewProduct) {
                     $product = Product::findOrFail($d['product_id']);
                 } else {
                     $jenis = !empty($d['product_baru']['jenis_id'])
@@ -505,6 +511,12 @@ class PesananTransaksiController extends Controller
                         'ukuran' => $d['product_baru']['ukuran'],
                         'keterangan' => $d['product_baru']['keterangan'] ?? null,
                     ]);
+
+                    Inventory::create([
+                        'product_id' => $product->id,
+                        'place_id' => $placeToko->id,
+                        'qty' => 0, // Mulai dari 0, nanti diisi saat produksi
+                    ]);
                 }
 
                 if (!empty($d['harga_baru']['harga'])) {
@@ -530,7 +542,6 @@ class PesananTransaksiController extends Controller
                 }
 
                 $subtotal = $harga->harga * $d['qty'];
-                $total += $subtotal;
 
                 $detail = TransaksiDetail::updateOrCreate(
                     [
@@ -550,9 +561,15 @@ class PesananTransaksiController extends Controller
                 $existingDetailIds[] = $detail->id;
             }
 
+            // Hapus detail yang tidak dikirim
             $transaksi->details()
                 ->whereNotIn('id', $existingDetailIds)
                 ->delete();
+
+            // Hitung ulang total (abaikan status 5 & 6)
+            $total = $transaksi->details()
+                ->whereNotIn('status_transaksi_id', [5, 6])
+                ->sum(DB::raw('qty * harga'));
 
             $transaksi->update(['total' => $total]);
 
@@ -572,7 +589,7 @@ class PesananTransaksiController extends Controller
 
     public function cancel($detailId)
     {
-        $detail = TransaksiDetail::findOrFail($detailId);
+        $detail = TransaksiDetail::with('transaksi')->findOrFail($detailId);
 
         if ($detail->transaksi->jenis_transaksi !== 'pesanan') {
             return response()->json(['message' => 'Transaksi bukan pesanan'], 400);
@@ -584,6 +601,13 @@ class PesananTransaksiController extends Controller
 
         DB::transaction(function () use ($detail) {
             $detail->update(['status_transaksi_id' => 6]);
+
+            // ✅ PERBARUI TOTAL TRANSAKSI SETELAH PEMBATALAN
+            $transaksi = $detail->transaksi;
+            $total = $transaksi->details()
+                ->whereNotIn('status_transaksi_id', [5, 6])
+                ->sum(DB::raw('qty * harga'));
+            $transaksi->update(['total' => $total]);
         });
 
         return response()->json(['message' => 'Detail pesanan dibatalkan']);

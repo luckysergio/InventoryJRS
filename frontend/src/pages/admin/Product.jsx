@@ -33,17 +33,57 @@ const unformatRupiah = (str) => {
   return parseInt(String(str).replace(/\D/g, ""), 10) || 0;
 };
 
-const extractInitials = (text, max = 2) => {
+
+const jenisKode = (text) => {
+  if (!text) return "";
+  const clean = text.trim().toUpperCase();
+  if (clean.length < 2) return clean;
+  return clean.charAt(0) + clean.charAt(clean.length - 1);
+};
+
+
+const typeKode = (text) => {
   if (!text) return "";
 
-  return text
+  // hapus teks dalam kurung
+  const clean = text
+    .replace(/\(.+?\)/g, "")
     .trim()
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase())
-    .filter((char) => /[A-Z]/.test(char))
-    .slice(0, max)
+    .toUpperCase();
+
+  const words = clean.split(/\s+/);
+  let huruf = "";
+
+  if (words.length === 1) {
+    huruf = words[0].slice(0, 2);
+  } else if (words.length === 2) {
+    huruf = words[0].slice(0, 2) + words[1].slice(0, 2);
+  } else {
+    huruf = words.map((w) => w.charAt(0)).join("");
+  }
+
+  const angka = extractNumbers(text);
+  return huruf + angka;
+};
+
+
+const bahanKode = (text) => {
+  if (!text) return "";
+  const clean = text.replace(/\(.+?\)/g, "").trim().toUpperCase();
+  return clean.slice(0, 2);
+};
+
+
+const ukuranKode = (text) => {
+  if (!text) return "";
+  const matches = text.match(/\d+[.,]?\d*/g);
+  if (!matches) return "";
+
+  return matches
+    .map((n) => n.replace(/[.,]/g, ""))
     .join("");
 };
+
 
 const extractNumbers = (text) => {
   if (!text) return "";
@@ -51,22 +91,16 @@ const extractNumbers = (text) => {
   return matches ? matches.join("") : "";
 };
 
+
 const generateKode = (jenisNama, typeNama, bahanNama, ukuran) => {
-  const jenisKode = jenisNama ? jenisNama.charAt(0).toUpperCase() : "";
-
-  let typeKode = "";
-  if (typeNama) {
-    const huruf = extractInitials(typeNama, 2);
-    const angka = extractNumbers(typeNama);
-    typeKode = huruf + angka;
-  }
-
-  const bahanKode = bahanNama ? extractInitials(bahanNama, 2) : "";
-
-  const ukuranAngka = extractNumbers(ukuran);
-
-  return jenisKode + typeKode + bahanKode + ukuranAngka;
+  return (
+    jenisKode(jenisNama) +
+    typeKode(typeNama) +
+    bahanKode(bahanNama) +
+    ukuranKode(ukuran)
+  );
 };
+
 
 export const ProductFilterBar = ({
   search,

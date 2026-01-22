@@ -5,6 +5,7 @@ import Register from "./pages/Register";
 
 // Dashboard
 import Dashboard from "./pages/admin/Dashboard";
+import HomePage from "./pages/admin/HomePage";
 
 import UserPage from "./pages/admin/UserPage";
 import KaryawanPage from "./pages/admin/KaryawanPage";
@@ -57,6 +58,17 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <HomePage />
               </Layout>
             </ProtectedRoute>
           }

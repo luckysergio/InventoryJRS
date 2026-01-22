@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\api\AuthController;
 use App\Http\Controllers\api\BahanProductController;
 use App\Http\Controllers\api\CustomerController;
+use App\Http\Controllers\api\DashboardController;
 use App\Http\Controllers\api\DistributorController;
 use App\Http\Controllers\api\HargaProductController;
 use App\Http\Controllers\Api\InventoryController;
@@ -25,6 +26,12 @@ use App\Http\Controllers\Api\UserController;
 
 
 Route::post('/login', [AuthController::class, 'login']);
+
+Route::middleware(['auth:api', 'role:admin,kasir,operator'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index']);
+    Route::get('/dashboard/stats', [DashboardController::class, 'dashboardStats']);
+    Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
+});
 
 Route::group(['middleware' => ['jwt.auth']], function () {
     Route::get('/profile', [AuthController::class, 'profile'])->middleware('role:admin,kasir,operator');

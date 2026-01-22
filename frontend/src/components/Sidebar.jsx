@@ -26,20 +26,17 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const [productionOpen, setProductionOpen] = useState(false);
   const [stokOpnameOpen, setStokOpnameOpen] = useState(false);
 
-  // Ambil role dari localStorage
   const storedUser = localStorage.getItem("user");
   const userRole = storedUser ? JSON.parse(storedUser).role : null;
   const isAdmin = userRole === "admin";
   const isAllowedForTransaksi = userRole === "admin" || userRole === "kasir";
 
-  // Cegah scroll otomatis
   useEffect(() => {
     if ("scrollRestoration" in window.history) {
       window.history.scrollRestoration = "manual";
     }
   }, []);
 
-  // Deteksi route aktif
   useEffect(() => {
     const path = location.pathname;
 
@@ -365,12 +362,10 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     </div>
   );
 
-  // Konten utama sidebar
   const SidebarContent = () => (
     <div className="px-2.5 py-3 space-y-0.5">
-      {/* Dashboard */}
-      <NavLink to="/dashboard-admin" icon={Home}>
-        Dashboard
+      <NavLink to="/home" icon={Home}>
+        Home
       </NavLink>
 
       {/* Master Data - Hanya untuk admin */}

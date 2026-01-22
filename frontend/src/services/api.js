@@ -8,8 +8,8 @@ const api = axios.create({
 
 const darkSwal = (options) =>
   Swal.fire({
-    background: "#020617", // slate-950 (hitam)
-    color: "#f8fafc",      // slate-50
+    background: "#020617",
+    color: "#f8fafc",
     confirmButtonColor: "#2563eb",
     cancelButtonColor: "#dc2626",
     ...options,

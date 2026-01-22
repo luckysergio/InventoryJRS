@@ -39,6 +39,11 @@ const formatProductName = (p) => {
     .join(" ");
 };
 
+// ✅ Fungsi baru: hanya ambil detail yang tidak dibatalkan (status ≠ 6)
+const getActiveDetails = (details) => {
+  return (details || []).filter((d) => d.status_transaksi_id !== 6);
+};
+
 export const RiwayatTransaksiFilterBar = ({
   tanggalDari,
   setTanggalDari,
@@ -166,7 +171,7 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
       );
       let data = res.data || [];
 
-      // Filter berdasarkan status (masih di detail)
+      // Filter berdasarkan status (di level detail)
       if (selectedStatus !== "all") {
         const statusIdMap = { selesai: 5, dibatalkan: 6 };
         const targetStatusId = statusIdMap[selectedStatus];
@@ -175,7 +180,7 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
         );
       }
 
-      // Filter berdasarkan tanggal (sekarang di level transaksi)
+      // Filter berdasarkan tanggal
       if (tanggalDari || tanggalSampai) {
         const dari = tanggalDari ? new Date(tanggalDari) : null;
         const sampai = tanggalSampai
@@ -183,7 +188,7 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
           : null;
 
         data = data.filter((item) => {
-          const transaksiDate = new Date(item.tanggal); // ← ambil dari item, bukan detail
+          const transaksiDate = new Date(item.tanggal);
           return (
             (!dari || transaksiDate >= dari) &&
             (!sampai || transaksiDate <= sampai)
@@ -275,12 +280,15 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
     return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
   };
 
+  // ✅ Gunakan getActiveDetails di sini
   const calculateTotalTagihan = (details) => {
-    return details.reduce((sum, d) => sum + safeParseFloat(d.subtotal), 0);
+    const active = getActiveDetails(details);
+    return active.reduce((sum, d) => sum + safeParseFloat(d.subtotal), 0);
   };
 
   const calculateTotalBayar = (details) => {
-    return details.reduce((sum, d) => {
+    const active = getActiveDetails(details);
+    return active.reduce((sum, d) => {
       return (
         sum +
         (d.pembayarans?.reduce(
@@ -396,7 +404,7 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
                   </div>
                 </div>
 
-                {/* Summary */}
+                {/* Summary — Hanya hitung detail aktif */}
                 <div className="p-3 bg-gray-50 border-b border-gray-200">
                   <div className="flex justify-between text-[13px]">
                     <span className="text-gray-700">Total Tagihan:</span>
@@ -491,6 +499,24 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
                     <p className="font-medium">
                       {formatTanggal(selectedTransaksi.tanggal)}
                     </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ✅ Gunakan activeDetails untuk ringkasan total */}
+              <div className="bg-blue-50 p-4 rounded-xl">
+                <div className="flex flex-wrap justify-between gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-700">Total Tagihan (Aktif):</span>
+                    <span className="font-bold ml-2">
+                      Rp {formatRupiah(calculateTotalTagihan(selectedTransaksi.details))}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-700">Total Bayar:</span>
+                    <span className="font-bold ml-2">
+                      Rp {formatRupiah(calculateTotalBayar(selectedTransaksi.details))}
+                    </span>
                   </div>
                 </div>
               </div>

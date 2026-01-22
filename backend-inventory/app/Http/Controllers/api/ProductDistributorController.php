@@ -104,7 +104,8 @@ class ProductDistributorController extends Controller
                 $type,
                 $bahan,
                 $request->ukuran,
-                $distributor->nama
+                $distributor->nama,
+                $distributor->no_hp   // ⬅️ PENTING
             );
 
             $product = Product::create(array_merge([
@@ -160,6 +161,7 @@ class ProductDistributorController extends Controller
                 $bahan,
                 $request->ukuran,
                 $distributor->nama,
+                $distributor->no_hp,
                 $product->id
             );
 
@@ -294,19 +296,12 @@ class ProductDistributorController extends Controller
         ?BahanProduct $bahan,
         string $ukuran
     ): string {
-        $jenisKode = strtoupper(substr($jenis->nama, 0, 1));
-
-        $typeKode = $type
-            ? $this->extractInitials($type->nama, 2) . $this->extractNumbers($type->nama)
-            : '';
-
-        $bahanKode = $bahan
-            ? $this->extractInitials($bahan->nama, 2)
-            : '';
-
-        $ukuranKode = $this->extractNumbers($ukuran);
-
-        return strtoupper($jenisKode . $typeKode . $bahanKode . $ukuranKode);
+        return strtoupper(
+            $this->jenisKode($jenis->nama) .
+                ($type ? $this->typeKode($type->nama) : '') .
+                ($bahan ? $this->bahanKode($bahan->nama) : '') .
+                $this->ukuranKode($ukuran)
+        );
     }
 
     private function generateKode(
@@ -315,16 +310,27 @@ class ProductDistributorController extends Controller
         ?BahanProduct $bahan,
         string $ukuran,
         string $distributorNama,
+        string $distributorHp,
         ?int $ignoreId = null
     ): string {
-        $baseKode = $this->generateBaseProductKode($jenis, $type, $bahan, $ukuran);
+        $baseKode = $this->generateBaseProductKode(
+            $jenis,
+            $type,
+            $bahan,
+            $ukuran
+        );
 
-        $prefix = collect(explode(' ', $distributorNama))
-            ->map(fn($w) => strtoupper(substr($w, 0, 1)))
-            ->implode('');
+        $prefix = $this->distributorPrefix(
+            $distributorNama,
+            $distributorHp
+        );
 
-        return $this->makeUniqueKode("{$prefix}-{$baseKode}", $ignoreId);
+        return $this->makeUniqueKode(
+            "{$prefix}-{$baseKode}",
+            $ignoreId
+        );
     }
+
 
     private function makeUniqueKode(string $kode, ?int $ignoreId = null): string
     {
@@ -343,27 +349,73 @@ class ProductDistributorController extends Controller
         return $final;
     }
 
-    private function extractInitials(string $text, int $max = 2): string
+    private function distributorPrefix(string $nama, string $noHp): string
     {
-        $words = preg_split('/\s+/', trim($text));
-        $initials = '';
+        // Inisial nama distributor
+        $initial = collect(preg_split('/\s+/', trim($nama)))
+            ->map(fn($w) => strtoupper(substr($w, 0, 1)))
+            ->implode('');
 
-        foreach ($words as $word) {
-            $char = strtoupper(substr($word, 0, 1));
-            if (ctype_alpha($char)) {
-                $initials .= $char;
-            }
-            if (strlen($initials) >= $max) break;
+        // Ambil 4 digit terakhir no HP
+        $hpAngka = preg_replace('/\D/', '', $noHp);
+        $last4   = substr($hpAngka, -4);
+
+        return $initial . $last4;
+    }
+
+
+    private function jenisKode(string $text): string
+    {
+        $text = trim($text);
+
+        if (strlen($text) < 2) {
+            return strtoupper($text);
         }
 
-        return $initials;
+        return strtoupper(
+            substr($text, 0, 1) . substr($text, -1)
+        );
     }
 
-    private function extractNumbers(string $text): string
+    private function typeKode(string $text): string
     {
+        // buang keterangan dalam kurung
+        $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
+        $words = preg_split('/\s+/', trim($clean));
+
+        if (count($words) === 1) {
+            $huruf = substr($words[0], 0, 2);
+        } elseif (count($words) === 2) {
+            $huruf =
+                substr($words[0], 0, 2) .
+                substr($words[1], 0, 2);
+        } else {
+            $huruf = '';
+            foreach ($words as $word) {
+                $huruf .= substr($word, 0, 1);
+            }
+        }
+
         preg_match_all('/\d+/', $text, $matches);
-        return implode('', $matches[0]);
+        $angka = implode('', $matches[0]);
+
+        return strtoupper($huruf . $angka);
     }
+
+    private function bahanKode(string $text): string
+    {
+        return strtoupper(substr(trim($text), 0, 2));
+    }
+
+    private function ukuranKode(string $text): string
+    {
+        preg_match_all('/\d+[.,]?\d*/', $text, $matches);
+
+        return collect($matches[0])
+            ->map(fn($n) => str_replace([',', '.'], '', $n))
+            ->implode('');
+    }
+
 
     private function uploadImages(Request $request, ?Product $product = null): array
     {

@@ -96,30 +96,61 @@ class ProductController extends Controller
         ]);
     }
 
-    private function extractInitials(string $text, int $max = 2): string
+    private function jenisKode(string $text): string
     {
-        $words = preg_split('/\s+/', trim($text));
+        $text = trim($text);
 
-        $initials = '';
-        foreach ($words as $word) {
-            $char = strtoupper(substr($word, 0, 1));
+        if (strlen($text) < 2) {
+            return strtoupper($text);
+        }
 
-            if (ctype_alpha($char)) {
-                $initials .= $char;
-            }
+        return strtoupper(
+            substr($text, 0, 1) . substr($text, -1)
+        );
+    }
 
-            if (strlen($initials) >= $max) {
-                break;
+
+    private function typeKode(string $text): string
+    {
+        $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
+        $words = preg_split('/\s+/', trim($clean));
+
+        $huruf = '';
+
+        if (count($words) === 1) {
+            $huruf = substr($words[0], 0, 2);
+        } elseif (count($words) === 2) {
+            $huruf =
+                substr($words[0], 0, 2) .
+                substr($words[1], 0, 2);
+        } else {
+            foreach ($words as $word) {
+                $huruf .= substr($word, 0, 1);
             }
         }
 
-        return $initials;
+        preg_match_all('/\d+/', $text, $matches);
+        $angka = implode('', $matches[0]);
+
+        return strtoupper($huruf . $angka);
     }
 
-    private function extractNumbers(string $text): string
+    private function bahanKode(string $text): string
     {
-        preg_match_all('/\d+/', $text, $matches);
-        return implode('', $matches[0]);
+        $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
+        return substr(trim($clean), 0, 2);
+    }
+
+    private function ukuranKode(string $text): string
+    {
+        preg_match_all('/\d+[.,]?\d*/', $text, $matches);
+
+        $numbers = array_map(
+            fn($n) => str_replace([',', '.'], '', $n),
+            $matches[0]
+        );
+
+        return implode('', $numbers);
     }
 
     private function generateProductKode(
@@ -128,24 +159,12 @@ class ProductController extends Controller
         ?string $bahanNama,
         string $ukuran
     ): string {
-        $jenisKode = $jenisNama
-            ? strtoupper(substr($jenisNama, 0, 1))
-            : '';
-
-        $typeKode = '';
-        if ($typeNama) {
-            $huruf = $this->extractInitials($typeNama, 2);
-            $angka = $this->extractNumbers($typeNama);
-            $typeKode = $huruf . $angka;
-        }
-
-        $bahanKode = $bahanNama
-            ? $this->extractInitials($bahanNama, 2)
-            : '';
-
-        $ukuranAngka = $this->extractNumbers($ukuran);
-
-        return $jenisKode . $typeKode . $bahanKode . $ukuranAngka;
+        return strtoupper(
+            ($jenisNama ? $this->jenisKode($jenisNama) : '') .
+                ($typeNama  ? $this->typeKode($typeNama)  : '') .
+                ($bahanNama ? $this->bahanKode($bahanNama) : '') .
+                $this->ukuranKode($ukuran)
+        );
     }
 
     private function makeUniqueKode(string $baseKode, ?int $ignoreId = null): string
@@ -172,7 +191,7 @@ class ProductController extends Controller
         ?int $ignoreProductId = null
     ): string {
         $jenisNama = JenisProduct::find($jenis_id)?->nama;
-        $typeNama  = $type_id ? TypeProduct::find($type_id)?->nama : null;
+        $typeNama  = $type_id  ? TypeProduct::find($type_id)?->nama : null;
         $bahanNama = $bahan_id ? BahanProduct::find($bahan_id)?->nama : null;
 
         $baseKode = $this->generateProductKode(
