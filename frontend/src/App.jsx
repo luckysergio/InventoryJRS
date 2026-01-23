@@ -175,7 +175,7 @@ function App() {
         <Route
           path="/customer"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin", "kasir"]}>
               <Layout>
                 {({ setNavbarContent }) => (
                   <CustomerPage setNavbarContent={setNavbarContent} />
@@ -335,7 +335,7 @@ function App() {
         <Route
           path="/transaksi"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin", "kasir"]}>
               <Layout>
                 {({ setNavbarContent }) => (
                   <TransaksiPage setNavbarContent={setNavbarContent} />
@@ -348,7 +348,7 @@ function App() {
         <Route
           path="/pesanan"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin", "kasir"]}>
               <Layout>
                 {({ setNavbarContent }) => (
                   <PesananPage setNavbarContent={setNavbarContent} />
@@ -361,7 +361,7 @@ function App() {
         <Route
           path="/riwayat-transaksi"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin", "kasir"]}>
               <Layout>
                 {({ setNavbarContent }) => (
                   <RiwayatTransaksi setNavbarContent={setNavbarContent} />
