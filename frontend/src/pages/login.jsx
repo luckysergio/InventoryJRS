@@ -41,7 +41,7 @@ const Login = () => {
         color: "#f1f5f9",
       });
 
-      navigate("/dashboard-admin");
+      navigate("/home");
     } catch (error) {
       let title = "Login Gagal";
       let text = "Terjadi kesalahan. Silakan coba lagi.";
@@ -73,9 +73,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 p-4 relative overflow-hidden">
-      {/* Animated Background Elements - Industrial Theme */}
       <div className="absolute inset-0 overflow-hidden">
-        {/* Gear Pattern Background */}
         <div className="absolute inset-0 opacity-5">
           <div className="absolute top-1/4 left-1/4 w-64 h-64 border-2 border-blue-400/20 rounded-full animate-spin-slow">
             <div className="absolute top-0 left-1/2 w-1 h-8 bg-blue-400/20 -translate-x-1/2" />
@@ -91,7 +89,6 @@ const Login = () => {
           </div>
         </div>
 
-        {/* Grid Overlay - Factory Floor Pattern */}
         <div className="absolute inset-0">
           <div
             className="absolute inset-0 opacity-10"
@@ -103,14 +100,12 @@ const Login = () => {
           />
         </div>
 
-        {/* Subtle Conveyor Belt Lines */}
         <div className="absolute inset-0">
           <div className="absolute top-1/3 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/10 to-transparent" />
           <div className="absolute top-2/3 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-500/10 to-transparent" />
         </div>
       </div>
 
-      {/* Smoke/Steam Effect */}
       <div className="absolute inset-0 pointer-events-none">
         {[...Array(8)].map((_, i) => (
           <div
@@ -126,7 +121,6 @@ const Login = () => {
         ))}
       </div>
 
-      {/* Industrial Icons Floating */}
       <div className="absolute inset-0 pointer-events-none">
         {[...Array(12)].map((_, i) => {
           const icons = [

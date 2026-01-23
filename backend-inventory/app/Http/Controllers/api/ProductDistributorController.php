@@ -351,18 +351,15 @@ class ProductDistributorController extends Controller
 
     private function distributorPrefix(string $nama, string $noHp): string
     {
-        // Inisial nama distributor
         $initial = collect(preg_split('/\s+/', trim($nama)))
             ->map(fn($w) => strtoupper(substr($w, 0, 1)))
             ->implode('');
 
-        // Ambil 4 digit terakhir no HP
         $hpAngka = preg_replace('/\D/', '', $noHp);
         $last4   = substr($hpAngka, -4);
 
         return $initial . $last4;
     }
-
 
     private function jenisKode(string $text): string
     {
@@ -379,25 +376,27 @@ class ProductDistributorController extends Controller
 
     private function typeKode(string $text): string
     {
-        // buang keterangan dalam kurung
         $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
-        $words = preg_split('/\s+/', trim($clean));
 
-        if (count($words) === 1) {
-            $huruf = substr($words[0], 0, 2);
-        } elseif (count($words) === 2) {
-            $huruf =
-                substr($words[0], 0, 2) .
-                substr($words[1], 0, 2);
+        $words = collect(
+            preg_split('/\s+/', trim($clean))
+        )->filter(fn($w) => ctype_alpha(substr($w, 0, 1)));
+
+        if ($words->count() === 1) {
+            $huruf = substr($words->first(), 0, 2);
         } else {
-            $huruf = '';
-            foreach ($words as $word) {
-                $huruf .= substr($word, 0, 1);
-            }
+            $huruf = $words
+                ->map(fn($w) => substr($w, 0, 1))
+                ->implode('');
         }
 
         preg_match_all('/\d+/', $text, $matches);
-        $angka = implode('', $matches[0]);
+
+        if (count($matches[0]) >= 2) {
+            $angka = $matches[0][0] . $matches[0][1];
+        } else {
+            $angka = $matches[0][0] ?? '';
+        }
 
         return strtoupper($huruf . $angka);
     }
@@ -415,7 +414,6 @@ class ProductDistributorController extends Controller
             ->map(fn($n) => str_replace([',', '.'], '', $n))
             ->implode('');
     }
-
 
     private function uploadImages(Request $request, ?Product $product = null): array
     {

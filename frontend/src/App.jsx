@@ -1,10 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./pages/login";
-import Register from "./pages/Register";
 
-// Dashboard
-import Dashboard from "./pages/admin/Dashboard";
 import HomePage from "./pages/admin/HomePage";
 import AllProductsPage from "./pages/admin/AllProductsPage";
 
@@ -51,18 +48,6 @@ function App() {
 
         {/* Auth */}
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-
-        <Route
-          path="/dashboard-admin"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <Dashboard />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
 
         <Route
           path="/home"

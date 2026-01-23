@@ -43,25 +43,33 @@ const jenisKode = (text) => {
 const typeKode = (text) => {
   if (!text) return "";
 
-  // hapus teks dalam kurung
   const clean = text
     .replace(/\(.+?\)/g, "")
     .trim()
     .toUpperCase();
 
-  const words = clean.split(/\s+/);
+  const words = clean
+    .split(/\s+/)
+    .filter((w) => /^[A-Z]/.test(w));
+
   let huruf = "";
 
   if (words.length === 1) {
     huruf = words[0].slice(0, 2);
-  } else if (words.length === 2) {
-    huruf = words[0].slice(0, 2) + words[1].slice(0, 2);
   } else {
     huruf = words.map((w) => w.charAt(0)).join("");
   }
 
-  const angka = extractNumbers(text);
-  return huruf + angka;
+  const numbers = text.match(/\d+/g) || [];
+  let angka = "";
+
+  if (numbers.length >= 2) {
+    angka = numbers[0] + numbers[1];
+  } else if (numbers.length === 1) {
+    angka = numbers[0];
+  }
+
+  return (huruf + angka).toUpperCase();
 };
 
 const bahanKode = (text) => {

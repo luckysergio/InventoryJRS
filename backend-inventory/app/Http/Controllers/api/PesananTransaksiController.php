@@ -109,10 +109,6 @@ class PesananTransaksiController extends Controller
         return implode('', $matches[0]);
     }
 
-    /**
-     * Customer Prefix: INISIAL + 4 DIGIT HP
-     * Andi Wijaya + 081234567890 => AW7890
-     */
     private function generateCustomerPrefix(string $customerName, string $customerPhone): string
     {
         $initial = collect(
@@ -129,10 +125,6 @@ class PesananTransaksiController extends Controller
         return $initial . $last4;
     }
 
-    /**
-     * Jenis: huruf depan + belakang
-     * MOUNTING => MG
-     */
     private function jenisKode(string $jenis): string
     {
         $jenis = strtoupper(trim($jenis));
@@ -144,34 +136,33 @@ class PesananTransaksiController extends Controller
         return substr($jenis, 0, 1) . substr($jenis, -1);
     }
 
-    /**
-     * Type rule:
-     * - 1 kata  => 2 huruf pertama
-     * - >1 kata => huruf awal tiap kata
-     * - angka tetap diambil
-     */
-    private function typeKode(string $type): string
+    private function typeKode(string $text): string
     {
-        $clean = strtoupper(trim(preg_replace('/\(.+?\)/', '', $type)));
-        $words = preg_split('/\s+/', $clean);
+        $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
 
-        if (count($words) === 1) {
-            $huruf = substr($words[0], 0, 2);
+        $words = collect(
+            preg_split('/\s+/', trim($clean))
+        )->filter(fn($w) => ctype_alpha(substr($w, 0, 1)));
+
+        if ($words->count() === 1) {
+            $huruf = substr($words->first(), 0, 2);
         } else {
-            $huruf = collect($words)
+            $huruf = $words
                 ->map(fn($w) => substr($w, 0, 1))
                 ->implode('');
         }
 
-        preg_match_all('/\d+/', $type, $matches);
-        $angka = implode('', $matches[0]);
+        preg_match_all('/\d+/', $text, $matches);
 
-        return $huruf . $angka;
+        if (count($matches[0]) >= 2) {
+            $angka = $matches[0][0] . $matches[0][1];
+        } else {
+            $angka = $matches[0][0] ?? '';
+        }
+
+        return strtoupper($huruf . $angka);
     }
 
-    /**
-     * Pastikan kode unik
-     */
     private function makeUniqueKode(string $baseKode): string
     {
         $kode = $baseKode;
@@ -184,10 +175,6 @@ class PesananTransaksiController extends Controller
 
         return $kode;
     }
-
-    /**
-     * Base product kode (tanpa customer)
-     */
     private function generateBaseProductKode(
         string $jenisNama,
         ?string $typeNama,
@@ -202,9 +189,6 @@ class PesananTransaksiController extends Controller
         );
     }
 
-    /**
-     * FINAL PRODUCT KODE PESANAN
-     */
     private function generatePesananProductKode(
         string $customerName,
         string $customerPhone,
@@ -227,7 +211,6 @@ class PesananTransaksiController extends Controller
 
         return $this->makeUniqueKode("{$prefix}-{$baseKode}");
     }
-
 
     private function normalizeDetails(array $details): array
     {

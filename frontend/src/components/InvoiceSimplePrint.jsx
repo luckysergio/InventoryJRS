@@ -1,6 +1,6 @@
 import React, { forwardRef } from "react";
 
-const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
+const InvoicePrintSimple = forwardRef(({ transaksi, includeCompleted = false }, ref) => {
   if (!transaksi) {
     return <div ref={ref} style={{ display: "none" }} />;
   }
@@ -34,9 +34,10 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
   const month = String(invoiceDate.getMonth() + 1).padStart(2, "0");
   const invoiceNumber = `JRS/INV/${year}/${month}/${transaksi.id}`;
 
-  const activeDetails =
-    transaksi.details?.filter((d) => ![5, 6].includes(d.status_transaksi_id)) ||
-    [];
+  // ✅ Filter berdasarkan prop includeCompleted
+  const activeDetails = includeCompleted
+    ? transaksi.details || []
+    : transaksi.details?.filter((d) => ![5, 6].includes(d.status_transaksi_id)) || [];
 
   const totalSubtotal = activeDetails.reduce(
     (sum, d) => sum + d.qty * safeParseFloat(d.harga),
@@ -419,7 +420,7 @@ const InvoicePrintSimple = forwardRef(({ transaksi }, ref) => {
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
           gap: "30px",
-          marginTop: activeDetails.length <= 2 ? "60px" : "30px", // Sesuaikan margin berdasarkan jumlah produk
+          marginTop: activeDetails.length <= 2 ? "60px" : "30px",
         }}
       >
         <div style={{ textAlign: "center" }}>

@@ -59,22 +59,33 @@ const extractJenisKode = (text) => {
 const extractTypeKode = (text) => {
   if (!text) return "";
 
-  const words = text.trim().toUpperCase().split(/\s+/);
-  const angka = extractNumbers(text);
+  const clean = text
+    .replace(/\(.+?\)/g, "")
+    .trim()
+    .toUpperCase();
+
+  const words = clean
+    .split(/\s+/)
+    .filter((w) => /^[A-Z]/.test(w));
+
   let huruf = "";
 
   if (words.length === 1) {
-    // 1 kata → 3 huruf
-    huruf = words[0].substring(0, 3);
-  } else if (words.length === 2) {
-    // 2 kata → 2 + 1
-    huruf = words[0].substring(0, 2) + words[1].substring(0, 1);
+    huruf = words[0].slice(0, 2);
   } else {
-    // >2 kata → 1 tiap kata
     huruf = words.map((w) => w.charAt(0)).join("");
   }
 
-  return huruf + angka;
+  const numbers = text.match(/\d+/g) || [];
+  let angka = "";
+
+  if (numbers.length >= 2) {
+    angka = numbers[0] + numbers[1];
+  } else if (numbers.length === 1) {
+    angka = numbers[0];
+  }
+
+  return (huruf + angka).toUpperCase();
 };
 
 const extractInitials = (text, max = 2) => {

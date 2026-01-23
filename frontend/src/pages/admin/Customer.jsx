@@ -277,6 +277,245 @@ const CustomerPage = ({ setNavbarContent }) => {
     }
   };
 
+  const handlePrintTagihan = (customer) => {
+  // Ambil data transaksi detail dari customer
+  const transaksiDetails = Array.isArray(customer.transaksi_details)
+    ? customer.transaksi_details.filter((detail) => {
+        if (!detail || !detail.transaksi || !detail.product) return false;
+        if (detail.status_transaksi_id === 6) return false; // Dibatalkan
+        const subtotal = safeParseFloat(detail.subtotal);
+        const totalBayar = Array.isArray(detail.pembayarans)
+          ? detail.pembayarans.reduce(
+              (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+              0,
+            )
+          : 0;
+        return subtotal - totalBayar > 0;
+      })
+    : [];
+
+  if (transaksiDetails.length === 0) {
+    Swal.fire("Info", "Tidak ada tagihan yang perlu dicetak", "info");
+    return;
+  }
+
+  // Hitung total
+  let totalSubtotal = 0;
+  let totalDiscount = 0;
+  let totalTagihan = 0;
+  let totalDibayar = 0;
+
+  const rowsHtml = transaksiDetails
+    .map((detail) => {
+      const subtotal = safeParseFloat(detail.subtotal);
+      const discount = safeParseFloat(detail.discount);
+      const totalBayar = Array.isArray(detail.pembayarans)
+        ? detail.pembayarans.reduce(
+            (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+            0,
+          )
+        : 0;
+      const sisa = subtotal - totalBayar;
+
+      totalSubtotal += subtotal;
+      totalDiscount += discount;
+      totalTagihan += subtotal;
+      totalDibayar += totalBayar;
+
+      return `
+        <tr>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center; font-size: 11px;">${formatTanggal(detail.transaksi?.tanggal)}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 11px;">${formatProductName(detail.product)}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(subtotal)}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(discount)}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(subtotal - discount)}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(totalBayar)}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; color: #dc2626; font-weight: bold; font-size: 11px;">Rp ${formatRupiah(sisa)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const sisaTotal = totalTagihan - totalDibayar;
+
+  const content = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Surat Tagihan - ${customer.name}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+          body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 25mm;
+            color: #1f2937;
+            width: 210mm;
+            margin: 0 auto;
+            background: #ffffff;
+            line-height: 1.5;
+          }
+          @media print {
+            body { padding: 15mm; }
+          }
+          h1 {
+            text-align: center;
+            color: #1e40af;
+            margin-bottom: 8px;
+            font-size: 26px;
+            font-weight: 700;
+          }
+          .subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 20px;
+            font-size: 13px;
+          }
+          .letter-content {
+            margin: 20px 0;
+          }
+          .salutation {
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 11px;
+          }
+          th {
+            background-color: #dbeafe;
+            color: #1e40af;
+            font-weight: 600;
+            padding: 8px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid #bfdbfe;
+            font-size: 10px;
+          }
+          td {
+            padding: 8px;
+            border: 1px solid #e5e7eb;
+            vertical-align: top;
+          }
+          /* Kolom Tanggal */
+          td:nth-child(1) { text-align: center; width: 10%; }
+          /* Kolom Produk — dipersempit */
+          td:nth-child(2) { text-align: left; width: 30%; word-wrap: break-word; }
+          /* Kolom Angka */
+          td:nth-child(3),
+          td:nth-child(4),
+          td:nth-child(5),
+          td:nth-child(6),
+          td:nth-child(7) { 
+            text-align: right; 
+            width: 12%; 
+          }
+          tr:last-child td {
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .summary {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 2px solid #cbd5e1;
+          }
+          .total-due {
+            font-size: 15px;
+            text-align: center;
+            font-weight: 700;
+            color: #dc2626;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #e5e7eb;
+          }
+          .footer {
+            margin-top: 30px;
+            text-align: center;
+            color: #64748b;
+            font-size: 11px;
+          }
+          .company-info {
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            color: #4b5563;
+            font-size: 12px;
+          }
+          .highlight {
+            color: #1e40af;
+            font-weight: 600;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>SURAT TAGIHAN</h1>
+        <div class="subtitle">PT Jaya Rubber Seal Indonesia</div>
+        
+        <div class="letter-content">
+          <p class="salutation">
+            Kepada Yth.<br>
+            <span class="highlight">${customer.name}</span><br><br>
+            
+            Bersama ini kami dari <strong>PT Jaya Rubber Seal Indonesia</strong> ingin mengingatkan bahwa 
+            Bapak/Ibu masih memiliki tagihan yang belum dilunasi. Berikut rincian tagihan tersebut:
+          </p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Tgl</th>
+                <th>Produk</th>
+                <th>Subtotal</th>
+                <th>Diskon</th>
+                <th>Tagihan</th>
+                <th>Dibayar</th>
+                <th>Sisa</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <div class="summary">
+            <div class="total-due">
+              SISA TAGIHAN: Rp ${formatRupiah(sisaTotal)}
+            </div>
+          </div>
+
+          <div class="company-info">
+            <p>
+              Mohon untuk segera melakukan pelunasan tagihan tersebut.<br>
+              Atas perhatian dan kerja samanya, kami ucapkan terima kasih.
+            </p>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>Surat tagihan ini berlaku tanpa tanda tangan basah.</p>
+          <p>Dicetak pada: ${new Date().toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric"
+          })}</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.print();
+  } else {
+    Swal.fire("Error", "Gagal membuka jendela cetak", "error");
+  }
+};
+
   return (
     <div className="space-y-6 p-2 md:p-4 max-w-7xl mx-auto">
       {/* LOADING & KOSONG */}
@@ -293,6 +532,7 @@ const CustomerPage = ({ setNavbarContent }) => {
             const tagihanPesanan = Number(
               item.tagihan_pesanan_belum_lunas || 0,
             );
+            const hasTagihan = tagihanHarian > 0 || tagihanPesanan > 0;
 
             return (
               <div
@@ -351,6 +591,18 @@ const CustomerPage = ({ setNavbarContent }) => {
                     </div>
                   )}
                 </div>
+
+                {hasTagihan && (
+                  <div className="mt-2 flex justify-center">
+                    <button
+                      onClick={() => handlePrintTagihan(item)}
+                      className="flex items-center justify-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-[10px] w-full max-w-[120px]"
+                    >
+                      <Receipt size={12} />
+                      Cetak
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex gap-2 mt-3">
                   {(role === "admin" || role === "kasir") && (

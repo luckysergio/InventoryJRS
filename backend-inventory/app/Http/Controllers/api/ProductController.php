@@ -109,28 +109,29 @@ class ProductController extends Controller
         );
     }
 
-
     private function typeKode(string $text): string
     {
         $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
-        $words = preg_split('/\s+/', trim($clean));
 
-        $huruf = '';
+        $words = collect(
+            preg_split('/\s+/', trim($clean))
+        )->filter(fn($w) => ctype_alpha(substr($w, 0, 1)));
 
-        if (count($words) === 1) {
-            $huruf = substr($words[0], 0, 2);
-        } elseif (count($words) === 2) {
-            $huruf =
-                substr($words[0], 0, 2) .
-                substr($words[1], 0, 2);
+        if ($words->count() === 1) {
+            $huruf = substr($words->first(), 0, 2);
         } else {
-            foreach ($words as $word) {
-                $huruf .= substr($word, 0, 1);
-            }
+            $huruf = $words
+                ->map(fn($w) => substr($w, 0, 1))
+                ->implode('');
         }
 
         preg_match_all('/\d+/', $text, $matches);
-        $angka = implode('', $matches[0]);
+
+        if (count($matches[0]) >= 2) {
+            $angka = $matches[0][0] . $matches[0][1];
+        } else {
+            $angka = $matches[0][0] ?? '';
+        }
 
         return strtoupper($huruf . $angka);
     }
