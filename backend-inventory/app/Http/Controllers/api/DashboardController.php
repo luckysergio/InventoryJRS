@@ -17,144 +17,53 @@ class DashboardController extends Controller
     public function index()
     {
         try {
-            Log::info('DashboardController accessed');
-
-            // 1. Transaksi Harian dengan status_id = 1 (Menunggu)
-            $transaksiHarian = DB::table('transaksis as t')
-                ->join('transaksi_details as td', 't.id', '=', 'td.transaksi_id')
-                ->where('t.jenis_transaksi', 'daily')
-                ->where('td.status_transaksi_id', 1)
-                ->distinct('t.id')
-                ->count('t.id');
-
-            Log::info('Transaksi harian count: ' . $transaksiHarian);
-
-            // 2. Transaksi Pesanan dengan status selain 5 (Selesai) dan 6 (Dibatalkan)
-            $transaksiPesanan = DB::table('transaksis as t')
-                ->join('transaksi_details as td', 't.id', '=', 'td.transaksi_id')
-                ->where('t.jenis_transaksi', 'pesanan')
-                ->whereNotIn('td.status_transaksi_id', [5, 6])
-                ->distinct('t.id')
-                ->count('t.id');
-
-            Log::info('Transaksi pesanan count: ' . $transaksiPesanan);
-
-            // 3. Customer dengan tagihan belum lunas
-            $statusDibatalkan = DB::table('status_transaksis')
-                ->where('nama', 'Dibatalkan')
-                ->value('id');
-
-            $customerBelumLunas = DB::table('customers as c')
-                ->whereExists(function ($query) use ($statusDibatalkan) {
-                    $query->select(DB::raw(1))
-                        ->from('transaksi_details as td')
-                        ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-                        ->leftJoin(
-                            DB::raw('(SELECT transaksi_detail_id, SUM(jumlah_bayar) as total_bayar 
-                                          FROM pembayarans 
-                                          GROUP BY transaksi_detail_id) as p'),
-                            'td.id',
-                            '=',
-                            'p.transaksi_detail_id'
-                        )
-                        ->whereColumn('t.customer_id', 'c.id')
-                        ->where(function ($q) use ($statusDibatalkan) {
-                            $q->where('t.jenis_transaksi', 'daily')
-                                ->orWhere('t.jenis_transaksi', 'pesanan');
-                        })
-                        ->when($statusDibatalkan, fn($q) => $q->where('td.status_transaksi_id', '!=', $statusDibatalkan))
-                        ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal');
-                })
-                ->count();
-
-            Log::info('Customer belum lunas count: ' . $customerBelumLunas);
-
-            // 4. Semua Product
-            $totalProduct = Product::count();
-            Log::info('Total product count: ' . $totalProduct);
-
-            // 5. Product Terlaris (produk yang pernah muncul di transaksi)
-            $productTerlaris = DB::table('products as p')
-                ->join('transaksi_details as td', 'p.id', '=', 'td.product_id')
-                ->distinct('p.id')
-                ->count('p.id');
-
-            Log::info('Product terlaris count: ' . $productTerlaris);
-
-            // 6. Production Pesanan
-            $productionPesanan = DB::table('productions')
-                ->where('jenis_pembuatan', 'pesanan')
-                ->whereIn('status', ['antri', 'draft'])
-                ->count();
-
-            Log::info('Production pesanan count: ' . $productionPesanan);
-
             return response()->json([
                 'status' => true,
                 'data' => [
-                    'transaksi_harian' => $transaksiHarian,
-                    'transaksi_pesanan' => $transaksiPesanan,
-                    'customer_belum_lunas' => $customerBelumLunas,
-                    'total_product' => $totalProduct,
-                    'product_terlaris' => $productTerlaris,
-                    'production_pesanan' => $productionPesanan,
+                    'transaksi_harian' => $this->getTransaksiHarian(),
+                    'transaksi_pesanan' => $this->getTransaksiPesanan(),
+                    'customer_belum_lunas' => $this->getCustomerBelumLunas(),
+                    'total_product' => Product::count(),
+                    'product_terlaris' => $this->getProductTerlaris(),
+                    'production_pesanan' => $this->getProductionPesanan(),
+                    'production_antri' => $this->getProductionAntri(),
+                    'production_produksi' => $this->getProductionProduksi(),
+                    'production_total' => $this->getProductionTotal(),
                 ]
-            ], 200);
+            ]);
         } catch (\Exception $e) {
-            Log::error('DashboardController error: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-
-            return response()->json([
-                'status' => false,
-                'message' => 'Internal Server Error',
-                'error' => env('APP_DEBUG') ? $e->getMessage() : null
-            ], 500);
+            Log::error('DashboardController@index error: ' . $e->getMessage());
+            return response()->json(['status' => false, 'message' => 'Error'], 500);
         }
     }
 
-    // Endpoint untuk data dashboard lengkap dengan chart
     public function dashboardStats(Request $request)
     {
         try {
-            Log::info('DashboardController - dashboardStats accessed');
-
-            // Ambil parameter periode (default 6 bulan)
             $months = $request->get('months', 6);
 
-            // 1. Total Revenue (hari ini)
-            $totalRevenueToday = DB::table('transaksi_details as td')
-                ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-                ->whereDate('t.tanggal', Carbon::today())
-                ->sum('td.subtotal');
+            $transaksiHarian = $this->getTransaksiHarian();
+            $transaksiPesanan = $this->getTransaksiPesanan();
+            $customerBelumLunas = $this->getCustomerBelumLunas();
+            $totalProduct = Product::count();
+            $productTerlaris = $this->getProductTerlaris();
+            $productionPesanan = $this->getProductionPesanan();
+            $productionAntri = $this->getProductionAntri();
+            $productionProduksi = $this->getProductionProduksi();
+            $productionTotal = $this->getProductionTotal();
 
-            // 2. Total Revenue (bulan ini)
-            $totalRevenueMonth = DB::table('transaksi_details as td')
-                ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-                ->whereMonth('t.tanggal', Carbon::now()->month)
-                ->whereYear('t.tanggal', Carbon::now()->year)
-                ->sum('td.subtotal');
+            $totalRevenueToday = $this->getRevenueByDate(Carbon::today());
+            $totalRevenueMonth = $this->getRevenueByMonth(Carbon::now()->month, Carbon::now()->year);
+            $totalRevenueAll = DB::table('transaksi_details')->sum('subtotal') ?? 0;
 
-            // 3. Total Revenue (keseluruhan)
-            $totalRevenueAll = DB::table('transaksi_details')->sum('subtotal');
-
-            // 4. Total Orders hari ini
-            $totalOrdersToday = DB::table('transaksis')
-                ->whereDate('tanggal', Carbon::today())
-                ->count();
-
-            // 5. Total Orders bulan ini
-            $totalOrdersMonth = DB::table('transaksis')
-                ->whereMonth('tanggal', Carbon::now()->month)
+            $totalOrdersToday = Transaksi::whereDate('tanggal', Carbon::today())->count();
+            $totalOrdersMonth = Transaksi::whereMonth('tanggal', Carbon::now()->month)
                 ->whereYear('tanggal', Carbon::now()->year)
                 ->count();
+            $totalOrdersAll = Transaksi::count();
 
-            // 6. Total Orders keseluruhan
-            $totalOrdersAll = DB::table('transaksis')->count();
-
-            // 7. Total Customers
             $totalCustomers = Customer::count();
 
-            // 8. Revenue per bulan (X bulan terakhir)
             $revenueLastMonths = DB::table('transaksi_details as td')
                 ->select(
                     DB::raw("DATE_FORMAT(t.tanggal, '%Y-%m') as bulan"),
@@ -167,7 +76,6 @@ class DashboardController extends Controller
                 ->orderBy('bulan')
                 ->get();
 
-            // Format bulan untuk chart
             $revenueChart = $revenueLastMonths->map(function ($item) {
                 $date = Carbon::createFromFormat('Y-m', $item->bulan);
                 return [
@@ -177,7 +85,6 @@ class DashboardController extends Controller
                 ];
             });
 
-            // 9. Sales Analytics (Status transaksi)
             $salesAnalytics = DB::table('transaksi_details as td')
                 ->select(
                     'st.nama as status',
@@ -189,70 +96,70 @@ class DashboardController extends Controller
                 ->orderByDesc('total')
                 ->get();
 
-            // 10. Top 5 Products (gunakan method bestSeller yang sudah ada)
-            $bestSellerRequest = new Request([
-                'limit' => 5,
-                'dari' => Carbon::now()->subMonth()->format('Y-m-d'),
-                'sampai' => Carbon::now()->format('Y-m-d')
-            ]);
+            $topProducts = DB::table('transaksi_details as td')
+                ->select('p.id', 'p.kode', 'jp.nama as jenis', 'tp.nama as type', 'bp.nama as bahan', 'p.ukuran')
+                ->addSelect(DB::raw('SUM(td.qty) as total_qty'))
+                ->join('products as p', 'td.product_id', '=', 'p.id')
+                ->leftJoin('jenis_products as jp', 'p.jenis_id', '=', 'jp.id')
+                ->leftJoin('type_products as tp', 'p.type_id', '=', 'tp.id')
+                ->leftJoin('bahan_products as bp', 'p.bahan_id', '=', 'bp.id')
+                ->groupBy('p.id', 'p.kode', 'jp.nama', 'tp.nama', 'bp.nama', 'p.ukuran')
+                ->orderByDesc('total_qty')
+                ->limit(5)
+                ->get();
 
-            // Buat instance controller Product dan panggil method bestSeller
-            $productController = new \App\Http\Controllers\api\ProductController();
-            $bestSellerResponse = $productController->bestSeller($bestSellerRequest);
-            $topProducts = $bestSellerResponse->getData(true)['data'] ?? [];
+            $lowStockQuery = DB::table('inventories as i')
+                ->select('i.product_id', DB::raw('SUM(i.qty) as total_stok'))
+                ->join('places as pl', 'i.place_id', '=', 'pl.id')
+                ->whereIn('pl.kode', ['TOKO', 'BENGKEL'])
+                ->groupBy('i.product_id')
+                ->havingRaw('SUM(i.qty) < 20');
 
-            // 11. Products Low Stock (gunakan method lowStock yang sudah ada)
-            $lowStockResponse = $productController->lowStock();
-            $lowStockProducts = $lowStockResponse->getData(true)['data'] ?? [];
-            $lowStockCount = count($lowStockProducts);
+            $lowStockCount = DB::table('products')
+                ->whereIn('id', $lowStockQuery->pluck('product_id'))
+                ->count();
 
-            // 12. Products Available (gunakan method available yang sudah ada)
-            $availableResponse = $productController->available();
-            $availableProducts = $availableResponse->getData(true)['data'] ?? [];
-            $availableCount = count($availableProducts);
+            $availableCount = DB::table('products as p')
+                ->whereIn('p.id', function ($q) {
+                    $q->select('i.product_id')
+                        ->from('inventories as i')
+                        ->join('places as pl', 'i.place_id', '=', 'pl.id')
+                        ->whereIn('pl.kode', ['TOKO', 'BENGKEL'])
+                        ->groupBy('i.product_id')
+                        ->havingRaw('SUM(i.qty) > 0');
+                })
+                ->count();
 
-            // 13. Persentase peningkatan bulan ini vs bulan lalu
-            $lastMonthRevenue = DB::table('transaksi_details as td')
-                ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-                ->whereMonth('t.tanggal', Carbon::now()->subMonth()->month)
-                ->whereYear('t.tanggal', Carbon::now()->subMonth()->year)
-                ->sum('td.subtotal');
-
-            $percentageIncrease = $lastMonthRevenue > 0 
+            $lastMonthRevenue = $this->getRevenueByMonth(Carbon::now()->subMonth()->month, Carbon::now()->subMonth()->year);
+            $percentageIncrease = $lastMonthRevenue > 0
                 ? round((($totalRevenueMonth - $lastMonthRevenue) / $lastMonthRevenue) * 100, 1)
                 : ($totalRevenueMonth > 0 ? 100 : 0);
 
-            // 14. Persentase peningkatan hari ini vs kemarin
-            $yesterdayRevenue = DB::table('transaksi_details as td')
-                ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-                ->whereDate('t.tanggal', Carbon::yesterday())
-                ->sum('td.subtotal');
-
-            $todayPercentageIncrease = $yesterdayRevenue > 0 
+            $yesterdayRevenue = $this->getRevenueByDate(Carbon::yesterday());
+            $todayPercentageIncrease = $yesterdayRevenue > 0
                 ? round((($totalRevenueToday - $yesterdayRevenue) / $yesterdayRevenue) * 100, 1)
                 : ($totalRevenueToday > 0 ? 100 : 0);
 
-            // 15. Data transaksi per jenis
             $transactionByType = DB::table('transaksis')
                 ->select(
                     'jenis_transaksi',
                     DB::raw('COUNT(*) as total'),
-                    DB::raw('SUM(total) as total_amount')
+                    DB::raw('COALESCE(SUM(total), 0) as total_amount')
                 )
                 ->groupBy('jenis_transaksi')
                 ->get();
 
-            // 16. Customer dengan transaksi terbanyak
             $topCustomers = DB::table('customers as c')
                 ->select(
                     'c.id',
                     'c.name',
                     DB::raw('COUNT(t.id) as total_transactions'),
-                    DB::raw('SUM(td.subtotal) as total_spent')
+                    DB::raw('COALESCE(SUM(td.subtotal), 0) as total_spent')
                 )
                 ->leftJoin('transaksis as t', 'c.id', '=', 't.customer_id')
                 ->leftJoin('transaksi_details as td', 't.id', '=', 'td.transaksi_id')
                 ->groupBy('c.id', 'c.name')
+                ->havingRaw('COUNT(t.id) > 0')
                 ->orderByDesc('total_transactions')
                 ->limit(5)
                 ->get();
@@ -260,68 +167,52 @@ class DashboardController extends Controller
             return response()->json([
                 'status' => true,
                 'data' => [
-                    // Revenue Stats
                     'total_revenue' => (int) $totalRevenueAll,
                     'total_revenue_today' => (int) $totalRevenueToday,
                     'total_revenue_month' => (int) $totalRevenueMonth,
                     'yesterday_revenue' => (int) $yesterdayRevenue,
-                    
-                    // Orders Stats
+
                     'total_orders' => $totalOrdersAll,
                     'total_orders_today' => $totalOrdersToday,
                     'total_orders_month' => $totalOrdersMonth,
-                    
-                    // Customer Stats
+
                     'total_customers' => $totalCustomers,
                     'top_customers' => $topCustomers,
-                    
-                    // Product Stats
-                    'total_product' => Product::count(),
+
+                    'total_product' => $totalProduct,
                     'available_products' => $availableCount,
                     'low_stock_products' => $lowStockCount,
-                    'product_terlaris' => $this->getProductTerlaris(),
-                    
-                    // Transaction Stats
-                    'transaksi_harian' => $this->getTransaksiHarian(),
-                    'transaksi_pesanan' => $this->getTransaksiPesanan(),
-                    'customer_belum_lunas' => $this->getCustomerBelumLunas(),
-                    'production_pesanan' => $this->getProductionPesanan(),
-                    
-                    // Transaction Analytics
+                    'product_terlaris' => $productTerlaris,
+
+                    'transaksi_harian' => $transaksiHarian,
+                    'transaksi_pesanan' => $transaksiPesanan,
+                    'customer_belum_lunas' => $customerBelumLunas,
+                    'production_pesanan' => $productionPesanan,
+                    'production_antri' => $productionAntri,
+                    'production_produksi' => $productionProduksi,
+                    'production_total' => $productionTotal,
+
                     'transaction_by_type' => $transactionByType,
-                    
-                    // Chart Data
                     'revenue_chart' => $revenueChart,
                     'sales_analytics' => $salesAnalytics,
-                    
-                    // Product Data
                     'top_products' => $topProducts,
-                    'low_stock_products_list' => array_slice($lowStockProducts, 0, 5), // Ambil 5 saja
-                    
-                    // Percentage Increases
+
                     'percentage_increase_month' => $percentageIncrease,
                     'percentage_increase_today' => $todayPercentageIncrease,
-                    
-                    // Additional Info
+
                     'current_month' => Carbon::now()->format('F Y'),
                     'today_date' => Carbon::now()->format('d F Y'),
                     'data_range_months' => $months,
                 ]
-            ], 200);
-            
+            ]);
         } catch (\Exception $e) {
-            Log::error('DashboardController - dashboardStats error: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-
-            return response()->json([
-                'status' => false,
-                'message' => 'Internal Server Error',
-                'error' => env('APP_DEBUG') ? $e->getMessage() : null
-            ], 500);
+            Log::error('DashboardController@dashboardStats error: ' . $e->getMessage());
+            return response()->json(['status' => false, 'message' => 'Error'], 500);
         }
     }
 
-    // Helper methods untuk existing stats
+    // === HELPER METHODS ===
+
     private function getTransaksiHarian()
     {
         return DB::table('transaksis as t')
@@ -344,85 +235,75 @@ class DashboardController extends Controller
 
     private function getCustomerBelumLunas()
     {
-        $statusDibatalkan = DB::table('status_transaksis')
-            ->where('nama', 'Dibatalkan')
-            ->value('id');
-
         return DB::table('customers as c')
-            ->whereExists(function ($query) use ($statusDibatalkan) {
+            ->whereExists(function ($query) {
                 $query->select(DB::raw(1))
                     ->from('transaksi_details as td')
                     ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-                    ->leftJoin(
-                        DB::raw('(SELECT transaksi_detail_id, SUM(jumlah_bayar) as total_bayar 
-                                      FROM pembayarans 
-                                      GROUP BY transaksi_detail_id) as p'),
-                        'td.id',
-                        '=',
-                        'p.transaksi_detail_id'
-                    )
                     ->whereColumn('t.customer_id', 'c.id')
-                    ->where(function ($q) use ($statusDibatalkan) {
-                        $q->where('t.jenis_transaksi', 'daily')
-                            ->orWhere('t.jenis_transaksi', 'pesanan');
-                    })
-                    ->when($statusDibatalkan, fn($q) => $q->where('td.status_transaksi_id', '!=', $statusDibatalkan))
-                    ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal');
+                    ->whereNotIn('td.status_transaksi_id', [5, 6])
+                    ->whereRaw('td.subtotal > COALESCE((SELECT SUM(p.jumlah_bayar) FROM pembayarans p WHERE p.transaksi_detail_id = td.id), 0)');
             })
             ->count();
     }
 
     private function getProductTerlaris()
     {
-        return DB::table('products as p')
-            ->join('transaksi_details as td', 'p.id', '=', 'td.product_id')
-            ->distinct('p.id')
-            ->count('p.id');
+        return DB::table('transaksi_details')
+            ->where('status_transaksi_id', 5) // ✅ Hanya hitung yang statusnya "Selesai"
+            ->distinct('product_id')
+            ->count('product_id');
     }
 
     private function getProductionPesanan()
     {
-        return DB::table('productions')
-            ->where('jenis_pembuatan', 'pesanan')
+        return Production::where('jenis_pembuatan', 'pesanan')
             ->whereIn('status', ['antri', 'draft'])
             ->count();
     }
 
-    // Endpoint untuk summary cepat (untuk card kecil di dashboard)
-    public function summary()
+    private function getProductionAntri()
     {
-        try {
-            return response()->json([
-                'status' => true,
-                'data' => [
-                    'transaksi_harian' => $this->getTransaksiHarian(),
-                    'transaksi_pesanan' => $this->getTransaksiPesanan(),
-                    'customer_belum_lunas' => $this->getCustomerBelumLunas(),
-                    'total_product' => Product::count(),
-                    'low_stock_products' => $this->getLowStockCount(),
-                    'production_pesanan' => $this->getProductionPesanan(),
-                ]
-            ], 200);
-        } catch (\Exception $e) {
-            Log::error('DashboardController - summary error: ' . $e->getMessage());
-            return response()->json([
-                'status' => false,
-                'message' => 'Internal Server Error'
-            ], 500);
-        }
+        return Production::where('jenis_pembuatan', 'pesanan')
+            ->where('status', 'antri')
+            ->count();
     }
 
-    private function getLowStockCount()
+    private function getProductionProduksi()
     {
-        return DB::table('products as p')
-            ->whereIn('p.id', function ($sub) {
-                $sub->select('product_id')
-                    ->from('inventories')
-                    ->join('places', 'places.id', '=', 'inventories.place_id')
-                    ->whereIn('places.kode', ['TOKO', 'BENGKEL'])
-                    ->groupBy('product_id')
-                    ->havingRaw('SUM(inventories.qty) < 20');
+        return Production::where('jenis_pembuatan', 'pesanan')
+            ->where('status', 'produksi')
+            ->count();
+    }
+
+    private function getProductionTotal()
+    {
+        return DB::table('transaksi_details as td')
+            ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
+            ->where('t.jenis_transaksi', 'pesanan')
+            ->whereNotIn('td.status_transaksi_id', [5, 6])
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('productions as p')
+                    ->whereColumn('p.transaksi_detail_id', 'td.id');
             })
             ->count();
+    }
+
+    private function getRevenueByDate($date)
+    {
+        return DB::table('transaksi_details as td')
+            ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
+            ->whereDate('t.tanggal', $date)
+            ->sum('td.subtotal') ?? 0;
+    }
+
+    private function getRevenueByMonth($month, $year)
+    {
+        return DB::table('transaksi_details as td')
+            ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
+            ->whereMonth('t.tanggal', $month)
+            ->whereYear('t.tanggal', $year)
+            ->sum('td.subtotal') ?? 0;
     }
 }

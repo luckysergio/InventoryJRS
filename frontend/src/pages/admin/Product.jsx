@@ -33,14 +33,12 @@ const unformatRupiah = (str) => {
   return parseInt(String(str).replace(/\D/g, ""), 10) || 0;
 };
 
-
 const jenisKode = (text) => {
   if (!text) return "";
   const clean = text.trim().toUpperCase();
   if (clean.length < 2) return clean;
   return clean.charAt(0) + clean.charAt(clean.length - 1);
 };
-
 
 const typeKode = (text) => {
   if (!text) return "";
@@ -66,31 +64,28 @@ const typeKode = (text) => {
   return huruf + angka;
 };
 
-
 const bahanKode = (text) => {
   if (!text) return "";
-  const clean = text.replace(/\(.+?\)/g, "").trim().toUpperCase();
+  const clean = text
+    .replace(/\(.+?\)/g, "")
+    .trim()
+    .toUpperCase();
   return clean.slice(0, 2);
 };
-
 
 const ukuranKode = (text) => {
   if (!text) return "";
   const matches = text.match(/\d+[.,]?\d*/g);
   if (!matches) return "";
 
-  return matches
-    .map((n) => n.replace(/[.,]/g, ""))
-    .join("");
+  return matches.map((n) => n.replace(/[.,]/g, "")).join("");
 };
-
 
 const extractNumbers = (text) => {
   if (!text) return "";
   const matches = text.match(/\d+/g);
   return matches ? matches.join("") : "";
 };
-
 
 const generateKode = (jenisNama, typeNama, bahanNama, ukuran) => {
   return (
@@ -100,7 +95,6 @@ const generateKode = (jenisNama, typeNama, bahanNama, ukuran) => {
     ukuranKode(ukuran)
   );
 };
-
 
 export const ProductFilterBar = ({
   search,
@@ -804,7 +798,7 @@ const ProductPage = ({ setNavbarContent }) => {
 
                   {/* Kode Produk */}
                   <div className="text-center mb-2">
-                    <p className="font-bold text-lg text-gray-800 truncate">
+                    <p className="font-semibold text-sm text-gray-800 break-words whitespace-normal leading-snug">
                       {item.kode}
                     </p>
                   </div>
@@ -885,7 +879,7 @@ const ProductPage = ({ setNavbarContent }) => {
           <Plus size={18} />
         </button>
       )}
-      
+
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">

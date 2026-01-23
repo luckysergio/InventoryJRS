@@ -92,9 +92,9 @@ class PesananTransaksiController extends Controller
     {
         if (!$text) return '';
 
-        $words = preg_split('/\s+/', trim(Str::ascii($text)));
-
-        return collect($words)
+        return collect(
+            preg_split('/\s+/', trim(Str::ascii($text)))
+        )
             ->map(fn($w) => strtoupper(substr($w, 0, 1)))
             ->filter(fn($c) => ctype_alpha($c))
             ->take($max)
@@ -104,62 +104,130 @@ class PesananTransaksiController extends Controller
     private function extractNumbers(?string $text): string
     {
         if (!$text) return '';
+
         preg_match_all('/\d+/', $text, $matches);
         return implode('', $matches[0]);
     }
 
-    private function generateCustomerPrefix(string $customerName, int $max = 6): string
+    /**
+     * Customer Prefix: INISIAL + 4 DIGIT HP
+     * Andi Wijaya + 081234567890 => AW7890
+     */
+    private function generateCustomerPrefix(string $customerName, string $customerPhone): string
     {
-        $letters = collect(
+        $initial = collect(
             preg_split('/\s+/', trim(Str::ascii($customerName)))
         )
-            ->map(fn($word) => strtoupper(substr($word, 0, 1)))
-            ->filter(fn($char) => ctype_alpha($char))
+            ->map(fn($w) => strtoupper(substr($w, 0, 1)))
+            ->filter(fn($c) => ctype_alpha($c))
+            ->take(4)
             ->implode('');
 
-        $letters = substr($letters, 0, $max);
+        $hp = preg_replace('/\D/', '', $customerPhone);
+        $last4 = substr($hp, -4);
 
-        return $letters . '-';
+        return $initial . $last4;
     }
 
+    /**
+     * Jenis: huruf depan + belakang
+     * MOUNTING => MG
+     */
+    private function jenisKode(string $jenis): string
+    {
+        $jenis = strtoupper(trim($jenis));
+
+        if (strlen($jenis) < 2) {
+            return $jenis;
+        }
+
+        return substr($jenis, 0, 1) . substr($jenis, -1);
+    }
+
+    /**
+     * Type rule:
+     * - 1 kata  => 2 huruf pertama
+     * - >1 kata => huruf awal tiap kata
+     * - angka tetap diambil
+     */
+    private function typeKode(string $type): string
+    {
+        $clean = strtoupper(trim(preg_replace('/\(.+?\)/', '', $type)));
+        $words = preg_split('/\s+/', $clean);
+
+        if (count($words) === 1) {
+            $huruf = substr($words[0], 0, 2);
+        } else {
+            $huruf = collect($words)
+                ->map(fn($w) => substr($w, 0, 1))
+                ->implode('');
+        }
+
+        preg_match_all('/\d+/', $type, $matches);
+        $angka = implode('', $matches[0]);
+
+        return $huruf . $angka;
+    }
+
+    /**
+     * Pastikan kode unik
+     */
     private function makeUniqueKode(string $baseKode): string
     {
         $kode = $baseKode;
         $i = 1;
 
         while (Product::where('kode', $kode)->exists()) {
-            $kode = "{$baseKode}_{$i}";
+            $kode = "{$baseKode}-{$i}";
             $i++;
         }
 
         return $kode;
     }
 
-    private function generatePesananProductKode(
-        string $customerName,
+    /**
+     * Base product kode (tanpa customer)
+     */
+    private function generateBaseProductKode(
         string $jenisNama,
         ?string $typeNama,
         ?string $bahanNama,
         string $ukuran
     ): string {
-        $customerPrefix = $this->generateCustomerPrefix($customerName);
-
-        $jenisKode = strtoupper(substr($jenisNama, 0, 1));
-
-        $typeKode = $typeNama
-            ? $this->extractInitials($typeNama, 2) . $this->extractNumbers($typeNama)
-            : '';
-
-        $bahanKode = $this->extractInitials($bahanNama, 2);
-
-        $ukuranKode = $this->extractNumbers($ukuran);
-
-        return $customerPrefix
-            . $jenisKode
-            . $typeKode
-            . $bahanKode
-            . $ukuranKode;
+        return strtoupper(
+            $this->jenisKode($jenisNama) .
+                ($typeNama ? $this->typeKode($typeNama) : '') .
+                ($bahanNama ? $this->extractInitials($bahanNama, 2) : '') .
+                $this->extractNumbers($ukuran)
+        );
     }
+
+    /**
+     * FINAL PRODUCT KODE PESANAN
+     */
+    private function generatePesananProductKode(
+        string $customerName,
+        string $customerPhone,
+        string $jenisNama,
+        ?string $typeNama,
+        ?string $bahanNama,
+        string $ukuran
+    ): string {
+        $prefix = $this->generateCustomerPrefix(
+            $customerName,
+            $customerPhone
+        );
+
+        $baseKode = $this->generateBaseProductKode(
+            $jenisNama,
+            $typeNama,
+            $bahanNama,
+            $ukuran
+        );
+
+        return $this->makeUniqueKode("{$prefix}-{$baseKode}");
+    }
+
 
     private function normalizeDetails(array $details): array
     {
@@ -303,6 +371,7 @@ class PesananTransaksiController extends Controller
                         'kode' => $this->makeUniqueKode(
                             $this->generatePesananProductKode(
                                 $customer->name,
+                                $customer->phone,
                                 $jenis->nama,
                                 $type?->nama ?? '',
                                 $bahan?->nama ?? '',
@@ -499,6 +568,7 @@ class PesananTransaksiController extends Controller
                         'kode' => $this->makeUniqueKode(
                             $this->generatePesananProductKode(
                                 $customer->name,
+                                $customer->phone,
                                 $jenis->nama,
                                 $type?->nama ?? '',
                                 $bahan?->nama ?? '',
