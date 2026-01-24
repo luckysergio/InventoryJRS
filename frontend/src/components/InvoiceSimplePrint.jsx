@@ -65,17 +65,18 @@ const InvoicePrintSimple = forwardRef(({ transaksi, includeCompleted = false }, 
       ref={ref}
       className="invoice-a4"
       style={{
-        width: "297mm",
-        minHeight: "210mm",
-        padding: "10mm 12mm",
-        margin: "0 auto",
-        backgroundColor: "white",
-        fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
-        fontSize: "10px",
-        lineHeight: 1.4,
-        color: "#1f2937",
-        boxSizing: "border-box",
-      }}
+  width: "210mm",
+  minHeight: "297mm",
+  padding: "10mm 12mm",
+  margin: "0 auto",
+  backgroundColor: "white",
+  fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
+  fontSize: "10px",
+  lineHeight: 1.4,
+  color: "#1f2937",
+  boxSizing: "border-box",
+}}
+
     >
       {/* Header */}
       <div style={{ textAlign: "center", marginBottom: "12px" }}>

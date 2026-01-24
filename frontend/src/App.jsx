@@ -36,6 +36,8 @@ import TransaksiPage from "./pages/admin/DaftarTransaksi";
 import PesananPage from "./pages/admin/Pesanan";
 import RiwayatTransaksi from "./pages/admin/RiwayatTransaksi";
 
+import CompanyProfile from "./pages/cuxtomer/CompanyProfile";
+
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -43,10 +45,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Default Redirect */}
-        <Route path="/" element={<Navigate to="/login" />} />
+        <Route path="/" element={<CompanyProfile />} />
 
-        {/* Auth */}
         <Route path="/login" element={<Login />} />
 
         <Route

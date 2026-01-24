@@ -18,12 +18,30 @@ use App\Http\Controllers\api\ProductController;
 use App\Http\Controllers\api\ProductDistributorController;
 use App\Http\Controllers\Api\ProductionController;
 use App\Http\Controllers\Api\ProductMovementController;
+use App\Http\Controllers\api\PublicProductController;
 use App\Http\Controllers\api\StatusTransaksiController;
 use App\Http\Controllers\api\StokOpnameController;
 use App\Http\Controllers\api\TransaksiController;
 use App\Http\Controllers\api\TypeProductController;
 use App\Http\Controllers\Api\UserController;
+use App\Models\JenisProduct;
+use App\Models\TypeProduct;
 
+Route::prefix('public')->group(function () {
+    Route::get('/products', [PublicProductController::class, 'index']);
+    Route::get('/products/available', [PublicProductController::class, 'available']);
+    Route::get('/products/best-seller', [PublicProductController::class, 'bestSeller']);
+    Route::get('/products/{id}', [PublicProductController::class, 'show']);
+});
+Route::get('/master/jenis-products', fn() => response()->json([
+    'status' => true,
+    'data' => JenisProduct::all()
+]));
+
+Route::get('/master/type-products', fn() => response()->json([
+    'status' => true,
+    'data' => TypeProduct::with('jenis')->get() // Pastikan relasi 'jenis' ada
+]));
 
 Route::post('/login', [AuthController::class, 'login']);
 

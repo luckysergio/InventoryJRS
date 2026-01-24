@@ -1,4 +1,3 @@
-// src/pages/admin/AllProductsPage.jsx
 import { useEffect, useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import {
