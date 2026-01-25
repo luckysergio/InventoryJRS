@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
 
 class ResetPasswordController extends Controller
 {
@@ -17,6 +19,16 @@ class ResetPasswordController extends Controller
             'password' => 'required|confirmed|min:8'
         ]);
 
+        $key = 'reset-password:' . $request->ip() . '|' . strtolower($request->email);
+
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            throw ValidationException::withMessages([
+                'message' => 'Terlalu banyak percobaan reset password. Silakan coba lagi nanti.'
+            ])->status(429);
+        }
+
+        RateLimiter::hit($key, 120); // 2 menit cooldown
+
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user, $password) {
@@ -25,8 +37,16 @@ class ResetPasswordController extends Controller
             }
         );
 
-        return $status === Password::PASSWORD_RESET
-            ? response()->json(['message' => 'Password berhasil direset'])
-            : response()->json(['message' => 'Token tidak valid'], 400);
+        if ($status === Password::PASSWORD_RESET) {
+            RateLimiter::clear($key); // reset limiter jika sukses
+
+            return response()->json([
+                'message' => 'Password berhasil direset. Silakan login.'
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Reset password gagal. Pastikan link valid dan belum kedaluwarsa.'
+        ], 400);
     }
 }

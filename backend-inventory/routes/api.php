@@ -46,8 +46,7 @@ Route::get('/master/type-products', fn() => response()->json([
 ]));
 
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink'])
-    ->middleware('throttle:5,1');
+Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
 Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
 
 Route::middleware(['auth:api', 'role:admin,kasir,operator'])->group(function () {

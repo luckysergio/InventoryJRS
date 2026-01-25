@@ -1,5 +1,15 @@
 import { useState, useEffect } from "react";
-import { Eye, EyeOff, Lock, Mail, Factory, Shield, Cog, Key, ArrowRight } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  Factory,
+  Shield,
+  Cog,
+  Key,
+  ArrowRight,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import api from "../services/api";
@@ -12,7 +22,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mainCardHovered, setMainCardHovered] = useState(false);
-  
+
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
@@ -65,12 +75,14 @@ const Login = () => {
     setResetLoading(true);
 
     try {
-      await api.post("/forgot-password", { email: resetEmail });
+      await api.post("/forgot-password", {
+        email: resetEmail,
+      });
 
       await Swal.fire({
         icon: "success",
-        title: "Email Terkirim",
-        text: "Link reset password telah dikirim ke email Anda. Silakan cek inbox atau spam folder.",
+        title: "Permintaan Diproses",
+        text: "Jika email terdaftar, link reset password akan dikirim. Silakan cek inbox atau folder spam.",
         background: "#1e293b",
         color: "#f1f5f9",
       });
@@ -78,10 +90,14 @@ const Login = () => {
       setShowForgotPassword(false);
       setResetEmail("");
     } catch (err) {
-      Swal.fire({
+      // Hanya error sistem, BUKAN email tidak ditemukan
+      await Swal.fire({
         icon: "error",
-        title: "Gagal",
-        text: err.response?.data?.message || "Email tidak ditemukan",
+        title: "Terjadi Kesalahan",
+        text:
+          err.response?.status === 429
+            ? "Terlalu banyak percobaan. Silakan coba lagi beberapa menit."
+            : "Tidak dapat memproses permintaan saat ini. Silakan coba lagi.",
         background: "#1e293b",
         color: "#f1f5f9",
       });
@@ -442,19 +458,21 @@ const Login = () => {
 
       {/* Forgot Password Modal */}
       {showForgotPassword && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) handleCloseModal();
           }}
         >
-          <div 
+          <div
             className="relative w-full max-w-md"
             onMouseEnter={() => setModalHovered(true)}
             onMouseLeave={() => setModalHovered(false)}
           >
             {/* Modal Metal Frame */}
-            <div className={`absolute -inset-0.5 bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 rounded-2xl blur opacity-60 transition-all duration-500 ${modalHovered ? "opacity-80" : ""}`} />
+            <div
+              className={`absolute -inset-0.5 bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 rounded-2xl blur opacity-60 transition-all duration-500 ${modalHovered ? "opacity-80" : ""}`}
+            />
 
             {/* Bolt Decorations */}
             <div className="absolute -top-2 -left-2 w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg" />
@@ -492,8 +510,18 @@ const Login = () => {
                     className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                     type="button"
                   >
-                    <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-5 h-5 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -535,9 +563,11 @@ const Login = () => {
                   >
                     <div className="absolute inset-0 bg-gradient-to-b from-gray-700 via-gray-800 to-gray-900 rounded-lg border-2 border-gray-600" />
                     <div className="absolute inset-0 bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    <div className={`absolute top-3 left-3 w-2 h-2 rounded-full ${resetLoading ? "bg-green-500 animate-pulse" : "bg-gray-500 group-hover:bg-blue-400"}`} />
+                    <div
+                      className={`absolute top-3 left-3 w-2 h-2 rounded-full ${resetLoading ? "bg-green-500 animate-pulse" : "bg-gray-500 group-hover:bg-blue-400"}`}
+                    />
                     <div className="absolute top-0 left-0 w-8 h-full bg-white/10 skew-x-12 -translate-x-16 group-hover:translate-x-[200%] transition-transform duration-700" />
-                    
+
                     <div className="relative py-3.5 rounded-lg flex items-center justify-center">
                       {resetLoading ? (
                         <span className="flex items-center text-gray-300 font-semibold tracking-wider">
@@ -590,18 +620,30 @@ const Login = () => {
       {/* Global Animations */}
       <style jsx global>{`
         @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
         }
 
         @keyframes spin-reverse {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(-360deg); }
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(-360deg);
+          }
         }
 
         @keyframes move-belt {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
         }
 
         @keyframes float {
@@ -609,8 +651,12 @@ const Login = () => {
             transform: translateY(0) rotate(0deg);
             opacity: 0;
           }
-          10% { opacity: 0.3; }
-          90% { opacity: 0.3; }
+          10% {
+            opacity: 0.3;
+          }
+          90% {
+            opacity: 0.3;
+          }
           100% {
             transform: translateY(-100vh) rotate(180deg);
             opacity: 0;
@@ -618,7 +664,8 @@ const Login = () => {
         }
 
         @keyframes float-slow {
-          0%, 100% {
+          0%,
+          100% {
             transform: translateY(0) rotate(0deg);
             opacity: 0.2;
           }

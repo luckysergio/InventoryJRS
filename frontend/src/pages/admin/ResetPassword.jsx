@@ -41,7 +41,6 @@ const ResetPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validation
     if (password !== confirmPassword) {
       Swal.fire({
         icon: "error",
