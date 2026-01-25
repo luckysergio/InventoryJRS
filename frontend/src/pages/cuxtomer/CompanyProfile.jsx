@@ -230,57 +230,74 @@ const CompanyProfile = () => {
         )}
 
         {/* Hero Section */}
-        <section
-          id="beranda"
-          className="relative min-h-screen flex items-center justify-center px-4 md:px-8 lg:px-12 overflow-hidden"
+        <section 
+          id="beranda" 
+          className="relative min-h-screen flex items-center justify-center px-6 overflow-hidden"
           data-aos="fade-in"
+          data-aos-duration="1000"
         >
-          {/* Animated Background */}
-          <div className="absolute inset-0">
-            <div
-              className="absolute inset-0 bg-gradient-to-br from-gray-950/50 via-black/50 to-gray-950/50"
-              style={{
-                transform: `translate(${mousePosition.x * -10}px, ${mousePosition.y * -10}px)`,
-                transition: "transform 0.3s ease-out",
-              }}
-            ></div>
-            <div className="absolute top-20 left-10 w-72 h-72 bg-cyan-500/3 rounded-full blur-3xl animate-float-slow"></div>
-            <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/3 rounded-full blur-3xl animate-float-slow-delayed"></div>
-          </div>
-
-          <div className="relative z-10 text-center max-w-6xl mx-auto px-4">
-            <div
-              className="inline-flex items-center gap-3 mb-8 px-6 py-3 bg-gradient-to-r from-gray-800/60 to-gray-900/60 rounded-full backdrop-blur-lg border border-gray-700/50 shadow-xl animate-fade-in-down"
-              data-aos="fade-down"
-              data-aos-delay="100"
-            >
-              <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse-slow"></div>
-              <span className="text-sm font-medium text-gray-300 tracking-wider">
-                SOLUSI INDUSTRI SEJAK 2005
-              </span>
-            </div>
-
-            <h1
-              className="text-5xl md:text-7xl lg:text-8xl xl:text-9xl font-bold mb-8 leading-tight tracking-tight"
-              data-aos="fade-up"
-              data-aos-delay="200"
-            >
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-400 animate-gradient-slow">
-                JAYA
-              </span>
-              <br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 animate-gradient">
-                RUBBER SEAL
-              </span>
-            </h1>
-
-            <p
-              className="text-xl md:text-2xl lg:text-3xl text-gray-300 mb-12 max-w-4xl mx-auto leading-relaxed font-light"
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-500/5 via-transparent to-purple-500/5"></div>
+          <div className="absolute top-20 left-10 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          
+          <div className="relative z-10 text-center max-w-6xl mx-auto">
+            <h1 
+              className="text-5xl md:text-7xl lg:text-8xl font-bold mb-8 leading-tight"
               data-aos="fade-up"
               data-aos-delay="300"
             >
-              Presisi Engineering untuk Solusi Seal Karet Terbaik dalam Industri
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-white to-purple-400 bg-300% animate-gradient">
+                JAYA RUBBER SEAL
+              </span>
+            </h1>
+            
+            <p 
+              className="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed font-light"
+              data-aos="fade-up"
+              data-aos-delay="400"
+            >
+              Precision-engineered rubber seal solutions for automotive, machinery, and industrial applications with unparalleled quality and durability.
             </p>
+            
+            <div 
+              className="flex flex-wrap gap-6 justify-center"
+              data-aos="fade-up"
+              data-aos-delay="500"
+            >
+              <button 
+                onClick={scrollToCatalog}
+                className="group px-10 py-4 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-xl font-semibold text-lg hover:shadow-[0_0_40px_rgba(34,211,238,0.6)] transition-all duration-300 hover:scale-105 hover:from-cyan-500 hover:to-blue-600 shadow-lg shadow-cyan-500/20 flex items-center gap-3"
+              >
+                <span>Explore Products</span>
+                <svg className="w-5 h-5 group-hover:translate-x-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </button>
+              
+              <a 
+                href="#kontak" 
+                className="px-10 py-4 bg-gradient-to-r from-gray-800 to-gray-900 rounded-xl font-semibold text-lg hover:shadow-[0_0_40px_rgba(192,132,252,0.3)] transition-all duration-300 hover:scale-105 border border-gray-700 hover:border-purple-500/50 flex items-center gap-3"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <span>Get Consultation</span>
+              </a>
+            </div>
+          </div>
+          
+          {/* Scroll Indicator */}
+          <div 
+            className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce"
+            data-aos="fade-up"
+            data-aos-delay="600"
+          >
+            <div className="flex flex-col items-center">
+              <span className="text-sm text-gray-400 mb-2 tracking-wider">EXPLORE</span>
+              <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </div>
           </div>
         </section>
 
