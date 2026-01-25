@@ -9,7 +9,9 @@ import {
   Calendar,
   Search,
   X,
+  Download,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import api from "../../services/api";
 
 const safeParseFloat = (value) => {
@@ -39,11 +41,11 @@ const formatProductName = (p) => {
     .join(" ");
 };
 
-// ✅ Fungsi baru: hanya ambil detail yang tidak dibatalkan (status ≠ 6)
 const getActiveDetails = (details) => {
   return (details || []).filter((d) => d.status_transaksi_id !== 6);
 };
 
+// 🔽 FilterBar tanpa tombol Export
 export const RiwayatTransaksiFilterBar = ({
   tanggalDari,
   setTanggalDari,
@@ -171,7 +173,6 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
       );
       let data = res.data || [];
 
-      // Filter berdasarkan status (di level detail)
       if (selectedStatus !== "all") {
         const statusIdMap = { selesai: 5, dibatalkan: 6 };
         const targetStatusId = statusIdMap[selectedStatus];
@@ -180,7 +181,6 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
         );
       }
 
-      // Filter berdasarkan tanggal
       if (tanggalDari || tanggalSampai) {
         const dari = tanggalDari ? new Date(tanggalDari) : null;
         const sampai = tanggalSampai
@@ -280,7 +280,6 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
     return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
   };
 
-  // ✅ Gunakan getActiveDetails di sini
   const calculateTotalTagihan = (details) => {
     const active = getActiveDetails(details);
     return active.reduce((sum, d) => sum + safeParseFloat(d.subtotal), 0);
@@ -305,6 +304,78 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
     setSelectedCustomer("");
     setTanggalDari("");
     setTanggalSampai("");
+  };
+
+  // 🔽 Fungsi Export ke Excel — DIPERBAIKI SESUAI PERMINTAAN
+  const exportToExcel = () => {
+    if (transaksi.length === 0) {
+      Swal.fire("Info", "Tidak ada data untuk diekspor", "info");
+      return;
+    }
+
+    const rows = [];
+
+    transaksi.forEach((t) => {
+      const activeDetails = getActiveDetails(t.details);
+      if (activeDetails.length === 0) return;
+
+      activeDetails.forEach((d) => {
+        const totalBayarDetail = d.pembayarans
+          ? d.pembayarans.reduce((sum, p) => sum + safeParseFloat(p.jumlah_bayar), 0)
+          : 0;
+
+        rows.push({
+          "No Invoice": getInvoiceNumber(t),
+          "Nama Customer": t.customer?.name || "Umum",
+          "Tanggal Transaksi": formatTanggal(t.tanggal),
+          "Jenis Transaksi": t.jenis_transaksi === "daily" ? "Harian" : "Pesanan",
+          "Kode Produk": d.product?.kode || "-",
+          "Nama Produk": formatProductName(d.product),
+          "Qty": d.qty,
+          "Harga Satuan": safeParseFloat(d.harga),
+          "Diskon": safeParseFloat(d.discount),
+          "Subtotal": safeParseFloat(d.subtotal),
+          "Total Bayar": totalBayarDetail,
+          "Sisa Tagihan": safeParseFloat(d.subtotal) - totalBayarDetail,
+          "Catatan": d.catatan || "",
+          "Status": d.status_transaksi_id === 5 ? "Selesai" : "Aktif",
+        });
+      });
+    });
+
+    if (rows.length === 0) {
+      Swal.fire("Info", "Tidak ada data aktif untuk diekspor", "info");
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Riwayat Transaksi");
+
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+
+    // 🔽 PENYESUAIAN NAMA FILE SESUAI PERMINTAAN
+    const formatDateForFilename = (dateString) => {
+      if (!dateString) return "tidak-diketahui";
+      return new Date(dateString)
+        .toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+        .replace(/\s+/g, "-"); // "01 Jan 2026" → "01-Jan-2026"
+    };
+
+    const start = formatDateForFilename(tanggalDari);
+    const end = formatDateForFilename(tanggalSampai);
+    link.download = `Transaksi-dari-${start}-sampai-${end}.xlsx`;
+
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   useEffect(() => {
@@ -369,7 +440,6 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
                 className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden flex flex-col h-full cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => openPaymentModal(item)}
               >
-                {/* Header */}
                 <div className="p-3 bg-gray-50 border-b border-gray-200">
                   <div className="flex justify-between items-start">
                     <div>
@@ -404,16 +474,15 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
                   </div>
                 </div>
 
-                {/* Summary — Hanya hitung detail aktif */}
                 <div className="p-3 bg-gray-50 border-b border-gray-200">
                   <div className="flex justify-between text-[13px]">
-                    <span className="text-gray-700">Total Tagihan:</span>
+                    <span className="text-gray-700">Tagihan:</span>
                     <span className="font-semibold">
                       Rp {formatRupiah(totalTagihan)}
                     </span>
                   </div>
                   <div className="flex justify-between text-[13px] mt-1">
-                    <span className="text-gray-700">Total Bayar:</span>
+                    <span className="text-gray-700">Bayar:</span>
                     <span
                       className={`font-semibold ${
                         isLunas ? "text-green-600" : "text-orange-600"
@@ -464,6 +533,17 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
         </div>
       )}
 
+      {/* 🔽 Floating Export Button — muncul hanya jika rentang tanggal lengkap */}
+      {tanggalDari && tanggalSampai && (
+        <button
+          onClick={exportToExcel}
+          className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-12 h-12 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg transition-all"
+          title="Export ke Excel"
+        >
+          <Download size={20} />
+        </button>
+      )}
+
       {isModalOpen && selectedTransaksi && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl">
@@ -503,7 +583,6 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
                 </div>
               </div>
 
-              {/* ✅ Gunakan activeDetails untuk ringkasan total */}
               <div className="bg-blue-50 p-4 rounded-xl">
                 <div className="flex flex-wrap justify-between gap-4 text-sm">
                   <div>

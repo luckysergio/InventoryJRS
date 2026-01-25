@@ -7,6 +7,7 @@ use App\Http\Controllers\api\BahanProductController;
 use App\Http\Controllers\api\CustomerController;
 use App\Http\Controllers\api\DashboardController;
 use App\Http\Controllers\api\DistributorController;
+use App\Http\Controllers\api\ForgotPasswordController;
 use App\Http\Controllers\api\HargaProductController;
 use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\api\JabatanController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\api\ProductDistributorController;
 use App\Http\Controllers\Api\ProductionController;
 use App\Http\Controllers\Api\ProductMovementController;
 use App\Http\Controllers\api\PublicProductController;
+use App\Http\Controllers\api\ResetPasswordController;
 use App\Http\Controllers\api\StatusTransaksiController;
 use App\Http\Controllers\api\StokOpnameController;
 use App\Http\Controllers\api\TransaksiController;
@@ -40,10 +42,13 @@ Route::get('/master/jenis-products', fn() => response()->json([
 
 Route::get('/master/type-products', fn() => response()->json([
     'status' => true,
-    'data' => TypeProduct::with('jenis')->get() // Pastikan relasi 'jenis' ada
+    'data' => TypeProduct::with('jenis')->get()
 ]));
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink'])
+    ->middleware('throttle:5,1');
+Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
 
 Route::middleware(['auth:api', 'role:admin,kasir,operator'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index']);

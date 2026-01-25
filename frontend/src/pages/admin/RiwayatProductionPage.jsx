@@ -1,7 +1,7 @@
-// src/pages/admin/RiwayatProductionPage.jsx
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Swal from "sweetalert2";
-import { Calendar, CheckCircle, XCircle } from "lucide-react";
+import { Calendar, CheckCircle, XCircle, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import api from "../../services/api";
 
 const statusConfig = {
@@ -25,8 +25,9 @@ export const RiwayatProductionFilterBar = ({
   filterSampai,
   setFilterSampai,
   handleReset,
+  onExport,
 }) => (
-  <div className="flex items-center gap-2 w-full">
+  <div className="flex flex-wrap items-center gap-2 w-full">
     {/* Tanggal Dari */}
     <div className="relative flex-1 min-w-[100px] sm:min-w-[150px]">
       <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -58,6 +59,15 @@ export const RiwayatProductionFilterBar = ({
       className="py-1.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs sm:text-sm whitespace-nowrap font-medium transition"
     >
       Reset
+    </button>
+
+    {/* Export Button */}
+    <button
+      onClick={onExport}
+      className="py-1.5 px-4 bg-green-600 hover:bg-green-700 text-white rounded text-xs sm:text-sm whitespace-nowrap font-medium transition flex items-center gap-1"
+    >
+      <Download size={14} />
+      Export Excel
     </button>
   </div>
 );
@@ -121,7 +131,49 @@ const RiwayatProductionPage = ({ setNavbarContent }) => {
     setFilterSampai("");
   };
 
-  // Kirim filter ke Navbar
+  // 🔽 Fungsi Export ke Excel
+  const exportToExcel = () => {
+    if (filteredProductions.length === 0) {
+      Swal.fire("Info", "Tidak ada data untuk diekspor", "info");
+      return;
+    }
+
+    // Siapkan data dalam format array of objects
+    const dataToExport = filteredProductions.map((p) => {
+      const productName = formatProductName(p.product);
+      const customerName =
+        p.jenis_pembuatan === "pesanan"
+          ? p.transaksi?.customer?.name || "Pesanan"
+          : "Inventory";
+
+      return {
+        "Kode Produk": p.product?.kode || "-",
+        "Nama Produk": productName,
+        "Qty": p.qty,
+        "Untuk": customerName,
+        "Status": p.status === "selesai" ? "Selesai" : "Dibatalkan",
+        "Tanggal Mulai": formatDate(p.tanggal_mulai),
+        "Tanggal Selesai": formatDate(p.tanggal_selesai),
+      };
+    });
+
+    // Buat worksheet dan workbook
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Riwayat Produksi");
+
+    // Generate buffer dan trigger download
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Riwayat_Produksi_JayaRubberSeal_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Kirim filter + export ke Navbar
   useEffect(() => {
     setNavbarContent(
       <RiwayatProductionFilterBar
@@ -130,10 +182,10 @@ const RiwayatProductionPage = ({ setNavbarContent }) => {
         filterSampai={filterSampai}
         setFilterSampai={setFilterSampai}
         handleReset={handleReset}
+        onExport={exportToExcel}
       />
     );
-    // NOTE: jangan masukkan setNavbarContent ke dependencies
-  }, [filterDari, filterSampai]);
+  }, [filterDari, filterSampai, setNavbarContent]);
 
   if (loading) {
     return (
@@ -161,7 +213,6 @@ const RiwayatProductionPage = ({ setNavbarContent }) => {
                   key={p.id}
                   className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:shadow-sm transition"
                 >
-                  {/* Status */}
                   <div className="flex justify-center items-center mb-2">
                     <span
                       className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full ${status.bg} ${status.text}`}

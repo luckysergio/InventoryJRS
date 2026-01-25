@@ -63,7 +63,7 @@ api.interceptors.response.use(
         confirmButtonText: "Login Ulang",
       })
 
-      window.location.href = "/login"
+      window.location.href = "/jayarubberseallogin"
       return Promise.reject(error)
     }
 

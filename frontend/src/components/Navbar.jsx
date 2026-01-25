@@ -29,28 +29,32 @@ const Navbar = ({ setSidebarOpen, centerContent }) => {
       cancelButtonColor: "#64748b",
       confirmButtonText: "Yes, Logout",
       cancelButtonText: "Cancel",
-      background: '#1e293b',
-      color: '#f1f5f9'
+      background: "#1e293b",
+      color: "#f1f5f9",
     });
     if (!res.isConfirmed) return;
 
     try {
-      await axios.post("http://127.0.0.1:8000/api/logout", {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.post(
+        "http://127.0.0.1:8000/api/logout",
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
     } catch (error) {
       console.log("Logout API error:", error);
     }
 
     localStorage.clear();
-    navigate("/login");
+    navigate("/jayarubberseallogin");
   };
 
   const getInitials = (name) => {
     if (!name) return "U";
     return name
       .split(" ")
-      .map(word => word[0])
+      .map((word) => word[0])
       .join("")
       .toUpperCase()
       .slice(0, 2);
@@ -94,13 +98,13 @@ const Navbar = ({ setSidebarOpen, centerContent }) => {
                   {user?.name || "User"}
                 </div>
                 <div className="text-xs text-gray-500 capitalize">
-                  {user?.role?.replace('_', ' ') || "Operator"}
+                  {user?.role?.replace("_", " ") || "Operator"}
                 </div>
               </div>
-              
-              <ChevronDown 
-                size={16} 
-                className={`text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+
+              <ChevronDown
+                size={16}
+                className={`text-gray-500 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
               />
             </button>
 
@@ -111,7 +115,9 @@ const Navbar = ({ setSidebarOpen, centerContent }) => {
                 <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-blue-50/50">
                   <div className="flex items-center gap-3">
                     <div>
-                      <div className="font-semibold text-gray-900">{user?.name}</div>
+                      <div className="font-semibold text-gray-900">
+                        {user?.name}
+                      </div>
                       <div className="text-sm text-gray-600">{user?.email}</div>
                     </div>
                   </div>

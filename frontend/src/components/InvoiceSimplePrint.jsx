@@ -116,7 +116,7 @@ const InvoicePrintSimple = forwardRef(({ transaksi, includeCompleted = false }, 
             >
               Nama Bisnis
             </span>
-            <span>: PT Jaya Rubber Seal Indonesia</span>
+            <span>: Jaya Rubber Seal Indonesia</span>
           </div>
           <div style={{ marginBottom: "4px", fontSize: "10px" }}>
             <span

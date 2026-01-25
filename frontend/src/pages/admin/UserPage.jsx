@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Swal from "sweetalert2";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, EyeOff } from "lucide-react";
 import api from "../../services/api";
 
 export const UserFilterBar = ({ search, setSearch }) => (
@@ -30,8 +30,11 @@ const UserPage = ({ setNavbarContent }) => {
     name: "",
     email: "",
     password: "",
+    password_confirmation: "",
     role: "kasir",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const fetchData = async (page = 1, searchTerm = "") => {
     try {
@@ -67,13 +70,23 @@ const UserPage = ({ setNavbarContent }) => {
       name: "",
       email: "",
       password: "",
+      password_confirmation: "",
       role: "kasir",
     });
     setEditingId(null);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validasi konfirmasi password saat password diisi
+    if (form.password && form.password !== form.password_confirmation) {
+      Swal.fire("Validasi Gagal", "Password dan konfirmasi password tidak cocok", "warning");
+      return;
+    }
+
     try {
       const payload = {
         name: form.name,
@@ -81,9 +94,10 @@ const UserPage = ({ setNavbarContent }) => {
         role: form.role,
       };
 
-      // Password hanya dikirim saat create atau diisi saat edit
+      // Kirim password hanya jika diisi
       if (form.password) {
         payload.password = form.password;
+        payload.password_confirmation = form.password_confirmation;
       }
 
       if (editingId) {
@@ -115,7 +129,8 @@ const UserPage = ({ setNavbarContent }) => {
     setForm({
       name: user.name,
       email: user.email,
-      password: "", // biarkan kosong saat edit
+      password: "",
+      password_confirmation: "",
       role: user.role,
     });
     setEditingId(user.id);
@@ -289,7 +304,7 @@ const UserPage = ({ setNavbarContent }) => {
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-md p-6">
-            <h2 className="text-xl font-bold mb-4">
+            <h2 className="text-xl font-bold mb-4 text-center">
               {editingId ? "Edit User" : "Tambah User"}
             </h2>
             <form onSubmit={handleSubmit}>
@@ -323,18 +338,50 @@ const UserPage = ({ setNavbarContent }) => {
                     Password {!editingId && "(minimal 6 karakter, harus ada ! atau _)"} 
                     {editingId && "(biarkan kosong jika tidak ingin ganti)"}
                   </label>
-                  <input
-                    type="password"
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    placeholder={editingId ? "••••••" : "Contoh: Pass123!"}
-                  />
+                  <div className="relative mt-1">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      className="block w-full border border-gray-300 rounded-md px-3 py-2 pr-10"
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      placeholder={editingId ? "••••••" : "Contoh: Pass123!"}
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff size={16} className="text-gray-500" /> : <Eye size={16} className="text-gray-500" />}
+                    </button>
+                  </div>
                   {editingId && (
                     <p className="text-xs text-gray-500 mt-1">
                       Kosongkan jika tidak ingin mengganti password
                     </p>
                   )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Konfirmasi Password
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      className="block w-full border border-gray-300 rounded-md px-3 py-2 pr-10"
+                      value={form.password_confirmation}
+                      onChange={(e) =>
+                        setForm({ ...form, password_confirmation: e.target.value })
+                      }
+                      placeholder="Ulangi password"
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} className="text-gray-500" /> : <Eye size={16} className="text-gray-500" />}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">

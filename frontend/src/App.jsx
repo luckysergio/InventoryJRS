@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./pages/login";
+import ResetPassword from "./pages/admin/ResetPassword";
+
 
 import HomePage from "./pages/admin/HomePage";
 import AllProductsPage from "./pages/admin/AllProductsPage";
@@ -45,6 +47,8 @@ function App() {
         <Route path="/" element={<CompanyProfile />} />
 
         <Route path="/jayarubberseallogin" element={<Login />} />
+
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route
           path="/home"

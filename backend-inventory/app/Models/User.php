@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordNotification;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
+use Illuminate\Contracts\Auth\CanResetPassword;
+use Illuminate\Auth\Passwords\CanResetPassword as CanResetPasswordTrait;
 
-class User extends Authenticatable implements JWTSubject
+class User extends Authenticatable implements JWTSubject, CanResetPassword
 {
-    use Notifiable;
+    use Notifiable, CanResetPasswordTrait;
 
     protected $fillable = [
         'name',
@@ -21,6 +24,7 @@ class User extends Authenticatable implements JWTSubject
         'password',
     ];
 
+    // JWT
     public function getJWTIdentifier()
     {
         return $this->getKey();
@@ -31,6 +35,7 @@ class User extends Authenticatable implements JWTSubject
         return [];
     }
 
+    // Role helpers
     public function hasRole(string $role): bool
     {
         return $this->role === $role;
@@ -40,4 +45,9 @@ class User extends Authenticatable implements JWTSubject
     {
         return in_array($this->role, $roles);
     }
+
+    public function sendPasswordResetNotification($token)
+{
+    $this->notify(new ResetPasswordNotification($token));
+}
 }
