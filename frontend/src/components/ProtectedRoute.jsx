@@ -5,7 +5,7 @@ const ProtectedRoute = ({ children, roles = [] }) => {
   const user = JSON.parse(localStorage.getItem("user"))
 
   if (!token) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/" replace />
   }
 
   if (roles.length > 0 && (!user || !roles.includes(user.role))) {

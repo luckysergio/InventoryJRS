@@ -11,7 +11,6 @@ import JabatanPage from "./pages/admin/JabatanPage";
 import DistributorPage from "./pages/admin/DistributorPage";
 import DistributorProductPage from "./pages/admin/DistributorProductPage";
 
-// Inventory
 import ProductPage from "./pages/admin/Product";
 import ProductionPage from "./pages/admin/ProductionPage";
 import RiwayatProductionPage from "./pages/admin/RiwayatProductionPage";
@@ -22,7 +21,6 @@ import StokOpnamePage from "./pages/admin/StokOpnamePage";
 import RiwayatSOPage from "./pages/admin/RiwayatSOPage";
 import BarangKeluarPage from "./pages/admin/BarangKeluar";
 
-// Master Data
 import JenisPage from "./pages/admin/JenisProduct";
 import TypePage from "./pages/admin/TypeProduct";
 import BahanProductPage from "./pages/admin/BahanProduct";
@@ -31,7 +29,6 @@ import PlacePage from "./pages/admin/PlacePage";
 
 import CustomerPage from "./pages/admin/Customer";
 
-// Transaksi
 import TransaksiPage from "./pages/admin/DaftarTransaksi";
 import PesananPage from "./pages/admin/Pesanan";
 import RiwayatTransaksi from "./pages/admin/RiwayatTransaksi";
@@ -47,7 +44,7 @@ function App() {
       <Routes>
         <Route path="/" element={<CompanyProfile />} />
 
-        <Route path="/login" element={<Login />} />
+        <Route path="/jayarubberseallogin" element={<Login />} />
 
         <Route
           path="/home"

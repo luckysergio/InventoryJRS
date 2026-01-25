@@ -49,7 +49,6 @@ const CompanyProfile = () => {
     projects: 1000,
   });
 
-  // Mouse position for parallax effects
   useEffect(() => {
     const handleMouseMove = (e) => {
       setMousePosition({
@@ -62,12 +61,10 @@ const CompanyProfile = () => {
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
-  // Scroll to top handler
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Handle scroll event
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 300) {
@@ -76,7 +73,6 @@ const CompanyProfile = () => {
         setShowScrollTop(false);
       }
 
-      // Add aos animation on scroll
       const elements = document.querySelectorAll("[data-aos]");
       elements.forEach((el) => {
         const position = el.getBoundingClientRect();
@@ -87,12 +83,11 @@ const CompanyProfile = () => {
     };
 
     window.addEventListener("scroll", handleScroll);
-    handleScroll(); // Trigger once on mount
+    handleScroll();
 
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Fetch best sellers
   useEffect(() => {
     const fetchBestSellers = async () => {
       try {
@@ -107,7 +102,6 @@ const CompanyProfile = () => {
     fetchBestSellers();
   }, []);
 
-  // Fetch master data untuk filter
   useEffect(() => {
     const fetchFilters = async () => {
       try {
@@ -124,7 +118,6 @@ const CompanyProfile = () => {
     fetchFilters();
   }, []);
 
-  // Filter types berdasarkan jenis yang dipilih
   useEffect(() => {
     if (filters.jenis_id) {
       const filtered = typeOptions.filter(
@@ -146,7 +139,6 @@ const CompanyProfile = () => {
     }
   }, [filters.jenis_id, typeOptions, filters.type_id]);
 
-  // Fetch produk berdasarkan filter & pagination
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
@@ -318,7 +310,8 @@ const CompanyProfile = () => {
                   value: `${stats.totalProducts}+`,
                   label: "Produk Tersedia",
                   color: "from-emerald-500 to-green-500",
-                  gradient: "bg-gradient-to-r from-emerald-500/5 to-green-500/5",
+                  gradient:
+                    "bg-gradient-to-r from-emerald-500/5 to-green-500/5",
                   border: "border-emerald-500/10",
                 },
                 {
@@ -500,15 +493,25 @@ const CompanyProfile = () => {
         </section>
 
         {/* Best Sellers */}
-        <section className="py-20 px-4 md:px-8 lg:px-12 relative" data-aos="fade-up">
+        <section
+          className="py-20 px-4 md:px-8 lg:px-12 relative"
+          data-aos="fade-up"
+        >
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-900/5 to-transparent"></div>
           <div className="relative max-w-7xl mx-auto">
             <div className="text-center mb-16">
-              <div className="inline-flex items-center gap-4 mb-6" data-aos="fade-down">
+              <div
+                className="inline-flex items-center gap-4 mb-6"
+                data-aos="fade-down"
+              >
                 <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
                 <span className="px-5 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-full backdrop-blur-sm border border-amber-500/30">
                   <span className="text-sm font-medium text-amber-300 tracking-widest flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                     PRODUK UNGGULAN
@@ -518,7 +521,10 @@ const CompanyProfile = () => {
               </div>
 
               <div className="mb-10">
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight" data-aos="fade-up">
+                <h2
+                  className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight"
+                  data-aos="fade-up"
+                >
                   <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-orange-500">
                     Solusi Terpercaya
                   </span>
@@ -527,8 +533,13 @@ const CompanyProfile = () => {
                     Industri
                   </span>
                 </h2>
-                <p className="text-lg text-gray-400 max-w-2xl mx-auto font-light" data-aos="fade-up" data-aos-delay="100">
-                  Produk-produk terbaik kami yang telah terbukti kualitasnya dalam berbagai aplikasi industri
+                <p
+                  className="text-lg text-gray-400 max-w-2xl mx-auto font-light"
+                  data-aos="fade-up"
+                  data-aos-delay="100"
+                >
+                  Produk-produk terbaik kami yang telah terbukti kualitasnya
+                  dalam berbagai aplikasi industri
                 </p>
               </div>
             </div>
@@ -549,18 +560,56 @@ const CompanyProfile = () => {
                   </div>
 
                   <div className="relative h-56 bg-gradient-to-br from-gray-900 to-black overflow-hidden">
-                    <img
-                      src={getImageUrl(product.foto?.depan)}
-                      alt={formatProductName(product)}
-                      className="w-full h-full object-contain p-6 group-hover:scale-105 transition-transform duration-500"
-                      onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
-                    />
+                    {/* Foto Container dengan Carousel Hover */}
+                    <div className="relative w-full h-full">
+                      {/* Foto Depan (Default) */}
+                      <img
+                        src={getImageUrl(product.foto?.depan)}
+                        alt={formatProductName(product)}
+                        className="absolute inset-0 w-full h-full object-contain p-6 transition-opacity duration-500 group-hover:opacity-0"
+                        onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
+                      />
+
+                      {/* Foto Samping (Hover 1) */}
+                      {product.foto?.samping && (
+                        <img
+                          src={getImageUrl(product.foto.samping)}
+                          alt={`${formatProductName(product)} - Samping`}
+                          className="absolute inset-0 w-full h-full object-contain p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300"
+                          onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
+                        />
+                      )}
+
+                      {/* Foto Atas (Hover 2) */}
+                      {product.foto?.atas && (
+                        <img
+                          src={getImageUrl(product.foto.atas)}
+                          alt={`${formatProductName(product)} - Atas`}
+                          className="absolute inset-0 w-full h-full object-contain p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-600"
+                          onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
+                        />
+                      )}
+                    </div>
+
+                    {/* Dot Indicator untuk menunjukkan ada 3 foto */}
+                    <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full ${product.foto?.depan ? "bg-amber-400" : "bg-gray-600"}`}
+                      ></div>
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full ${product.foto?.samping ? "bg-amber-400" : "bg-gray-600"}`}
+                      ></div>
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full ${product.foto?.atas ? "bg-amber-400" : "bg-gray-600"}`}
+                      ></div>
+                    </div>
+
                     <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent opacity-50"></div>
                   </div>
 
                   <div className="p-5">
                     <div className="mb-3">
-                      <h3 className="text-base font-bold text-white mb-2 group-hover:text-amber-300 transition-colors line-clamp-2">
+                      <h3 className="text-base text-center font-bold text-white mb-2 group-hover:text-amber-300 transition-colors line-clamp-2">
                         {formatProductName(product)}
                       </h3>
                     </div>
@@ -568,11 +617,18 @@ const CompanyProfile = () => {
                     <div className="space-y-3">
                       <div className="flex items-center">
                         <div className="flex items-center gap-2">
-                          <svg className="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                          <svg
+                            className="w-3 h-3 text-amber-500"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                           </svg>
                           <span className="text-xs text-gray-300">
-                            Terjual: <span className="font-bold text-amber-400">{product.total_terjual}</span>
+                            Terjual:{" "}
+                            <span className="font-bold text-amber-400">
+                              {product.total_terjual}
+                            </span>
                           </span>
                         </div>
                       </div>
@@ -603,7 +659,10 @@ const CompanyProfile = () => {
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-900/3 to-transparent"></div>
           <div className="relative max-w-7xl mx-auto">
             <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-4 mb-6" data-aos="fade-down">
+              <div
+                className="inline-flex items-center gap-4 mb-6"
+                data-aos="fade-down"
+              >
                 <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
                 <span className="px-5 py-2 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-full backdrop-blur-sm border border-blue-500/30">
                   <span className="text-sm font-medium text-blue-300 tracking-widest">
@@ -614,7 +673,10 @@ const CompanyProfile = () => {
               </div>
 
               <div className="mb-8">
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight" data-aos="fade-up">
+                <h2
+                  className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight"
+                  data-aos="fade-up"
+                >
                   <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-500">
                     Portofolio Lengkap
                   </span>
@@ -623,14 +685,23 @@ const CompanyProfile = () => {
                     Komponen Karet
                   </span>
                 </h2>
-                <p className="text-lg text-gray-400 max-w-2xl mx-auto font-light" data-aos="fade-up" data-aos-delay="100">
-                  Telusuri koleksi lengkap produk kami yang dirancang untuk performa optimal
+                <p
+                  className="text-lg text-gray-400 max-w-2xl mx-auto font-light"
+                  data-aos="fade-up"
+                  data-aos-delay="100"
+                >
+                  Telusuri koleksi lengkap produk kami yang dirancang untuk
+                  performa optimal
                 </p>
               </div>
             </div>
 
             {/* Filter Content */}
-            <div className={`${showFilters ? "block" : "hidden"} md:block mb-8`} data-aos="fade-up" data-aos-delay="100">
+            <div
+              className={`${showFilters ? "block" : "hidden"} md:block mb-8`}
+              data-aos="fade-up"
+              data-aos-delay="100"
+            >
               <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-xl p-5 backdrop-blur-sm border border-gray-700/50">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
@@ -640,7 +711,9 @@ const CompanyProfile = () => {
                     <select
                       className="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent appearance-none text-sm"
                       value={filters.jenis_id}
-                      onChange={(e) => handleFilterChange("jenis_id", e.target.value)}
+                      onChange={(e) =>
+                        handleFilterChange("jenis_id", e.target.value)
+                      }
                     >
                       <option value="">Semua Jenis</option>
                       {jenisOptions.map((j) => (
@@ -658,11 +731,15 @@ const CompanyProfile = () => {
                     <select
                       className="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent appearance-none disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                       value={filters.type_id}
-                      onChange={(e) => handleFilterChange("type_id", e.target.value)}
+                      onChange={(e) =>
+                        handleFilterChange("type_id", e.target.value)
+                      }
                       disabled={!filters.jenis_id}
                     >
                       <option value="">
-                        {filters.jenis_id ? "Pilih Kategori" : "Pilih Jenis Dulu"}
+                        {filters.jenis_id
+                          ? "Pilih Kategori"
+                          : "Pilih Jenis Dulu"}
                       </option>
                       {filteredTypes.map((t) => (
                         <option key={t.id} value={t.id}>
@@ -677,8 +754,18 @@ const CompanyProfile = () => {
                       onClick={resetFilters}
                       className="w-full py-2.5 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg font-medium hover:from-gray-700 hover:to-gray-800 transition-all duration-300 border border-gray-700/50 hover:border-gray-600/50 flex items-center justify-center gap-2 text-sm"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
                       </svg>
                       Reset Filter
                     </button>
@@ -703,18 +790,60 @@ const CompanyProfile = () => {
                       data-aos-delay={(index % 4) * 50}
                     >
                       <div className="relative h-40 bg-gradient-to-br from-gray-900 to-black overflow-hidden">
-                        <img
-                          src={getImageUrl(product.foto?.depan)}
-                          alt={formatProductName(product)}
-                          className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-500"
-                          onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
-                        />
+                        {/* Foto Container dengan Carousel Hover untuk Catalog */}
+                        <div className="relative w-full h-full">
+                          {/* Foto Depan (Default) */}
+                          <img
+                            src={getImageUrl(product.foto?.depan)}
+                            alt={formatProductName(product)}
+                            className="absolute inset-0 w-full h-full object-contain p-4 transition-opacity duration-500 group-hover:opacity-0"
+                            onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
+                          />
+
+                          {/* Foto Samping (Hover 1) */}
+                          {product.foto?.samping && (
+                            <img
+                              src={getImageUrl(product.foto.samping)}
+                              alt={`${formatProductName(product)} - Samping`}
+                              className="absolute inset-0 w-full h-full object-contain p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300"
+                              onError={(e) =>
+                                (e.target.src = PLACEHOLDER_IMAGE)
+                              }
+                            />
+                          )}
+
+                          {/* Foto Atas (Hover 2) */}
+                          {product.foto?.atas && (
+                            <img
+                              src={getImageUrl(product.foto.atas)}
+                              alt={`${formatProductName(product)} - Atas`}
+                              className="absolute inset-0 w-full h-full object-contain p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-600"
+                              onError={(e) =>
+                                (e.target.src = PLACEHOLDER_IMAGE)
+                              }
+                            />
+                          )}
+                        </div>
+
+                        {/* Dot Indicator untuk Catalog */}
+                        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <div
+                            className={`w-1 h-1 rounded-full ${product.foto?.depan ? "bg-blue-400" : "bg-gray-600"}`}
+                          ></div>
+                          <div
+                            className={`w-1 h-1 rounded-full ${product.foto?.samping ? "bg-blue-400" : "bg-gray-600"}`}
+                          ></div>
+                          <div
+                            className={`w-1 h-1 rounded-full ${product.foto?.atas ? "bg-blue-400" : "bg-gray-600"}`}
+                          ></div>
+                        </div>
+
                         <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
                       </div>
 
                       <div className="p-4">
                         <div className="mb-2">
-                          <h3 className="font-bold text-white mb-1 group-hover:text-blue-300 transition-colors line-clamp-2 text-xs">
+                          <h3 className="font-bold text-white mb-1 group-hover:text-blue-300 transition-colors line-clamp-2 text-xs text-center">
                             {formatProductName(product)}
                           </h3>
                         </div>
@@ -734,14 +863,29 @@ const CompanyProfile = () => {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex justify-center items-center gap-2 mt-8" data-aos="fade-up">
+                  <div
+                    className="flex justify-center items-center gap-2 mt-8"
+                    data-aos="fade-up"
+                  >
                     <button
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(1, prev - 1))
+                      }
                       disabled={currentPage === 1}
                       className="px-3 py-2 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg border border-gray-700/50 disabled:opacity-50 disabled:cursor-not-allowed hover:border-blue-500/20 transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 19l-7-7 7-7"
+                        />
                       </svg>
                     </button>
 
@@ -775,12 +919,24 @@ const CompanyProfile = () => {
                     </div>
 
                     <button
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                      }
                       disabled={currentPage === totalPages}
                       className="px-3 py-2 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg border border-gray-700/50 disabled:opacity-50 disabled:cursor-not-allowed hover:border-blue-500/20 transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -790,11 +946,25 @@ const CompanyProfile = () => {
               <div className="text-center py-12" data-aos="fade-up">
                 <div className="inline-flex p-6 bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl backdrop-blur-sm border border-gray-700/50">
                   <div>
-                    <svg className="w-12 h-12 mx-auto text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      className="w-12 h-12 mx-auto text-gray-600 mb-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1}
+                        d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
-                    <h3 className="text-lg font-bold text-gray-400 mb-2">Produk Tidak Ditemukan</h3>
-                    <p className="text-gray-500 text-sm">Coba sesuaikan kriteria filter Anda</p>
+                    <h3 className="text-lg font-bold text-gray-400 mb-2">
+                      Produk Tidak Ditemukan
+                    </h3>
+                    <p className="text-gray-500 text-sm">
+                      Coba sesuaikan kriteria filter Anda
+                    </p>
                   </div>
                 </div>
               </div>
@@ -812,9 +982,12 @@ const CompanyProfile = () => {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl h-48 bg-gradient-to-r from-blue-500/3 to-purple-500/3 rounded-full blur-3xl"></div>
           </div>
 
-          <div className="relative max-w-4xl mx-auto">
+          <div className="relative max-w-6xl mx-auto">
             <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-4 mb-6" data-aos="fade-down">
+              <div
+                className="inline-flex items-center gap-4 mb-6"
+                data-aos="fade-down"
+              >
                 <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
                 <span className="px-5 py-2 bg-gradient-to-r from-gray-800/60 to-gray-900/60 rounded-full backdrop-blur-sm border border-gray-700/50">
                   <span className="text-sm font-medium text-gray-300 tracking-widest">
@@ -825,125 +998,410 @@ const CompanyProfile = () => {
               </div>
 
               <div className="mb-8">
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight" data-aos="fade-up">
+                <h2
+                  className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight"
+                  data-aos="fade-up"
+                >
                   <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">
                     Hubungi Tim Kami
                   </span>
                 </h2>
-                <p className="text-lg text-gray-400 max-w-2xl mx-auto font-light" data-aos="fade-up" data-aos-delay="100">
+                <p
+                  className="text-lg text-gray-400 max-w-2xl mx-auto font-light"
+                  data-aos="fade-up"
+                  data-aos-delay="100"
+                >
                   Siap memberikan solusi terbaik untuk kebutuhan industri Anda
                 </p>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 md:p-8 backdrop-blur-sm border border-gray-700/50" data-aos="fade-up">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex items-start gap-4 mb-4">
-                      <div className="p-2.5 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-lg border border-blue-500/20">
-                        <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-white mb-1">Telepon & WhatsApp</h3>
-                        <p className="text-gray-300 text-base mb-0.5">(021) 1234-5678</p>
-                        <p className="text-gray-400 text-sm">0812-3456-7890 (WhatsApp)</p>
-                      </div>
+            {/* Grid 6 Card */}
+            <div
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12"
+              data-aos="fade-up"
+            >
+              {/* Card 1: Telepon */}
+              <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 backdrop-blur-sm border border-gray-700/50 hover:border-blue-500/30 transition-all duration-300 group">
+                <div className="flex flex-col h-full">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="p-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-lg border border-blue-500/20 group-hover:border-blue-400/40 transition-colors duration-300">
+                      <svg
+                        className="w-6 h-6 text-blue-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-1">
+                        Telepon
+                      </h3>
+                      <p className="text-gray-400 text-sm">Hubungi langsung</p>
                     </div>
                   </div>
-
-                  <div>
-                    <div className="flex items-start gap-4 mb-4">
-                      <div className="p-2.5 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/20">
-                        <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-white mb-1">Lokasi Kantor</h3>
-                        <p className="text-gray-300 text-base mb-0.5">Jl. Industri No. 123</p>
-                        <p className="text-gray-400 text-sm">Jakarta Pusat, Indonesia 12345</p>
-                      </div>
-                    </div>
+                  <div className="mt-auto">
+                    <p className="text-gray-300 text-lg mb-2">
+                      (021) 1234-5678
+                    </p>
+                    <a
+                      href="tel:+622112345678"
+                      className="inline-flex items-center text-blue-400 hover:text-blue-300 font-medium transition-colors duration-200"
+                    >
+                      <span>Hubungi Sekarang</span>
+                      <svg
+                        className="w-4 h-4 ml-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M14 5l7 7m0 0l-7 7m7-7H3"
+                        />
+                      </svg>
+                    </a>
                   </div>
                 </div>
+              </div>
 
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex items-start gap-4 mb-4">
-                      <div className="p-2.5 bg-gradient-to-r from-emerald-500/10 to-green-500/10 rounded-lg border border-emerald-500/20">
-                        <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-white mb-1">Jam Operasional</h3>
-                        <p className="text-gray-300 text-base mb-0.5">Senin - Jumat</p>
-                        <p className="text-gray-400 text-sm">08:00 - 17:00 WIB</p>
-                        <p className="text-gray-400 text-xs mt-1">Sabtu: 08:00 - 12:00 WIB</p>
-                      </div>
+              {/* Card 2: WhatsApp */}
+              <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 backdrop-blur-sm border border-gray-700/50 hover:border-emerald-500/30 transition-all duration-300 group">
+                <div className="flex flex-col h-full">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="p-3 bg-gradient-to-r from-emerald-500/10 to-green-500/10 rounded-lg border border-emerald-500/20 group-hover:border-emerald-400/40 transition-colors duration-300">
+                      <svg
+                        className="w-6 h-6 text-emerald-400"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-1">
+                        WhatsApp
+                      </h3>
+                      <p className="text-gray-400 text-sm">Chat langsung</p>
                     </div>
                   </div>
+                  <div className="mt-auto">
+                    <p className="text-gray-300 text-lg mb-2">0812-3456-7890</p>
+                    <a
+                      href="https://wa.me/6281234567890"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-emerald-400 hover:text-emerald-300 font-medium transition-colors duration-200"
+                    >
+                      <span>Kirim Pesan</span>
+                      <svg
+                        className="w-4 h-4 ml-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M14 5l7 7m0 0l-7 7m7-7H3"
+                        />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
 
-                  <div>
-                    <div className="flex items-start gap-4">
-                      <div className="p-2.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-lg border border-amber-500/20">
-                        <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-white mb-1">Layanan Cepat</h3>
-                        <p className="text-gray-300 text-base mb-0.5">Respon dalam 24 jam</p>
-                        <p className="text-gray-400 text-sm">Konsultasi teknis tersedia</p>
-                      </div>
+              {/* Card 3: Email */}
+              <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 backdrop-blur-sm border border-gray-700/50 hover:border-amber-500/30 transition-all duration-300 group">
+                <div className="flex flex-col h-full">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="p-3 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-lg border border-amber-500/20 group-hover:border-amber-400/40 transition-colors duration-300">
+                      <svg
+                        className="w-6 h-6 text-amber-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-1">
+                        Email
+                      </h3>
+                      <p className="text-gray-400 text-sm">Kirim email</p>
+                    </div>
+                  </div>
+                  <div className="mt-auto">
+                    <p className="text-gray-300 text-lg mb-2 truncate">
+                      info@jayarubberseal.com
+                    </p>
+                    <a
+                      href="mailto:info@jayarubberseal.com"
+                      className="inline-flex items-center text-amber-400 hover:text-amber-300 font-medium transition-colors duration-200"
+                    >
+                      <span>Kirim Email</span>
+                      <svg
+                        className="w-4 h-4 ml-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M14 5l7 7m0 0l-7 7m7-7H3"
+                        />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 4: Lokasi */}
+              <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 backdrop-blur-sm border border-gray-700/50 hover:border-purple-500/30 transition-all duration-300 group">
+                <div className="flex flex-col h-full">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="p-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/20 group-hover:border-purple-400/40 transition-colors duration-300">
+                      <svg
+                        className="w-6 h-6 text-purple-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-1">
+                        Lokasi Kantor
+                      </h3>
+                      <p className="text-gray-400 text-sm">Kunjungi kami</p>
+                    </div>
+                  </div>
+                  <div className="mt-auto">
+                    <p className="text-gray-300 text-base mb-1">
+                      Jl. Industri No. 123
+                    </p>
+                    <p className="text-gray-400 text-sm">
+                      Jakarta Pusat, Indonesia 12345
+                    </p>
+                    <a
+                      href="https://maps.google.com/?q=Jl.+Industri+No.+123+Jakarta+Pusat"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-purple-400 hover:text-purple-300 font-medium transition-colors duration-200 mt-2"
+                    >
+                      <span>Lihat Peta</span>
+                      <svg
+                        className="w-4 h-4 ml-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M14 5l7 7m0 0l-7 7m7-7H3"
+                        />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 5: Jam Operasional */}
+              <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 backdrop-blur-sm border border-gray-700/50 hover:border-cyan-500/30 transition-all duration-300 group">
+                <div className="flex flex-col h-full">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="p-3 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-lg border border-cyan-500/20 group-hover:border-cyan-400/40 transition-colors duration-300">
+                      <svg
+                        className="w-6 h-6 text-cyan-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-1">
+                        Jam Operasional
+                      </h3>
+                      <p className="text-gray-400 text-sm">Waktu kerja</p>
+                    </div>
+                  </div>
+                  <div className="mt-auto">
+                    <div className="space-y-1">
+                      <p className="text-gray-300 text-base">
+                        <span className="font-medium">Senin - Jumat:</span>{" "}
+                        08:00 - 17:00
+                      </p>
+                      <p className="text-gray-300 text-base">
+                        <span className="font-medium">Sabtu:</span> 08:00 -
+                        12:00
+                      </p>
+                      <p className="text-gray-400 text-sm mt-2">
+                        Minggu & Hari Libur: Tutup
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-gray-700/50">
-                <div className="text-center">
-                  <p className="text-gray-400 mb-4 text-sm">
-                    Untuk konsultasi teknis dan penawaran harga, silakan hubungi kami melalui telepon atau WhatsApp.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <a
-                      href="tel:+622112345678"
-                      className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all duration-300 hover:scale-[1.02]"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              {/* Card 6: Layanan */}
+              <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 backdrop-blur-sm border border-gray-700/50 hover:border-red-500/30 transition-all duration-300 group">
+                <div className="flex flex-col h-full">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="p-3 bg-gradient-to-r from-red-500/10 to-pink-500/10 rounded-lg border border-red-500/20 group-hover:border-red-400/40 transition-colors duration-300">
+                      <svg
+                        className="w-6 h-6 text-red-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
-                      Telepon
-                    </a>
-
-                    <a
-                      href="https://wa.me/6281234567890"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-[1.02]"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.99 15.711c-.037.106-.181.212-.373.299-.192.086-.634.248-1.219.371-.585.124-1.145.167-1.687.167-1.256 0-2.192-.339-2.827-1.018-.634-.679-.95-1.545-.95-2.599 0-1.055.316-1.919.95-2.599.635-.679 1.571-1.018 2.827-1.018 1.256 0 2.193.339 2.828 1.018.634.68.95 1.544.95 2.599 0 .838-.214 1.556-.644 2.154-.43.599-1.076 1.086-1.94 1.462-.168.077-.391.165-.67.264-.279.099-.57.206-.874.322-.304.116-.564.226-.78.331-.217.105-.398.223-.543.354-.145.131-.218.285-.218.461 0 .131.032.248.095.352.064.104.16.201.287.291.128.09.283.167.466.232.183.065.397.109.642.131.245.022.514.022.807.022.292 0 .609-.009.95-.026.342-.017.695-.054 1.06-.112.364-.058.726-.145 1.085-.261.359-.116.693-.271 1.002-.466.309-.195.562-.438.76-.729.198-.291.297-.637.297-1.038 0-.404-.1-.763-.299-1.077-.198-.315-.542-.598-1.032-.85-.49-.252-1.162-.47-2.017-.647-.855-.177-1.845-.266-2.97-.266-1.125 0-2.115.089-2.97.266-.855.177-1.527.395-2.017.647-.49.252-.834.535-1.032.85-.198.314-.298.673-.298 1.077 0 .401.099.747.297 1.038.198.291.451.534.76.729.309.195.643.35 1.002.466.359.116.721.203 1.085.261.364.058.718.095 1.06.112.341.017.658.026.95.026.293 0 .562 0 .807-.022.245-.022.459-.066.642-.131.183-.065.338-.142.466-.232.127-.09.223-.187.287-.291.063-.104.095-.221.095-.352 0-.176-.073-.33-.218-.461-.145-.131-.326-.249-.543-.354-.216-.105-.476-.215-.78-.331-.304-.116-.595-.223-.874-.322-.279-.099-.502-.187-.67-.264-.864-.376-1.51-.863-1.94-1.462-.43-.599-.644-1.316-.644-2.154 0-1.055.316-1.919.95-2.599.635-.679 1.571-1.018 2.827-1.018 1.256 0 2.193.339 2.828 1.018.634.68.95 1.544.95 2.599 0 .401-.047.78-.14 1.137-.094.357-.235.682-.423.976-.188.294-.414.543-.68.746-.266.203-.564.356-.894.458-.33.102-.682.152-1.055.152-.372 0-.724-.05-1.055-.152-.33-.102-.628-.255-.894-.458-.266-.203-.492-.452-.68-.746-.188-.294-.329-.619-.423-.976-.093-.357-.14-.736-.14-1.137 0-.372.052-.708.156-1.008.104-.3.252-.556.443-.767.191-.211.421-.373.69-.487.27-.113.575-.17.915-.17.34 0 .645.057.915.17.27.114.499.276.69.487.191.211.339.467.443.767.104.3.156.636.156 1.008 0 .457-.106.872-.318 1.246-.212.374-.508.697-.889.969-.38.272-.828.485-1.342.637-.514.152-1.077.228-1.689.228-.612 0-1.175-.076-1.689-.228-.514-.152-.962-.365-1.342-.637-.38-.272-.677-.595-.889-.969-.212-.374-.318-.789-.318-1.246 0-.457.106-.872.318-1.246.212-.374.509-.697.889-.969.38-.272.828-.485 1.342-.637.514-.152 1.077-.228 1.689-.228.612 0 1.175.076 1.689.228.514.152.962.365 1.342.637.38.272.677.595.889.969.212.374.318.789.318 1.246 0 .372-.052.708-.156 1.008-.104.3-.252.556-.443.767-.191.211-.421.373-.69.487-.27.113-.575.17-.915.17-.34 0-.645-.057-.915-.17-.27-.114-.499-.276-.69-.487-.191-.211-.339-.467-.443-.767-.104-.3-.156-.636-.156-1.008 0-.401.047-.78.14-1.137.094-.357.235-.682.423-.976.188-.294.414-.543.68-.746.266-.203.564-.356.894-.458.33-.102.682-.152 1.055-.152.372 0-.724.05-1.055.152-.33.102-.628.255-.894.458-.266.203-.492.452-.68.746-.188.294-.329.619-.423.976-.093.357-.14.736-.14 1.137 0 .372.052.708.156 1.008.104.3.252.556.443.767.191.211.421.373.69.487.27.113.575.17.915.17.34 0 .645-.057.915-.17.27-.114.499-.276.69-.487.191-.211.339-.467.443-.767.104-.3.156-.636.156-1.008 0-.457-.106-.872-.318-1.246-.212-.374-.508-.697-.889-.969-.38-.272-.828-.485-1.342-.637-.514-.152-1.077-.228-1.689-.228-.612 0-1.175.076-1.689.228-.514.152-.962.365-1.342.637-.38.272-.677.595-.889.969-.212.374-.318.789-.318 1.246 0 .457.106.872.318 1.246.212.374.509-.697.889-.969z" />
-                      </svg>
-                      WhatsApp
-                    </a>
-
-                    <a
-                      href="mailto:info@jayarubberseal.com"
-                      className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg font-bold text-base border border-gray-700/50 hover:border-cyan-500/20 transition-all duration-300 hover:scale-[1.02]"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      Email
-                    </a>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-1">
+                        Layanan Cepat
+                      </h3>
+                      <p className="text-gray-400 text-sm">Dukungan teknis</p>
+                    </div>
                   </div>
+                  <div className="mt-auto">
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-gray-300 text-base font-medium">
+                          Respon dalam 24 jam
+                        </p>
+                        <p className="text-gray-400 text-sm">
+                          Untuk semua pertanyaan
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-300 text-base font-medium">
+                          Konsultasi teknis
+                        </p>
+                        <p className="text-gray-400 text-sm">
+                          Tim ahli tersedia
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA Section */}
+            <div
+              className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-8 backdrop-blur-sm border border-gray-700/50"
+              data-aos="fade-up"
+              data-aos-delay="200"
+            >
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-white mb-4">
+                  Butuh Bantuan Cepat?
+                </h3>
+                <p className="text-gray-400 mb-6 max-w-2xl mx-auto">
+                  Tim customer service kami siap membantu Anda dengan pertanyaan
+                  teknis, penawaran harga, atau konsultasi produk.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <a
+                    href="https://wa.me/6281234567890"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-[1.02]"
+                  >
+                    <svg
+                      className="w-5 h-5 mr-2"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                    </svg>
+                    Chat WhatsApp
+                  </a>
+
+                  <a
+                    href="tel:+622112345678"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all duration-300 hover:scale-[1.02]"
+                  >
+                    <svg
+                      className="w-5 h-5 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                      />
+                    </svg>
+                    Telepon Sekarang
+                  </a>
+
+                  <a
+                    href="mailto:info@jayarubberseal.com"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg font-bold text-base border border-gray-700/50 hover:border-cyan-500/20 transition-all duration-300 hover:scale-[1.02]"
+                  >
+                    <svg
+                      className="w-5 h-5 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
+                    Kirim Email
+                  </a>
                 </div>
               </div>
             </div>

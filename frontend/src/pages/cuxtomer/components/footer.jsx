@@ -43,8 +43,6 @@ const Footer = () => {
           <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8">
             {/* Logo */}
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-lg">
-              </div>
               <div>
                 <p className="text-sm text-gray-400">© {currentYear} Jaya Rubber Seal</p>
               </div>
