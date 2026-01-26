@@ -178,7 +178,6 @@ class TransaksiController extends Controller
         return response()->json($data);
     }
 
-
     public function riwayat()
     {
         $data = Transaksi::with([

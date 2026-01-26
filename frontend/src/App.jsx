@@ -1,8 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 
 import Login from "./pages/login";
 import ResetPassword from "./pages/admin/ResetPassword";
-
 
 import HomePage from "./pages/admin/HomePage";
 import AllProductsPage from "./pages/admin/AllProductsPage";
@@ -44,12 +44,12 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<CompanyProfile />} />
-
         <Route path="/jayarubberseallogin" element={<Login />} />
-
         <Route path="/reset-password" element={<ResetPassword />} />
 
+        {/* Protected Routes */}
         <Route
           path="/home"
           element={
@@ -150,7 +150,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/type"
           element={
@@ -161,7 +160,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/bahan"
           element={
@@ -172,7 +170,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/customer"
           element={
@@ -185,7 +182,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/status-transaksi"
           element={
@@ -196,7 +192,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/Place"
           element={
@@ -208,7 +203,7 @@ function App() {
           }
         />
 
-        {/* Inventory */}
+        {/* Inventory & Product */}
         <Route
           path="/product"
           element={
@@ -221,7 +216,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/production"
           element={
@@ -232,7 +226,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/RiwayatProduction"
           element={
@@ -245,7 +238,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/inventory"
           element={
@@ -258,7 +250,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/ProductMovement"
           element={
@@ -271,7 +262,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/StokOpname"
           element={
@@ -282,7 +272,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/Riwayat-StokOpname"
           element={
@@ -295,7 +284,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/harga-product"
           element={
@@ -308,7 +296,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/stok-barang"
           element={
@@ -319,7 +306,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/product-terlaris"
           element={
@@ -333,6 +319,7 @@ function App() {
           }
         />
 
+        {/* Transaksi */}
         <Route
           path="/transaksi"
           element={
@@ -345,7 +332,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/pesanan"
           element={
@@ -358,7 +344,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/riwayat-transaksi"
           element={
@@ -371,9 +356,27 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Catch-all 404 */}
+        <Route path="*" element={<NotFoundRedirect />} />
       </Routes>
     </BrowserRouter>
   );
+}
+
+// Component untuk menangani route yang tidak ada
+function NotFoundRedirect() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (window.history.length > 1) {
+      navigate(-1); // kembali ke halaman sebelumnya
+    } else {
+      navigate("/"); // fallback ke home jika tidak ada history
+    }
+  }, [navigate]);
+
+  return null;
 }
 
 export default App;

@@ -271,6 +271,7 @@ class PesananTransaksiController extends Controller
                 'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null',
 
                 'details.*.qty' => 'required|integer|min:1',
+                'details.*.discount' => 'nullable|numeric|min:0',
                 'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
 
                 'details.*.harga_baru.harga' => 'nullable|integer|min:0',
@@ -401,7 +402,8 @@ class PesananTransaksiController extends Controller
                     }
                 }
 
-                $subtotal = $harga->harga * $d['qty'];
+                $discount = $d['discount'] ?? 0;
+                $subtotal = ($harga->harga * $d['qty']) - $discount;
                 $total += $subtotal;
 
                 TransaksiDetail::create([
@@ -411,6 +413,7 @@ class PesananTransaksiController extends Controller
                     'status_transaksi_id' => $d['status_transaksi_id'],
                     'qty' => $d['qty'],
                     'harga' => $harga->harga,
+                    'discount' => $d['discount'] ?? 0,
                     'subtotal' => $subtotal,
                 ]);
             }
@@ -472,6 +475,7 @@ class PesananTransaksiController extends Controller
                 'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null',
 
                 'details.*.qty' => 'required|integer|min:1',
+                'details.*.discount' => 'nullable|numeric|min:0',
                 'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
 
                 'details.*.harga_baru.harga' => 'nullable|integer|min:0',
@@ -513,19 +517,19 @@ class PesananTransaksiController extends Controller
             }
 
             $existingDetailIds = [];
+            $totalTransaksi = 0; // Total transaksi akan dihitung ulang
 
             foreach ($request->details as $d) {
-                $isNewProduct = empty($d['product_id']); // ✅ Deteksi product baru
+                $isNewProduct = empty($d['product_id']);
 
                 if (!$isNewProduct) {
                     $product = Product::findOrFail($d['product_id']);
                 } else {
                     $jenis = !empty($d['product_baru']['jenis_id'])
                         ? JenisProduct::findOrFail($d['product_baru']['jenis_id'])
-                        : JenisProduct::firstOrCreate([
-                            'nama' => $d['product_baru']['jenis_nama']
-                        ]);
+                        : JenisProduct::firstOrCreate(['nama' => $d['product_baru']['jenis_nama']]);
 
+                    $type = null;
                     if (!empty($d['product_baru']['type_id']) && is_numeric($d['product_baru']['type_id'])) {
                         $type = TypeProduct::findOrFail($d['product_baru']['type_id']);
                     } elseif (!empty($d['product_baru']['type_nama'])) {
@@ -533,18 +537,13 @@ class PesananTransaksiController extends Controller
                             'nama' => $d['product_baru']['type_nama'],
                             'jenis_id' => $jenis->id
                         ]);
-                    } else {
-                        $type = null;
                     }
 
+                    $bahan = null;
                     if (!empty($d['product_baru']['bahan_id'])) {
                         $bahan = BahanProduct::findOrFail($d['product_baru']['bahan_id']);
                     } elseif (!empty($d['product_baru']['bahan_nama'])) {
-                        $bahan = BahanProduct::firstOrCreate([
-                            'nama' => $d['product_baru']['bahan_nama']
-                        ]);
-                    } else {
-                        $bahan = null;
+                        $bahan = BahanProduct::firstOrCreate(['nama' => $d['product_baru']['bahan_nama']]);
                     }
 
                     $product = Product::create([
@@ -568,7 +567,7 @@ class PesananTransaksiController extends Controller
                     Inventory::create([
                         'product_id' => $product->id,
                         'place_id' => $placeToko->id,
-                        'qty' => 0, // Mulai dari 0, nanti diisi saat produksi
+                        'qty' => 0,
                     ]);
                 }
 
@@ -594,7 +593,9 @@ class PesananTransaksiController extends Controller
                     }
                 }
 
-                $subtotal = $harga->harga * $d['qty'];
+                $discount = $d['discount'] ?? 0;
+                $subtotal = max(($harga->harga * $d['qty']) - $discount, 0); // Hitung subtotal dengan discount
+                $totalTransaksi += $subtotal;
 
                 $detail = TransaksiDetail::updateOrCreate(
                     [
@@ -607,29 +608,26 @@ class PesananTransaksiController extends Controller
                         'status_transaksi_id' => $d['status_transaksi_id'],
                         'qty' => $d['qty'],
                         'harga' => $harga->harga,
+                        'discount' => $discount,
                         'subtotal' => $subtotal,
+                        'catatan' => $d['catatan'] ?? null,
                     ]
                 );
 
                 $existingDetailIds[] = $detail->id;
             }
 
-            // Hapus detail yang tidak dikirim
-            $transaksi->details()
-                ->whereNotIn('id', $existingDetailIds)
-                ->delete();
+            // Hapus detail yang sudah dihapus user
+            $transaksi->details()->whereNotIn('id', $existingDetailIds)->delete();
 
-            // Hitung ulang total (abaikan status 5 & 6)
-            $total = $transaksi->details()
-                ->whereNotIn('status_transaksi_id', [5, 6])
-                ->sum(DB::raw('qty * harga'));
-
-            $transaksi->update(['total' => $total]);
+            // Update total transaksi
+            $transaksi->update(['total' => $totalTransaksi]);
 
             DB::commit();
 
             return response()->json([
-                'message' => 'Pesanan berhasil diperbarui'
+                'message' => 'Pesanan berhasil diperbarui',
+                'total' => $totalTransaksi
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
