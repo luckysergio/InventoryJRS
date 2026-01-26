@@ -1112,9 +1112,9 @@ const CompanyProfile = () => {
                     </div>
                   </div>
                   <div className="mt-auto">
-                    <p className="text-gray-300 text-lg mb-2">0812-3456-7890</p>
+                    <p className="text-gray-300 text-lg mb-2">0812-8795-1140</p>
                     <a
-                      href="https://wa.me/6281234567890"
+                      href="https://wa.me/6281287951140"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center text-emerald-400 hover:text-emerald-300 font-medium transition-colors duration-200"
@@ -1166,10 +1166,10 @@ const CompanyProfile = () => {
                   </div>
                   <div className="mt-auto">
                     <p className="text-gray-300 text-lg mb-2 truncate">
-                      info@jayarubberseal.com
+                      sales.jayarubberseal@gmail.com
                     </p>
                     <a
-                      href="mailto:info@jayarubberseal.com"
+                      href="mailto:sales.jayarubberseal@gmail.com"
                       className="inline-flex items-center text-amber-400 hover:text-amber-300 font-medium transition-colors duration-200"
                     >
                       <span>Kirim Email</span>
@@ -1218,20 +1218,20 @@ const CompanyProfile = () => {
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-white mb-1">
-                        Lokasi Kantor
+                        Lokasi Toko
                       </h3>
                       <p className="text-gray-400 text-sm">Kunjungi kami</p>
                     </div>
                   </div>
                   <div className="mt-auto">
-                    <p className="text-gray-300 text-base mb-1">
-                      Jl. Industri No. 123
+                    <p className="text-gray-300 text-base mb-1 text-justify">
+                      Pertokoan Glodok Jaya Lt.2 Blok A 35
                     </p>
                     <p className="text-gray-400 text-sm">
-                      Jakarta Pusat, Indonesia 12345
+                      Kota Jakarta Barat, Daerah Khusus Ibukota Jakarta 11180, Indonesia
                     </p>
                     <a
-                      href="https://maps.google.com/?q=Jl.+Industri+No.+123+Jakarta+Pusat"
+                      href="https://www.google.com/maps/search/Pertokoan+Glodok+Jaya+Lt.2+Blok+A+35,+Jl.+Hayam+Wuruk,+RT.1%2FRW.6,+Mangga+Besar,+Kec.+Taman+Sari,+Kota+Jakarta+Barat,+Daerah+Khusus+Ibukota+Jakarta+11180,+Indonesia/@-6.1446,106.8166,17z?hl=id&entry=ttu&g_ep=EgoyMDI2MDEyMS4wIKXMDSoASAFQAw%3D%3D"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center text-purple-400 hover:text-purple-300 font-medium transition-colors duration-200 mt-2"
@@ -1365,7 +1365,7 @@ const CompanyProfile = () => {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <a
-                    href="https://wa.me/6281234567890"
+                    href="https://wa.me/6281287951140"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-[1.02]"
@@ -1401,7 +1401,8 @@ const CompanyProfile = () => {
                   </a>
 
                   <a
-                    href="mailto:info@jayarubberseal.com"
+                    href="mailto:sales.jayarubberseal@gmail.com
+"
                     className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg font-bold text-base border border-gray-700/50 hover:border-cyan-500/20 transition-all duration-300 hover:scale-[1.02]"
                   >
                     <svg

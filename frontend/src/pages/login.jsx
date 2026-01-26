@@ -340,11 +340,11 @@ const Login = () => {
                   </div>
 
                   {/* Forgot Password Link */}
-                  <div className="flex justify-end">
+                  <div className="flex justify-center">
                     <button
                       type="button"
                       onClick={() => setShowForgotPassword(true)}
-                      className="text-sm text-gray-400 hover:text-blue-400 transition-colors flex items-center group focus:outline-none focus:ring-2 focus:ring-blue-500/30 rounded"
+                      className="flex items-center text-sm text-gray-400 hover:text-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30 rounded group"
                     >
                       <Key className="w-4 h-4 mr-2" />
                       <span>Lupa Password?</span>

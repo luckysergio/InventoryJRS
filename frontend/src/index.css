@@ -1,5 +1,7 @@
 @import "tailwindcss";
-  
+
+/* --- Utility Animations --- */
+
 @keyframes gradient {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -7,270 +9,192 @@
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-20px); }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-16px); }
 }
 
 @keyframes float-delayed {
-  0%, 100% { transform: translateY(0px) translateX(0px); }
-  33% { transform: translateY(-15px) translateX(10px); }
-  66% { transform: translateY(-10px) translateX(-10px); }
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(8px, -12px); }
+  66% { transform: translate(-8px, -8px); }
 }
 
 @keyframes pulse-gentle {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
+  50% { opacity: 0.85; }
 }
 
 @keyframes slide-down {
-  0% { transform: translateY(-20px); opacity: 0; }
-  100% { transform: translateY(0); opacity: 1; }
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes bounce-slow {
-  0%, 100% { transform: translateY(0) translateX(-50%); }
-  50% { transform: translateY(-10px) translateX(-50%); }
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-8px); }
 }
 
 @keyframes fade-in-up {
-  0% { opacity: 0; transform: translateY(20px); }
-  100% { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes carousel-front {
-  0%, 33% { opacity: 1; z-index: 3; }
-  34%, 66% { opacity: 0; z-index: 1; }
-  67%, 100% { opacity: 0; z-index: 1; }
-}
-
-@keyframes carousel-middle {
-  0%, 33% { opacity: 0; z-index: 1; }
-  34%, 66% { opacity: 1; z-index: 3; }
-  67%, 100% { opacity: 0; z-index: 1; }
-}
-
-@keyframes carousel-back {
-  0%, 33% { opacity: 0; z-index: 1; }
-  34%, 66% { opacity: 0; z-index: 1; }
-  67%, 100% { opacity: 1; z-index: 3; }
-}
+/* --- Carousel Hover Animations (Smooth Opacity Only) --- */
 
 @keyframes carousel-front-hover {
-  0%, 33% { opacity: 1; z-index: 3; }
-  34%, 66% { opacity: 0; z-index: 1; }
-  67%, 100% { opacity: 0; z-index: 1; }
+  0%, 33% { opacity: 1; }
+  34%, 100% { opacity: 0; }
 }
 
 @keyframes carousel-middle-hover {
-  0%, 33% { opacity: 0; z-index: 1; }
-  34%, 66% { opacity: 1; z-index: 3; }
-  67%, 100% { opacity: 0; z-index: 1; }
+  0%, 33% { opacity: 0; }
+  34%, 66% { opacity: 1; }
+  67%, 100% { opacity: 0; }
 }
 
 @keyframes carousel-back-hover {
-  0%, 33% { opacity: 0; z-index: 1; }
-  34%, 66% { opacity: 0; z-index: 1; }
-  67%, 100% { opacity: 1; z-index: 3; }
-}
-
-.animate-carousel-front {
-  opacity: 1;
-  z-index: 3;
-  transition: opacity 0.8s ease-in-out;
-}
-
-.animate-carousel-middle {
-  opacity: 0;
-  z-index: 1;
-  transition: opacity 0.8s ease-in-out;
-}
-
-.animate-carousel-back {
-  opacity: 0;
-  z-index: 1;
-  transition: opacity 0.8s ease-in-out;
-}
-
-.group:hover .animate-carousel-front-hover {
-  animation: carousel-front-hover 2.4s infinite ease-in-out;
-}
-
-.group:hover .animate-carousel-middle-hover {
-  animation: carousel-middle-hover 2.4s infinite ease-in-out;
-}
-
-.group:hover .animate-carousel-back-hover {
-  animation: carousel-back-hover 2.4s infinite ease-in-out;
+  0%, 66% { opacity: 0; }
+  67%, 100% { opacity: 1; }
 }
 
 @keyframes pulse-dot {
   0%, 33% { opacity: 1; }
-  34%, 66% { opacity: 0.3; }
-  67%, 100% { opacity: 0.3; }
+  34%, 100% { opacity: 0.3; }
 }
 
-.animate-pulse-dot {
-  animation: pulse-dot 1.8s infinite ease-in-out;
+/* --- Slow Variants (for subtle motion) --- */
+
+@keyframes fade-in-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes float-slow-delayed {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(5px, -6px); }
+  66% { transform: translate(-5px, -4px); }
+}
+
+@keyframes gradient-slow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* --- Animation Classes --- */
 
 .animate-gradient {
-  animation: gradient 8s ease infinite;
+  animation: gradient 10s ease infinite;
   background-size: 400% 400%;
 }
 
 .animate-float {
-  animation: float 6s ease-in-out infinite;
+  animation: float 8s ease-in-out infinite;
 }
 
 .animate-float-delayed {
-  animation: float-delayed 8s ease-in-out infinite;
+  animation: float-delayed 10s ease-in-out infinite;
 }
 
 .animate-pulse-gentle {
-  animation: pulse-gentle 2s ease-in-out infinite;
+  animation: pulse-gentle 2.5s ease-in-out infinite;
 }
 
 .animate-slide-down {
-  animation: slide-down 0.8s ease-out;
+  animation: slide-down 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .animate-bounce-slow {
-  animation: bounce-slow 3s ease-in-out infinite;
+  animation: bounce-slow 3.5s ease-in-out infinite;
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.6s ease-out;
+  animation: fade-in-up 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-[data-aos] {
-  opacity: 0;
-  transition-property: opacity, transform;
-  transition-duration: 1s;
-  transition-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+/* --- Carousel Hover Controls (Opacity-only for performance) --- */
+
+.animate-carousel-front,
+.animate-carousel-middle,
+.animate-carousel-back {
+  transition: opacity 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: opacity;
 }
 
-[data-aos].aos-animate {
-  opacity: 1;
+.group:hover .animate-carousel-front {
+  animation: carousel-front-hover 2.1s infinite steps(1, end);
 }
 
-[data-aos="fade-up"] {
-  transform: translateY(50px);
+.group:hover .animate-carousel-middle {
+  animation: carousel-middle-hover 2.1s infinite steps(1, end);
 }
 
-[data-aos="fade-up"].aos-animate {
-  transform: translateY(0);
+.group:hover .animate-carousel-back {
+  animation: carousel-back-hover 2.1s infinite steps(1, end);
 }
 
-[data-aos="fade-down"] {
-  transform: translateY(-50px);
+.animate-pulse-dot {
+  animation: pulse-dot 1.8s infinite steps(1, end);
 }
 
-[data-aos="fade-down"].aos-animate {
-  transform: translateY(0);
-}
-
-[data-aos="fade-right"] {
-  transform: translateX(-50px);
-}
-
-[data-aos="fade-right"].aos-animate {
-  transform: translateX(0);
-}
-
-[data-aos="fade-left"] {
-  transform: translateX(50px);
-}
-
-[data-aos="fade-left"].aos-animate {
-  transform: translateX(0);
-}
-
-[data-aos="zoom-in"] {
-  transform: scale(0.9);
-}
-
-[data-aos="zoom-in"].aos-animate {
-  transform: scale(1);
-}
-
-[data-aos="fade-in"] {
-  opacity: 0;
-}
-
-[data-aos="fade-in"].aos-animate {
-  opacity: 1;
-}
-
-@keyframes fade-in-down {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes float-slow {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-@keyframes float-slow-delayed {
-  0%, 100% {
-    transform: translateY(0px) translateX(0px);
-  }
-  33% {
-    transform: translateY(-8px) translateX(5px);
-  }
-  66% {
-    transform: translateY(-6px) translateX(-5px);
-  }
-}
-
-@keyframes gradient-slow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-@keyframes pulse-slow {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
+/* --- Slow Variants --- */
 
 .animate-fade-in-down {
-  animation: fade-in-down 0.6s ease-out;
+  animation: fade-in-down 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .animate-float-slow {
-  animation: float-slow 8s ease-in-out infinite;
+  animation: float-slow 9s ease-in-out infinite;
 }
 
 .animate-float-slow-delayed {
-  animation: float-slow-delayed 10s ease-in-out infinite;
+  animation: float-slow-delayed 12s ease-in-out infinite;
 }
 
 .animate-gradient-slow {
-  animation: gradient-slow 6s ease infinite;
+  animation: gradient-slow 8s ease infinite;
   background-size: 300% 300%;
 }
 
 .animate-pulse-slow {
-  animation: pulse-slow 3s ease-in-out infinite;
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
+/* --- AOS Compatibility (Improved Easing) --- */
+
+[data-aos] {
+  opacity: 0;
+  transition: opacity 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
+              transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: opacity, transform;
+}
+
+[data-aos].aos-animate {
+  opacity: 1;
+  transform: none !important;
+}
+
+[data-aos="fade-up"] { transform: translateY(32px); }
+[data-aos="fade-down"] { transform: translateY(-32px); }
+[data-aos="fade-right"] { transform: translateX(-32px); }
+[data-aos="fade-left"] { transform: translateX(32px); }
+[data-aos="zoom-in"] { transform: scale(0.92); }
+[data-aos="fade-in"] { opacity: 0; }
+
+/* Optional: Add hardware acceleration for smoother animations */
+[data-aos],
+.animate-float,
+.animate-float-slow,
+.animate-bounce-slow {
+  transform: translateZ(0);
 }
