@@ -309,6 +309,8 @@ const CustomerPage = ({ setNavbarContent }) => {
     .map((detail) => {
       const subtotal = safeParseFloat(detail.subtotal);
       const discount = safeParseFloat(detail.discount);
+      const subtotalAsli = subtotal + discount;
+      
       const totalBayar = Array.isArray(detail.pembayarans)
         ? detail.pembayarans.reduce(
             (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
@@ -317,7 +319,7 @@ const CustomerPage = ({ setNavbarContent }) => {
         : 0;
       const sisa = subtotal - totalBayar;
 
-      totalSubtotal += subtotal;
+      totalSubtotal += subtotalAsli;
       totalDiscount += discount;
       totalTagihan += subtotal;
       totalDibayar += totalBayar;
@@ -325,10 +327,10 @@ const CustomerPage = ({ setNavbarContent }) => {
       return `
         <tr>
           <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center; font-size: 11px;">${formatTanggal(detail.transaksi?.tanggal)}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 11px;">${formatProductName(detail.product)}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(subtotal)}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 11px; white-space: nowrap;">${formatProductName(detail.product)}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(subtotalAsli)}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(discount)}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(subtotal - discount)}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(subtotal)}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(totalBayar)}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; color: #dc2626; font-weight: bold; font-size: 11px;">Rp ${formatRupiah(sisa)}</td>
         </tr>
@@ -402,16 +404,16 @@ const CustomerPage = ({ setNavbarContent }) => {
           }
           /* Kolom Tanggal */
           td:nth-child(1) { text-align: center; width: 10%; }
-          /* Kolom Produk — dipersempit */
-          td:nth-child(2) { text-align: left; width: 30%; word-wrap: break-word; }
-          /* Kolom Angka */
+          /* Kolom Produk - diperbesar agar 1 baris */
+          td:nth-child(2) { text-align: left; width: 35%; white-space: nowrap; }
+          /* Kolom Angka - disamakan ukuran dengan produk */
           td:nth-child(3),
           td:nth-child(4),
           td:nth-child(5),
           td:nth-child(6),
           td:nth-child(7) { 
             text-align: right; 
-            width: 12%; 
+            width: 11%; 
           }
           tr:last-child td {
             border-bottom: 1px solid #e5e7eb;
@@ -452,14 +454,14 @@ const CustomerPage = ({ setNavbarContent }) => {
       </head>
       <body>
         <h1>SURAT TAGIHAN</h1>
-        <div class="subtitle">PT Jaya Rubber Seal Indonesia</div>
+        <div class="subtitle">Jaya Rubber Seal</div>
         
         <div class="letter-content">
           <p class="salutation">
             Kepada Yth.<br>
             <span class="highlight">${customer.name}</span><br><br>
             
-            Bersama ini kami dari <strong>PT Jaya Rubber Seal Indonesia</strong> ingin mengingatkan bahwa 
+            Bersama ini kami dari <strong>Jaya Rubber Seal</strong> ingin mengingatkan bahwa 
             Bapak/Ibu masih memiliki tagihan yang belum dilunasi. Berikut rincian tagihan tersebut:
           </p>
 

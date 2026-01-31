@@ -449,7 +449,7 @@ const InvoicePrintSimple = forwardRef(({ transaksi, includeCompleted = false }, 
             }}
           />
           <div style={{ fontSize: "9px", color: "#64748b" }}>
-            PT Jaya Rubber Seal Indonesia
+            Jaya Rubber Seal
           </div>
         </div>
       </div>
