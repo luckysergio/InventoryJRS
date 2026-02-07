@@ -1,16 +1,25 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
 use App\Models\JenisProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 
 class JenisProductController extends Controller
 {
-    public function index()
+    public function master()
+    {
+        $data = JenisProduct::all();
+
+        return response()->json([
+            'status' => true,
+            'data'   => $data
+        ]);
+    }    
+
+public function index()
     {
         $data = JenisProduct::orderByRaw('LOWER(nama) ASC')->get();
 

@@ -11,7 +11,6 @@ const formatProductName = (p) => {
   return parts.join(" ");
 };
 
-// ✅ Komponen Filter untuk Navbar
 export const InventoryFilterBar = ({
   searchTerm,
   setSearchTerm,
@@ -35,7 +34,6 @@ export const InventoryFilterBar = ({
       />
     </div>
 
-    {/* Filter Lengkap - Tablet+ */}
     <div className="hidden sm:flex flex-wrap items-center gap-2">
       <select
         className="py-1.5 px-3 text-xs sm:text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-200 focus:outline-none min-w-[120px]"
@@ -79,7 +77,6 @@ export const InventoryFilterBar = ({
       </button>
     </div>
 
-    {/* Reset Mobile */}
     <button
       onClick={() => setSearchTerm("")}
       className="sm:hidden py-1.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs whitespace-nowrap"
@@ -89,7 +86,6 @@ export const InventoryFilterBar = ({
   </div>
 );
 
-// ✅ Komponen utama
 const InventoryPage = ({ setNavbarContent }) => {
   const [allInventories, setAllInventories] = useState([]);
   const [places, setPlaces] = useState([]);
@@ -131,7 +127,6 @@ const InventoryPage = ({ setNavbarContent }) => {
     fetchData();
   }, [fetchData]);
 
-  // ✅ Group inventory per produk
   const produkWithInventori = useMemo(() => {
     const productMap = new Map();
 
@@ -239,7 +234,6 @@ const InventoryPage = ({ setNavbarContent }) => {
     return result;
   }, [produkLengkap, selectedJenisId, selectedTypeId, searchTerm]);
 
-  // ✅ Kirim filter ke Navbar
   useEffect(() => {
     setNavbarContent(
       <InventoryFilterBar
@@ -330,100 +324,104 @@ const InventoryPage = ({ setNavbarContent }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-  {filteredProducts.map((item) => (
-    <div
-      key={item.product.id}
-      className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-4"
-    >
-      {/* Info Produk */}
-      <div className="text-center mb-3">
-        <p className="text-sm text-gray-500 font-medium truncate">
-          {item.product.kode}
-        </p>
-        <p className="font-medium text-gray-800 mt-1 text-sm min-h-[40px] leading-tight px-1">
-          {formatProductName(item.product)}
-        </p>
-      </div>
+          {filteredProducts.map((item) => (
+            <div
+              key={item.product.id}
+              className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-4"
+            >
+              <div className="text-center mb-3">
+                <p className="text-sm text-gray-500 font-medium truncate">
+                  {item.product.kode}
+                </p>
+                <p className="font-medium text-gray-800 mt-1 text-sm min-h-[40px] leading-tight px-1">
+                  {formatProductName(item.product)}
+                </p>
+              </div>
 
-      {/* === TOKO === */}
-      <div className="border border-green-200 rounded-lg p-3 mb-4 bg-green-50">
-        <div className={`flex items-start ${role === "admin" ? "justify-between" : "justify-center"}`}>
-          <div className="text-center">
-            <span className="text-xs font-medium text-green-800">TOKO</span>
-            <p className="font-bold text-lg text-green-700 mt-1">
-              {item.stok_toko}
-            </p>
-          </div>
-          {role === "admin" && (
-            <div className="flex gap-1">
-              <button
-                onClick={() => openModal("in", item.inv_toko)}
-                className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
-                title="Stok Masuk"
-              >
-                <Plus size={10} />
-              </button>
-              <button
-                onClick={() => openModal("out", item.inv_toko)}
-                className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
-                title="Stok Keluar"
-              >
-                <Minus size={10} />
-              </button>
-              <button
-                onClick={() => openModal("transfer", item.inv_toko)}
-                className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
-                title="Transfer"
-              >
-                <RefreshCw size={10} />
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+              <div className="border border-green-200 rounded-lg p-3 mb-4 bg-green-50">
+                <div
+                  className={`flex items-start ${role === "admin" ? "justify-between" : "justify-center"}`}
+                >
+                  <div className="text-center">
+                    <span className="text-xs font-medium text-green-800">
+                      TOKO
+                    </span>
+                    <p className="font-bold text-lg text-green-700 mt-1">
+                      {item.stok_toko}
+                    </p>
+                  </div>
+                  {role === "admin" && (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => openModal("in", item.inv_toko)}
+                        className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
+                        title="Stok Masuk"
+                      >
+                        <Plus size={10} />
+                      </button>
+                      <button
+                        onClick={() => openModal("out", item.inv_toko)}
+                        className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
+                        title="Stok Keluar"
+                      >
+                        <Minus size={10} />
+                      </button>
+                      <button
+                        onClick={() => openModal("transfer", item.inv_toko)}
+                        className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
+                        title="Transfer"
+                      >
+                        <RefreshCw size={10} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-      {/* === BENGKEL === */}
-      <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
-        <div className={`flex items-start ${role === "admin" ? "justify-between" : "justify-center"}`}>
-          <div className="text-center">
-            <span className="text-xs font-medium text-blue-800">BENGKEL</span>
-            <p className="font-bold text-lg text-blue-700 mt-1">
-              {item.stok_bengkel}
-            </p>
-          </div>
-          {role === "admin" && (
-            <div className="flex gap-1">
-              <button
-                onClick={() => openModal("in", item.inv_bengkel)}
-                className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
-                title="Stok Masuk"
-              >
-                <Plus size={10} />
-              </button>
-              <button
-                onClick={() => openModal("out", item.inv_bengkel)}
-                className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
-                title="Stok Keluar"
-              >
-                <Minus size={10} />
-              </button>
-              <button
-                onClick={() => openModal("transfer", item.inv_bengkel)}
-                className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
-                title="Transfer"
-              >
-                <RefreshCw size={10} />
-              </button>
+              <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
+                <div
+                  className={`flex items-start ${role === "admin" ? "justify-between" : "justify-center"}`}
+                >
+                  <div className="text-center">
+                    <span className="text-xs font-medium text-blue-800">
+                      BENGKEL
+                    </span>
+                    <p className="font-bold text-lg text-blue-700 mt-1">
+                      {item.stok_bengkel}
+                    </p>
+                  </div>
+                  {role === "admin" && (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => openModal("in", item.inv_bengkel)}
+                        className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
+                        title="Stok Masuk"
+                      >
+                        <Plus size={10} />
+                      </button>
+                      <button
+                        onClick={() => openModal("out", item.inv_bengkel)}
+                        className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
+                        title="Stok Keluar"
+                      >
+                        <Minus size={10} />
+                      </button>
+                      <button
+                        onClick={() => openModal("transfer", item.inv_bengkel)}
+                        className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
+                        title="Transfer"
+                      >
+                        <RefreshCw size={10} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
+          ))}
         </div>
-      </div>
-    </div>
-  ))}
-</div>
       )}
 
-      {/* MODAL */}
       {modal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-6">

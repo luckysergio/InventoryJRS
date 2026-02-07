@@ -1,12 +1,11 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
 use App\Models\HargaProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 
 class HargaProductController extends Controller
 {
@@ -16,7 +15,7 @@ class HargaProductController extends Controller
             'product.jenis',
             'product.type',
             'product.bahan',
-            'customer' // ✅ Tambahkan relasi customer
+            'customer'
         ])->get();
 
         return response()->json([

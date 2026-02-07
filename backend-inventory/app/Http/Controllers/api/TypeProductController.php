@@ -1,19 +1,28 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
 use App\Models\TypeProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 
 class TypeProductController extends Controller
 {
+    public function master()
+    {
+        $data = TypeProduct::with('jenis')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'data'   => $data
+        ]);
+    }
+
     public function index()
     {
         $data = TypeProduct::with('jenis')
-            ->orderByRaw('LOWER(nama) ASC')
             ->get();
 
         return response()->json([

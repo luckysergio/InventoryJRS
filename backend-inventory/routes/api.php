@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\api\PesananTransaksiController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\api\PesananTransaksiController;
 use App\Http\Controllers\api\AuthController;
 use App\Http\Controllers\api\BahanProductController;
 use App\Http\Controllers\api\CustomerController;
@@ -9,16 +9,16 @@ use App\Http\Controllers\api\DashboardController;
 use App\Http\Controllers\api\DistributorController;
 use App\Http\Controllers\api\ForgotPasswordController;
 use App\Http\Controllers\api\HargaProductController;
-use App\Http\Controllers\Api\InventoryController;
+use App\Http\Controllers\api\InventoryController;
 use App\Http\Controllers\api\JabatanController;
 use App\Http\Controllers\api\JenisProductController;
 use App\Http\Controllers\api\KaryawanController;
 use App\Http\Controllers\api\PembayaranController;
-use App\Http\Controllers\Api\PlaceController;
+use App\Http\Controllers\api\PlaceController;
 use App\Http\Controllers\api\ProductController;
 use App\Http\Controllers\api\ProductDistributorController;
-use App\Http\Controllers\Api\ProductionController;
-use App\Http\Controllers\Api\ProductMovementController;
+use App\Http\Controllers\api\ProductionController;
+use App\Http\Controllers\api\ProductMovementController;
 use App\Http\Controllers\api\PublicProductController;
 use App\Http\Controllers\api\ResetPasswordController;
 use App\Http\Controllers\api\StatusTransaksiController;
@@ -26,8 +26,6 @@ use App\Http\Controllers\api\StokOpnameController;
 use App\Http\Controllers\api\TransaksiController;
 use App\Http\Controllers\api\TypeProductController;
 use App\Http\Controllers\Api\UserController;
-use App\Models\JenisProduct;
-use App\Models\TypeProduct;
 
 Route::prefix('public')->group(function () {
     Route::get('/products', [PublicProductController::class, 'index']);
@@ -35,15 +33,10 @@ Route::prefix('public')->group(function () {
     Route::get('/products/best-seller', [PublicProductController::class, 'bestSeller']);
     Route::get('/products/{id}', [PublicProductController::class, 'show']);
 });
-Route::get('/master/jenis-products', fn() => response()->json([
-    'status' => true,
-    'data' => JenisProduct::all()
-]));
 
-Route::get('/master/type-products', fn() => response()->json([
-    'status' => true,
-    'data' => TypeProduct::with('jenis')->get()
-]));
+Route::get('/master/type-products', [TypeProductController::class, 'master']);
+Route::get('/master/jenis-products', [JenisProductController::class, 'master']);
+
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
@@ -122,7 +115,7 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::put('/bahan/{id}', [BahanProductController::class, 'update'])->middleware('role:admin,kasir');
     Route::delete('/bahan/{id}', [BahanProductController::class, 'destroy'])->middleware('role:admin');
 
-    // // Type Product
+    // Type Product
     Route::get('/type', [TypeProductController::class, 'index'])->middleware('role:admin,kasir,operator');
     Route::post('/type', [TypeProductController::class, 'store'])->middleware('role:admin,kasir');
     Route::get('/type/by-jenis/{jenisId}', [TypeProductController::class, 'getByJenis'])->middleware('role:admin,kasir,operator');
