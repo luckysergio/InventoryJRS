@@ -1066,7 +1066,7 @@ const CompanyProfile = () => {
                   </div>
                   <div className="mt-auto">
                     <p className="text-gray-300 text-lg mb-2">
-                      (021) 1234-5678
+                      (021) 62305916
                     </p>
                     <a
                       href="tel:+622112345678"
@@ -1381,7 +1381,7 @@ const CompanyProfile = () => {
                   </a>
 
                   <a
-                    href="tel:+622112345678"
+                    href="tel:+622162305916"
                     className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all duration-300 hover:scale-[1.02]"
                   >
                     <svg
