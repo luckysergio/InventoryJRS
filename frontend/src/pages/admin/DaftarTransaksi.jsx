@@ -151,9 +151,10 @@ const TransaksiPage = ({ setNavbarContent }) => {
         s.nama.toLowerCase().includes("dibatalkan"),
       );
 
-      setStatusSelesaiId(selesai?.id || null);
-      setStatusProsesId(proses?.id || null);
-      setStatusDibatalkanId(dibatalkan?.id || null);
+      // ✅ Ubah ID menjadi string untuk menghindari masalah perbandingan tipe data
+      setStatusSelesaiId(selesai?.id?.toString() || null);
+      setStatusProsesId(proses?.id?.toString() || null);
+      setStatusDibatalkanId(dibatalkan?.id?.toString() || null);
     } catch (err) {
       Swal.fire("Error", "Gagal memuat data", "error");
     } finally {

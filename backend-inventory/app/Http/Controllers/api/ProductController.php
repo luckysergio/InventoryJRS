@@ -291,6 +291,13 @@ class ProductController extends Controller
             $manager = new ImageManager(new Driver());
             $foto = [];
 
+            $folder = '/home/jaym3787/public_html/storage/products';
+            if (!file_exists($folder)) {
+                mkdir($folder, 0755, true);
+            } else {
+                chmod($folder, 0755);
+            }
+
             foreach (['foto_depan', 'foto_samping', 'foto_atas'] as $field) {
                 if ($request->hasFile($field)) {
                     $image = $manager->read($request->file($field));
@@ -299,12 +306,12 @@ class ProductController extends Controller
                     }
 
                     $filename = 'products/' . Str::uuid() . '.jpg';
-                    Storage::disk('public')->put(
-                        $filename,
-                        (string) $image->toJpeg(85)
-                    );
+                    $path = $folder . '/' . basename($filename);
 
-                    $foto[$field] = $filename;
+                    file_put_contents($path, (string) $image->toJpeg(85));
+                    chmod($path, 0644);
+
+                    $foto[$field] = 'products/' . basename($filename); // simpan relatif untuk DB
                 }
             }
 
@@ -395,25 +402,22 @@ class ProductController extends Controller
         DB::beginTransaction();
 
         try {
-            if ($request->filled('type_nama')) {
-                $type = TypeProduct::firstOrCreate([
-                    'nama' => Str::title(trim($request->type_nama)),
+            // Type
+            $type_id = $request->filled('type_nama')
+                ? TypeProduct::firstOrCreate([
+                    'nama' => strtoupper(trim($request->type_nama)),
                     'jenis_id' => $request->jenis_id
-                ]);
-                $type_id = $type->id;
-            } else {
-                $type_id = $request->type_id;
-            }
+                ])->id
+                : $request->type_id;
 
-            if ($request->filled('bahan_nama')) {
-                $bahan = BahanProduct::firstOrCreate([
-                    'nama' => Str::title(trim($request->bahan_nama))
-                ]);
-                $bahan_id = $bahan->id;
-            } else {
-                $bahan_id = $request->bahan_id;
-            }
+            // Bahan
+            $bahan_id = $request->filled('bahan_nama')
+                ? BahanProduct::firstOrCreate([
+                    'nama' => strtoupper(trim($request->bahan_nama))
+                ])->id
+                : $request->bahan_id;
 
+            // Kode unik
             $kode = $this->buildProductKode(
                 $request->jenis_id,
                 $type_id,
@@ -432,29 +436,33 @@ class ProductController extends Controller
             ];
 
             $manager = new ImageManager(new Driver());
-            foreach (['foto_depan', 'foto_samping', 'foto_atas'] as $foto) {
-                if ($request->hasFile($foto)) {
-                    if ($product->{$foto}) {
-                        Storage::disk('public')->delete($product->{$foto});
+            $folder = '/home/jaym3787/public_html/storage/products';
+            if (!file_exists($folder)) mkdir($folder, 0755, true);
+
+            foreach (['foto_depan', 'foto_samping', 'foto_atas'] as $fotoField) {
+                if ($request->hasFile($fotoField)) {
+                    // Hapus foto lama jika ada
+                    if ($product->{$fotoField}) {
+                        $oldPath = $folder . '/' . basename($product->{$fotoField});
+                        if (file_exists($oldPath)) unlink($oldPath);
                     }
 
-                    $image = $manager->read($request->file($foto));
-                    if ($image->width() > 800) {
-                        $image->scale(width: 800);
-                    }
+                    $image = $manager->read($request->file($fotoField));
+                    if ($image->width() > 800) $image->scale(width: 800);
 
                     $filename = 'products/' . Str::uuid() . '.jpg';
-                    Storage::disk('public')->put(
-                        $filename,
-                        (string) $image->toJpeg(85)
-                    );
+                    $path = $folder . '/' . basename($filename);
 
-                    $update[$foto] = $filename;
+                    file_put_contents($path, (string) $image->toJpeg(85));
+                    chmod($path, 0644);
+
+                    $update[$fotoField] = 'products/' . basename($filename);
                 }
             }
 
             $product->update($update);
 
+            // Update harga
             $product->hargaProducts()->whereNull('customer_id')->delete();
             HargaProduct::create([
                 'product_id' => $product->id,
@@ -674,23 +682,42 @@ class ProductController extends Controller
     public function uploadFoto(Request $request, Product $product)
     {
         $request->validate([
-            'foto_depan' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'foto_depan'   => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'foto_samping' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'foto_atas' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'foto_atas'    => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        if ($request->hasFile('foto_depan')) {
-            $product->foto_depan = $request->file('foto_depan')->store('products', 'public');
-        }
-        if ($request->hasFile('foto_samping')) {
-            $product->foto_samping = $request->file('foto_samping')->store('products', 'public');
-        }
-        if ($request->hasFile('foto_atas')) {
-            $product->foto_atas = $request->file('foto_atas')->store('products', 'public');
+        $manager = new ImageManager(new Driver());
+        $folder = '/home/jaym3787/public_html/storage/products';
+        if (!file_exists($folder)) mkdir($folder, 0755, true);
+
+        foreach (['foto_depan', 'foto_samping', 'foto_atas'] as $field) {
+            if ($request->hasFile($field)) {
+                // Hapus foto lama
+                if ($product->{$field}) {
+                    $oldPath = $folder . '/' . basename($product->{$field});
+                    if (file_exists($oldPath)) unlink($oldPath);
+                }
+
+                $image = $manager->read($request->file($field));
+                if ($image->width() > 800) $image->scale(width: 800);
+
+                $filename = 'products/' . Str::uuid() . '.jpg';
+                $path = $folder . '/' . basename($filename);
+
+                file_put_contents($path, (string) $image->toJpeg(85));
+                chmod($path, 0644);
+
+                $product->{$field} = 'products/' . basename($filename);
+            }
         }
 
         $product->save();
 
-        return response()->json(['status' => true, 'message' => 'Foto berhasil diunggah']);
+        return response()->json([
+            'status' => true,
+            'message' => 'Foto berhasil diunggah',
+            'data' => $product
+        ]);
     }
 }

@@ -184,7 +184,12 @@ const CompanyProfile = () => {
 
   const getImageUrl = (url) => {
     if (!url) return PLACEHOLDER_IMAGE;
-    return url;
+
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+
+    return `${import.meta.env.VITE_ASSET_URL}/storage/${url}`;
   };
 
   return (

@@ -79,7 +79,7 @@ const HomePage = () => {
   const [chartMonths, setChartMonths] = useState(6);
   const [chartData, setChartData] = useState([]);
   const [selectedChartType, setSelectedChartType] = useState("revenue");
-  
+
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.role || "kasir"; // default ke kasir jika tidak ada role
 
@@ -186,7 +186,7 @@ const HomePage = () => {
         trend: "+12%",
         trendUp: true,
         path: "/allproduct",
-        roles: ["admin", "kasir", "operator"]
+        roles: ["admin", "kasir", "operator"],
       },
       {
         title: "Product Terlaris",
@@ -197,7 +197,7 @@ const HomePage = () => {
         trend: "+8%",
         trendUp: true,
         path: "/product-terlaris",
-        roles: ["admin", "kasir", "operator"]
+        roles: ["admin", "kasir", "operator"],
       },
       {
         title: "Transaksi Harian",
@@ -208,7 +208,7 @@ const HomePage = () => {
         trend: "+5%",
         trendUp: true,
         path: "/transaksi",
-        roles: ["admin", "kasir"]
+        roles: ["admin", "kasir"],
       },
       {
         title: "Transaksi Pesanan",
@@ -219,7 +219,7 @@ const HomePage = () => {
         trend: "+15%",
         trendUp: true,
         path: "/pesanan",
-        roles: ["admin", "kasir"]
+        roles: ["admin", "kasir"],
       },
       {
         title: "Customer Belum Lunas",
@@ -230,7 +230,7 @@ const HomePage = () => {
         trend: "-3%",
         trendUp: false,
         path: "/customer",
-        roles: ["admin", "kasir"]
+        roles: ["admin", "kasir"],
       },
       {
         title: "Pesanan Menunggu Produksi",
@@ -241,7 +241,7 @@ const HomePage = () => {
         trend: "+20%",
         trendUp: true,
         path: "/production",
-        roles: ["admin", "operator"]
+        roles: ["admin", "operator"],
       },
       {
         title: "Production Antri",
@@ -252,7 +252,7 @@ const HomePage = () => {
         trend: "+7%",
         trendUp: true,
         path: "/production",
-        roles: ["admin", "operator"]
+        roles: ["admin", "operator"],
       },
       {
         title: "Production Produksi",
@@ -263,11 +263,11 @@ const HomePage = () => {
         trend: "+10%",
         trendUp: true,
         path: "/production",
-        roles: ["admin", "operator"]
+        roles: ["admin", "operator"],
       },
     ];
 
-    return allCards.filter(card => card.roles.includes(role));
+    return allCards.filter((card) => card.roles.includes(role));
   };
 
   const cards = getCardsByRole();
@@ -316,8 +316,8 @@ const HomePage = () => {
   const prepareSalesAnalyticsData = () => {
     return stats.salesAnalytics.map((item) => ({
       name: item.status,
-      value: item.total,
-      percentage: item.percentage,
+      value: Number(item.total), // ubah ke number
+      percentage: Number(item.percentage), // ubah ke number
     }));
   };
 
@@ -326,13 +326,16 @@ const HomePage = () => {
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
           {/* Header Skeleton */}
-          
+
           {role === "admin" && (
             <>
               {/* Revenue Cards Skeleton */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-2xl shadow-lg p-6 animate-pulse">
+                  <div
+                    key={i}
+                    className="bg-white rounded-2xl shadow-lg p-6 animate-pulse"
+                  >
                     <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
                     <div className="h-10 bg-gray-200 rounded w-1/2 mb-2"></div>
                     <div className="h-4 bg-gray-200 rounded w-2/3"></div>
@@ -350,7 +353,10 @@ const HomePage = () => {
           {/* Main Cards Skeleton */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[...Array(cards.length || 4)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl shadow-lg p-6 animate-pulse">
+              <div
+                key={i}
+                className="bg-white rounded-2xl shadow-lg p-6 animate-pulse"
+              >
                 <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
                 <div className="h-8 bg-gray-200 rounded w-1/2 mb-2"></div>
                 <div className="h-4 bg-gray-200 rounded w-2/3"></div>
@@ -365,7 +371,6 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-
         {/* Revenue Stats - Hanya untuk Admin */}
         {role === "admin" && (
           <>
@@ -379,16 +384,26 @@ const HomePage = () => {
                     <div className={`p-3 rounded-xl ${card.color}`}>
                       {card.icon}
                     </div>
-                    <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${card.trendUp ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {card.trendUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    <div
+                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${card.trendUp ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
+                    >
+                      {card.trendUp ? (
+                        <TrendingUp className="w-3 h-3" />
+                      ) : (
+                        <TrendingDown className="w-3 h-3" />
+                      )}
                       {card.trend}
                     </div>
                   </div>
-                  <p className="text-sm font-medium text-gray-600">{card.title}</p>
+                  <p className="text-sm font-medium text-gray-600">
+                    {card.title}
+                  </p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">
                     {card.value}
                   </p>
-                  <p className="text-xs text-gray-500 mt-2">{card.description}</p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {card.description}
+                  </p>
                 </div>
               ))}
             </div>
@@ -401,41 +416,44 @@ const HomePage = () => {
                     <BarChart3 className="w-5 h-5 text-blue-600" />
                     Analisis Pendapatan
                   </h2>
-                  <p className="text-gray-600 text-sm mt-1">Grafik pendapatan dan order dalam {chartMonths} bulan terakhir</p>
+                  <p className="text-gray-600 text-sm mt-1">
+                    Grafik pendapatan dan order dalam {chartMonths} bulan
+                    terakhir
+                  </p>
                 </div>
-                
+
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setSelectedChartType("revenue")}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedChartType === "revenue" ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedChartType === "revenue" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                     >
                       Pendapatan
                     </button>
                     <button
                       onClick={() => setSelectedChartType("orders")}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedChartType === "orders" ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedChartType === "orders" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                     >
                       Order
                     </button>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleChartMonthChange(3)}
-                      className={`px-3 py-1 text-xs rounded-lg ${chartMonths === 3 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                      className={`px-3 py-1 text-xs rounded-lg ${chartMonths === 3 ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                     >
                       3 Bulan
                     </button>
                     <button
                       onClick={() => handleChartMonthChange(6)}
-                      className={`px-3 py-1 text-xs rounded-lg ${chartMonths === 6 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                      className={`px-3 py-1 text-xs rounded-lg ${chartMonths === 6 ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                     >
                       6 Bulan
                     </button>
                     <button
                       onClick={() => handleChartMonthChange(12)}
-                      className={`px-3 py-1 text-xs rounded-lg ${chartMonths === 12 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                      className={`px-3 py-1 text-xs rounded-lg ${chartMonths === 12 ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                     >
                       12 Bulan
                     </button>
@@ -449,30 +467,31 @@ const HomePage = () => {
                     {selectedChartType === "revenue" ? (
                       <LineChart data={chartData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis 
-                          dataKey="name" 
+                        <XAxis dataKey="name" stroke="#666" fontSize={12} />
+                        <YAxis
                           stroke="#666"
                           fontSize={12}
+                          tickFormatter={(value) =>
+                            `Rp${formatNumber(value / 1000)}k`
+                          }
                         />
-                        <YAxis 
-                          stroke="#666"
-                          fontSize={12}
-                          tickFormatter={(value) => `Rp${formatNumber(value / 1000)}k`}
-                        />
-                        <Tooltip 
-                          formatter={(value) => [formatCurrency(value), "Pendapatan"]}
+                        <Tooltip
+                          formatter={(value) => [
+                            formatCurrency(value),
+                            "Pendapatan",
+                          ]}
                           labelFormatter={(label) => `Bulan: ${label}`}
                           contentStyle={{
-                            borderRadius: '12px',
-                            border: 'none',
-                            boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
+                            borderRadius: "12px",
+                            border: "none",
+                            boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
                           }}
                         />
                         <Legend />
-                        <Line 
-                          type="monotone" 
-                          dataKey="revenue" 
-                          stroke="#3b82f6" 
+                        <Line
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke="#3b82f6"
                           strokeWidth={3}
                           dot={{ r: 4 }}
                           activeDot={{ r: 6 }}
@@ -482,28 +501,24 @@ const HomePage = () => {
                     ) : (
                       <BarChart data={chartData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis 
-                          dataKey="name" 
-                          stroke="#666"
-                          fontSize={12}
-                        />
-                        <YAxis 
-                          stroke="#666"
-                          fontSize={12}
-                        />
-                        <Tooltip 
-                          formatter={(value) => [formatNumber(value), "Jumlah Order"]}
+                        <XAxis dataKey="name" stroke="#666" fontSize={12} />
+                        <YAxis stroke="#666" fontSize={12} />
+                        <Tooltip
+                          formatter={(value) => [
+                            formatNumber(value),
+                            "Jumlah Order",
+                          ]}
                           labelFormatter={(label) => `Bulan: ${label}`}
                           contentStyle={{
-                            borderRadius: '12px',
-                            border: 'none',
-                            boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
+                            borderRadius: "12px",
+                            border: "none",
+                            boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
                           }}
                         />
                         <Legend />
-                        <Bar 
-                          dataKey="orders" 
-                          fill="#10b981" 
+                        <Bar
+                          dataKey="orders"
+                          fill="#10b981"
                           radius={[4, 4, 0, 0]}
                           name="Jumlah Order"
                         />
@@ -515,7 +530,9 @@ const HomePage = () => {
                 <div className="h-64 flex items-center justify-center">
                   <div className="text-center">
                     <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">Tidak ada data untuk ditampilkan</p>
+                    <p className="text-gray-500">
+                      Tidak ada data untuk ditampilkan
+                    </p>
                   </div>
                 </div>
               )}
@@ -530,9 +547,11 @@ const HomePage = () => {
                     <PieChart className="w-5 h-5 text-purple-600" />
                     Analisis Penjualan
                   </h3>
-                  <span className="text-sm text-gray-500">Berdasarkan Status</span>
+                  <span className="text-sm text-gray-500">
+                    Berdasarkan Status
+                  </span>
                 </div>
-                
+
                 {stats.salesAnalytics.length > 0 ? (
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
@@ -542,16 +561,23 @@ const HomePage = () => {
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          label={({ name, percent }) =>
+                            `${name}: ${(percent * 100).toFixed(0)}%`
+                          }
                           outerRadius={80}
                           fill="#8884d8"
                           dataKey="value"
                         >
                           {prepareSalesAnalyticsData().map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={COLORS[index % COLORS.length]}
+                            />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value) => [formatNumber(value), "Jumlah"]} />
+                        <Tooltip
+                          formatter={(value) => [formatNumber(value), "Jumlah"]}
+                        />
                       </RechartsPieChart>
                     </ResponsiveContainer>
                   </div>
@@ -559,7 +585,9 @@ const HomePage = () => {
                   <div className="h-64 flex items-center justify-center">
                     <div className="text-center">
                       <PieChart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">Tidak ada data analisis penjualan</p>
+                      <p className="text-gray-500">
+                        Tidak ada data analisis penjualan
+                      </p>
                     </div>
                   </div>
                 )}
@@ -572,24 +600,35 @@ const HomePage = () => {
                     <Users className="w-5 h-5 text-blue-600" />
                     Top 5 Customers
                   </h3>
-                  <span className="text-sm text-gray-500">Berdasarkan Transaksi</span>
+                  <span className="text-sm text-gray-500">
+                    Berdasarkan Transaksi
+                  </span>
                 </div>
-                
+
                 <div className="space-y-4">
                   {stats.topCustomers.length > 0 ? (
                     stats.topCustomers.map((customer, index) => (
-                      <div key={customer.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div
+                        key={customer.id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
                             {index + 1}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{customer.name}</p>
-                            <p className="text-xs text-gray-500">{customer.total_transactions} transaksi</p>
+                            <p className="font-medium text-gray-900">
+                              {customer.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {customer.total_transactions} transaksi
+                            </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-gray-900">{formatCurrency(customer.total_spent)}</p>
+                          <p className="font-bold text-gray-900">
+                            {formatCurrency(customer.total_spent)}
+                          </p>
                           <p className="text-xs text-gray-500">total belanja</p>
                         </div>
                       </div>
@@ -619,12 +658,20 @@ const HomePage = () => {
                   <div className={`p-3 rounded-xl ${card.color}`}>
                     {card.icon}
                   </div>
-                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${card.trendUp ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {card.trendUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                  <div
+                    className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${card.trendUp ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
+                  >
+                    {card.trendUp ? (
+                      <TrendingUp className="w-3 h-3" />
+                    ) : (
+                      <TrendingDown className="w-3 h-3" />
+                    )}
                     {card.trend}
                   </div>
                 </div>
-                <p className="text-sm font-medium text-gray-600">{card.title}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  {card.title}
+                </p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">
                   {formatNumber(card.value)}
                 </p>
@@ -646,28 +693,29 @@ const HomePage = () => {
           </div>
         )}
 
-          <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-2xl p-6 mb-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <AlertTriangle className="w-6 h-6 text-orange-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900">Stok Rendah</h3>
-                  <p className="text-sm text-gray-600">
-                    {stats.lowStockProducts} produk memiliki stok kurang dari 20 unit
-                  </p>
-                </div>
+        <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-2xl p-6 mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <AlertTriangle className="w-6 h-6 text-orange-600" />
               </div>
-              
-                <Link
-                  to="/inventory"
-                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
-                >
-                  Cek Stok
-                </Link>
+              <div>
+                <h3 className="font-bold text-gray-900">Stok Rendah</h3>
+                <p className="text-sm text-gray-600">
+                  {stats.lowStockProducts} produk memiliki stok kurang dari 20
+                  unit
+                </p>
+              </div>
             </div>
+
+            <Link
+              to="/inventory"
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
+            >
+              Cek Stok
+            </Link>
           </div>
+        </div>
       </div>
     </div>
   );

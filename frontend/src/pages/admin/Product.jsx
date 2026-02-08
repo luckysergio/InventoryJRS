@@ -48,9 +48,7 @@ const typeKode = (text) => {
     .trim()
     .toUpperCase();
 
-  const words = clean
-    .split(/\s+/)
-    .filter((w) => /^[A-Z]/.test(w));
+  const words = clean.split(/\s+/).filter((w) => /^[A-Z]/.test(w));
 
   let huruf = "";
 
@@ -268,7 +266,9 @@ const ProductPage = ({ setNavbarContent }) => {
       return;
     }
 
-    const filtered = allTypes.filter((t) => t.jenis_id === Number(filterJenis));
+    const filtered = allTypes.filter(
+      (t) => String(t.jenis_id) === String(filterJenis),
+    );
 
     setFilteredTypesForFilter(filtered);
 
@@ -290,7 +290,7 @@ const ProductPage = ({ setNavbarContent }) => {
     }
 
     const filtered = allTypes.filter(
-      (t) => t.jenis_id === Number(form.jenis_id),
+      (t) => String(t.jenis_id) === String(form.jenis_id),
     );
 
     setFilteredTypes(filtered);
