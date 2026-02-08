@@ -64,9 +64,7 @@ const extractTypeKode = (text) => {
     .trim()
     .toUpperCase();
 
-  const words = clean
-    .split(/\s+/)
-    .filter((w) => /^[A-Z]/.test(w));
+  const words = clean.split(/\s+/).filter((w) => /^[A-Z]/.test(w));
 
   let huruf = "";
 
@@ -291,24 +289,26 @@ const DistributorProductPage = ({ setNavbarContent }) => {
   const prevFilterJenisRef = useRef(filterJenis);
 
   useEffect(() => {
-    if (!filterJenis) {
-      setFilteredTypesForFilter([]);
-      setFilterType("");
-      prevFilterJenisRef.current = filterJenis;
+    if (allTypes.length === 0) return;
+
+    if (!form.jenis_id || form.jenis_id === "new") {
+      setFilteredTypes([]);
+      if (!isEdit) {
+        setForm((prev) => ({ ...prev, type_id: "" }));
+      }
       return;
     }
 
+    // Ganti filterJenis dengan form.jenis_id
     const filtered = allTypes.filter(
-      (t) => String(t.jenis_id) === String(filterJenis),
+      (t) => String(t.jenis_id) === String(form.jenis_id),
     );
 
-    setFilteredTypesForFilter(filtered);
-
-    if (prevFilterJenisRef.current !== filterJenis) {
-      setFilterType("");
-      prevFilterJenisRef.current = filterJenis;
+    setFilteredTypes(filtered); // pastikan ini filteredTypes
+    if (!isEdit) {
+      setForm((prev) => ({ ...prev, type_id: "" }));
     }
-  }, [filterJenis, allTypes]);
+  }, [form.jenis_id, allTypes, isEdit]);
 
   useEffect(() => {
     if (allTypes.length === 0) return;

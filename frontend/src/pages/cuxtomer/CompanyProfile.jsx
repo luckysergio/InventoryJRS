@@ -4,7 +4,9 @@ import PreLoader from "./components/PreLoader";
 import Footer from "./components/footer";
 import api from "../../services/api";
 
-const PLACEHOLDER_IMAGE = "https://via.placeholder.com/300x200?text=No+Image";
+// Ganti dengan placeholder yang lebih sederhana
+const PLACEHOLDER_IMAGE =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect width='300' height='200' fill='%231f2937'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial, sans-serif' font-size='14' fill='%239ca3af' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
 
 const formatProductName = (p) => {
   if (!p) return "-";
@@ -173,13 +175,35 @@ const CompanyProfile = () => {
     catalogRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Fungsi untuk mendapatkan URL gambar yang konsisten dengan AllProductsPage
   const getImageUrl = (url) => {
     if (!url) return PLACEHOLDER_IMAGE;
+
+    // Jika URL sudah lengkap (http:// atau https://)
     if (url.startsWith("http://") || url.startsWith("https://")) {
       return url;
     }
+
+    // Cek jika URL sudah mengandung '/storage/'
+    if (url.includes("/storage/")) {
+      return `${import.meta.env.VITE_ASSET_URL}${url}`;
+    }
+
+    // Default: tambahkan '/storage/' di depan
     return `${import.meta.env.VITE_ASSET_URL}/storage/${url}`;
   };
+
+  // Fungsi untuk menangani error gambar
+  const handleImageError = (e) => {
+    console.error("Error loading image:", e.target.src);
+    e.target.src = PLACEHOLDER_IMAGE;
+    e.target.onerror = null; // Prevent infinite loop
+  };
+
+  // Debug: cek environment variable
+  useEffect(() => {
+    console.log("VITE_ASSET_URL:", import.meta.env.VITE_ASSET_URL);
+  }, []);
 
   return (
     <>
@@ -606,7 +630,7 @@ const CompanyProfile = () => {
                         src={getImageUrl(product.foto_depan)}
                         alt={formatProductName(product)}
                         className="absolute inset-0 w-full h-full object-contain p-6 transition-opacity duration-500 group-hover:opacity-0"
-                        onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
+                        onError={handleImageError}
                       />
 
                       {/* Foto Samping (Hover 1) */}
@@ -615,7 +639,7 @@ const CompanyProfile = () => {
                           src={getImageUrl(product.foto_samping)}
                           alt={`${formatProductName(product)} - Samping`}
                           className="absolute inset-0 w-full h-full object-contain p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300"
-                          onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
+                          onError={handleImageError}
                         />
                       )}
 
@@ -625,7 +649,7 @@ const CompanyProfile = () => {
                           src={getImageUrl(product.foto_atas)}
                           alt={`${formatProductName(product)} - Atas`}
                           className="absolute inset-0 w-full h-full object-contain p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-600"
-                          onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
+                          onError={handleImageError}
                         />
                       )}
                     </div>
@@ -836,7 +860,7 @@ const CompanyProfile = () => {
                             src={getImageUrl(product.foto_depan)}
                             alt={formatProductName(product)}
                             className="absolute inset-0 w-full h-full object-contain p-4 transition-opacity duration-500 group-hover:opacity-0"
-                            onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
+                            onError={handleImageError}
                           />
 
                           {/* Foto Samping (Hover 1) */}
@@ -845,9 +869,7 @@ const CompanyProfile = () => {
                               src={getImageUrl(product.foto_samping)}
                               alt={`${formatProductName(product)} - Samping`}
                               className="absolute inset-0 w-full h-full object-contain p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300"
-                              onError={(e) =>
-                                (e.target.src = PLACEHOLDER_IMAGE)
-                              }
+                              onError={handleImageError}
                             />
                           )}
 
@@ -857,9 +879,7 @@ const CompanyProfile = () => {
                               src={getImageUrl(product.foto_atas)}
                               alt={`${formatProductName(product)} - Atas`}
                               className="absolute inset-0 w-full h-full object-contain p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-600"
-                              onError={(e) =>
-                                (e.target.src = PLACEHOLDER_IMAGE)
-                              }
+                              onError={handleImageError}
                             />
                           )}
                         </div>
