@@ -33,7 +33,6 @@ const CompanyProfile = () => {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const catalogRef = useRef(null);
-
   const [filters, setFilters] = useState({
     jenis_id: "",
     type_id: "",
@@ -41,7 +40,6 @@ const CompanyProfile = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const perPage = 20;
-
   const [stats, setStats] = useState({
     totalProducts: 0,
     clients: 500,
@@ -56,7 +54,6 @@ const CompanyProfile = () => {
         y: e.clientY / window.innerHeight,
       });
     };
-
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
@@ -72,7 +69,6 @@ const CompanyProfile = () => {
       } else {
         setShowScrollTop(false);
       }
-
       const elements = document.querySelectorAll("[data-aos]");
       elements.forEach((el) => {
         const position = el.getBoundingClientRect();
@@ -81,10 +77,8 @@ const CompanyProfile = () => {
         }
       });
     };
-
     window.addEventListener("scroll", handleScroll);
     handleScroll();
-
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -124,7 +118,6 @@ const CompanyProfile = () => {
         (type) => type.jenis_id == filters.jenis_id,
       );
       setFilteredTypes(filtered);
-
       if (
         filters.type_id &&
         !filtered.some((type) => type.id == filters.type_id)
@@ -148,7 +141,6 @@ const CompanyProfile = () => {
           limit: perPage,
           ...filters,
         };
-
         const res = await api.get("/public/products", { params });
         setProducts(res.data.data || []);
         setTotalPages(res.data.meta?.last_page || 1);
@@ -164,7 +156,6 @@ const CompanyProfile = () => {
         setLoading(false);
       }
     };
-
     fetchProducts();
   }, [currentPage, filters]);
 
@@ -184,11 +175,9 @@ const CompanyProfile = () => {
 
   const getImageUrl = (url) => {
     if (!url) return PLACEHOLDER_IMAGE;
-
     if (url.startsWith("http://") || url.startsWith("https://")) {
       return url;
     }
-
     return `${import.meta.env.VITE_ASSET_URL}/storage/${url}`;
   };
 
@@ -244,7 +233,6 @@ const CompanyProfile = () => {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-500/5 via-transparent to-purple-500/5"></div>
           <div className="absolute top-20 left-10 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
           <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-
           <div className="relative z-10 text-center max-w-6xl mx-auto">
             <h1
               className="text-5xl md:text-7xl lg:text-8xl font-bold mb-8 leading-tight"
@@ -255,7 +243,6 @@ const CompanyProfile = () => {
                 JAYA RUBBER SEAL
               </span>
             </h1>
-
             <p
               className="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed font-light"
               data-aos="fade-up"
@@ -265,7 +252,6 @@ const CompanyProfile = () => {
               machinery, and industrial applications with unparalleled quality
               and durability.
             </p>
-
             <div
               className="flex flex-wrap gap-6 justify-center"
               data-aos="fade-up"
@@ -290,7 +276,6 @@ const CompanyProfile = () => {
                   />
                 </svg>
               </button>
-
               <a
                 href="#kontak"
                 className="px-10 py-4 bg-gradient-to-r from-gray-800 to-gray-900 rounded-xl font-semibold text-lg hover:shadow-[0_0_40px_rgba(192,132,252,0.3)] transition-all duration-300 hover:scale-105 border border-gray-700 hover:border-purple-500/50 flex items-center gap-3"
@@ -421,7 +406,6 @@ const CompanyProfile = () => {
                 </span>
                 <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
               </div>
-
               <div className="mb-10">
                 <h2
                   className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight"
@@ -522,7 +506,6 @@ const CompanyProfile = () => {
                         industri berat.
                       </p>
                     </div>
-
                     <div className="grid grid-cols-2 gap-4">
                       <div className="text-center p-4 bg-gradient-to-b from-gray-800/50 to-gray-900/50 rounded-lg border border-gray-700/50">
                         <div className="text-2xl font-bold text-cyan-400 mb-1">
@@ -620,16 +603,16 @@ const CompanyProfile = () => {
                     <div className="relative w-full h-full">
                       {/* Foto Depan (Default) */}
                       <img
-                        src={getImageUrl(product.foto?.depan)}
+                        src={getImageUrl(product.foto_depan)}
                         alt={formatProductName(product)}
                         className="absolute inset-0 w-full h-full object-contain p-6 transition-opacity duration-500 group-hover:opacity-0"
                         onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
                       />
 
                       {/* Foto Samping (Hover 1) */}
-                      {product.foto?.samping && (
+                      {product.foto_samping && (
                         <img
-                          src={getImageUrl(product.foto.samping)}
+                          src={getImageUrl(product.foto_samping)}
                           alt={`${formatProductName(product)} - Samping`}
                           className="absolute inset-0 w-full h-full object-contain p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300"
                           onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
@@ -637,9 +620,9 @@ const CompanyProfile = () => {
                       )}
 
                       {/* Foto Atas (Hover 2) */}
-                      {product.foto?.atas && (
+                      {product.foto_atas && (
                         <img
-                          src={getImageUrl(product.foto.atas)}
+                          src={getImageUrl(product.foto_atas)}
                           alt={`${formatProductName(product)} - Atas`}
                           className="absolute inset-0 w-full h-full object-contain p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-600"
                           onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
@@ -650,13 +633,13 @@ const CompanyProfile = () => {
                     {/* Dot Indicator untuk menunjukkan ada 3 foto */}
                     <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       <div
-                        className={`w-1.5 h-1.5 rounded-full ${product.foto?.depan ? "bg-amber-400" : "bg-gray-600"}`}
+                        className={`w-1.5 h-1.5 rounded-full ${product.foto_depan ? "bg-amber-400" : "bg-gray-600"}`}
                       ></div>
                       <div
-                        className={`w-1.5 h-1.5 rounded-full ${product.foto?.samping ? "bg-amber-400" : "bg-gray-600"}`}
+                        className={`w-1.5 h-1.5 rounded-full ${product.foto_samping ? "bg-amber-400" : "bg-gray-600"}`}
                       ></div>
                       <div
-                        className={`w-1.5 h-1.5 rounded-full ${product.foto?.atas ? "bg-amber-400" : "bg-gray-600"}`}
+                        className={`w-1.5 h-1.5 rounded-full ${product.foto_atas ? "bg-amber-400" : "bg-gray-600"}`}
                       ></div>
                     </div>
 
@@ -850,16 +833,16 @@ const CompanyProfile = () => {
                         <div className="relative w-full h-full">
                           {/* Foto Depan (Default) */}
                           <img
-                            src={getImageUrl(product.foto?.depan)}
+                            src={getImageUrl(product.foto_depan)}
                             alt={formatProductName(product)}
                             className="absolute inset-0 w-full h-full object-contain p-4 transition-opacity duration-500 group-hover:opacity-0"
                             onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
                           />
 
                           {/* Foto Samping (Hover 1) */}
-                          {product.foto?.samping && (
+                          {product.foto_samping && (
                             <img
-                              src={getImageUrl(product.foto.samping)}
+                              src={getImageUrl(product.foto_samping)}
                               alt={`${formatProductName(product)} - Samping`}
                               className="absolute inset-0 w-full h-full object-contain p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300"
                               onError={(e) =>
@@ -869,9 +852,9 @@ const CompanyProfile = () => {
                           )}
 
                           {/* Foto Atas (Hover 2) */}
-                          {product.foto?.atas && (
+                          {product.foto_atas && (
                             <img
-                              src={getImageUrl(product.foto.atas)}
+                              src={getImageUrl(product.foto_atas)}
                               alt={`${formatProductName(product)} - Atas`}
                               className="absolute inset-0 w-full h-full object-contain p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-600"
                               onError={(e) =>
@@ -884,13 +867,13 @@ const CompanyProfile = () => {
                         {/* Dot Indicator untuk Catalog */}
                         <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           <div
-                            className={`w-1 h-1 rounded-full ${product.foto?.depan ? "bg-blue-400" : "bg-gray-600"}`}
+                            className={`w-1 h-1 rounded-full ${product.foto_depan ? "bg-blue-400" : "bg-gray-600"}`}
                           ></div>
                           <div
-                            className={`w-1 h-1 rounded-full ${product.foto?.samping ? "bg-blue-400" : "bg-gray-600"}`}
+                            className={`w-1 h-1 rounded-full ${product.foto_samping ? "bg-blue-400" : "bg-gray-600"}`}
                           ></div>
                           <div
-                            className={`w-1 h-1 rounded-full ${product.foto?.atas ? "bg-blue-400" : "bg-gray-600"}`}
+                            className={`w-1 h-1 rounded-full ${product.foto_atas ? "bg-blue-400" : "bg-gray-600"}`}
                           ></div>
                         </div>
 
@@ -1037,7 +1020,6 @@ const CompanyProfile = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-gray-900/10 via-black/5 to-gray-900/10">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl h-48 bg-gradient-to-r from-blue-500/3 to-purple-500/3 rounded-full blur-3xl"></div>
           </div>
-
           <div className="relative max-w-6xl mx-auto">
             <div className="text-center mb-12">
               <div
@@ -1052,7 +1034,6 @@ const CompanyProfile = () => {
                 </span>
                 <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
               </div>
-
               <div className="mb-8">
                 <h2
                   className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight"
@@ -1417,7 +1398,6 @@ const CompanyProfile = () => {
                     </svg>
                     Chat WhatsApp
                   </a>
-
                   <a
                     href="tel:+622162305916"
                     className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all duration-300 hover:scale-[1.02]"
@@ -1437,10 +1417,8 @@ const CompanyProfile = () => {
                     </svg>
                     Telepon Sekarang
                   </a>
-
                   <a
-                    href="mailto:sales.jayarubberseal@gmail.com
-"
+                    href="mailto:sales.jayarubberseal@gmail.com"
                     className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg font-bold text-base border border-gray-700/50 hover:border-cyan-500/20 transition-all duration-300 hover:scale-[1.02]"
                   >
                     <svg

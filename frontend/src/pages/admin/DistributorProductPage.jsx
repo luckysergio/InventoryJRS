@@ -298,7 +298,10 @@ const DistributorProductPage = ({ setNavbarContent }) => {
       return;
     }
 
-    const filtered = allTypes.filter((t) => t.jenis_id === Number(filterJenis));
+    const filtered = allTypes.filter(
+      (t) => String(t.jenis_id) === String(filterJenis),
+    );
+
     setFilteredTypesForFilter(filtered);
 
     if (prevFilterJenisRef.current !== filterJenis) {
@@ -319,9 +322,10 @@ const DistributorProductPage = ({ setNavbarContent }) => {
     }
 
     const filtered = allTypes.filter(
-      (t) => t.jenis_id === Number(form.jenis_id),
+      (t) => String(t.jenis_id) === String(filterJenis),
     );
-    setFilteredTypes(filtered);
+
+    setFilteredTypesForFilter(filtered);
 
     if (!isEdit) {
       setForm((prev) => ({ ...prev, type_id: "" }));

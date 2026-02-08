@@ -419,11 +419,21 @@ class ProductDistributorController extends Controller
     {
         $manager = new ImageManager(new Driver());
         $data = [];
+        $folder = '/home/jaym3787/public_html/storage/products';
+
+        // Buat folder jika belum ada
+        if (!file_exists($folder)) {
+            mkdir($folder, 0755, true);
+        }
 
         foreach (['foto_depan', 'foto_samping', 'foto_atas'] as $field) {
             if ($request->hasFile($field)) {
+                // Hapus foto lama jika ada
                 if ($product && $product->{$field}) {
-                    Storage::disk('public')->delete($product->{$field});
+                    $oldPath = $folder . '/' . basename($product->{$field});
+                    if (file_exists($oldPath)) {
+                        unlink($oldPath);
+                    }
                 }
 
                 $image = $manager->read($request->file($field));
@@ -431,9 +441,13 @@ class ProductDistributorController extends Controller
                     $image->scale(width: 800);
                 }
 
-                $path = 'products/' . Str::uuid() . '.jpg';
-                Storage::disk('public')->put($path, (string) $image->toJpeg(85));
-                $data[$field] = $path;
+                $filename = 'products/' . Str::uuid() . '.jpg';
+                $path = $folder . '/' . basename($filename);
+
+                file_put_contents($path, (string) $image->toJpeg(85));
+                chmod($path, 0644);
+
+                $data[$field] = 'products/' . basename($filename);
             }
         }
 
