@@ -25,7 +25,7 @@ use App\Http\Controllers\api\StatusTransaksiController;
 use App\Http\Controllers\api\StokOpnameController;
 use App\Http\Controllers\api\TransaksiController;
 use App\Http\Controllers\api\TypeProductController;
-use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\api\UserController;
 
 Route::prefix('public')->group(function () {
     Route::get('/products', [PublicProductController::class, 'index']);

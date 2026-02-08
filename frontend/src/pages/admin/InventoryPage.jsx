@@ -159,10 +159,11 @@ const InventoryPage = ({ setNavbarContent }) => {
   const produkLengkap = useMemo(() => {
     return produkWithInventori.map((item) => {
       const inventoriToko = item.inventories.find(
-        (inv) => inv.place_id === placeToko?.id,
+        (inv) => Number(inv.place_id) === Number(placeToko?.id),
       );
+
       const inventoriBengkel = item.inventories.find(
-        (inv) => inv.place_id === placeBengkel?.id,
+        (inv) => Number(inv.place_id) === Number(placeBengkel?.id),
       );
 
       return {

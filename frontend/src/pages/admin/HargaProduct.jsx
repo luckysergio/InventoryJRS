@@ -174,11 +174,13 @@ const HargaProductPage = ({ setNavbarContent }) => {
 
     const hargaByProduct = {};
     hargaList.forEach((h) => {
-      if (productMap.has(h.product_id)) {
-        if (!hargaByProduct[h.product_id]) {
-          hargaByProduct[h.product_id] = [];
+      const pid = Number(h.product_id);
+
+      if (productMap.has(pid)) {
+        if (!hargaByProduct[pid]) {
+          hargaByProduct[pid] = [];
         }
-        hargaByProduct[h.product_id].push(h);
+        hargaByProduct[pid].push(h);
       }
     });
 
@@ -269,7 +271,7 @@ const HargaProductPage = ({ setNavbarContent }) => {
   const formatProductName = (p) => {
     if (!p) return "-";
     const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(
-      Boolean
+      Boolean,
     );
     return parts.join(" ") || p.kode;
   };
@@ -286,7 +288,7 @@ const HargaProductPage = ({ setNavbarContent }) => {
         setFilterType={setFilterType}
         jenis={jenis}
         filteredTypes={filteredTypes}
-      />
+      />,
     );
   }, [
     searchKode,
@@ -345,7 +347,7 @@ const HargaProductPage = ({ setNavbarContent }) => {
                     {item.tanggal_berlaku && (
                       <p className="text-[10px] text-gray-500 text-center mt-1">
                         {new Date(item.tanggal_berlaku).toLocaleDateString(
-                          "id-ID"
+                          "id-ID",
                         )}
                       </p>
                     )}
@@ -358,22 +360,22 @@ const HargaProductPage = ({ setNavbarContent }) => {
 
                     <div className="flex justify-between gap-1 mt-2">
                       {(role === "admin" || role === "kasir") && (
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-xs font-medium transition-colors duration-200"
-                      >
-                        <Pencil size={12} />
-                      </button>
-                    )}
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-xs font-medium transition-colors duration-200"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                      )}
 
-                    {role === "admin" && (
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-xs font-medium transition-colors duration-200"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    )}
+                      {role === "admin" && (
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-xs font-medium transition-colors duration-200"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

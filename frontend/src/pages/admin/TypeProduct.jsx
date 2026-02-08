@@ -39,7 +39,10 @@ const TypeProductPage = () => {
   }, []);
 
   const groupedTypes = jenisData.reduce((acc, jenis) => {
-    const types = typeData.filter((type) => type.jenis_id === jenis.id);
+    const types = typeData.filter(
+      (type) => Number(type.jenis_id) === Number(jenis.id),
+    );
+
     if (types.length > 0) {
       acc.push({
         jenis: jenis,
@@ -72,7 +75,7 @@ const TypeProductPage = () => {
       (type) =>
         type.jenis_id == jenis_id &&
         type.id !== excludeId &&
-        type.nama.toLowerCase() === nama.toLowerCase()
+        type.nama.toLowerCase() === nama.toLowerCase(),
     );
   };
 
@@ -91,7 +94,7 @@ const TypeProductPage = () => {
     const isDuplicate = isTypeNameDuplicate(
       nama.trim(),
       jenis_id,
-      isEdit ? selectedId : null
+      isEdit ? selectedId : null,
     );
 
     if (isDuplicate) {
@@ -100,7 +103,7 @@ const TypeProductPage = () => {
       Swal.fire(
         "Duplikasi Data",
         `Nama type "${nama}" sudah ada di ${jenisNama}. Silakan gunakan nama lain.`,
-        "warning"
+        "warning",
       );
       return;
     }
