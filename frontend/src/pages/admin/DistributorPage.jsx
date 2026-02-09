@@ -30,6 +30,7 @@ const DistributorPage = ({ setNavbarContent }) => {
     no_hp: "",
     email: "",
   });
+
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.role;
 
@@ -67,16 +68,23 @@ const DistributorPage = ({ setNavbarContent }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        nama: form.nama,
+        no_hp: form.no_hp,
+        email: form.email || null, // boleh kosong
+      };
+
       if (editingId) {
-        await api.put(`/distributors/${editingId}`, form);
+        await api.put(`/distributors/${editingId}`, payload);
         Swal.fire("Berhasil!", "Distributor diperbarui", "success");
       } else {
-        await api.post("/distributors", form);
+        await api.post("/distributors", payload);
         Swal.fire("Berhasil!", "Distributor ditambahkan", "success");
       }
+
       setIsModalOpen(false);
       resetForm();
-      fetchData(search); // Refresh data dengan pencarian saat ini
+      fetchData(search);
     } catch (error) {
       if (error.response?.status === 422) {
         const msg = Object.values(error.response.data.errors)
@@ -93,7 +101,7 @@ const DistributorPage = ({ setNavbarContent }) => {
     setForm({
       nama: distributor.nama,
       no_hp: distributor.no_hp,
-      email: distributor.email,
+      email: distributor.email || "",
     });
     setEditingId(distributor.id);
     setIsModalOpen(true);
@@ -148,24 +156,25 @@ const DistributorPage = ({ setNavbarContent }) => {
                   ✉️ {d.email || "-"}
                 </p>
 
-                <div className="flex gap-2 mt-3">
+                {/* Tombol responsif */}
+                <div className="grid grid-cols-2 gap-2 mt-3">
                   {(role === "admin" || role === "admin_toko") && (
                     <button
                       onClick={() => handleEdit(d)}
-                      className="flex-1 flex items-center justify-center gap-1 bg-yellow-100 text-yellow-700 text-xs px-2 py-2 rounded hover:bg-yellow-200"
+                      className="flex items-center justify-center gap-1 bg-yellow-100 text-yellow-700 text-[11px] sm:text-xs px-2 py-2 rounded hover:bg-yellow-200 min-w-0"
                     >
                       <Pencil size={14} />
-                      Edit
+                      <span className="truncate">Edit</span>
                     </button>
                   )}
 
                   {role === "admin" && (
                     <button
                       onClick={() => handleDelete(d.id)}
-                      className="flex-1 flex items-center justify-center gap-1 bg-red-100 text-red-700 text-xs px-2 py-2 rounded hover:bg-red-200"
+                      className="flex items-center justify-center gap-1 bg-red-100 text-red-700 text-[11px] sm:text-xs px-2 py-2 rounded hover:bg-red-200 min-w-0"
                     >
                       <Trash2 size={14} />
-                      Hapus
+                      <span className="truncate">Hapus</span>
                     </button>
                   )}
                 </div>
@@ -194,6 +203,7 @@ const DistributorPage = ({ setNavbarContent }) => {
             <h2 className="text-xl text-center font-bold mb-4">
               {editingId ? "Edit Distributor" : "Tambah Distributor"}
             </h2>
+
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div>
@@ -208,6 +218,7 @@ const DistributorPage = ({ setNavbarContent }) => {
                     onChange={(e) => setForm({ ...form, nama: e.target.value })}
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     No HP *
@@ -222,13 +233,13 @@ const DistributorPage = ({ setNavbarContent }) => {
                     }
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Email *
+                    Email (Opsional)
                   </label>
                   <input
                     type="email"
-                    required
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                     value={form.email}
                     onChange={(e) =>
@@ -237,6 +248,7 @@ const DistributorPage = ({ setNavbarContent }) => {
                   />
                 </div>
               </div>
+
               <div className="mt-6 flex justify-center gap-3">
                 <button
                   type="button"
@@ -245,6 +257,7 @@ const DistributorPage = ({ setNavbarContent }) => {
                 >
                   Batal
                 </button>
+
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"

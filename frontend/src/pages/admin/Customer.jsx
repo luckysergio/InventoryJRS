@@ -686,7 +686,6 @@ const CustomerPage = ({ setNavbarContent }) => {
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   className="mt-1 w-full border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Masukkan email"
-                  required
                 />
               </div>
               <div className="flex justify-center gap-3 pt-4">

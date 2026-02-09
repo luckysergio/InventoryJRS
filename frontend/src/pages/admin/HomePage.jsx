@@ -422,38 +422,64 @@ const HomePage = () => {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
+                {/* RIGHT CONTROL AREA */}
+                <div className="flex flex-col md:flex-row w-full md:w-auto gap-3">
+                  {/* Toggle Chart Type */}
+                  <div className="flex w-full md:w-auto gap-2">
                     <button
                       onClick={() => setSelectedChartType("revenue")}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedChartType === "revenue" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                      className={`w-full md:w-auto px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        selectedChartType === "revenue"
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
                     >
                       Pendapatan
                     </button>
+
                     <button
                       onClick={() => setSelectedChartType("orders")}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedChartType === "orders" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                      className={`w-full md:w-auto px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        selectedChartType === "orders"
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
                     >
                       Order
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  {/* Month Filter - RESPONSIVE FIX */}
+                  <div className="grid grid-cols-3 md:flex gap-2 w-full md:w-auto">
                     <button
                       onClick={() => handleChartMonthChange(3)}
-                      className={`px-3 py-1 text-xs rounded-lg ${chartMonths === 3 ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                      className={`w-full px-3 py-2 text-xs rounded-lg ${
+                        chartMonths === 3
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
                     >
                       3 Bulan
                     </button>
+
                     <button
                       onClick={() => handleChartMonthChange(6)}
-                      className={`px-3 py-1 text-xs rounded-lg ${chartMonths === 6 ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                      className={`w-full px-3 py-2 text-xs rounded-lg ${
+                        chartMonths === 6
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
                     >
                       6 Bulan
                     </button>
+
                     <button
                       onClick={() => handleChartMonthChange(12)}
-                      className={`px-3 py-1 text-xs rounded-lg ${chartMonths === 12 ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                      className={`w-full px-3 py-2 text-xs rounded-lg ${
+                        chartMonths === 12
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
                     >
                       12 Bulan
                     </button>
