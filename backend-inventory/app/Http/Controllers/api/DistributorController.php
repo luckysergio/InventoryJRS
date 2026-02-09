@@ -33,7 +33,7 @@ class DistributorController extends Controller
         $validator = Validator::make($request->all(), [
             'nama'  => 'required|string|max:255',
             'no_hp' => 'required|string|max:20',
-            'email' => 'required|email|unique:distributors,email'
+            'email' => 'nullable|email|unique:distributors,email'
         ]);
 
         if ($validator->fails()) {
@@ -87,7 +87,7 @@ class DistributorController extends Controller
         $validator = Validator::make($request->all(), [
             'nama'  => 'required|string|max:255',
             'no_hp' => 'required|string|max:20',
-            'email' => "required|email|unique:distributors,email,{$id}"
+            'email' => "nullable|email|unique:distributors,email,{$id}"
         ]);
 
         if ($validator->fails()) {

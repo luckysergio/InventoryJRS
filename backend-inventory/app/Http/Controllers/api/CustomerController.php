@@ -78,7 +78,7 @@ class CustomerController extends Controller
         $validator = Validator::make($request->all(), [
             'name'  => 'required|string|max:100',
             'phone' => 'nullable|string|max:20',
-            'email'  => 'required|string|max:100',
+            'email'  => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -135,7 +135,7 @@ class CustomerController extends Controller
         $validator = Validator::make($data, [
             'name'  => 'required|string|max:100',
             'phone' => 'nullable|string|max:20',
-            'email'  => 'required|string|max:100',
+            'email'  => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {

@@ -125,7 +125,7 @@ const DistributorPage = ({ setNavbarContent }) => {
       {loading ? (
         <p className="text-center py-8">Memuat data...</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-3 sm:p-4">
           {distributors.length === 0 ? (
             <div className="col-span-full text-center py-8 text-gray-500">
               Tidak ada data distributor
@@ -134,25 +134,27 @@ const DistributorPage = ({ setNavbarContent }) => {
             distributors.map((d) => (
               <div
                 key={d.id}
-                className="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition"
+                className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50 hover:bg-gray-100 transition min-w-0"
               >
                 <h3 className="font-bold text-gray-800 text-center text-sm truncate">
                   {d.nama}
                 </h3>
-                <p className="text-xs text-gray-600 mt-2 text-center">
-                  📞 {d.no_hp}
+
+                <p className="text-xs text-gray-600 mt-2 text-center truncate">
+                  📞 {d.no_hp || "-"}
                 </p>
-                <p className="text-xs text-gray-600 mt-1 text-center truncate">
-                  ✉️ {d.email}
+
+                <p className="text-xs text-gray-600 mt-1 text-center break-words">
+                  ✉️ {d.email || "-"}
                 </p>
 
                 <div className="flex gap-2 mt-3">
                   {(role === "admin" || role === "kasir") && (
                     <button
                       onClick={() => handleEdit(d)}
-                      className="flex-1 flex items-center justify-center gap-1 bg-yellow-100 text-yellow-700 text-[10px] px-2 py-1 rounded hover:bg-yellow-200"
+                      className="flex-1 flex items-center justify-center gap-1 bg-yellow-100 text-yellow-700 text-xs px-2 py-2 rounded hover:bg-yellow-200"
                     >
-                      <Pencil size={12} />
+                      <Pencil size={14} />
                       Edit
                     </button>
                   )}
@@ -160,9 +162,9 @@ const DistributorPage = ({ setNavbarContent }) => {
                   {role === "admin" && (
                     <button
                       onClick={() => handleDelete(d.id)}
-                      className="flex-1 flex items-center justify-center gap-1 bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded hover:bg-red-200"
+                      className="flex-1 flex items-center justify-center gap-1 bg-red-100 text-red-700 text-xs px-2 py-2 rounded hover:bg-red-200"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={14} />
                       Hapus
                     </button>
                   )}

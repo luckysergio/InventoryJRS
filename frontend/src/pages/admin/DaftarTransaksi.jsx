@@ -967,12 +967,13 @@ const TransaksiPage = ({ setNavbarContent }) => {
                               <label className="block mb-2 font-medium text-blue-800">
                                 Harga Khusus Customer Baru
                               </label>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <input
                                   type="text"
                                   inputMode="numeric"
                                   placeholder="Harga Baru (Rp)"
-                                  className="border px-3 py-2 rounded-lg"
+                                  className="border px-3 h-11 rounded-lg w-full"
                                   value={
                                     d.harga_baru.harga
                                       ? formatRupiah(d.harga_baru.harga)
@@ -983,10 +984,11 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                     handleHargaBaruChange(i, "harga", raw);
                                   }}
                                 />
+
                                 <input
                                   type="text"
                                   placeholder="Keterangan Harga"
-                                  className="border px-3 py-2 rounded-lg"
+                                  className="border px-3 h-11 rounded-lg w-full"
                                   value={d.harga_baru.keterangan}
                                   onChange={(e) =>
                                     handleHargaBaruChange(
@@ -996,9 +998,10 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                     )
                                   }
                                 />
+
                                 <input
                                   type="date"
-                                  className="border px-3 py-2 rounded-lg"
+                                  className="border px-3 h-11 rounded-lg w-full"
                                   value={d.harga_baru.tanggal_berlaku}
                                   onChange={(e) =>
                                     handleHargaBaruChange(
@@ -1014,13 +1017,13 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         </div>
                       )}
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
                         <input
                           type="number"
                           min="1"
                           max="9999"
                           placeholder="Qty *"
-                          className="border px-3 py-2 rounded-lg"
+                          className="border px-3 py-3 rounded-lg w-full"
                           value={d.qty}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -1038,7 +1041,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                           type="text"
                           inputMode="numeric"
                           placeholder="Diskon (Rp)"
-                          className="border px-3 py-2 rounded-lg"
+                          className="border px-3 py-3 rounded-lg w-full"
                           value={d.discount ? formatRupiah(d.discount) : ""}
                           onChange={(e) => {
                             let raw = unformatRupiah(e.target.value);
@@ -1054,7 +1057,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         <input
                           type="text"
                           placeholder="Catatan (opsional)"
-                          className="border px-3 py-2 rounded-lg col-span-2 md:col-span-1 lg:col-span-2"
+                          className="border px-3 py-3 rounded-lg w-full md:col-span-3 lg:col-span-2"
                           value={d.catatan}
                           onChange={(e) =>
                             handleDetailChange(i, "catatan", e.target.value)

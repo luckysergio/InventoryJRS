@@ -319,28 +319,28 @@ const CompanyProfile = () => {
 
         <Navbar />
 
-        {/* Modal Foto Produk */}
+        {/* Modal Foto Produk - DIPERBAIKI */}
         {showModal && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
-            <div className="relative w-full max-w-4xl bg-gradient-to-br from-gray-900 to-gray-950 rounded-2xl shadow-2xl border border-gray-800 overflow-hidden">
+            <div className="relative w-full max-w-4xl max-h-[90vh] bg-gradient-to-br from-gray-900 to-gray-950 rounded-2xl shadow-2xl border border-gray-800 overflow-hidden flex flex-col">
               {/* Header Modal */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-800">
-                <div>
-                  <h3 className="text-xl font-bold text-white">
+              <div className="flex-shrink-0 flex items-center justify-between p-4 md:p-6 border-b border-gray-800">
+                <div className="flex-1 min-w-0 pr-4">
+                  <h3 className="text-lg md:text-xl font-bold text-white truncate">
                     {currentProduct
                       ? formatProductName(currentProduct)
                       : "Produk"}
                   </h3>
-                  <p className="text-gray-400 text-sm mt-1">
+                  <p className="text-gray-400 text-xs md:text-sm mt-1 truncate">
                     Foto {productImages[selectedImageIndex]?.label}
                   </p>
                 </div>
                 <button
                   onClick={closeImageModal}
-                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors duration-200"
+                  className="flex-shrink-0 p-2 hover:bg-gray-800 rounded-lg transition-colors duration-200"
                 >
                   <svg
-                    className="w-6 h-6"
+                    className="w-5 h-5 md:w-6 md:h-6"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -355,9 +355,9 @@ const CompanyProfile = () => {
                 </button>
               </div>
 
-              {/* Konten Gambar */}
-              <div className="relative p-6">
-                <div className="relative h-[400px] md:h-[500px] bg-gray-900 rounded-xl overflow-hidden">
+              {/* Konten Gambar dengan Scroll */}
+              <div className="flex-1 overflow-y-auto p-4 md:p-6">
+                <div className="relative h-[50vh] min-h-[300px] max-h-[500px] bg-gray-900 rounded-xl overflow-hidden">
                   <img
                     src={
                       productImages[selectedImageIndex]?.url ||
@@ -376,10 +376,10 @@ const CompanyProfile = () => {
                     <>
                       <button
                         onClick={prevImage}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-gray-900/80 hover:bg-gray-800/90 rounded-full backdrop-blur-sm border border-gray-700/50 transition-all duration-300 hover:scale-110"
+                        className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-gray-900/80 hover:bg-gray-800/90 rounded-full backdrop-blur-sm border border-gray-700/50 transition-all duration-300 hover:scale-110 z-10"
                       >
                         <svg
-                          className="w-5 h-5"
+                          className="w-4 h-4 md:w-5 md:h-5"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -394,10 +394,10 @@ const CompanyProfile = () => {
                       </button>
                       <button
                         onClick={nextImage}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-gray-900/80 hover:bg-gray-800/90 rounded-full backdrop-blur-sm border border-gray-700/50 transition-all duration-300 hover:scale-110"
+                        className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-gray-900/80 hover:bg-gray-800/90 rounded-full backdrop-blur-sm border border-gray-700/50 transition-all duration-300 hover:scale-110 z-10"
                       >
                         <svg
-                          className="w-5 h-5"
+                          className="w-4 h-4 md:w-5 md:h-5"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -414,8 +414,8 @@ const CompanyProfile = () => {
                   )}
 
                   {/* Image Counter */}
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-gray-900/80 backdrop-blur-sm rounded-full border border-gray-700/50">
-                    <span className="text-sm text-gray-300">
+                  <div className="absolute bottom-2 md:bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 md:px-4 md:py-2 bg-gray-900/80 backdrop-blur-sm rounded-full border border-gray-700/50">
+                    <span className="text-xs md:text-sm text-gray-300">
                       {selectedImageIndex + 1} / {productImages.length}
                     </span>
                   </div>
@@ -423,47 +423,49 @@ const CompanyProfile = () => {
 
                 {/* Thumbnail Preview */}
                 {productImages.length > 1 && (
-                  <div className="flex justify-center gap-3 mt-6">
-                    {productImages.map((img, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setSelectedImageIndex(index)}
-                        className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${selectedImageIndex === index ? "border-blue-500 scale-110" : "border-gray-700 hover:border-gray-500"}`}
-                      >
-                        <img
-                          src={img.url}
-                          alt={`Thumbnail ${index + 1}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.src = PLACEHOLDER_IMAGE;
-                            e.target.onerror = null;
-                          }}
-                        />
-                        {selectedImageIndex === index && (
-                          <div className="absolute inset-0 bg-blue-500/20"></div>
-                        )}
-                      </button>
-                    ))}
+                  <div className="mt-4 md:mt-6">
+                    <div className="flex overflow-x-auto gap-2 md:gap-3 py-2 px-2 -mx-2">
+                      {productImages.map((img, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setSelectedImageIndex(index)}
+                          className={`flex-shrink-0 relative w-12 h-12 md:w-16 md:h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${selectedImageIndex === index ? "border-blue-500 scale-110" : "border-gray-700 hover:border-gray-500"}`}
+                        >
+                          <img
+                            src={img.url}
+                            alt={`Thumbnail ${index + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.src = PLACEHOLDER_IMAGE;
+                              e.target.onerror = null;
+                            }}
+                          />
+                          {selectedImageIndex === index && (
+                            <div className="absolute inset-0 bg-blue-500/20"></div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
 
               {/* Footer Modal */}
-              <div className="p-6 border-t border-gray-800">
+              <div className="flex-shrink-0 p-4 md:p-6 border-t border-gray-800 bg-gray-900/50">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-400 mb-2">
+                  <div className="overflow-hidden">
+                    <h4 className="text-xs md:text-sm font-medium text-gray-400 mb-2">
                       Informasi Produk
                     </h4>
                     <div className="space-y-1">
-                      <p className="text-sm text-gray-300">
+                      <p className="text-xs md:text-sm text-gray-300 truncate">
                         <span className="text-gray-400">Harga: </span>
                         <span className="font-bold text-blue-400">
                           {formatRupiah(currentProduct?.harga_umum)}
                         </span>
                       </p>
                       {currentProduct?.total_terjual && (
-                        <p className="text-sm text-gray-300">
+                        <p className="text-xs md:text-sm text-gray-300 truncate">
                           <span className="text-gray-400">Terjual: </span>
                           <span className="font-bold text-amber-400">
                             {currentProduct.total_terjual} unit
@@ -475,7 +477,7 @@ const CompanyProfile = () => {
                   <div className="flex items-end justify-end">
                     <button
                       onClick={closeImageModal}
-                      className="px-6 py-2 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 rounded-lg font-medium transition-all duration-300 border border-gray-700/50 hover:border-gray-600/50"
+                      className="px-4 py-2 md:px-6 md:py-2 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 rounded-lg font-medium transition-all duration-300 border border-gray-700/50 hover:border-gray-600/50 text-sm md:text-base"
                     >
                       Tutup
                     </button>

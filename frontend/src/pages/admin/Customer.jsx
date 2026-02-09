@@ -278,53 +278,53 @@ const CustomerPage = ({ setNavbarContent }) => {
   };
 
   const handlePrintTagihan = (customer) => {
-  // Ambil data transaksi detail dari customer
-  const transaksiDetails = Array.isArray(customer.transaksi_details)
-    ? customer.transaksi_details.filter((detail) => {
-        if (!detail || !detail.transaksi || !detail.product) return false;
-        if (detail.status_transaksi_id === 6) return false; // Dibatalkan
+    // Ambil data transaksi detail dari customer
+    const transaksiDetails = Array.isArray(customer.transaksi_details)
+      ? customer.transaksi_details.filter((detail) => {
+          if (!detail || !detail.transaksi || !detail.product) return false;
+          if (detail.status_transaksi_id === 6) return false; // Dibatalkan
+          const subtotal = safeParseFloat(detail.subtotal);
+          const totalBayar = Array.isArray(detail.pembayarans)
+            ? detail.pembayarans.reduce(
+                (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+                0,
+              )
+            : 0;
+          return subtotal - totalBayar > 0;
+        })
+      : [];
+
+    if (transaksiDetails.length === 0) {
+      Swal.fire("Info", "Tidak ada tagihan yang perlu dicetak", "info");
+      return;
+    }
+
+    // Hitung total
+    let totalSubtotal = 0;
+    let totalDiscount = 0;
+    let totalTagihan = 0;
+    let totalDibayar = 0;
+
+    const rowsHtml = transaksiDetails
+      .map((detail) => {
         const subtotal = safeParseFloat(detail.subtotal);
+        const discount = safeParseFloat(detail.discount);
+        const subtotalAsli = subtotal + discount;
+
         const totalBayar = Array.isArray(detail.pembayarans)
           ? detail.pembayarans.reduce(
               (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
               0,
             )
           : 0;
-        return subtotal - totalBayar > 0;
-      })
-    : [];
+        const sisa = subtotal - totalBayar;
 
-  if (transaksiDetails.length === 0) {
-    Swal.fire("Info", "Tidak ada tagihan yang perlu dicetak", "info");
-    return;
-  }
+        totalSubtotal += subtotalAsli;
+        totalDiscount += discount;
+        totalTagihan += subtotal;
+        totalDibayar += totalBayar;
 
-  // Hitung total
-  let totalSubtotal = 0;
-  let totalDiscount = 0;
-  let totalTagihan = 0;
-  let totalDibayar = 0;
-
-  const rowsHtml = transaksiDetails
-    .map((detail) => {
-      const subtotal = safeParseFloat(detail.subtotal);
-      const discount = safeParseFloat(detail.discount);
-      const subtotalAsli = subtotal + discount;
-      
-      const totalBayar = Array.isArray(detail.pembayarans)
-        ? detail.pembayarans.reduce(
-            (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-            0,
-          )
-        : 0;
-      const sisa = subtotal - totalBayar;
-
-      totalSubtotal += subtotalAsli;
-      totalDiscount += discount;
-      totalTagihan += subtotal;
-      totalDibayar += totalBayar;
-
-      return `
+        return `
         <tr>
           <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center; font-size: 11px;">${formatTanggal(detail.transaksi?.tanggal)}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 11px; white-space: nowrap;">${formatProductName(detail.product)}</td>
@@ -335,12 +335,12 @@ const CustomerPage = ({ setNavbarContent }) => {
           <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; color: #dc2626; font-weight: bold; font-size: 11px;">Rp ${formatRupiah(sisa)}</td>
         </tr>
       `;
-    })
-    .join("");
+      })
+      .join("");
 
-  const sisaTotal = totalTagihan - totalDibayar;
+    const sisaTotal = totalTagihan - totalDibayar;
 
-  const content = `
+    const content = `
     <!DOCTYPE html>
     <html>
       <head>
@@ -501,22 +501,22 @@ const CustomerPage = ({ setNavbarContent }) => {
           <p>Dicetak pada: ${new Date().toLocaleDateString("id-ID", {
             day: "numeric",
             month: "long",
-            year: "numeric"
+            year: "numeric",
           })}</p>
         </div>
       </body>
     </html>
   `;
 
-  const printWindow = window.open("", "_blank");
-  if (printWindow) {
-    printWindow.document.write(content);
-    printWindow.document.close();
-    printWindow.print();
-  } else {
-    Swal.fire("Error", "Gagal membuka jendela cetak", "error");
-  }
-};
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(content);
+      printWindow.document.close();
+      printWindow.print();
+    } else {
+      Swal.fire("Error", "Gagal membuka jendela cetak", "error");
+    }
+  };
 
   return (
     <div className="space-y-6 p-2 md:p-4 max-w-7xl mx-auto">
@@ -539,30 +539,32 @@ const CustomerPage = ({ setNavbarContent }) => {
             return (
               <div
                 key={item.id}
-                className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition border border-gray-100"
+                className="bg-white rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-md transition border border-gray-100 min-w-0"
               >
-                <h3 className="text-sm font-bold text-gray-900 text-center line-clamp-1">
+                <h3 className="text-sm font-bold text-gray-900 text-center truncate">
                   {item.name}
                 </h3>
-                <p className="text-xs text-gray-500 mt-1 text-center">
+
+                <p className="text-xs text-gray-500 mt-1 text-center truncate">
                   📞 {item.phone || "-"}
                 </p>
-                <p className="text-xs text-gray-500 text-center">
+
+                <p className="text-xs text-gray-500 text-center break-words">
                   ✉️ {item.email || "-"}
                 </p>
 
-                <div className="mt-3 space-y-1 text-xs">
+                <div className="mt-3 space-y-1 text-xs min-w-0">
                   {tagihanHarian > 0 && (
                     <div
-                      className="flex justify-between pt-2 border-t border-gray-100 cursor-pointer hover:bg-orange-50 rounded p-1"
+                      className="flex justify-between pt-2 border-t border-gray-100 cursor-pointer hover:bg-orange-50 rounded p-1 gap-1"
                       onClick={() =>
                         openCustomerModal(item.id, item.name, "daily")
                       }
                     >
-                      <span className="text-orange-600 font-medium text-[10px]">
+                      <span className="text-orange-600 font-medium truncate">
                         Tagihan Harian:
                       </span>
-                      <span className="text-orange-600 font-bold text-[10px]">
+                      <span className="text-orange-600 font-bold shrink-0">
                         {formatRupiah(tagihanHarian)}
                       </span>
                     </div>
@@ -570,15 +572,15 @@ const CustomerPage = ({ setNavbarContent }) => {
 
                   {tagihanPesanan > 0 && (
                     <div
-                      className="flex justify-between pt-1 cursor-pointer hover:bg-purple-50 rounded p-1"
+                      className="flex justify-between pt-1 cursor-pointer hover:bg-purple-50 rounded p-1 gap-1"
                       onClick={() =>
                         openCustomerModal(item.id, item.name, "pesanan")
                       }
                     >
-                      <span className="text-purple-600 font-medium text-[10px]">
+                      <span className="text-purple-600 font-medium truncate">
                         Tagihan Pesanan:
                       </span>
-                      <span className="text-purple-600 font-bold text-[10px]">
+                      <span className="text-purple-600 font-bold shrink-0">
                         {formatRupiah(tagihanPesanan)}
                       </span>
                     </div>
@@ -586,21 +588,21 @@ const CustomerPage = ({ setNavbarContent }) => {
 
                   {tagihanHarian === 0 && tagihanPesanan === 0 && (
                     <div className="flex justify-between pt-2 border-t border-gray-100">
-                      <span className="text-green-600 font-medium text-[10px]">
+                      <span className="text-green-600 font-medium">
                         Tidak ada tagihan
                       </span>
-                      <span className="text-green-600 text-[10px]">✅</span>
+                      <span className="text-green-600">✅</span>
                     </div>
                   )}
                 </div>
 
                 {hasTagihan && (
-                  <div className="mt-2 flex justify-center">
+                  <div className="mt-2">
                     <button
                       onClick={() => handlePrintTagihan(item)}
-                      className="flex items-center justify-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-[10px] w-full max-w-[120px]"
+                      className="flex items-center justify-center gap-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-xs w-full"
                     >
-                      <Receipt size={12} />
+                      <Receipt size={14} />
                       Cetak
                     </button>
                   </div>
@@ -610,9 +612,9 @@ const CustomerPage = ({ setNavbarContent }) => {
                   {(role === "admin" || role === "kasir") && (
                     <button
                       onClick={() => handleEdit(item)}
-                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 text-[10px]"
+                      className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 text-xs"
                     >
-                      <Pencil size={12} />
+                      <Pencil size={14} />
                       Edit
                     </button>
                   )}
@@ -620,9 +622,9 @@ const CustomerPage = ({ setNavbarContent }) => {
                   {role === "admin" && (
                     <button
                       onClick={() => handleDelete(item.id)}
-                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-[10px]"
+                      className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-xs"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={14} />
                       Hapus
                     </button>
                   )}

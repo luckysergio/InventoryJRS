@@ -1424,13 +1424,13 @@ const PesananPage = ({ setNavbarContent }) => {
                         </div>
                       )}
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
                         <input
                           type="number"
                           min="1"
                           max="9999"
                           placeholder="Qty *"
-                          className="border px-3 py-2 rounded-lg"
+                          className="border px-3 py-3 rounded-lg w-full"
                           value={d.qty}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -1448,7 +1448,7 @@ const PesananPage = ({ setNavbarContent }) => {
                           type="text"
                           inputMode="numeric"
                           placeholder="Diskon (Rp)"
-                          className="border px-3 py-2 rounded-lg"
+                          className="border px-3 py-3 rounded-lg w-full"
                           value={d.discount ? formatRupiah(d.discount) : ""}
                           onChange={(e) => {
                             let raw = unformatRupiah(e.target.value);
@@ -1464,7 +1464,7 @@ const PesananPage = ({ setNavbarContent }) => {
                         <input
                           type="text"
                           placeholder="Catatan (opsional)"
-                          className="border px-3 py-2 rounded-lg col-span-2 md:col-span-1 lg:col-span-2"
+                          className="border px-3 py-3 rounded-lg w-full md:col-span-3 lg:col-span-2"
                           value={d.catatan}
                           onChange={(e) =>
                             handleDetailChange(i, "catatan", e.target.value)

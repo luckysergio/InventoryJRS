@@ -61,6 +61,7 @@ export const RiwayatTransaksiFilterBar = ({
   handleReset,
 }) => (
   <div className="flex items-center gap-2 w-full">
+    {/* DESKTOP */}
     <div className="hidden sm:flex flex-wrap items-center gap-2 flex-1">
       <div className="relative w-[150px]">
         <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -71,6 +72,7 @@ export const RiwayatTransaksiFilterBar = ({
           className="w-full pl-10 pr-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
       </div>
+
       <div className="relative w-[150px]">
         <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <input
@@ -81,6 +83,7 @@ export const RiwayatTransaksiFilterBar = ({
           className="w-full pl-10 pr-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
       </div>
+
       <select
         className="py-1.5 px-3 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[120px]"
         value={selectedJenis}
@@ -90,6 +93,7 @@ export const RiwayatTransaksiFilterBar = ({
         <option value="daily">Harian</option>
         <option value="pesanan">Pesanan</option>
       </select>
+
       <select
         className="py-1.5 px-3 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[140px]"
         value={selectedCustomer}
@@ -102,6 +106,7 @@ export const RiwayatTransaksiFilterBar = ({
           </option>
         ))}
       </select>
+
       <button
         onClick={handleReset}
         className="py-1.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm font-medium transition"
@@ -110,9 +115,10 @@ export const RiwayatTransaksiFilterBar = ({
       </button>
     </div>
 
-    <div className="sm:hidden flex flex-wrap items-center gap-2 w-full justify-center">
+    {/* MOBILE */}
+    <div className="sm:hidden flex items-center gap-2 w-full">
       <select
-        className="py-1 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[100px]"
+        className="flex-1 py-2 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         value={selectedJenis}
         onChange={(e) => setSelectedJenis(e.target.value)}
       >
@@ -120,8 +126,9 @@ export const RiwayatTransaksiFilterBar = ({
         <option value="daily">Harian</option>
         <option value="pesanan">Pesanan</option>
       </select>
+
       <select
-        className="py-1 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[100px]"
+        className="flex-1 py-2 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         value={selectedCustomer}
         onChange={(e) => setSelectedCustomer(e.target.value)}
       >
@@ -132,8 +139,9 @@ export const RiwayatTransaksiFilterBar = ({
           </option>
         ))}
       </select>
+
       <select
-        className="py-1 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[100px]"
+        className="flex-1 py-2 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         value={selectedStatus}
         onChange={(e) => setSelectedStatus(e.target.value)}
       >
