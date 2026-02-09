@@ -173,7 +173,6 @@ const PesananPage = ({ setNavbarContent }) => {
     }
   };
 
-
   useEffect(() => {
     fetchData(search);
   }, [search]);
@@ -775,13 +774,14 @@ const PesananPage = ({ setNavbarContent }) => {
                     key={item.id}
                     className="p-4 bg-white rounded-xl shadow border border-gray-200 space-y-3 hover:shadow-md transition-shadow"
                   >
-                    <div className="flex justify-between items-center mb-2">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-1">
                       <span className="text-xs font-mono text-gray-600">
                         {getInvoiceNumber(item)}
                       </span>
+
                       <button
                         onClick={() => onPrintClick(item)}
-                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 flex items-center gap-1"
+                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 flex items-center justify-center gap-1 w-full sm:w-auto"
                       >
                         <Receipt size={12} /> Print
                       </button>

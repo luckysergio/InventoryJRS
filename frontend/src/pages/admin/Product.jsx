@@ -853,7 +853,7 @@ const ProductPage = ({ setNavbarContent }) => {
 
                   {/* Aksi */}
                   <div className="flex gap-2 pt-2 mt-auto">
-                    {(role === "admin" || role === "kasir") && (
+                    {(role === "admin" || role === "admin_toko") && (
                       <button
                         onClick={() => handleEdit(item)}
                         className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-xs font-medium transition-colors duration-200"
@@ -879,7 +879,7 @@ const ProductPage = ({ setNavbarContent }) => {
         </>
       )}
 
-      {(role === "admin" || role === "kasir") && (
+      {(role === "admin" || role === "admin_toko") && (
         <button
           onClick={handleTambah}
           className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"

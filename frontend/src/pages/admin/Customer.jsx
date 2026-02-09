@@ -609,7 +609,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                 )}
 
                 <div className="flex gap-2 mt-3">
-                  {(role === "admin" || role === "kasir") && (
+                  {(role === "admin" || role === "admin_toko") && (
                     <button
                       onClick={() => handleEdit(item)}
                       className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 text-xs"
@@ -635,7 +635,7 @@ const CustomerPage = ({ setNavbarContent }) => {
         </div>
       )}
 
-      {(role === "admin" || role === "kasir") && (
+      {(role === "admin" || role === "admin_toko") && (
         <button
           onClick={handleTambah}
           className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg transition"

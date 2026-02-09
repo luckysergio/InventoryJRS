@@ -61,7 +61,7 @@ class UserController extends Controller
                     'min:6',
                     'regex:/[!_]/'
                 ],
-                'role'     => 'required|in:admin,kasir,operator'
+                'role'     => 'required|in:admin,admin_toko,operator'
             ],
             [
                 'password.regex' => 'Password wajib mengandung karakter ! atau _'
@@ -111,7 +111,7 @@ class UserController extends Controller
                     'min:6',
                     'regex:/[!_]/'
                 ],
-                'role'     => 'sometimes|required|in:admin,kasir,operator'
+                'role'     => 'sometimes|required|in:admin,admin_toko,operator'
             ],
             [
                 'password.regex' => 'Password wajib mengandung karakter ! atau _'

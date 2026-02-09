@@ -31,7 +31,7 @@ const UserPage = ({ setNavbarContent }) => {
     email: "",
     password: "",
     password_confirmation: "",
-    role: "kasir",
+    role: "admin_toko",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -71,7 +71,7 @@ const UserPage = ({ setNavbarContent }) => {
       email: "",
       password: "",
       password_confirmation: "",
-      role: "kasir",
+      role: "admin_toko",
     });
     setEditingId(null);
     setShowPassword(false);
@@ -394,7 +394,7 @@ const UserPage = ({ setNavbarContent }) => {
                     required
                   >
                     <option value="admin">Admin</option>
-                    <option value="kasir">Kasir</option>
+                    <option value="admin_toko">admin_toko</option>
                     <option value="operator">Operator</option>
                   </select>
                 </div>

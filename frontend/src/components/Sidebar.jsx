@@ -29,7 +29,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const storedUser = localStorage.getItem("user");
   const userRole = storedUser ? JSON.parse(storedUser).role : null;
   const isAdmin = userRole === "admin";
-  const isAllowedForTransaksi = userRole === "admin" || userRole === "kasir";
+  const isAllowedForTransaksi = userRole === "admin" || userRole === "admin_toko";
 
   useEffect(() => {
     if ("scrollRestoration" in window.history) {
@@ -413,7 +413,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         <SubNavLink to="/harga-product">Harga Product</SubNavLink>
       </Dropdown>
 
-      {/* Transaksi - hanya untuk admin dan kasir */}
+      {/* Transaksi - hanya untuk admin dan admin_toko */}
       {isAllowedForTransaksi && (
         <Dropdown
           title="Transaksi"

@@ -341,7 +341,11 @@ const InventoryPage = ({ setNavbarContent }) => {
 
               <div className="border border-green-200 rounded-lg p-3 mb-4 bg-green-50">
                 <div
-                  className={`flex items-start ${role === "admin" ? "justify-between" : "justify-center"}`}
+                  className={`flex items-start ${
+                    role === "admin" || role === "admin_toko"
+                      ? "justify-between"
+                      : "justify-center"
+                  }`}
                 >
                   <div className="text-center">
                     <span className="text-xs font-medium text-green-800">
@@ -351,7 +355,8 @@ const InventoryPage = ({ setNavbarContent }) => {
                       {item.stok_toko}
                     </p>
                   </div>
-                  {role === "admin" && (
+
+                  {(role === "admin" || role === "admin_toko") && (
                     <div className="flex gap-1">
                       <button
                         onClick={() => openModal("in", item.inv_toko)}
@@ -381,7 +386,11 @@ const InventoryPage = ({ setNavbarContent }) => {
 
               <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
                 <div
-                  className={`flex items-start ${role === "admin" ? "justify-between" : "justify-center"}`}
+                  className={`flex items-start ${
+                    role === "admin" || role === "admin_toko"
+                      ? "justify-between"
+                      : "justify-center"
+                  }`}
                 >
                   <div className="text-center">
                     <span className="text-xs font-medium text-blue-800">
@@ -391,7 +400,8 @@ const InventoryPage = ({ setNavbarContent }) => {
                       {item.stok_bengkel}
                     </p>
                   </div>
-                  {role === "admin" && (
+
+                  {(role === "admin" || role === "admin_toko") && (
                     <div className="flex gap-1">
                       <button
                         onClick={() => openModal("in", item.inv_bengkel)}

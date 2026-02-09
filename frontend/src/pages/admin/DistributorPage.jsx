@@ -149,7 +149,7 @@ const DistributorPage = ({ setNavbarContent }) => {
                 </p>
 
                 <div className="flex gap-2 mt-3">
-                  {(role === "admin" || role === "kasir") && (
+                  {(role === "admin" || role === "admin_toko") && (
                     <button
                       onClick={() => handleEdit(d)}
                       className="flex-1 flex items-center justify-center gap-1 bg-yellow-100 text-yellow-700 text-xs px-2 py-2 rounded hover:bg-yellow-200"
@@ -175,7 +175,7 @@ const DistributorPage = ({ setNavbarContent }) => {
         </div>
       )}
 
-      {(role === "admin" || role === "kasir") && (
+      {(role === "admin" || role === "admin_toko") && (
         <button
           onClick={() => {
             resetForm();

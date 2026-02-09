@@ -81,7 +81,7 @@ const HomePage = () => {
   const [selectedChartType, setSelectedChartType] = useState("revenue");
 
   const user = JSON.parse(localStorage.getItem("user"));
-  const role = user?.role || "kasir"; // default ke kasir jika tidak ada role
+  const role = user?.role || "admin_toko"; // default ke admin_toko jika tidak ada role
 
   const fetchData = useCallback(
     async (showLoading = true) => {
@@ -186,7 +186,7 @@ const HomePage = () => {
         trend: "+12%",
         trendUp: true,
         path: "/allproduct",
-        roles: ["admin", "kasir", "operator"],
+        roles: ["admin", "admin_toko", "operator"],
       },
       {
         title: "Product Terlaris",
@@ -197,7 +197,7 @@ const HomePage = () => {
         trend: "+8%",
         trendUp: true,
         path: "/product-terlaris",
-        roles: ["admin", "kasir", "operator"],
+        roles: ["admin", "admin_toko", "operator"],
       },
       {
         title: "Transaksi Harian",
@@ -208,7 +208,7 @@ const HomePage = () => {
         trend: "+5%",
         trendUp: true,
         path: "/transaksi",
-        roles: ["admin", "kasir"],
+        roles: ["admin", "admin_toko"],
       },
       {
         title: "Transaksi Pesanan",
@@ -219,7 +219,7 @@ const HomePage = () => {
         trend: "+15%",
         trendUp: true,
         path: "/pesanan",
-        roles: ["admin", "kasir"],
+        roles: ["admin", "admin_toko"],
       },
       {
         title: "Customer Belum Lunas",
@@ -230,7 +230,7 @@ const HomePage = () => {
         trend: "-3%",
         trendUp: false,
         path: "/customer",
-        roles: ["admin", "kasir"],
+        roles: ["admin", "admin_toko"],
       },
       {
         title: "Pesanan Menunggu Produksi",
