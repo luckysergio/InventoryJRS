@@ -49,6 +49,12 @@ const CompanyProfile = () => {
     projects: 1000,
   });
 
+  // State untuk modal foto
+  const [showModal, setShowModal] = useState(false);
+  const [currentProduct, setCurrentProduct] = useState(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [productImages, setProductImages] = useState([]);
+
   useEffect(() => {
     const handleMouseMove = (e) => {
       setMousePosition({
@@ -200,6 +206,95 @@ const CompanyProfile = () => {
     e.target.onerror = null; // Prevent infinite loop
   };
 
+  // Fungsi untuk membuka modal dengan foto produk
+  const openImageModal = (product) => {
+    const images = [];
+
+    // Tambahkan foto yang tersedia
+    if (product.foto_depan) {
+      images.push({
+        url: getImageUrl(product.foto_depan),
+        type: "depan",
+        label: "Tampak Depan",
+      });
+    }
+
+    if (product.foto_samping) {
+      images.push({
+        url: getImageUrl(product.foto_samping),
+        type: "samping",
+        label: "Tampak Samping",
+      });
+    }
+
+    if (product.foto_atas) {
+      images.push({
+        url: getImageUrl(product.foto_atas),
+        type: "atas",
+        label: "Tampak Atas",
+      });
+    }
+
+    // Jika tidak ada foto, gunakan placeholder
+    if (images.length === 0) {
+      images.push({
+        url: PLACEHOLDER_IMAGE,
+        type: "placeholder",
+        label: "No Image",
+      });
+    }
+
+    setProductImages(images);
+    setCurrentProduct(product);
+    setSelectedImageIndex(0);
+    setShowModal(true);
+
+    // Nonaktifkan scroll body saat modal terbuka
+    document.body.style.overflow = "hidden";
+  };
+
+  // Fungsi untuk menutup modal
+  const closeImageModal = () => {
+    setShowModal(false);
+    setCurrentProduct(null);
+    setProductImages([]);
+    setSelectedImageIndex(0);
+
+    // Aktifkan kembali scroll body
+    document.body.style.overflow = "auto";
+  };
+
+  // Fungsi untuk mengganti foto di modal
+  const nextImage = () => {
+    setSelectedImageIndex((prev) =>
+      prev === productImages.length - 1 ? 0 : prev + 1,
+    );
+  };
+
+  const prevImage = () => {
+    setSelectedImageIndex((prev) =>
+      prev === 0 ? productImages.length - 1 : prev - 1,
+    );
+  };
+
+  // Handle keyboard events untuk modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!showModal) return;
+
+      if (e.key === "Escape") {
+        closeImageModal();
+      } else if (e.key === "ArrowRight") {
+        nextImage();
+      } else if (e.key === "ArrowLeft") {
+        prevImage();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showModal, productImages.length]);
+
   // Debug: cek environment variable
   useEffect(() => {
     console.log("VITE_ASSET_URL:", import.meta.env.VITE_ASSET_URL);
@@ -223,6 +318,173 @@ const CompanyProfile = () => {
         </div>
 
         <Navbar />
+
+        {/* Modal Foto Produk */}
+        {showModal && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
+            <div className="relative w-full max-w-4xl bg-gradient-to-br from-gray-900 to-gray-950 rounded-2xl shadow-2xl border border-gray-800 overflow-hidden">
+              {/* Header Modal */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-800">
+                <div>
+                  <h3 className="text-xl font-bold text-white">
+                    {currentProduct
+                      ? formatProductName(currentProduct)
+                      : "Produk"}
+                  </h3>
+                  <p className="text-gray-400 text-sm mt-1">
+                    Foto {productImages[selectedImageIndex]?.label}
+                  </p>
+                </div>
+                <button
+                  onClick={closeImageModal}
+                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors duration-200"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Konten Gambar */}
+              <div className="relative p-6">
+                <div className="relative h-[400px] md:h-[500px] bg-gray-900 rounded-xl overflow-hidden">
+                  <img
+                    src={
+                      productImages[selectedImageIndex]?.url ||
+                      PLACEHOLDER_IMAGE
+                    }
+                    alt={`${formatProductName(currentProduct)} - ${productImages[selectedImageIndex]?.label}`}
+                    className="w-full h-full object-contain p-4"
+                    onError={(e) => {
+                      e.target.src = PLACEHOLDER_IMAGE;
+                      e.target.onerror = null;
+                    }}
+                  />
+
+                  {/* Navigation Arrows */}
+                  {productImages.length > 1 && (
+                    <>
+                      <button
+                        onClick={prevImage}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-gray-900/80 hover:bg-gray-800/90 rounded-full backdrop-blur-sm border border-gray-700/50 transition-all duration-300 hover:scale-110"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 19l-7-7 7-7"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={nextImage}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-gray-900/80 hover:bg-gray-800/90 rounded-full backdrop-blur-sm border border-gray-700/50 transition-all duration-300 hover:scale-110"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      </button>
+                    </>
+                  )}
+
+                  {/* Image Counter */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-gray-900/80 backdrop-blur-sm rounded-full border border-gray-700/50">
+                    <span className="text-sm text-gray-300">
+                      {selectedImageIndex + 1} / {productImages.length}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Thumbnail Preview */}
+                {productImages.length > 1 && (
+                  <div className="flex justify-center gap-3 mt-6">
+                    {productImages.map((img, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setSelectedImageIndex(index)}
+                        className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${selectedImageIndex === index ? "border-blue-500 scale-110" : "border-gray-700 hover:border-gray-500"}`}
+                      >
+                        <img
+                          src={img.url}
+                          alt={`Thumbnail ${index + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.src = PLACEHOLDER_IMAGE;
+                            e.target.onerror = null;
+                          }}
+                        />
+                        {selectedImageIndex === index && (
+                          <div className="absolute inset-0 bg-blue-500/20"></div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer Modal */}
+              <div className="p-6 border-t border-gray-800">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-400 mb-2">
+                      Informasi Produk
+                    </h4>
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-300">
+                        <span className="text-gray-400">Harga: </span>
+                        <span className="font-bold text-blue-400">
+                          {formatRupiah(currentProduct?.harga_umum)}
+                        </span>
+                      </p>
+                      {currentProduct?.total_terjual && (
+                        <p className="text-sm text-gray-300">
+                          <span className="text-gray-400">Terjual: </span>
+                          <span className="font-bold text-amber-400">
+                            {currentProduct.total_terjual} unit
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-end justify-end">
+                    <button
+                      onClick={closeImageModal}
+                      className="px-6 py-2 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 rounded-lg font-medium transition-all duration-300 border border-gray-700/50 hover:border-gray-600/50"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Scroll to Top Button */}
         {showScrollTop && (
@@ -622,7 +884,10 @@ const CompanyProfile = () => {
                     </div>
                   </div>
 
-                  <div className="relative h-56 bg-gradient-to-br from-gray-900 to-black overflow-hidden">
+                  <div
+                    className="relative h-56 bg-gradient-to-br from-gray-900 to-black overflow-hidden cursor-pointer"
+                    onClick={() => openImageModal(product)}
+                  >
                     {/* Foto Container dengan Carousel Hover */}
                     <div className="relative w-full h-full">
                       {/* Foto Depan (Default) */}
@@ -668,6 +933,25 @@ const CompanyProfile = () => {
                     </div>
 
                     <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent opacity-50"></div>
+
+                    {/* Zoom Icon Overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20">
+                      <div className="p-3 bg-gray-900/80 backdrop-blur-sm rounded-full border border-gray-700/50">
+                        <svg
+                          className="w-6 h-6 text-amber-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="p-5">
@@ -852,7 +1136,10 @@ const CompanyProfile = () => {
                       data-aos="fade-up"
                       data-aos-delay={(index % 4) * 50}
                     >
-                      <div className="relative h-40 bg-gradient-to-br from-gray-900 to-black overflow-hidden">
+                      <div
+                        className="relative h-40 bg-gradient-to-br from-gray-900 to-black overflow-hidden cursor-pointer"
+                        onClick={() => openImageModal(product)}
+                      >
                         {/* Foto Container dengan Carousel Hover untuk Catalog */}
                         <div className="relative w-full h-full">
                           {/* Foto Depan (Default) */}
@@ -898,6 +1185,25 @@ const CompanyProfile = () => {
                         </div>
 
                         <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
+
+                        {/* Zoom Icon Overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20">
+                          <div className="p-2 bg-gray-900/80 backdrop-blur-sm rounded-full border border-gray-700/50">
+                            <svg
+                              className="w-5 h-5 text-blue-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                              />
+                            </svg>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="p-4">
