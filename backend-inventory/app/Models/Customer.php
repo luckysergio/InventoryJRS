@@ -16,6 +16,11 @@ class Customer extends Model
         'email',
     ];
 
+    // RELASI BARU → customer punya banyak product
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class, 'customer_id');
+    }
 
     public function transaksi(): HasMany
     {
@@ -40,14 +45,14 @@ class Customer extends Model
     }
 
     public function transaksi_details(): HasManyThrough
-{
-    return $this->hasManyThrough(
-        TransaksiDetail::class,
-        Transaksi::class,
-        'customer_id',      // FK di transaksis
-        'transaksi_id',     // FK di transaksi_details
-        'id',               // PK customers
-        'id'                // PK transaksis
-    );
-}
+    {
+        return $this->hasManyThrough(
+            TransaksiDetail::class,
+            Transaksi::class,
+            'customer_id',   // FK di transaksis
+            'transaksi_id',  // FK di transaksi_details
+            'id',            // PK customers
+            'id'             // PK transaksis
+        );
+    }
 }

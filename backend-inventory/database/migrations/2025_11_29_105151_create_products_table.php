@@ -37,6 +37,12 @@ return new class extends Migration
                 ->constrained('distributors')
                 ->nullOnDelete();
 
+            // Tambahkan ini
+            $table->foreignId('customer_id')
+                ->nullable()
+                ->constrained('customers')
+                ->nullOnDelete();
+
             $table->integer('harga_beli')->nullable();
 
             $table->string('foto_depan')->nullable();

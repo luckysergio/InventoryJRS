@@ -13,6 +13,8 @@ import JabatanPage from "./pages/admin/JabatanPage";
 import DistributorPage from "./pages/admin/DistributorPage";
 import DistributorProductPage from "./pages/admin/DistributorProductPage";
 
+import ProductCustomertPage from "./pages/admin/ProductCustomerPage";
+
 import ProductPage from "./pages/admin/Product";
 import ProductionPage from "./pages/admin/ProductionPage";
 import RiwayatProductionPage from "./pages/admin/RiwayatProductionPage";
@@ -133,6 +135,19 @@ function App() {
               <Layout>
                 {({ setNavbarContent }) => (
                   <DistributorProductPage setNavbarContent={setNavbarContent} />
+                )}
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/product-customer"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                {({ setNavbarContent }) => (
+                  <ProductCustomertPage setNavbarContent={setNavbarContent} />
                 )}
               </Layout>
             </ProtectedRoute>

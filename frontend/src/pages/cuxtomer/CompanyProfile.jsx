@@ -719,66 +719,8 @@ const CompanyProfile = () => {
               </div>
             </div>
 
-            <div className="grid lg:grid-cols-2 gap-8 items-center">
-              <div className="space-y-6">
-                {[
-                  {
-                    icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
-                    title: "Sertifikasi Internasional",
-                    desc: "Manufaktur dengan standar ISO 9001:2015 dan kontrol kualitas ketat",
-                    color: "from-blue-500 to-cyan-500",
-                  },
-                  {
-                    icon: "M13 10V3L4 14h7v7l9-11h-7z",
-                    title: "Teknologi Modern",
-                    desc: "Dilengkapi dengan mesin CNC dan injection molding terbaru",
-                    color: "from-purple-500 to-pink-500",
-                  },
-                  {
-                    icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
-                    title: "Efisiensi Produksi",
-                    desc: "Sistem just-in-time dengan manajemen rantai pasokan optimal",
-                    color: "from-emerald-500 to-green-500",
-                  },
-                ].map((item, index) => (
-                  <div
-                    key={index}
-                    className="group p-5 bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl backdrop-blur-sm border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300"
-                    data-aos="fade-right"
-                    data-aos-delay={index * 100}
-                  >
-                    <div className="flex items-start gap-5">
-                      <div
-                        className={`p-3 rounded-lg bg-gradient-to-r ${item.color} shadow-md`}
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d={item.icon}
-                          />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-white mb-2">
-                          {item.title}
-                        </h3>
-                        <p className="text-gray-400 leading-relaxed text-sm">
-                          {item.desc}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="relative" data-aos="fade-left">
+            <div className="flex justify-center">
+              <div className="relative max-w-md w-full" data-aos="fade-up">
                 <div className="absolute -inset-3 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-2xl blur-2xl opacity-30"></div>
                 <div className="relative bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl p-6 backdrop-blur-sm border border-gray-700/50 overflow-hidden">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-cyan-500/3 to-transparent rounded-full -translate-y-12 translate-x-12"></div>

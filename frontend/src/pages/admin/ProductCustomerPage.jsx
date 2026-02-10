@@ -9,7 +9,8 @@ import {
   X,
   Camera,
   Tag,
-  Warehouse,
+  User,
+  Building2,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -33,185 +34,88 @@ const unformatRupiah = (str) => {
   return parseInt(String(str).replace(/\D/g, ""), 10) || 0;
 };
 
-const jenisKode = (text) => {
-  if (!text) return "";
-  const clean = text.trim().toUpperCase();
-  if (clean.length < 2) return clean;
-  return clean.charAt(0) + clean.charAt(clean.length - 1);
-};
-
-const typeKode = (text) => {
-  if (!text) return "";
-
-  const clean = text
-    .replace(/\(.+?\)/g, "")
-    .trim()
-    .toUpperCase();
-
-  const words = clean.split(/\s+/).filter((w) => /^[A-Z]/.test(w));
-
-  let huruf = "";
-
-  if (words.length === 1) {
-    huruf = words[0].slice(0, 2);
-  } else {
-    huruf = words.map((w) => w.charAt(0)).join("");
-  }
-
-  const numbers = text.match(/\d+/g) || [];
-  let angka = "";
-
-  if (numbers.length >= 2) {
-    angka = numbers[0] + numbers[1];
-  } else if (numbers.length === 1) {
-    angka = numbers[0];
-  }
-
-  return (huruf + angka).toUpperCase();
-};
-
-const bahanKode = (text) => {
-  if (!text) return "";
-  const clean = text
-    .replace(/\(.+?\)/g, "")
-    .trim()
-    .toUpperCase();
-  return clean.slice(0, 2);
-};
-
-const ukuranKode = (text) => {
-  if (!text) return "";
-  const matches = text.match(/\d+[.,]?\d*/g);
-  if (!matches) return "";
-
-  return matches.map((n) => n.replace(/[.,]/g, "")).join("");
-};
-
-const extractNumbers = (text) => {
-  if (!text) return "";
-  const matches = text.match(/\d+/g);
-  return matches ? matches.join("") : "";
-};
-
-const generateKode = (jenisNama, typeNama, bahanNama, ukuran) => {
-  return (
-    jenisKode(jenisNama) +
-    typeKode(typeNama) +
-    bahanKode(bahanNama) +
-    ukuranKode(ukuran)
-  );
-};
-
-export const ProductFilterBar = ({
+export const ProductCustomerFilterBar = ({
   search,
   setSearch,
-  filterJenis,
-  setFilterJenis,
-  filterType,
-  setFilterType,
-  jenis,
-  filteredTypesForFilter,
+  filterCustomer,
+  setFilterCustomer,
+  customers,
 }) => (
-  <div className="flex items-center gap-2 w-full">
+  <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
     <div className="relative flex-1 min-w-[150px]">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
       <input
         type="text"
-        placeholder="Cari kode..."
+        placeholder="Cari kode produk..."
         className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
     </div>
-
-    <div className="hidden sm:flex items-center gap-2">
+    <div className="flex-1 min-w-[200px]">
       <select
-        className="py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm min-w-[140px]"
-        value={filterJenis}
-        onChange={(e) => setFilterJenis(e.target.value)}
+        className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm"
+        value={filterCustomer}
+        onChange={(e) => setFilterCustomer(e.target.value)}
       >
-        <option value="">Semua Jenis</option>
-        {jenis.map((j) => (
-          <option key={j.id} value={j.id}>
-            {j.nama}
+        <option value="">Semua Customer</option>
+        {customers.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name} ({c.phone})
           </option>
         ))}
       </select>
-
-      <select
-        className="py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm min-w-[140px]"
-        value={filterType}
-        onChange={(e) => setFilterType(e.target.value)}
-        disabled={!filterJenis}
-      >
-        <option value="">Semua Tipe</option>
-        {filteredTypesForFilter.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.nama}
-          </option>
-        ))}
-      </select>
-
-      <button
-        onClick={() => {
-          setSearch("");
-          setFilterJenis("");
-          setFilterType("");
-        }}
-        className="py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm whitespace-nowrap font-medium"
-      >
-        Reset
-      </button>
     </div>
-
     <button
-      onClick={() => setSearch("")}
-      className="sm:hidden py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+      onClick={() => {
+        setSearch("");
+        setFilterCustomer("");
+      }}
+      className="py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm whitespace-nowrap font-medium"
     >
-      ⓧ
+      Reset Filter
     </button>
   </div>
 );
 
-const ProductPage = ({ setNavbarContent }) => {
+const ProductCustomerPage = ({ setNavbarContent }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filterJenis, setFilterJenis] = useState("");
-  const [filterType, setFilterType] = useState("");
+  const [filterCustomer, setFilterCustomer] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
+  const [customers, setCustomers] = useState([]);
+  const [jenis, setJenis] = useState([]);
+  const [allTypes, setAllTypes] = useState([]);
+  const [filteredTypes, setFilteredTypes] = useState([]);
+  const [bahan, setBahan] = useState([]);
+
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.role;
 
+  // Form state
   const [form, setForm] = useState({
+    customer_id: "",
     jenis_id: "",
     type_id: "",
     bahan_id: "",
     ukuran: "",
     keterangan: "",
-    harga_umum: "",
+    harga: "",
   });
-
   const [fotoDepan, setFotoDepan] = useState(null);
   const [fotoSamping, setFotoSamping] = useState(null);
   const [fotoAtas, setFotoAtas] = useState(null);
-
   const [jenisInputBaru, setJenisInputBaru] = useState("");
   const [typeInputBaru, setTypeInputBaru] = useState("");
   const [bahanInputBaru, setBahanInputBaru] = useState("");
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [fotoModal, setFotoModal] = useState(null);
 
-  const [jenis, setJenis] = useState([]);
-  const [allTypes, setAllTypes] = useState([]);
-  const [filteredTypes, setFilteredTypes] = useState([]);
-  const [bahan, setBahan] = useState([]);
-  const [filteredTypesForFilter, setFilteredTypesForFilter] = useState([]);
-
+  // Refs for file inputs
   const cameraInputDepan = useRef(null);
   const cameraInputSamping = useRef(null);
   const cameraInputAtas = useRef(null);
@@ -219,115 +123,97 @@ const ProductPage = ({ setNavbarContent }) => {
   const fileInputSamping = useRef(null);
   const fileInputAtas = useRef(null);
 
-  const fetchData = async (params = {}) => {
+  // Fetch master data
+  const fetchMasterData = async () => {
     try {
-      setLoading(true);
-      const res = await api.get("/products", {
-        params: { ...params, page: currentPage },
-      });
-
-      const filteredProducts = res.data.data.filter(
-        (item) => item.distributor_id === null && item.customer_id === null,
-      );
-
-      setProducts(filteredProducts);
-      setLastPage(res.data.meta?.last_page || 1);
-
-      const [jRes, tRes, bRes] = await Promise.all([
+      const [cRes, jRes, tRes, bRes] = await Promise.all([
+        api.get("/customers"),
         api.get("/jenis"),
         api.get("/type"),
         api.get("/bahan"),
       ]);
+      setCustomers(cRes.data.data);
       setJenis(jRes.data.data);
       setAllTypes(tRes.data.data);
       setBahan(bRes.data.data);
-    } catch {
-      Swal.fire("Error", "Gagal mengambil data", "error");
+    } catch (error) {
+      console.error("Error fetching master data:", error);
+    }
+  };
+
+  // Fetch products
+  const fetchData = async (params = {}) => {
+    try {
+      setLoading(true);
+      const res = await api.get("/product-customers", {
+        params: {
+          ...params,
+          page: currentPage,
+          customer_id: filterCustomer || undefined,
+          search: search || undefined,
+        },
+      });
+      setProducts(res.data.data);
+      setLastPage(res.data.meta?.last_page || 1);
+    } catch (error) {
+      Swal.fire("Error", "Gagal mengambil data produk customer", "error");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData({ search, jenis_id: filterJenis, type_id: filterType });
-  }, [search, filterJenis, filterType, currentPage]);
+    fetchMasterData();
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [search, filterCustomer, currentPage]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterJenis, filterType]);
+  }, [search, filterCustomer]);
 
-  const prevFilterJenisRef = useRef(filterJenis);
-
+  // Filter types based on selected jenis
   useEffect(() => {
-    if (!filterJenis) {
-      setFilteredTypesForFilter([]);
-      setFilterType("");
-      prevFilterJenisRef.current = filterJenis;
-      return;
-    }
-
-    const filtered = allTypes.filter(
-      (t) => String(t.jenis_id) === String(filterJenis),
-    );
-
-    setFilteredTypesForFilter(filtered);
-
-    if (prevFilterJenisRef.current !== filterJenis) {
-      setFilterType("");
-      prevFilterJenisRef.current = filterJenis;
-    }
-  }, [filterJenis, allTypes]);
-
-  useEffect(() => {
-    if (allTypes.length === 0) return;
-
-    if (!form.jenis_id || form.jenis_id === "new") {
+    if (!form.jenis_id || form.jenis_id === "new" || allTypes.length === 0) {
       setFilteredTypes([]);
       if (!isEdit) {
         setForm((prev) => ({ ...prev, type_id: "" }));
       }
       return;
     }
-
     const filtered = allTypes.filter(
       (t) => String(t.jenis_id) === String(form.jenis_id),
     );
-
     setFilteredTypes(filtered);
-
     if (!isEdit) {
       setForm((prev) => ({ ...prev, type_id: "" }));
     }
   }, [form.jenis_id, allTypes, isEdit]);
 
-  const getKodePreview = () => {
-    const jenisNama =
-      form.jenis_id === "new"
-        ? jenisInputBaru
-        : jenis.find((j) => String(j.id) === String(form.jenis_id))?.nama || "";
-
-    const typeNama =
-      form.type_id === "new"
-        ? typeInputBaru
-        : allTypes.find((t) => String(t.id) === String(form.type_id))?.nama ||
-          "";
-
-    const bahanNama =
-      form.bahan_id === "new"
-        ? bahanInputBaru
-        : bahan.find((b) => String(b.id) === String(form.bahan_id))?.nama || "";
-
-    return generateKode(jenisNama, typeNama, bahanNama, form.ukuran);
-  };
+  // Set navbar content with filter bar
+  useEffect(() => {
+    setNavbarContent(
+      <ProductCustomerFilterBar
+        search={search}
+        setSearch={setSearch}
+        filterCustomer={filterCustomer}
+        setFilterCustomer={setFilterCustomer}
+        customers={customers}
+      />,
+    );
+  }, [search, filterCustomer, customers, setNavbarContent]);
 
   const handleTambah = () => {
     setForm({
+      customer_id: "",
       jenis_id: "",
       type_id: "",
       bahan_id: "",
       ukuran: "",
       keterangan: "",
-      harga_umum: "",
+      harga: "",
     });
     setFotoDepan(null);
     setFotoSamping(null);
@@ -342,19 +228,20 @@ const ProductPage = ({ setNavbarContent }) => {
 
   const handleEdit = (item) => {
     if (loading) {
-      Swal.fire("Tunggu...", "Data master sedang dimuat", "info");
+      Swal.fire("Tunggu...", "Data sedang dimuat", "info");
       return;
     }
-
     setForm({
+      customer_id: item.customer_id,
       jenis_id: item.jenis_id,
       type_id: item.type_id || "",
       bahan_id: item.bahan_id || "",
       ukuran: item.ukuran,
       keterangan: item.keterangan || "",
-      harga_umum: formatRupiah(item.harga_umum),
+      harga: formatRupiah(
+        item.harga_customer || item.harga_products?.[0]?.harga || 0,
+      ),
     });
-
     setFotoDepan(
       item.foto_depan
         ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`
@@ -370,24 +257,52 @@ const ProductPage = ({ setNavbarContent }) => {
         ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`
         : null,
     );
-
-    setJenisInputBaru("");
-    setTypeInputBaru("");
-    setBahanInputBaru("");
     setSelectedId(item.id);
     setIsEdit(true);
     setIsModalOpen(true);
   };
 
+  const handleDelete = async (id) => {
+    const confirm = await Swal.fire({
+      title: "Hapus Produk Customer?",
+      text: "Data akan dihapus permanen",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Hapus",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#d33",
+    });
+    if (confirm.isConfirmed) {
+      try {
+        await api.delete(`/product-customers/${id}`);
+        Swal.fire("Berhasil", "Produk customer dihapus", "success");
+        fetchData();
+      } catch (error) {
+        Swal.fire(
+          "Error",
+          error.response?.data?.message || "Gagal menghapus produk",
+          "error",
+        );
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const kodeToSubmit = getKodePreview();
-    if (!kodeToSubmit || !form.ukuran) {
-      Swal.fire("Validasi", "Kode dan Ukuran wajib diisi", "warning");
-      return;
+
+    // Validasi untuk create
+    if (!isEdit) {
+      if (!form.customer_id) {
+        Swal.fire("Validasi", "Customer wajib dipilih", "warning");
+        return;
+      }
+      if (!form.ukuran) {
+        Swal.fire("Validasi", "Ukuran wajib diisi", "warning");
+        return;
+      }
     }
 
-    const hargaNum = unformatRupiah(form.harga_umum);
+    const hargaNum = unformatRupiah(form.harga);
     if (hargaNum === 0) {
       const confirm = await Swal.fire({
         title: "Harga Rp0?",
@@ -395,61 +310,51 @@ const ProductPage = ({ setNavbarContent }) => {
         icon: "question",
         showCancelButton: true,
         confirmButtonText: "Ya, Simpan",
-        cancelButtonText: "Batal",
+        cancelButtonButtonText: "Batal",
       });
       if (!confirm.isConfirmed) return;
     }
 
-    let jenisNama = "";
-    if (form.jenis_id === "new") jenisNama = jenisInputBaru.trim();
-    else {
-      const j = jenis.find((j) => String(j.id) === String(form.jenis_id));
-      jenisNama = j ? j.nama : "";
-    }
-
-    let typeName = "";
-    if (form.type_id === "new") typeName = typeInputBaru.trim();
-    else {
-      const t = allTypes.find((t) => String(t.id) === String(form.type_id));
-      typeName = t ? t.nama : "";
-    }
-
-    let bahanNama = "";
-    if (form.bahan_id === "new") bahanNama = bahanInputBaru.trim();
-    else {
-      const b = bahan.find((b) => String(b.id) === String(form.bahan_id));
-      bahanNama = b ? b.nama : "";
-    }
+    // Get names for preview
+    const customer = customers.find(
+      (c) => String(c.id) === String(form.customer_id),
+    );
+    const jenisNama =
+      form.jenis_id === "new"
+        ? jenisInputBaru
+        : jenis.find((j) => String(j.id) === String(form.jenis_id))?.nama || "";
+    const typeNama =
+      form.type_id === "new"
+        ? typeInputBaru
+        : allTypes.find((t) => String(t.id) === String(form.type_id))?.nama ||
+          "";
+    const bahanNama =
+      form.bahan_id === "new"
+        ? bahanInputBaru
+        : bahan.find((b) => String(b.id) === String(form.bahan_id))?.nama || "";
 
     const dataPreview = `
-    <div style="text-align: center; font-size: 14px;">
-      <strong>Kode:</strong> ${kodeToSubmit}<br/>
-      <strong>Jenis:</strong> ${jenisNama || "-"}<br/>
-      <strong>Tipe:</strong> ${typeName || "-"}<br/>
-      <strong>Bahan:</strong> ${bahanNama || "-"}<br/>
-      <strong>Ukuran:</strong> ${form.ukuran}<br/>
-      <strong>Harga Umum:</strong> ${formatRupiah(hargaNum)}<br/>
-      ${
-        form.keterangan
-          ? `<strong>Keterangan:</strong> ${form.keterangan}<br/>`
-          : ""
-      }
-      <strong>Foto Depan:</strong> ${
-        fotoDepan ? "✅ Terupload" : "❌ Tidak ada"
-      }<br/>
-      <strong>Foto Samping:</strong> ${
-        fotoSamping ? "✅ Terupload" : "❌ Tidak ada"
-      }<br/>
-      <strong>Foto Atas:</strong> ${fotoAtas ? "✅ Terupload" : "❌ Tidak ada"}
-    </div>`;
+      <div style="text-align: left; font-size: 14px; line-height: 1.5;">
+        ${!isEdit ? `<strong>Customer:</strong> ${customer?.name || "-"}<br/>` : ""}
+        <strong>Kode:</strong> ${isEdit ? "Tidak berubah (tetap)" : "Akan digenerate otomatis"}<br/>
+        <strong>Jenis:</strong> ${jenisNama || "-"}<br/>
+        <strong>Tipe:</strong> ${typeNama || "-"}<br/>
+        <strong>Bahan:</strong> ${bahanNama || "-"}<br/>
+        <strong>Ukuran:</strong> ${form.ukuran || "-"}<br/>
+        <strong>Harga:</strong> ${formatRupiah(hargaNum)}<br/>
+        ${form.keterangan ? `<strong>Keterangan:</strong> ${form.keterangan}<br/>` : ""}
+        <strong>Foto Depan:</strong> ${fotoDepan ? "✅ Terupload" : "❌ Tidak ada"}<br/>
+        <strong>Foto Samping:</strong> ${fotoSamping ? "✅ Terupload" : "❌ Tidak ada"}<br/>
+        <strong>Foto Atas:</strong> ${fotoAtas ? "✅ Terupload" : "❌ Tidak ada"}
+      </div>`;
 
     const action = isEdit ? "memperbarui" : "menambah";
     const result = await Swal.fire({
-      title: `Konfirmasi ${isEdit ? "Perubahan" : "Penambahan"} Product`,
+      title: `Konfirmasi ${isEdit ? "Perubahan" : "Penambahan"} Produk Customer`,
       html: dataPreview,
       icon: "info",
       showCancelButton: true,
-      confirmButtonText: `Ya, ${action} product`,
+      confirmButtonText: `Ya, ${action}`,
       cancelButtonText: "Batal",
       reverseButtons: true,
       confirmButtonColor: "#3b82f6",
@@ -460,7 +365,7 @@ const ProductPage = ({ setNavbarContent }) => {
 
     try {
       Swal.fire({
-        title: isEdit ? "Memperbarui product..." : "Menyimpan product...",
+        title: isEdit ? "Memperbarui produk..." : "Menyimpan produk...",
         html: "Mohon tunggu, sedang memproses data.",
         allowOutsideClick: false,
         allowEscapeKey: false,
@@ -469,42 +374,62 @@ const ProductPage = ({ setNavbarContent }) => {
       });
 
       const formData = new FormData();
-      formData.append("kode", kodeToSubmit);
+
+      // Untuk CREATE
+      if (!isEdit) {
+        formData.append("customer_id", form.customer_id);
+        if (form.jenis_id && form.jenis_id !== "new") {
+          formData.append("jenis_id", form.jenis_id);
+        } else if (form.jenis_id === "new" && jenisInputBaru.trim()) {
+          formData.append("jenis_nama", jenisInputBaru.trim().toUpperCase());
+        }
+
+        if (form.type_id && form.type_id !== "new") {
+          formData.append("type_id", form.type_id);
+        } else if (form.type_id === "new" && typeInputBaru.trim()) {
+          formData.append("type_nama", typeInputBaru.trim().toUpperCase());
+        }
+
+        if (form.bahan_id && form.bahan_id !== "new") {
+          formData.append("bahan_id", form.bahan_id);
+        } else if (form.bahan_id === "new" && bahanInputBaru.trim()) {
+          formData.append("bahan_nama", bahanInputBaru.trim().toUpperCase());
+        }
+      }
+
+      // Fields yang selalu dikirim (create & update)
       formData.append("ukuran", form.ukuran);
-      formData.append("harga_umum", hargaNum);
+      formData.append("harga", hargaNum.toString());
       if (form.keterangan) formData.append("keterangan", form.keterangan);
-      if (form.jenis_id && form.jenis_id !== "new")
-        formData.append("jenis_id", form.jenis_id);
-      if (form.jenis_id === "new")
-        formData.append("jenis_nama", jenisInputBaru.trim());
-      if (form.type_id && form.type_id !== "new")
-        formData.append("type_id", form.type_id);
-      if (form.type_id === "new")
-        formData.append("type_nama", typeInputBaru.trim());
-      if (form.bahan_id && form.bahan_id !== "new")
-        formData.append("bahan_id", form.bahan_id);
-      if (form.bahan_id === "new")
-        formData.append("bahan_nama", bahanInputBaru.trim());
+
+      // Upload foto jika ada file baru
       if (fotoDepan instanceof File) formData.append("foto_depan", fotoDepan);
       if (fotoSamping instanceof File)
         formData.append("foto_samping", fotoSamping);
       if (fotoAtas instanceof File) formData.append("foto_atas", fotoAtas);
 
+      let response;
       if (isEdit) {
-        await api.post(`/products/${selectedId}?_method=PUT`, formData);
+        response = await api.post(
+          `/product-customers/${selectedId}?_method=PUT`,
+          formData,
+        );
       } else {
-        await api.post("/products", formData);
+        response = await api.post("/product-customers", formData);
       }
 
       Swal.close();
       Swal.fire(
         "Berhasil",
-        isEdit ? "Product berhasil diperbarui" : "Product berhasil ditambahkan",
+        isEdit
+          ? "Produk customer berhasil diperbarui"
+          : "Produk customer berhasil ditambahkan",
         "success",
       );
+
       setIsModalOpen(false);
       setCurrentPage(1);
-      fetchData({ search, jenis_id: filterJenis, type_id: filterType });
+      fetchData();
     } catch (error) {
       Swal.close();
       if (error.response?.status === 422) {
@@ -513,38 +438,14 @@ const ProductPage = ({ setNavbarContent }) => {
           .join("<br>");
         Swal.fire("Validasi Gagal", msg, "warning");
       } else {
-        Swal.fire("Error", "Terjadi kesalahan saat menyimpan data", "error");
+        Swal.fire(
+          "Error",
+          error.response?.data?.message ||
+            "Terjadi kesalahan saat menyimpan data",
+          "error",
+        );
       }
     }
-  };
-
-  const handleDelete = async (id) => {
-    const confirm = await Swal.fire({
-      title: "Hapus Product?",
-      text: "Data akan dihapus permanen",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Hapus",
-      cancelButtonText: "Batal",
-    });
-
-    if (confirm.isConfirmed) {
-      try {
-        await api.delete(`/products/${id}`);
-        Swal.fire("Berhasil", "Product dihapus", "success");
-        fetchData({ search, jenis_id: filterJenis, type_id: filterType });
-      } catch {
-        Swal.fire("Error", "Gagal menghapus Product", "error");
-      }
-    }
-  };
-
-  const formatProductName = (p) => {
-    if (!p) return "-";
-    const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(
-      (part) => part != null && part !== "",
-    );
-    return parts.length > 0 ? parts.join(" ") : "-";
   };
 
   const handleFileChange = (e, setFile) => {
@@ -563,14 +464,13 @@ const ProductPage = ({ setNavbarContent }) => {
   };
 
   const handleRemoveFoto = (setFile) => setFile(null);
-
   const openFotoModal = (fotoUrl) => setFotoModal(fotoUrl);
   const closeFotoModal = () => setFotoModal(null);
 
   const handleHargaChange = (value) => {
     const clean = value.replace(/\D/g, "");
     const num = clean === "" ? 0 : parseInt(clean, 10);
-    setForm((prev) => ({ ...prev, harga_umum: formatRupiah(num) }));
+    setForm((prev) => ({ ...prev, harga: formatRupiah(num) }));
   };
 
   const renderPagination = () => {
@@ -701,29 +601,13 @@ const ProductPage = ({ setNavbarContent }) => {
     </div>
   );
 
-  const kodePreview = getKodePreview();
-
-  useEffect(() => {
-    setNavbarContent(
-      <ProductFilterBar
-        search={search}
-        setSearch={setSearch}
-        filterJenis={filterJenis}
-        setFilterJenis={setFilterJenis}
-        filterType={filterType}
-        setFilterType={setFilterType}
-        jenis={jenis}
-        filteredTypesForFilter={filteredTypesForFilter}
-      />,
+  const formatProductName = (p) => {
+    if (!p) return "-";
+    const parts = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(
+      (part) => part != null && part !== "",
     );
-  }, [
-    search,
-    filterJenis,
-    filterType,
-    jenis,
-    filteredTypesForFilter,
-    setNavbarContent,
-  ]);
+    return parts.length > 0 ? parts.join(" ") : "-";
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -733,13 +617,14 @@ const ProductPage = ({ setNavbarContent }) => {
         </div>
       ) : products.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
-          Tidak ada Product ditemukan
+          Tidak ada Produk Customer ditemukan
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
             {products.map((item) => {
-              const totalQty = (item.qty_toko || 0) + (item.qty_bengkel || 0);
+              const hargaCustomer =
+                item.harga_customer || item.harga_products?.[0]?.harga || 0;
               return (
                 <div
                   key={item.id}
@@ -749,48 +634,36 @@ const ProductPage = ({ setNavbarContent }) => {
                   <div className="flex justify-center gap-2 mb-3">
                     {item.foto_depan && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
-                          item.foto_depan
-                        }`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`}
                         alt="Foto Depan"
                         className="w-14 h-14 object-cover rounded cursor-pointer border hover:shadow transition"
                         onClick={() =>
                           openFotoModal(
-                            `${import.meta.env.VITE_ASSET_URL}/storage/${
-                              item.foto_depan
-                            }`,
+                            `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`,
                           )
                         }
                       />
                     )}
                     {item.foto_samping && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
-                          item.foto_samping
-                        }`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`}
                         alt="Foto Samping"
                         className="w-14 h-14 object-cover rounded cursor-pointer border hover:shadow transition"
                         onClick={() =>
                           openFotoModal(
-                            `${import.meta.env.VITE_ASSET_URL}/storage/${
-                              item.foto_samping
-                            }`,
+                            `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`,
                           )
                         }
                       />
                     )}
                     {item.foto_atas && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
-                          item.foto_atas
-                        }`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`}
                         alt="Foto Atas"
                         className="w-14 h-14 object-cover rounded cursor-pointer border hover:shadow transition"
                         onClick={() =>
                           openFotoModal(
-                            `${import.meta.env.VITE_ASSET_URL}/storage/${
-                              item.foto_atas
-                            }`,
+                            `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`,
                           )
                         }
                       />
@@ -805,10 +678,18 @@ const ProductPage = ({ setNavbarContent }) => {
                   </div>
 
                   {/* Kode Produk */}
-                  <div className="text-center mb-2">
-                    <p className="font-semibold text-sm text-gray-800 break-words whitespace-normal leading-snug">
+                  <div className="text-center mb-1">
+                    <p className="font-mono font-semibold text-xs text-indigo-700 break-words whitespace-normal leading-snug">
                       {item.kode}
                     </p>
+                  </div>
+
+                  {/* Customer */}
+                  <div className="text-center mb-2 flex items-center justify-center gap-1 text-xs text-blue-600 bg-blue-50 py-1 px-2 rounded">
+                    <User size={12} className="flex-shrink-0" />
+                    <span className="truncate max-w-[120px]">
+                      {item.customer?.name || "—"}
+                    </span>
                   </div>
 
                   {/* Nama Produk */}
@@ -818,28 +699,12 @@ const ProductPage = ({ setNavbarContent }) => {
                     </p>
                   </div>
 
-                  {/* Harga */}
-                  <div className="text-center mb-2 flex items-center justify-center gap-1 text-sm">
+                  {/* Harga Customer */}
+                  <div className="text-center mb-3 flex items-center justify-center gap-1 text-sm">
                     <Tag size={14} className="text-amber-600 flex-shrink-0" />
-                    <span className="font-medium text-amber-700 truncate">
-                      {formatRupiah(item.harga_umum)}
+                    <span className="font-bold text-amber-700 truncate">
+                      {formatRupiah(hargaCustomer)}
                     </span>
-                  </div>
-
-                  {/* Stok */}
-                  <div className="text-center mb-3 text-xs text-gray-600 space-y-0.5">
-                    <div className="flex items-center justify-center gap-1">
-                      <Warehouse size={12} className="flex-shrink-0" />{" "}
-                      <span>TOKO: {item.qty_toko || 0}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1">
-                      <Warehouse size={12} className="flex-shrink-0" />{" "}
-                      <span>BENGKEL: {item.qty_bengkel || 0}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1 font-medium">
-                      <Warehouse size={12} className="flex-shrink-0" />{" "}
-                      <span>TOTAL: {totalQty}</span>
-                    </div>
                   </div>
 
                   {/* Keterangan */}
@@ -857,15 +722,16 @@ const ProductPage = ({ setNavbarContent }) => {
                       <button
                         onClick={() => handleEdit(item)}
                         className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-xs font-medium transition-colors duration-200"
+                        title="Edit Produk"
                       >
                         <Pencil size={12} />
                       </button>
                     )}
-
                     {role === "admin" && (
                       <button
                         onClick={() => handleDelete(item.id)}
                         className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-rose-100 text-rose-800 rounded-lg hover:bg-rose-200 text-xs font-medium transition-colors duration-200"
+                        title="Hapus Produk"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -879,45 +745,60 @@ const ProductPage = ({ setNavbarContent }) => {
         </>
       )}
 
+      {/* Tombol Tambah - hanya untuk admin & admin_toko */}
       {(role === "admin" || role === "admin_toko") && (
         <button
           onClick={handleTambah}
           className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+          title="Tambah Produk Customer"
         >
           <Plus size={18} />
         </button>
       )}
 
+      {/* Modal Form */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="p-5 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800 text-center">
-                {isEdit ? "Edit Product" : "Tambah Product"}
+                {isEdit ? "Edit Produk Customer" : "Tambah Produk Customer"}
               </h2>
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Kode <span className="text-red-500">*</span>
-                </label>
-                <div className="w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 font-mono">
-                  {kodePreview || "—"}
+              {!isEdit && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Customer <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
+                    value={form.customer_id}
+                    onChange={(e) =>
+                      setForm({ ...form, customer_id: e.target.value })
+                    }
+                    required
+                    disabled={isEdit}
+                  >
+                    <option value="">Pilih Customer</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} - {c.phone}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  Kode akan di-generate otomatis oleh sistem
-                </p>
-              </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Harga Umum <span className="text-red-500">*</span>
+                  Harga Customer <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   inputMode="numeric"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-                  value={form.harga_umum}
+                  value={form.harga}
                   onChange={(e) => handleHargaChange(e.target.value)}
                   placeholder="Rp0"
                   required
@@ -973,14 +854,13 @@ const ProductPage = ({ setNavbarContent }) => {
                 >
                   <option value="">Pilih Tipe</option>
                   {form.jenis_id &&
-                  form.jenis_id !== "new" &&
-                  filteredTypes.length > 0
-                    ? filteredTypes.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.nama}
-                        </option>
-                      ))
-                    : null}
+                    form.jenis_id !== "new" &&
+                    filteredTypes.length > 0 &&
+                    filteredTypes.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.nama}
+                      </option>
+                    ))}
                   <option value="new">➕ Tambah Tipe Baru</option>
                 </select>
                 {form.type_id === "new" && (
@@ -1092,7 +972,7 @@ const ProductPage = ({ setNavbarContent }) => {
                   className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition disabled:opacity-70 disabled:cursor-not-allowed"
                   disabled={loading}
                 >
-                  Simpan
+                  {isEdit ? "Perbarui" : "Simpan"}
                 </button>
               </div>
             </form>
@@ -1100,6 +980,7 @@ const ProductPage = ({ setNavbarContent }) => {
         </div>
       )}
 
+      {/* Modal Foto Preview */}
       {fotoModal && (
         <div
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
@@ -1112,7 +993,10 @@ const ProductPage = ({ setNavbarContent }) => {
               className="max-w-full max-h-[90vh] object-contain rounded"
             />
             <button
-              onClick={closeFotoModal}
+              onClick={(e) => {
+                e.stopPropagation();
+                closeFotoModal();
+              }}
               className="absolute -top-12 right-0 bg-white rounded-full p-2 shadow-lg"
             >
               <X size={20} className="text-gray-700" />
@@ -1124,4 +1008,4 @@ const ProductPage = ({ setNavbarContent }) => {
   );
 };
 
-export default ProductPage;
+export default ProductCustomerPage;

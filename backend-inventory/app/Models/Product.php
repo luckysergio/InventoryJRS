@@ -12,6 +12,7 @@ class Product extends Model
         'type_id',
         'bahan_id',
         'distributor_id',
+        'customer_id',
         'harga_beli',
         'qty',
         'foto_depan',
@@ -38,7 +39,37 @@ class Product extends Model
 
     public function distributor()
     {
-        return $this->belongsTo(Distributor::class);
+        return $this->belongsTo(Distributor::class, 'distributor_id');
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
+    }
+
+    public function hargaProducts()
+    {
+        return $this->hasMany(HargaProduct::class, 'product_id');
+    }
+
+    public function details()
+    {
+        return $this->hasMany(TransaksiDetail::class, 'product_id');
+    }
+
+    public function inventories()
+    {
+        return $this->hasMany(Inventory::class, 'product_id');
+    }
+
+    public function place()
+    {
+        return $this->belongsTo(Place::class, 'place_id');
+    }
+
+    public function productions()
+    {
+        return $this->hasMany(Production::class, 'product_id');
     }
 
     public function getFotoDepanUrlAttribute()
@@ -54,35 +85,5 @@ class Product extends Model
     public function getFotoAtasUrlAttribute()
     {
         return $this->foto_atas ? asset('storage/' . $this->foto_atas) : null;
-    }
-
-    public function hargaProducts()
-    {
-        return $this->hasMany(HargaProduct::class, 'product_id');
-    }
-
-    public function customer()
-    {
-        return $this->belongsTo(Customer::class);
-    }
-
-    public function details()
-    {
-        return $this->hasMany(TransaksiDetail::class);
-    }
-
-    public function inventories()
-    {
-        return $this->hasMany(Inventory::class);
-    }
-
-    public function place()
-    {
-        return $this->belongsTo(Place::class);
-    }
-
-    public function productions()
-    {
-        return $this->hasMany(Production::class);
     }
 }

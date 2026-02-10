@@ -1,4 +1,3 @@
-// src/pages/admin/HargaProductPage.jsx
 import { useEffect, useState, useMemo, useRef } from "react";
 import Swal from "sweetalert2";
 import { Plus, Pencil, Trash2, Globe, User, Search } from "lucide-react";
@@ -145,52 +144,52 @@ const HargaProductPage = ({ setNavbarContent }) => {
     fetchData();
   }, []);
 
-  // Filter types berdasarkan jenis yang dipilih
   const filteredTypes = useMemo(() => {
     if (!filterJenis) return [];
-    return allTypes.filter((t) => t.jenis_id === Number(filterJenis));
+    return allTypes.filter((t) => String(t.jenis_id) === String(filterJenis));
   }, [filterJenis, allTypes]);
 
-  // Filter produk
-  const filteredProducts = useMemo(() => {
-    let result = [...products];
-    if (searchKode) {
-      const term = searchKode.toLowerCase();
-      result = result.filter((p) => p.kode.toLowerCase().includes(term));
-    }
-    if (filterJenis) {
-      result = result.filter((p) => p.jenis_id === Number(filterJenis));
-    }
-    if (filterType) {
-      result = result.filter((p) => p.type_id === Number(filterType));
-    }
-    return result;
-  }, [products, searchKode, filterJenis, filterType]);
+  // 🔥 FILTER BERDASARKAN hargaList.product
+  const filteredHarga = useMemo(() => {
+    return hargaList.filter((h) => {
+      const p = h.product;
+      if (!p) return false;
 
-  // Kelompokkan harga berdasarkan produk yang difilter
-  const groupedByProduct = useMemo(() => {
-    const productMap = new Map();
-    filteredProducts.forEach((p) => productMap.set(p.id, p));
-
-    const hargaByProduct = {};
-    hargaList.forEach((h) => {
-      const pid = Number(h.product_id);
-
-      if (productMap.has(pid)) {
-        if (!hargaByProduct[pid]) {
-          hargaByProduct[pid] = [];
-        }
-        hargaByProduct[pid].push(h);
+      if (searchKode) {
+        if (!p.kode.toLowerCase().includes(searchKode.toLowerCase()))
+          return false;
       }
-    });
 
-    return filteredProducts
-      .map((p) => ({
-        product: p,
-        harga: hargaByProduct[p.id] || [],
-      }))
-      .filter((group) => group.harga.length > 0);
-  }, [filteredProducts, hargaList]);
+      if (filterJenis && String(p.jenis_id) !== String(filterJenis))
+        return false;
+
+      if (filterType && String(p.type_id) !== String(filterType))
+        return false;
+
+      return true;
+    });
+  }, [hargaList, searchKode, filterJenis, filterType]);
+
+  const groupedByProduct = useMemo(() => {
+  const map = {};
+
+  filteredHarga.forEach((h) => {
+    const pid = h.product?.id;
+    if (!pid) return;
+
+    if (!map[pid]) {
+      map[pid] = {
+        product: h.product,
+        harga: [],
+      };
+    }
+
+    map[pid].harga.push(h);
+  });
+
+  return Object.values(map);
+}, [filteredHarga]);
+
 
   const handleTambah = () => {
     setForm({
@@ -276,7 +275,6 @@ const HargaProductPage = ({ setNavbarContent }) => {
     return parts.join(" ") || p.kode;
   };
 
-  // ✅ Kirim filter ke Navbar
   useEffect(() => {
     setNavbarContent(
       <HargaFilterBar

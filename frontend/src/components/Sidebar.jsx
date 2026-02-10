@@ -48,6 +48,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     const productRoutes = [
       "/product",
       "/product-distributor",
+      "/product-customer",
       "/harga-product",
       "/product-terlaris",
     ];
@@ -408,6 +409,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         icon={Boxes}
       >
         <SubNavLink to="/product">Product</SubNavLink>
+        <SubNavLink to="/product-customer">Product Customer</SubNavLink>
         <SubNavLink to="/product-distributor">Product Distributor</SubNavLink>
         <SubNavLink to="/product-terlaris">Product Terlaris</SubNavLink>
         <SubNavLink to="/harga-product">Harga Product</SubNavLink>

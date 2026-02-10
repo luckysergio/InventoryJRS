@@ -364,6 +364,7 @@ class PesananTransaksiController extends Controller
                         'jenis_id' => $jenis->id,
                         'type_id' => $type?->id,
                         'bahan_id' => $bahan?->id,
+                        'customer_id' => $customer->id,
                         'ukuran' => $d['product_baru']['ukuran'],
                         'keterangan' => $d['product_baru']['keterangan'] ?? null,
                     ]);
@@ -559,6 +560,7 @@ class PesananTransaksiController extends Controller
                         'jenis_id' => $jenis->id,
                         'type_id' => $type?->id,
                         'bahan_id' => $bahan?->id,
+                        'customer_id' => $customer->id,
                         'ukuran' => $d['product_baru']['ukuran'],
                         'keterangan' => $d['product_baru']['keterangan'] ?? null,
                     ]);

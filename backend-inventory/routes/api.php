@@ -16,6 +16,7 @@ use App\Http\Controllers\api\KaryawanController;
 use App\Http\Controllers\api\PembayaranController;
 use App\Http\Controllers\api\PlaceController;
 use App\Http\Controllers\api\ProductController;
+use App\Http\Controllers\api\ProductCustomerController;
 use App\Http\Controllers\api\ProductDistributorController;
 use App\Http\Controllers\api\ProductionController;
 use App\Http\Controllers\api\ProductMovementController;
@@ -100,6 +101,12 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::get('/product-distributors/{id}', [ProductDistributorController::class, 'show'])->middleware('role:admin,admin_toko,operator');
     Route::put('/product-distributors/{id}', [ProductDistributorController::class, 'update'])->middleware('role:admin');
     Route::delete('/product-distributors/{id}', [ProductDistributorController::class, 'destroy'])->middleware('role:admin');
+
+    Route::get('/product-customers', [ProductCustomerController::class, 'index'])->middleware('role:admin,admin_toko,operator');
+    Route::post('/product-customers', [ProductCustomerController::class, 'store'])->middleware('role:admin,admin_toko');
+    Route::get('/product-customers/{id}', [ProductCustomerController::class, 'show'])->middleware('role:admin,admin_toko,operator');
+    Route::put('/product-customers/{id}', [ProductCustomerController::class, 'update'])->middleware('role:admin');
+    Route::delete('/product-customers/{id}', [ProductCustomerController::class, 'destroy'])->middleware('role:admin');
 
     // Jenis Product
     Route::get('/jenis', [JenisProductController::class, 'index'])->middleware('role:admin,admin_toko,operator');
