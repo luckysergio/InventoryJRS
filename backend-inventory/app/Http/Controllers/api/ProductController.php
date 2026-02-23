@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
-use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -36,8 +35,32 @@ class ProductController extends Controller
             }
         ]);
 
+        // 🔍 Perbaikan: Search multi-field (Kode + Nama Produk)
         if ($request->filled('search')) {
-            $query->where('kode', 'like', "%{$request->search}%");
+            $searchTerm = "%{$request->search}%";
+
+            $query->where(function ($q) use ($searchTerm) {
+                // Cari di kode produk
+                $q->where('kode', 'like', $searchTerm)
+
+                    // Cari di nama jenis
+                    ->orWhereHas('jenis', function ($q) use ($searchTerm) {
+                        $q->where('nama', 'like', $searchTerm);
+                    })
+
+                    // Cari di nama tipe
+                    ->orWhereHas('type', function ($q) use ($searchTerm) {
+                        $q->where('nama', 'like', $searchTerm);
+                    })
+
+                    // Cari di nama bahan
+                    ->orWhereHas('bahan', function ($q) use ($searchTerm) {
+                        $q->where('nama', 'like', $searchTerm);
+                    })
+
+                    // Cari di ukuran
+                    ->orWhere('ukuran', 'like', $searchTerm);
+            });
         }
 
         if ($request->filled('jenis_id')) {
@@ -139,7 +162,18 @@ class ProductController extends Controller
     private function bahanKode(string $text): string
     {
         $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
-        return substr(trim($clean), 0, 2);
+
+        $words = collect(
+            preg_split('/\s+/', trim($clean))
+        )->filter(fn($w) => ctype_alpha(substr($w, 0, 1)));
+
+        if ($words->count() === 1) {
+            return substr($words->first(), 0, 2);
+        }
+
+        return $words
+            ->map(fn($w) => substr($w, 0, 1))
+            ->implode('');
     }
 
     private function ukuranKode(string $text): string

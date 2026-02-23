@@ -72,11 +72,21 @@ const typeKode = (text) => {
 
 const bahanKode = (text) => {
   if (!text) return "";
+
   const clean = text
     .replace(/\(.+?\)/g, "")
     .trim()
     .toUpperCase();
-  return clean.slice(0, 2);
+
+  const words = clean
+    .split(/\s+/)
+    .filter((w) => /^[A-Z]/.test(w));
+
+  if (words.length === 1) {
+    return words[0].slice(0, 2);
+  }
+
+  return words.map((w) => w.charAt(0)).join("");
 };
 
 const ukuranKode = (text) => {
@@ -117,7 +127,7 @@ export const ProductFilterBar = ({
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
       <input
         type="text"
-        placeholder="Cari kode..."
+        placeholder="Cari kode atau nama produk..."
         className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -503,7 +513,12 @@ const ProductPage = ({ setNavbarContent }) => {
         "success",
       );
       setIsModalOpen(false);
-      setCurrentPage(1);
+      
+      // ✅ FIX: Hanya reset ke page 1 saat tambah baru, bukan saat edit
+      if (!isEdit) {
+        setCurrentPage(1);
+      }
+      
       fetchData({ search, jenis_id: filterJenis, type_id: filterType });
     } catch (error) {
       Swal.close();
@@ -532,6 +547,7 @@ const ProductPage = ({ setNavbarContent }) => {
       try {
         await api.delete(`/products/${id}`);
         Swal.fire("Berhasil", "Product dihapus", "success");
+        // ✅ FIX: Tetap di page saat ini setelah delete (jangan reset)
         fetchData({ search, jenis_id: filterJenis, type_id: filterType });
       } catch {
         Swal.fire("Error", "Gagal menghapus Product", "error");

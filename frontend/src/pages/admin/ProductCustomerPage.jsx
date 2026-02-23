@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 
+// ===== UTILS =====
 const safeParseFloat = (value) => {
   if (value == null) return 0;
   const num = typeof value === "string" ? parseFloat(value) : value;
@@ -34,6 +35,80 @@ const unformatRupiah = (str) => {
   return parseInt(String(str).replace(/\D/g, ""), 10) || 0;
 };
 
+// ===== KODE GENERATOR FUNCTIONS =====
+const jenisKode = (text) => {
+  if (!text) return "";
+  const clean = text.trim().toUpperCase();
+  if (clean.length < 2) return clean;
+  return clean.charAt(0) + clean.charAt(clean.length - 1);
+};
+
+const typeKode = (text) => {
+  if (!text) return "";
+  const clean = text
+    .replace(/\(.+?\)/g, "")
+    .trim()
+    .toUpperCase();
+  const words = clean.split(/\s+/).filter((w) => /^[A-Z]/.test(w));
+  let huruf = "";
+  if (words.length === 1) {
+    huruf = words[0].slice(0, 2);
+  } else {
+    huruf = words.map((w) => w.charAt(0)).join("");
+  }
+  const numbers = text.match(/\d+/g) || [];
+  const angka =
+    numbers.length >= 2 ? numbers[0] + numbers[1] : numbers[0] || "";
+  return (huruf + angka).toUpperCase();
+};
+
+const bahanKode = (text) => {
+  if (!text) return "";
+  const clean = text
+    .replace(/\(.+?\)/g, "")
+    .trim()
+    .toUpperCase();
+  const words = clean.split(/\s+/).filter((w) => /^[A-Z]/.test(w));
+  return words.length === 1
+    ? words[0].slice(0, 2)
+    : words.map((w) => w.charAt(0)).join("");
+};
+
+const ukuranKode = (text) => {
+  if (!text) return "";
+  const matches = text.match(/\d+[.,]?\d*/g);
+  if (!matches) return "";
+  return matches.map((n) => n.replace(/[.,]/g, "")).join("");
+};
+
+const generateKode = (
+  jenisNama,
+  typeNama,
+  bahanNama,
+  ukuran,
+  customerNama,
+  customerHp,
+) => {
+  const baseKode = (
+    jenisKode(jenisNama) +
+    typeKode(typeNama) +
+    bahanKode(bahanNama) +
+    ukuranKode(ukuran)
+  ).toUpperCase();
+
+  const customerPrefix =
+    customerNama && customerHp
+      ? customerNama
+          .trim()
+          .split(/\s+/)
+          .map((w) => w[0]?.toUpperCase())
+          .join("") + (customerHp.replace(/\D/g, "").slice(-4) || "")
+      : "";
+
+  return customerPrefix ? `${customerPrefix}-${baseKode}` : baseKode;
+};
+// ===== END KODE GENERATOR =====
+
 export const ProductCustomerFilterBar = ({
   search,
   setSearch,
@@ -46,7 +121,7 @@ export const ProductCustomerFilterBar = ({
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
       <input
         type="text"
-        placeholder="Cari kode produk..."
+        placeholder="Cari kode atau nama produk..."
         className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -91,7 +166,7 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
   const [filteredTypes, setFilteredTypes] = useState([]);
   const [bahan, setBahan] = useState([]);
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   const role = user?.role;
 
   // Form state
@@ -114,6 +189,8 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
   const [isEdit, setIsEdit] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [fotoModal, setFotoModal] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [originalKode, setOriginalKode] = useState("");
 
   // Refs for file inputs
   const cameraInputDepan = useRef(null);
@@ -132,12 +209,13 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
         api.get("/type"),
         api.get("/bahan"),
       ]);
-      setCustomers(cRes.data.data);
-      setJenis(jRes.data.data);
-      setAllTypes(tRes.data.data);
-      setBahan(bRes.data.data);
+      setCustomers(cRes.data.data || []);
+      setJenis(jRes.data.data || []);
+      setAllTypes(tRes.data.data || []);
+      setBahan(bRes.data.data || []);
     } catch (error) {
       console.error("Error fetching master data:", error);
+      Swal.fire("Error", "Gagal mengambil data master", "error");
     }
   };
 
@@ -153,10 +231,11 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
           search: search || undefined,
         },
       });
-      setProducts(res.data.data);
+      setProducts(res.data.data || []);
       setLastPage(res.data.meta?.last_page || 1);
     } catch (error) {
       Swal.fire("Error", "Gagal mengambil data produk customer", "error");
+      console.error("Fetch products error:", error);
     } finally {
       setLoading(false);
     }
@@ -178,19 +257,13 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
   useEffect(() => {
     if (!form.jenis_id || form.jenis_id === "new" || allTypes.length === 0) {
       setFilteredTypes([]);
-      if (!isEdit) {
-        setForm((prev) => ({ ...prev, type_id: "" }));
-      }
       return;
     }
     const filtered = allTypes.filter(
       (t) => String(t.jenis_id) === String(form.jenis_id),
     );
     setFilteredTypes(filtered);
-    if (!isEdit) {
-      setForm((prev) => ({ ...prev, type_id: "" }));
-    }
-  }, [form.jenis_id, allTypes, isEdit]);
+  }, [form.jenis_id, allTypes]);
 
   // Set navbar content with filter bar
   useEffect(() => {
@@ -204,6 +277,47 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
       />,
     );
   }, [search, filterCustomer, customers, setNavbarContent]);
+
+  // ===== KODE PREVIEW LOGIC =====
+  const getKodePreview = () => {
+    const jenisNama =
+      form.jenis_id === "new"
+        ? jenisInputBaru
+        : jenis.find((j) => String(j.id) === String(form.jenis_id))?.nama || "";
+
+    const typeNama =
+      form.type_id === "new"
+        ? typeInputBaru
+        : allTypes.find((t) => String(t.id) === String(form.type_id))?.nama ||
+          "";
+
+    const bahanNama =
+      form.bahan_id === "new"
+        ? bahanInputBaru
+        : bahan.find((b) => String(b.id) === String(form.bahan_id))?.nama || "";
+
+    let customerNama = "";
+    let customerHp = "";
+    if (form.customer_id) {
+      const cust = customers.find(
+        (c) => String(c.id) === String(form.customer_id),
+      );
+      customerNama = cust?.name || "";
+      customerHp = cust?.phone || "";
+    }
+
+    return generateKode(
+      jenisNama,
+      typeNama,
+      bahanNama,
+      form.ukuran,
+      customerNama,
+      customerHp,
+    );
+  };
+
+  const kodePreview = getKodePreview();
+  // ===== END KODE PREVIEW =====
 
   const handleTambah = () => {
     setForm({
@@ -223,6 +337,8 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
     setBahanInputBaru("");
     setIsEdit(false);
     setSelectedId(null);
+    setSelectedProduct(null);
+    setOriginalKode("");
     setIsModalOpen(true);
   };
 
@@ -231,17 +347,19 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
       Swal.fire("Tunggu...", "Data sedang dimuat", "info");
       return;
     }
+
+    const latestHarga = item.harga_products?.[0]?.harga || 0;
+
     setForm({
-      customer_id: item.customer_id,
-      jenis_id: item.jenis_id,
+      customer_id: item.customer_id || "",
+      jenis_id: item.jenis_id || "",
       type_id: item.type_id || "",
       bahan_id: item.bahan_id || "",
-      ukuran: item.ukuran,
+      ukuran: item.ukuran || "",
       keterangan: item.keterangan || "",
-      harga: formatRupiah(
-        item.harga_customer || item.harga_products?.[0]?.harga || 0,
-      ),
+      harga: formatRupiah(latestHarga),
     });
+
     setFotoDepan(
       item.foto_depan
         ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`
@@ -257,6 +375,9 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
         ? `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`
         : null,
     );
+
+    setOriginalKode(item.kode || "");
+    setSelectedProduct(item);
     setSelectedId(item.id);
     setIsEdit(true);
     setIsModalOpen(true);
@@ -276,6 +397,7 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
       try {
         await api.delete(`/product-customers/${id}`);
         Swal.fire("Berhasil", "Produk customer dihapus", "success");
+        // ✅ FIX: Tetap di page saat ini setelah delete
         fetchData();
       } catch (error) {
         Swal.fire(
@@ -290,7 +412,6 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validasi untuk create
     if (!isEdit) {
       if (!form.customer_id) {
         Swal.fire("Validasi", "Customer wajib dipilih", "warning");
@@ -310,12 +431,11 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
         icon: "question",
         showCancelButton: true,
         confirmButtonText: "Ya, Simpan",
-        cancelButtonButtonText: "Batal",
+        cancelButtonText: "Batal",
       });
       if (!confirm.isConfirmed) return;
     }
 
-    // Get names for preview
     const customer = customers.find(
       (c) => String(c.id) === String(form.customer_id),
     );
@@ -333,24 +453,56 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
         ? bahanInputBaru
         : bahan.find((b) => String(b.id) === String(form.bahan_id))?.nama || "";
 
+    const hasKodeChange =
+      isEdit &&
+      (form.jenis_id !== selectedProduct?.jenis_id ||
+        form.type_id !== selectedProduct?.type_id ||
+        form.bahan_id !== selectedProduct?.bahan_id ||
+        form.ukuran !== selectedProduct?.ukuran);
+
+    const finalKode = isEdit && !hasKodeChange ? originalKode : kodePreview;
+
     const dataPreview = `
-      <div style="text-align: left; font-size: 14px; line-height: 1.5;">
-        ${!isEdit ? `<strong>Customer:</strong> ${customer?.name || "-"}<br/>` : ""}
-        <strong>Kode:</strong> ${isEdit ? "Tidak berubah (tetap)" : "Akan digenerate otomatis"}<br/>
+      <div style="text-align: center; font-size: 14px; line-height: 1.5;">
+        ${
+          !isEdit
+            ? `<strong>Customer:</strong> ${customer?.name || "-"}<br/>`
+            : ""
+        }
+        <strong>Kode:</strong> ${
+          isEdit
+            ? hasKodeChange
+              ? `<span style="color: #ef4444;">${originalKode} → ${kodePreview}</span>`
+              : originalKode
+            : `<span style="color: #22c55e;">${kodePreview}</span>`
+        }
+        <br/>
         <strong>Jenis:</strong> ${jenisNama || "-"}<br/>
         <strong>Tipe:</strong> ${typeNama || "-"}<br/>
         <strong>Bahan:</strong> ${bahanNama || "-"}<br/>
         <strong>Ukuran:</strong> ${form.ukuran || "-"}<br/>
         <strong>Harga:</strong> ${formatRupiah(hargaNum)}<br/>
-        ${form.keterangan ? `<strong>Keterangan:</strong> ${form.keterangan}<br/>` : ""}
-        <strong>Foto Depan:</strong> ${fotoDepan ? "✅ Terupload" : "❌ Tidak ada"}<br/>
-        <strong>Foto Samping:</strong> ${fotoSamping ? "✅ Terupload" : "❌ Tidak ada"}<br/>
-        <strong>Foto Atas:</strong> ${fotoAtas ? "✅ Terupload" : "❌ Tidak ada"}
+        ${
+          form.keterangan
+            ? `<strong>Keterangan:</strong> ${form.keterangan}<br/>`
+            : ""
+        }
+        <strong>Foto Depan:</strong> ${
+          fotoDepan ? "✅ Terupload" : "❌ Tidak ada"
+        }<br/>
+        <strong>Foto Samping:</strong> ${
+          fotoSamping ? "✅ Terupload" : "❌ Tidak ada"
+        }<br/>
+        <strong>Foto Atas:</strong> ${
+          fotoAtas ? "✅ Terupload" : "❌ Tidak ada"
+        }
       </div>`;
 
     const action = isEdit ? "memperbarui" : "menambah";
     const result = await Swal.fire({
-      title: `Konfirmasi ${isEdit ? "Perubahan" : "Penambahan"} Produk Customer`,
+      title: `Konfirmasi ${
+        isEdit ? "Perubahan" : "Penambahan"
+      } Produk Customer`,
       html: dataPreview,
       icon: "info",
       showCancelButton: true,
@@ -375,47 +527,47 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
 
       const formData = new FormData();
 
-      // Untuk CREATE
+      // ✅ Kirim kode yang sudah final
+      formData.append("kode", finalKode);
+
       if (!isEdit) {
         formData.append("customer_id", form.customer_id);
-        if (form.jenis_id && form.jenis_id !== "new") {
-          formData.append("jenis_id", form.jenis_id);
-        } else if (form.jenis_id === "new" && jenisInputBaru.trim()) {
-          formData.append("jenis_nama", jenisInputBaru.trim().toUpperCase());
-        }
-
-        if (form.type_id && form.type_id !== "new") {
-          formData.append("type_id", form.type_id);
-        } else if (form.type_id === "new" && typeInputBaru.trim()) {
-          formData.append("type_nama", typeInputBaru.trim().toUpperCase());
-        }
-
-        if (form.bahan_id && form.bahan_id !== "new") {
-          formData.append("bahan_id", form.bahan_id);
-        } else if (form.bahan_id === "new" && bahanInputBaru.trim()) {
-          formData.append("bahan_nama", bahanInputBaru.trim().toUpperCase());
-        }
       }
 
-      // Fields yang selalu dikirim (create & update)
+      if (form.jenis_id && form.jenis_id !== "new") {
+        formData.append("jenis_id", form.jenis_id);
+      } else if (form.jenis_id === "new" && jenisInputBaru.trim()) {
+        formData.append("jenis_nama", jenisInputBaru.trim().toUpperCase());
+      }
+
+      if (form.type_id && form.type_id !== "new") {
+        formData.append("type_id", form.type_id);
+      } else if (form.type_id === "new" && typeInputBaru.trim()) {
+        formData.append("type_nama", typeInputBaru.trim().toUpperCase());
+      }
+
+      if (form.bahan_id && form.bahan_id !== "new") {
+        formData.append("bahan_id", form.bahan_id);
+      } else if (form.bahan_id === "new" && bahanInputBaru.trim()) {
+        formData.append("bahan_nama", bahanInputBaru.trim().toUpperCase());
+      }
+
       formData.append("ukuran", form.ukuran);
       formData.append("harga", hargaNum.toString());
       if (form.keterangan) formData.append("keterangan", form.keterangan);
 
-      // Upload foto jika ada file baru
       if (fotoDepan instanceof File) formData.append("foto_depan", fotoDepan);
       if (fotoSamping instanceof File)
         formData.append("foto_samping", fotoSamping);
       if (fotoAtas instanceof File) formData.append("foto_atas", fotoAtas);
 
-      let response;
       if (isEdit) {
-        response = await api.post(
+        await api.post(
           `/product-customers/${selectedId}?_method=PUT`,
           formData,
         );
       } else {
-        response = await api.post("/product-customers", formData);
+        await api.post("/product-customers", formData);
       }
 
       Swal.close();
@@ -428,12 +580,18 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
       );
 
       setIsModalOpen(false);
-      setCurrentPage(1);
+
+      // ✅ FIX: Hanya reset ke page 1 saat tambah baru, bukan saat edit
+      if (!isEdit) {
+        setCurrentPage(1);
+      }
+
       fetchData();
     } catch (error) {
       Swal.close();
+      console.error("Submit error:", error);
       if (error.response?.status === 422) {
-        const msg = Object.values(error.response.data.errors)
+        const msg = Object.values(error.response.data.errors || {})
           .flat()
           .join("<br>");
         Swal.fire("Validasi Gagal", msg, "warning");
@@ -441,6 +599,7 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
         Swal.fire(
           "Error",
           error.response?.data?.message ||
+            error.message ||
             "Terjadi kesalahan saat menyimpan data",
           "error",
         );
@@ -609,6 +768,14 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
     return parts.length > 0 ? parts.join(" ") : "-";
   };
 
+  const getCustomerName = (item) => {
+    if (item.customer?.name) return item.customer.name;
+    const cust = customers.find(
+      (c) => String(c.id) === String(item.customer_id),
+    );
+    return cust?.name || "—";
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {loading ? (
@@ -623,14 +790,12 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
             {products.map((item) => {
-              const hargaCustomer =
-                item.harga_customer || item.harga_products?.[0]?.harga || 0;
+              const hargaCustomer = item.harga_products?.[0]?.harga || 0;
               return (
                 <div
                   key={item.id}
                   className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-4 flex flex-col h-full"
                 >
-                  {/* Foto Produk */}
                   <div className="flex justify-center gap-2 mb-3">
                     {item.foto_depan && (
                       <img
@@ -676,38 +841,28 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
                         </div>
                       )}
                   </div>
-
-                  {/* Kode Produk */}
                   <div className="text-center mb-1">
                     <p className="font-mono font-semibold text-xs text-indigo-700 break-words whitespace-normal leading-snug">
                       {item.kode}
                     </p>
                   </div>
-
-                  {/* Customer */}
                   <div className="text-center mb-2 flex items-center justify-center gap-1 text-xs text-blue-600 bg-blue-50 py-1 px-2 rounded">
                     <User size={12} className="flex-shrink-0" />
                     <span className="truncate max-w-[120px]">
-                      {item.customer?.name || "—"}
+                      {getCustomerName(item)}
                     </span>
                   </div>
-
-                  {/* Nama Produk */}
                   <div className="text-center mb-2 min-h-[32px]">
                     <p className="text-xs text-gray-600 leading-tight">
                       {formatProductName(item)}
                     </p>
                   </div>
-
-                  {/* Harga Customer */}
                   <div className="text-center mb-3 flex items-center justify-center gap-1 text-sm">
                     <Tag size={14} className="text-amber-600 flex-shrink-0" />
                     <span className="font-bold text-amber-700 truncate">
                       {formatRupiah(hargaCustomer)}
                     </span>
                   </div>
-
-                  {/* Keterangan */}
                   {item.keterangan && (
                     <div className="text-center mb-3 flex-1">
                       <p className="text-xs italic text-gray-500 line-clamp-2">
@@ -715,8 +870,6 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
                       </p>
                     </div>
                   )}
-
-                  {/* Aksi */}
                   <div className="flex gap-2 pt-2 mt-auto">
                     {(role === "admin" || role === "admin_toko") && (
                       <button
@@ -745,7 +898,6 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
         </>
       )}
 
-      {/* Tombol Tambah - hanya untuk admin & admin_toko */}
       {(role === "admin" || role === "admin_toko") && (
         <button
           onClick={handleTambah}
@@ -756,7 +908,6 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
         </button>
       )}
 
-      {/* Modal Form */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
@@ -764,8 +915,36 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
               <h2 className="text-xl font-bold text-gray-800 text-center">
                 {isEdit ? "Edit Produk Customer" : "Tambah Produk Customer"}
               </h2>
+              {isEdit && originalKode && (
+                <div className="mt-2 text-center text-sm text-gray-500">
+                  <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+                    {originalKode}
+                  </span>
+                </div>
+              )}
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-5">
+              {/* ✅ KODE PREVIEW - BARU DITAMBAHKAN */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Kode <span className="text-red-500">*</span>
+                </label>
+                <div className="w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 font-mono">
+                  {isEdit &&
+                  !(
+                    form.jenis_id !== selectedProduct?.jenis_id ||
+                    form.type_id !== selectedProduct?.type_id ||
+                    form.bahan_id !== selectedProduct?.bahan_id ||
+                    form.ukuran !== selectedProduct?.ukuran
+                  )
+                    ? originalKode
+                    : kodePreview || "—"}
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Kode akan di-generate otomatis oleh sistem
+                </p>
+              </div>
+
               {!isEdit && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -816,6 +995,7 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
                     const val = e.target.value;
                     setForm({ ...form, jenis_id: val });
                     if (val !== "new") setJenisInputBaru("");
+                    setForm((prev) => ({ ...prev, type_id: "" }));
                   }}
                   required
                 >
@@ -980,7 +1160,6 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
         </div>
       )}
 
-      {/* Modal Foto Preview */}
       {fotoModal && (
         <div
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"

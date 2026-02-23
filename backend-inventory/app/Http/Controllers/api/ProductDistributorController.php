@@ -3,19 +3,16 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
-use App\Models\{
-    Product,
-    Distributor,
-    JenisProduct,
-    TypeProduct,
-    BahanProduct,
-    HargaProduct,
-    Inventory,
-    Place,
-    ProductMovement
-};
+use App\Models\BahanProduct;
+use App\Models\Distributor;
+use App\Models\HargaProduct;
+use App\Models\Inventory;
+use App\Models\JenisProduct;
+use App\Models\Place;
+use App\Models\Product;
+use App\Models\TypeProduct;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{DB, Validator, Storage};
+use Illuminate\Support\Facades\{DB, Validator};
 use Illuminate\Support\Str;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
@@ -23,65 +20,89 @@ use Intervention\Image\Drivers\Gd\Driver;
 class ProductDistributorController extends Controller
 {
     public function index(Request $request)
-    {
-        $query = Product::with([
-            'jenis',
-            'type',
-            'bahan',
-            'distributor',
-            'hargaProducts' => function ($q) {
-                $q->whereNull('customer_id')
-                    ->orderBy('tanggal_berlaku', 'desc')
-                    ->limit(1);
-            },
-            'inventories.place' => function ($q) {
-                $q->whereIn('kode', ['TOKO', 'BENGKEL']);
-            }
-        ])
-            ->whereNotNull('distributor_id');
-
-        if ($request->filled('search')) {
-            $query->where('kode', 'like', "%{$request->search}%");
+{
+    $query = Product::with([
+        'jenis',
+        'type',
+        'bahan',
+        'distributor',
+        'hargaProducts' => function ($q) {
+            $q->whereNull('customer_id')
+                ->orderBy('tanggal_berlaku', 'desc')
+                ->limit(1);
+        },
+        'inventories.place' => function ($q) {
+            $q->whereIn('kode', ['TOKO', 'BENGKEL']);
         }
+    ])
+    ->whereNotNull('distributor_id');
 
-        if ($request->filled('jenis_id')) {
-            $query->where('jenis_id', $request->jenis_id);
-        }
-
-        if ($request->filled('type_id')) {
-            $query->where('type_id', $request->type_id);
-        }
-
-        $products = $query->orderBy('kode', 'asc')->paginate(15);
-
-        $products->getCollection()->transform(function ($product) {
-            $hargaUmum = $product->hargaProducts->first();
-            $product->harga_umum = $hargaUmum ? $hargaUmum->harga : null;
-
-            $toko = $product->inventories->firstWhere('place.kode', 'TOKO');
-            $bengkel = $product->inventories->firstWhere('place.kode', 'BENGKEL');
-
-            $product->qty_toko = $toko ? $toko->qty : 0;
-            $product->qty_bengkel = $bengkel ? $bengkel->qty : 0;
-
-            unset($product->hargaProducts);
-            unset($product->inventories);
-
-            return $product;
+    // 🔍 Perbaikan: Search multi-field (Kode + Nama Produk)
+    if ($request->filled('search')) {
+        $searchTerm = "%{$request->search}%";
+        
+        $query->where(function ($q) use ($searchTerm) {
+            // Cari di kode produk
+            $q->where('kode', 'like', $searchTerm)
+              
+              // Cari di nama jenis
+              ->orWhereHas('jenis', function ($q) use ($searchTerm) {
+                  $q->where('nama', 'like', $searchTerm);
+              })
+              
+              // Cari di nama tipe
+              ->orWhereHas('type', function ($q) use ($searchTerm) {
+                  $q->where('nama', 'like', $searchTerm);
+              })
+              
+              // Cari di nama bahan
+              ->orWhereHas('bahan', function ($q) use ($searchTerm) {
+                  $q->where('nama', 'like', $searchTerm);
+              })
+              
+              // Cari di ukuran
+              ->orWhere('ukuran', 'like', $searchTerm);
         });
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Berhasil mengambil data product distributor',
-            'data'    => $products->items(),
-            'meta'    => [
-                'current_page' => $products->currentPage(),
-                'last_page'    => $products->lastPage(),
-                'per_page'     => $products->perPage(),
-                'total'        => $products->total(),
-            ]
-        ]);
     }
+
+    if ($request->filled('jenis_id')) {
+        $query->where('jenis_id', $request->jenis_id);
+    }
+
+    if ($request->filled('type_id')) {
+        $query->where('type_id', $request->type_id);
+    }
+
+    $products = $query->orderBy('kode', 'asc')->paginate(15);
+
+    $products->getCollection()->transform(function ($product) {
+        $hargaUmum = $product->hargaProducts->first();
+        $product->harga_umum = $hargaUmum ? $hargaUmum->harga : null;
+
+        $toko = $product->inventories->firstWhere('place.kode', 'TOKO');
+        $bengkel = $product->inventories->firstWhere('place.kode', 'BENGKEL');
+
+        $product->qty_toko = $toko ? $toko->qty : 0;
+        $product->qty_bengkel = $bengkel ? $bengkel->qty : 0;
+
+        unset($product->hargaProducts);
+        unset($product->inventories);
+
+        return $product;
+    });
+
+    return response()->json([
+        'status'  => true,
+        'message' => 'Berhasil mengambil data product distributor',
+        'data'    => $products->items(),
+        'meta'    => [
+            'current_page' => $products->currentPage(),
+            'last_page'    => $products->lastPage(),
+            'per_page'     => $products->perPage(),
+            'total'        => $products->total(),
+        ]
+    ]);
+}
 
     public function store(Request $request)
     {
@@ -403,7 +424,19 @@ class ProductDistributorController extends Controller
 
     private function bahanKode(string $text): string
     {
-        return strtoupper(substr(trim($text), 0, 2));
+        $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
+
+        $words = collect(
+            preg_split('/\s+/', trim($clean))
+        )->filter(fn($w) => ctype_alpha(substr($w, 0, 1)));
+
+        if ($words->count() === 1) {
+            return substr($words->first(), 0, 2);
+        }
+
+        return $words
+            ->map(fn($w) => substr($w, 0, 1))
+            ->implode('');
     }
 
     private function ukuranKode(string $text): string

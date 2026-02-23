@@ -20,9 +20,6 @@ use Intervention\Image\Drivers\Gd\Driver;
 
 class ProductCustomerController extends Controller
 {
-    /* =========================================================
-       HELPER GENERATOR KODE
-    ========================================================= */
 
     private function extractInitials(?string $text, int $max = 2): string
     {
@@ -92,6 +89,23 @@ class ProductCustomerController extends Controller
         return strtoupper($huruf . $angka);
     }
 
+    private function bahanKode(string $text): string
+    {
+        $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
+
+        $words = collect(
+            preg_split('/\s+/', trim($clean))
+        )->filter(fn($w) => ctype_alpha(substr($w, 0, 1)));
+
+        if ($words->count() === 1) {
+            return substr($words->first(), 0, 2);
+        }
+
+        return $words
+            ->map(fn($w) => substr($w, 0, 1))
+            ->implode('');
+    }
+
     private function makeUniqueKode(string $baseKode): string
     {
         $kode = $baseKode;
@@ -114,7 +128,7 @@ class ProductCustomerController extends Controller
         return strtoupper(
             $this->jenisKode($jenisNama) .
                 ($typeNama ? $this->typeKode($typeNama) : '') .
-                ($bahanNama ? $this->extractInitials($bahanNama, 2) : '') .
+                ($bahanNama ? $this->bahanKode($bahanNama) : '') .
                 $this->extractNumbers($ukuran)
         );
     }
@@ -139,10 +153,6 @@ class ProductCustomerController extends Controller
         return $this->makeUniqueKode("{$prefix}-{$baseKode}");
     }
 
-    /* =========================================================
-       STORE PRODUCT KHUSUS CUSTOMER
-    ========================================================= */
-
     public function index(Request $request)
     {
         $query = Product::with([
@@ -150,20 +160,27 @@ class ProductCustomerController extends Controller
             'jenis:id,nama',
             'type:id,nama,jenis_id',
             'bahan:id,nama',
-
-            // 🔥 INI YANG PENTING
             'hargaProducts' => function ($q) {
                 $q->orderBy('tanggal_berlaku', 'desc');
             }
         ])
             ->whereNotNull('customer_id');
 
-        if ($request->filled('customer_id')) {
-            $query->where('customer_id', $request->customer_id);
+        // 🔍 Search multi-field: Kode + Nama Produk
+        if ($request->filled('search')) {
+            $searchTerm = "%{$request->search}%";
+
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('kode', 'like', $searchTerm)
+                    ->orWhereHas('jenis', fn($q) => $q->where('nama', 'like', $searchTerm))
+                    ->orWhereHas('type', fn($q) => $q->where('nama', 'like', $searchTerm))
+                    ->orWhereHas('bahan', fn($q) => $q->where('nama', 'like', $searchTerm))
+                    ->orWhere('ukuran', 'like', $searchTerm);
+            });
         }
 
-        if ($request->filled('search')) {
-            $query->where('kode', 'like', '%' . $request->search . '%');
+        if ($request->filled('customer_id')) {
+            $query->where('customer_id', $request->customer_id);
         }
 
         $products = $query->orderBy('kode')->paginate(15);
@@ -322,19 +339,19 @@ class ProductCustomerController extends Controller
         }
     }
 
-    /* =========================================================
-       UPDATE PRODUCT CUSTOMER
-       - KODE TIDAK BERUBAH
-    ========================================================= */
-
     public function update(Request $request, $id)
     {
-        $product = Product::findOrFail($id);
+        $product = Product::with(['jenis', 'type', 'bahan', 'customer'])->findOrFail($id);
 
         $validator = Validator::make($request->all(), [
+            'jenis_id'   => 'nullable|exists:jenis_products,id',
+            'type_id'    => 'nullable|exists:type_products,id',
+            'bahan_id'   => 'nullable|exists:bahan_products,id',
+
             'ukuran' => 'required|string|max:50',
             'keterangan' => 'nullable|string',
             'harga' => 'nullable|integer|min:0',
+
             'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
             'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
             'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
@@ -347,11 +364,20 @@ class ProductCustomerController extends Controller
         DB::beginTransaction();
 
         try {
+
+            /* =============================
+           1. UPDATE FOTO
+        ============================= */
             $manager = new ImageManager(new Driver());
             $folder = '/home/jaym3787/public_html/storage/products';
 
             foreach (['foto_depan', 'foto_samping', 'foto_atas'] as $field) {
                 if ($request->hasFile($field)) {
+
+                    if ($product->$field) {
+                        @unlink('/home/jaym3787/public_html/storage/' . $product->$field);
+                    }
+
                     $image = $manager->read($request->file($field));
                     if ($image->width() > 800) $image->scale(width: 800);
 
@@ -365,36 +391,94 @@ class ProductCustomerController extends Controller
                 }
             }
 
+            /* =============================
+           2. AMBIL DATA BARU
+        ============================= */
+            $ukuranBaru = $request->ukuran;
+            $jenisBaru  = $request->jenis_id ?? $product->jenis_id;
+            $typeBaru   = $request->type_id ?? $product->type_id;
+            $bahanBaru  = $request->bahan_id ?? $product->bahan_id;
+
+            /* =============================
+           3. CEK APA ADA PERUBAHAN
+        ============================= */
+            $isChanged =
+                $ukuranBaru !== $product->ukuran ||
+                $jenisBaru  != $product->jenis_id ||
+                $typeBaru   != $product->type_id ||
+                $bahanBaru  != $product->bahan_id;
+
+            /* =============================
+           4. REGENERATE KODE JIKA PERLU
+        ============================= */
+            $kodeBaru = $product->kode;
+
+            if ($isChanged) {
+                $jenisNama = JenisProduct::find($jenisBaru)?->nama;
+                $typeNama  = TypeProduct::find($typeBaru)?->nama;
+                $bahanNama = BahanProduct::find($bahanBaru)?->nama;
+
+                $kodeBaru = $this->generatePesananProductKode(
+                    $product->customer->name,
+                    $product->customer->phone ?? '',
+                    $jenisNama,
+                    $typeNama,
+                    $bahanNama,
+                    $ukuranBaru
+                );
+            }
+
+            /* =============================
+           5. SIMPAN SEMUA PERUBAHAN SEKALIGUS
+        ============================= */
             $product->update([
-                'ukuran' => $request->ukuran,
-                'keterangan' => $request->keterangan
+                'jenis_id' => $jenisBaru,
+                'type_id'  => $typeBaru,
+                'bahan_id' => $bahanBaru,
+                'ukuran'   => $ukuranBaru,
+                'keterangan' => $request->keterangan,
+                'kode' => $kodeBaru,
+                'foto_depan' => $product->foto_depan,
+                'foto_samping' => $product->foto_samping,
+                'foto_atas' => $product->foto_atas,
             ]);
 
+            /* =============================
+           6. UPDATE HARGA JIKA BERUBAH
+        ============================= */
             if ($request->filled('harga')) {
-                HargaProduct::create([
-                    'product_id' => $product->id,
-                    'customer_id' => $product->customer_id,
-                    'harga' => $request->harga,
-                    'tanggal_berlaku' => now(),
-                    'keterangan' => 'Update harga'
-                ]);
+
+                $lastHarga = HargaProduct::where('product_id', $product->id)
+                    ->where('customer_id', $product->customer_id)
+                    ->orderBy('tanggal_berlaku', 'desc')
+                    ->first();
+
+                $hargaBaru = (int) $request->harga;
+                $hargaLama = $lastHarga?->harga;
+
+                if ($hargaBaru !== $hargaLama) {
+                    HargaProduct::create([
+                        'product_id' => $product->id,
+                        'customer_id' => $product->customer_id,
+                        'harga' => $hargaBaru,
+                        'tanggal_berlaku' => now(),
+                        'keterangan' => 'Update harga'
+                    ]);
+                }
             }
 
             DB::commit();
 
             return response()->json([
                 'status' => true,
-                'message' => 'Produk berhasil diupdate'
+                'message' => 'Produk berhasil diupdate',
+                'data' => $product->load(['jenis', 'type', 'bahan', 'customer'])
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json($e->getMessage(), 500);
         }
     }
-
-    /* =========================================================
-       DELETE PRODUCT CUSTOMER
-    ========================================================= */
 
     public function destroy($id)
     {

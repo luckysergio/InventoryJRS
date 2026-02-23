@@ -36,16 +36,13 @@ const unformatRupiah = (str) => {
 
 const generateDistributorPrefix = (nama, noHp) => {
   if (!nama) return "";
-
   const initial = nama
     .trim()
     .split(/\s+/)
     .map((word) => word.charAt(0).toUpperCase())
     .join("");
-
   const hpAngka = (noHp || "").replace(/\D/g, "");
   const last4 = hpAngka.slice(-4);
-
   return initial + last4;
 };
 
@@ -86,9 +83,25 @@ const extractTypeKode = (text) => {
   return (huruf + angka).toUpperCase();
 };
 
-const extractInitials = (text, max = 2) => {
+const bahanKode = (text) => {
   if (!text) return "";
 
+  const clean = text
+    .replace(/\(.+?\)/g, "")
+    .trim()
+    .toUpperCase();
+
+  const words = clean.split(/\s+/).filter((w) => /^[A-Z]/.test(w));
+
+  if (words.length === 1) {
+    return words[0].slice(0, 2);
+  }
+
+  return words.map((w) => w.charAt(0)).join("");
+};
+
+const extractInitials = (text, max = 2) => {
+  if (!text) return "";
   return text
     .trim()
     .split(/\s+/)
@@ -104,6 +117,9 @@ const extractNumbers = (text) => {
   return matches ? matches.join("") : "";
 };
 
+const normalizeText = (text) =>
+  text?.normalize("NFD").replace(/[\u0300-\u036f]/g, "") || "";
+
 const generateKode = (
   jenisNama,
   typeNama,
@@ -114,21 +130,13 @@ const generateKode = (
 ) => {
   const jenisKode = extractJenisKode(jenisNama);
   const typeKode = extractTypeKode(typeNama);
-  const bahanKode = bahanNama ? extractInitials(bahanNama, 2) : "";
+  const bahan = bahanKode(bahanNama);
   const ukuranKode = extractNumbers(ukuran);
-
-  const baseKode = (
-    jenisKode +
-    typeKode +
-    bahanKode +
-    ukuranKode
-  ).toUpperCase();
-
+  const baseKode = (jenisKode + typeKode + bahan + ukuranKode).toUpperCase();
   const distributorPrefix = generateDistributorPrefix(
     distributorNama,
     distributorHp,
   );
-
   return distributorPrefix ? `${distributorPrefix}-${baseKode}` : baseKode;
 };
 
@@ -147,7 +155,7 @@ export const DistributorProductFilterBar = ({
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
       <input
         type="text"
-        placeholder="Cari kode..."
+        placeholder="Cari kode atau nama produk..."
         className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -331,32 +339,27 @@ const DistributorProductPage = ({ setNavbarContent }) => {
   }, [form.jenis_id, allTypes, isEdit]);
 
   const getKodePreview = () => {
-    // JENIS
     const jenisNama =
       form.jenis_id === "new"
         ? jenisInputBaru
         : jenis.find((j) => String(j.id) === String(form.jenis_id))?.nama || "";
 
-    // TYPE
     const typeNama =
       form.type_id === "new"
         ? typeInputBaru
         : allTypes.find((t) => String(t.id) === String(form.type_id))?.nama ||
           "";
 
-    // BAHAN
     const bahanNama =
       form.bahan_id === "new"
         ? bahanInputBaru
         : bahan.find((b) => String(b.id) === String(form.bahan_id))?.nama || "";
 
-    // DISTRIBUTOR
     let distributorNama = "";
     let distributorHp = "";
-
     if (form.distributor_id === "new") {
-      distributorNama = distributorInputBaru;
-      distributorHp = distributorHpBaru;
+      distributorNama = "";
+      distributorHp = "";
     } else if (form.distributor_id) {
       const dist = distributors.find(
         (d) => String(d.id) === String(form.distributor_id),
@@ -404,7 +407,6 @@ const DistributorProductPage = ({ setNavbarContent }) => {
     }
 
     const hargaJual = item.harga_umum ? formatRupiah(item.harga_umum) : "";
-
     setForm({
       jenis_id: item.jenis_id,
       type_id: item.type_id || "",
@@ -490,6 +492,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
     const distributor = distributors.find(
       (d) => String(d.id) === String(form.distributor_id),
     );
+
     const dataPreview = `
     <div style="text-align: center; font-size: 14px;">
       <strong>Kode:</strong> ${kodeToSubmit}<br/>
@@ -516,9 +519,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
 
     const action = isEdit ? "memperbarui" : "menambah";
     const result = await Swal.fire({
-      title: `Konfirmasi ${
-        isEdit ? "Perubahan" : "Penambahan"
-      } Product Distributor`,
+      title: `Konfirmasi ${isEdit ? "Perubahan" : "Penambahan"} Product Distributor`,
       html: dataPreview,
       icon: "info",
       showCancelButton: true,
@@ -566,10 +567,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
       if (fotoAtas instanceof File) formData.append("foto_atas", fotoAtas);
 
       if (isEdit) {
-        await api.post(
-          `/product-distributors/${selectedId}?_method=PUT`,
-          formData,
-        );
+        await api.post(`/product-distributors/${selectedId}?_method=PUT`, formData);
       } else {
         await api.post("/product-distributors", formData);
       }
@@ -583,7 +581,12 @@ const DistributorProductPage = ({ setNavbarContent }) => {
         "success",
       );
       setIsModalOpen(false);
-      setCurrentPage(1);
+
+      // ✅ FIX: Hanya reset ke page 1 saat tambah baru, bukan saat edit
+      if (!isEdit) {
+        setCurrentPage(1);
+      }
+
       fetchData({ search, jenis_id: filterJenis, type_id: filterType });
     } catch (error) {
       Swal.close();
@@ -612,6 +615,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
       try {
         await api.delete(`/product-distributors/${id}`);
         Swal.fire("Berhasil", "Product distributor dihapus", "success");
+        // ✅ FIX: Tetap di page saat ini setelah delete (jangan reset)
         fetchData({ search, jenis_id: filterJenis, type_id: filterType });
       } catch {
         Swal.fire("Error", "Gagal menghapus Product distributor", "error");
@@ -986,9 +990,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="p-5 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800 text-center">
-                {isEdit
-                  ? "Edit Product Distributor"
-                  : "Tambah Product Distributor"}
+                {isEdit ? "Edit Product Distributor" : "Tambah Product Distributor"}
               </h2>
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-5">
