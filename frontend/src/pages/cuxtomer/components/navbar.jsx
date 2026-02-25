@@ -44,8 +44,8 @@ const Navbar = () => {
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
       scrolled 
-        ? "py-4 bg-gradient-to-r from-gray-900/95 to-gray-950/95 backdrop-blur-lg border-b border-gray-800/50 shadow-xl" 
-        : "py-6 bg-gradient-to-r from-gray-900/80 to-gray-950/80 backdrop-blur-md"
+        ? "py-4 bg-gradient-to-r from-white/95 to-gray-50/95 backdrop-blur-lg border-b border-gray-200/70 shadow-md" 
+        : "py-6 bg-gradient-to-r from-white/90 to-gray-50/90 backdrop-blur-md"
     }`}>
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between">
@@ -56,13 +56,13 @@ const Navbar = () => {
             rel="noopener noreferrer"
             className="flex items-center space-x-3 group"
           >
-            <div className="p-2 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-lg group-hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-all duration-300">
+            <div className="p-2 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-lg group-hover:shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all duration-300">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 group-hover:from-purple-400 group-hover:to-pink-500 transition-all duration-300">
+              <h1 className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-600 to-blue-700 group-hover:from-purple-600 group-hover:to-pink-600 transition-all duration-300">
                 Jaya Rubber Seal
               </h1>
             </div>
@@ -74,10 +74,10 @@ const Navbar = () => {
               <li key={item.id}>
                 <button
                   onClick={() => scrollToSection(item.id)}
-                  className="text-gray-300 hover:text-cyan-400 transition-colors duration-300 font-medium relative group"
+                  className="text-gray-700 hover:text-cyan-700 transition-colors duration-300 font-medium relative group"
                 >
                   {item.label}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-cyan-400 to-blue-500 group-hover:w-full transition-all duration-300"></span>
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-cyan-600 to-blue-700 group-hover:w-full transition-all duration-300"></span>
                 </button>
               </li>
             ))}
@@ -87,7 +87,7 @@ const Navbar = () => {
                 href="https://www.tokopedia.com/jayarubberseal" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-700 rounded-lg hover:shadow-[0_0_20px_rgba(34,197,94,0.4)] transition-all duration-300 hover:scale-105 group"
+                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-700 rounded-lg hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all duration-300 hover:scale-105 group"
               >
                 <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -104,7 +104,7 @@ const Navbar = () => {
               href="https://www.tokopedia.com/jayarubberseal" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="p-2 bg-gradient-to-r from-green-600 to-emerald-700 rounded-lg hover:shadow-[0_0_15px_rgba(34,197,94,0.4)] transition-all duration-300"
+              className="p-2 bg-gradient-to-r from-green-600 to-emerald-700 rounded-lg hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all duration-300"
             >
               <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -112,7 +112,7 @@ const Navbar = () => {
             </a>
             
             <button 
-              className="text-gray-300 hover:text-cyan-400 transition-colors"
+              className="text-gray-700 hover:text-cyan-700 transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? (
@@ -129,7 +129,7 @@ const Navbar = () => {
         </div>
 
         {/* Mobile Navigation Menu */}
-        <div className={`md:hidden absolute left-0 right-0 mt-2 bg-gradient-to-b from-gray-900/95 to-gray-950/95 backdrop-blur-lg border-b border-gray-800/50 rounded-b-2xl shadow-xl transition-all duration-300 transform ${
+        <div className={`md:hidden absolute left-0 right-0 mt-2 bg-gradient-to-b from-white/95 to-gray-50/95 backdrop-blur-lg border-b border-gray-200/70 rounded-b-2xl shadow-xl transition-all duration-300 transform ${
           mobileMenuOpen 
             ? "opacity-100 translate-y-0 visible" 
             : "opacity-0 -translate-y-4 invisible"
@@ -140,10 +140,10 @@ const Navbar = () => {
                 <li key={item.id}>
                   <button
                     onClick={() => scrollToSection(item.id)}
-                    className="w-full text-left text-gray-300 hover:text-cyan-400 transition-colors duration-300 font-medium py-3 flex items-center justify-between group"
+                    className="w-full text-left text-gray-700 hover:text-cyan-700 transition-colors duration-300 font-medium py-3 flex items-center justify-between group"
                   >
                     <span>{item.label}</span>
-                    <svg className="w-4 h-4 text-gray-500 group-hover:text-cyan-400 transform group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-gray-500 group-hover:text-cyan-700 transform group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </button>

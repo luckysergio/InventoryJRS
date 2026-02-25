@@ -6,7 +6,7 @@ import api from "../../services/api";
 
 // Ganti dengan placeholder yang lebih sederhana
 const PLACEHOLDER_IMAGE =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect width='300' height='200' fill='%231f2937'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial, sans-serif' font-size='14' fill='%239ca3af' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect width='300' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial, sans-serif' font-size='14' fill='%236b7280' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
 
 const formatProductName = (p) => {
   if (!p) return "-";
@@ -295,6 +295,19 @@ const CompanyProfile = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showModal, productImages.length]);
 
+  // Fungsi untuk redirect ke WhatsApp dengan template pesan
+  const handleWhatsApp = (product) => {
+    const productName = formatProductName(product);
+    const productCode = product.kode || product.id || "";
+    const message = `Halo Jaya Rubber Seal, saya ingin menanyakan produk:\n\n*${productName}*\nKode: ${productCode}\n\nMohon informasinya mengenai ketersediaan stok dan harga. Terima kasih.`;
+    
+    // Encode message untuk URL
+    const encodedMessage = encodeURIComponent(message);
+    const waNumber = "6281287951140"; // Nomor WhatsApp tanpa +
+    
+    window.open(`https://wa.me/${waNumber}?text=${encodedMessage}`, "_blank");
+  };
+
   // Debug: cek environment variable
   useEffect(() => {
     console.log("VITE_ASSET_URL:", import.meta.env.VITE_ASSET_URL);
@@ -303,8 +316,9 @@ const CompanyProfile = () => {
   return (
     <>
       <PreLoader />
-      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 text-white overflow-hidden">
-        {/* Animated Background Elements */}
+      {/* PERUBAHAN: Background diubah dari hitam ke abu-abu */}
+      <div className="min-h-screen bg-gradient-to-br from-gray-100 via-gray-50 to-gray-200 text-gray-900 overflow-hidden">
+        {/* Animated Background Elements - opacity dinaikkan sedikit agar terlihat di background terang */}
         <div
           className="fixed inset-0 pointer-events-none"
           style={{
@@ -312,35 +326,35 @@ const CompanyProfile = () => {
             transition: "transform 0.2s ease-out",
           }}
         >
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-blue-500/3 to-cyan-500/3 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-r from-purple-500/3 to-pink-500/3 rounded-full blur-3xl"></div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-gray-900/5 to-transparent rounded-full blur-3xl"></div>
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-gray-400/10 to-transparent rounded-full blur-3xl"></div>
         </div>
 
         <Navbar />
 
-        {/* Modal Foto Produk - DIPERBAIKI */}
+        {/* Modal Foto Produk - VERSI TERANG */}
         {showModal && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
-            <div className="relative w-full max-w-4xl max-h-[90vh] bg-gradient-to-br from-gray-900 to-gray-950 rounded-2xl shadow-2xl border border-gray-800 overflow-hidden flex flex-col">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="relative w-full max-w-4xl max-h-[90vh] bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col">
               {/* Header Modal */}
-              <div className="flex-shrink-0 flex items-center justify-between p-4 md:p-6 border-b border-gray-800">
+              <div className="flex-shrink-0 flex items-center justify-between p-4 md:p-6 border-b border-gray-200">
                 <div className="flex-1 min-w-0 pr-4">
-                  <h3 className="text-lg md:text-xl font-bold text-white truncate">
+                  <h3 className="text-lg md:text-xl font-bold text-gray-900 truncate">
                     {currentProduct
                       ? formatProductName(currentProduct)
                       : "Produk"}
                   </h3>
-                  <p className="text-gray-400 text-xs md:text-sm mt-1 truncate">
+                  <p className="text-gray-600 text-xs md:text-sm mt-1 truncate">
                     Foto {productImages[selectedImageIndex]?.label}
                   </p>
                 </div>
                 <button
                   onClick={closeImageModal}
-                  className="flex-shrink-0 p-2 hover:bg-gray-800 rounded-lg transition-colors duration-200"
+                  className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
                 >
                   <svg
-                    className="w-5 h-5 md:w-6 md:h-6"
+                    className="w-5 h-5 md:w-6 md:h-6 text-gray-600"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -357,7 +371,7 @@ const CompanyProfile = () => {
 
               {/* Konten Gambar dengan Scroll */}
               <div className="flex-1 overflow-y-auto p-4 md:p-6">
-                <div className="relative h-[50vh] min-h-[300px] max-h-[500px] bg-gray-900 rounded-xl overflow-hidden">
+                <div className="relative h-[50vh] min-h-[300px] max-h-[500px] bg-gray-100 rounded-xl overflow-hidden">
                   <img
                     src={
                       productImages[selectedImageIndex]?.url ||
@@ -376,10 +390,10 @@ const CompanyProfile = () => {
                     <>
                       <button
                         onClick={prevImage}
-                        className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-gray-900/80 hover:bg-gray-800/90 rounded-full backdrop-blur-sm border border-gray-700/50 transition-all duration-300 hover:scale-110 z-10"
+                        className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-white/80 hover:bg-gray-100 rounded-full backdrop-blur-sm border border-gray-200 transition-all duration-300 hover:scale-110 z-10 shadow-md"
                       >
                         <svg
-                          className="w-4 h-4 md:w-5 md:h-5"
+                          className="w-4 h-4 md:w-5 md:h-5 text-gray-700"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -394,10 +408,10 @@ const CompanyProfile = () => {
                       </button>
                       <button
                         onClick={nextImage}
-                        className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-gray-900/80 hover:bg-gray-800/90 rounded-full backdrop-blur-sm border border-gray-700/50 transition-all duration-300 hover:scale-110 z-10"
+                        className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-white/80 hover:bg-gray-100 rounded-full backdrop-blur-sm border border-gray-200 transition-all duration-300 hover:scale-110 z-10 shadow-md"
                       >
                         <svg
-                          className="w-4 h-4 md:w-5 md:h-5"
+                          className="w-4 h-4 md:w-5 md:h-5 text-gray-700"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -414,8 +428,8 @@ const CompanyProfile = () => {
                   )}
 
                   {/* Image Counter */}
-                  <div className="absolute bottom-2 md:bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 md:px-4 md:py-2 bg-gray-900/80 backdrop-blur-sm rounded-full border border-gray-700/50">
-                    <span className="text-xs md:text-sm text-gray-300">
+                  <div className="absolute bottom-2 md:bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 md:px-4 md:py-2 bg-white/80 backdrop-blur-sm rounded-full border border-gray-200 shadow-sm">
+                    <span className="text-xs md:text-sm text-gray-700">
                       {selectedImageIndex + 1} / {productImages.length}
                     </span>
                   </div>
@@ -429,7 +443,11 @@ const CompanyProfile = () => {
                         <button
                           key={index}
                           onClick={() => setSelectedImageIndex(index)}
-                          className={`flex-shrink-0 relative w-12 h-12 md:w-16 md:h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${selectedImageIndex === index ? "border-blue-500 scale-110" : "border-gray-700 hover:border-gray-500"}`}
+                          className={`flex-shrink-0 relative w-12 h-12 md:w-16 md:h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                            selectedImageIndex === index 
+                              ? "border-blue-500 scale-110 shadow-md" 
+                              : "border-gray-200 hover:border-gray-300"
+                          }`}
                         >
                           <img
                             src={img.url}
@@ -441,7 +459,7 @@ const CompanyProfile = () => {
                             }}
                           />
                           {selectedImageIndex === index && (
-                            <div className="absolute inset-0 bg-blue-500/20"></div>
+                            <div className="absolute inset-0 bg-blue-500/10"></div>
                           )}
                         </button>
                       ))}
@@ -451,33 +469,45 @@ const CompanyProfile = () => {
               </div>
 
               {/* Footer Modal */}
-              <div className="flex-shrink-0 p-4 md:p-6 border-t border-gray-800 bg-gray-900/50">
+              <div className="flex-shrink-0 p-4 md:p-6 border-t border-gray-200 bg-gray-50/80">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="overflow-hidden">
-                    <h4 className="text-xs md:text-sm font-medium text-gray-400 mb-2">
+                    <h4 className="text-xs md:text-sm font-medium text-gray-600 mb-2">
                       Informasi Produk
                     </h4>
-                    <div className="space-y-1">
-                      <p className="text-xs md:text-sm text-gray-300 truncate">
-                        <span className="text-gray-400">Harga: </span>
-                        <span className="font-bold text-blue-400">
-                          {formatRupiah(currentProduct?.harga_umum)}
-                        </span>
-                      </p>
-                      {currentProduct?.total_terjual && (
-                        <p className="text-xs md:text-sm text-gray-300 truncate">
-                          <span className="text-gray-400">Terjual: </span>
-                          <span className="font-bold text-amber-400">
+                    <div className="space-y-2">
+                      {currentProduct?.kode && (
+                        <p className="text-xs md:text-sm text-gray-700">
+                          <span className="text-gray-500">Kode: </span>
+                          <span className="font-medium">{currentProduct.kode}</span>
+                        </p>
+                      )}
+                      {currentProduct?.total_terjual > 0 && (
+                        <p className="text-xs md:text-sm text-gray-700">
+                          <span className="text-gray-500">Terjual: </span>
+                          <span className="font-bold text-amber-600">
                             {currentProduct.total_terjual} unit
                           </span>
                         </p>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-end justify-end">
+                  <div className="flex items-end justify-end gap-3">
+                    <button
+                      onClick={() => {
+                        closeImageModal();
+                        handleWhatsApp(currentProduct);
+                      }}
+                      className="px-4 py-2 md:px-6 md:py-2 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 rounded-lg font-medium transition-all duration-300 text-white text-sm md:text-base flex items-center gap-2 shadow-md hover:shadow-lg"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                      </svg>
+                      Tanyakan Produk
+                    </button>
                     <button
                       onClick={closeImageModal}
-                      className="px-4 py-2 md:px-6 md:py-2 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 rounded-lg font-medium transition-all duration-300 border border-gray-700/50 hover:border-gray-600/50 text-sm md:text-base"
+                      className="px-4 py-2 md:px-6 md:py-2 bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 rounded-lg font-medium transition-all duration-300 border border-gray-300 text-gray-800 text-sm md:text-base"
                     >
                       Tutup
                     </button>
@@ -492,7 +522,7 @@ const CompanyProfile = () => {
         {showScrollTop && (
           <button
             onClick={scrollToTop}
-            className="fixed bottom-8 right-8 z-50 p-3 bg-gradient-to-r from-gray-800/90 to-gray-900/90 rounded-full shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all duration-300 hover:scale-110 backdrop-blur-sm border border-gray-700/50"
+            className="fixed bottom-8 right-8 z-50 p-3 bg-gradient-to-r from-gray-800/90 to-gray-900/90 rounded-full shadow-lg hover:shadow-[0_0_20px_rgba(0,0,0,0.15)] transition-all duration-300 hover:scale-110 backdrop-blur-sm border border-gray-700/50"
             data-aos="fade-up"
           >
             <svg
@@ -518,21 +548,21 @@ const CompanyProfile = () => {
           data-aos="fade-in"
           data-aos-duration="1000"
         >
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-500/5 via-transparent to-purple-500/5"></div>
-          <div className="absolute top-20 left-10 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-purple-500/10"></div>
+          <div className="absolute top-20 left-10 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
           <div className="relative z-10 text-center max-w-6xl mx-auto">
             <h1
               className="text-5xl md:text-7xl lg:text-8xl font-bold mb-8 leading-tight"
               data-aos="fade-up"
               data-aos-delay="300"
             >
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-white to-purple-400 bg-300% animate-gradient">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-600 via-gray-900 to-purple-600 bg-300% animate-gradient">
                 JAYA RUBBER SEAL
               </span>
             </h1>
             <p
-              className="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed font-light"
+              className="text-xl md:text-2xl text-gray-700 mb-12 max-w-3xl mx-auto leading-relaxed font-light"
               data-aos="fade-up"
               data-aos-delay="400"
             >
@@ -547,7 +577,7 @@ const CompanyProfile = () => {
             >
               <button
                 onClick={scrollToCatalog}
-                className="group px-10 py-4 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-xl font-semibold text-lg hover:shadow-[0_0_40px_rgba(34,211,238,0.6)] transition-all duration-300 hover:scale-105 hover:from-cyan-500 hover:to-blue-600 shadow-lg shadow-cyan-500/20 flex items-center gap-3"
+                className="group px-10 py-4 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-xl font-semibold text-lg hover:shadow-[0_0_40px_rgba(6,182,212,0.3)] transition-all duration-300 hover:scale-105 hover:from-cyan-500 hover:to-blue-600 shadow-lg shadow-cyan-500/30 flex items-center gap-3 text-white"
               >
                 <span>Explore Products</span>
                 <svg
@@ -566,7 +596,7 @@ const CompanyProfile = () => {
               </button>
               <a
                 href="#kontak"
-                className="px-10 py-4 bg-gradient-to-r from-gray-800 to-gray-900 rounded-xl font-semibold text-lg hover:shadow-[0_0_40px_rgba(192,132,252,0.3)] transition-all duration-300 hover:scale-105 border border-gray-700 hover:border-purple-500/50 flex items-center gap-3"
+                className="px-10 py-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl font-semibold text-lg hover:shadow-[0_0_40px_rgba(0,0,0,0.1)] transition-all duration-300 hover:scale-105 border border-gray-300 hover:border-purple-500/50 flex items-center gap-3 text-gray-800"
               >
                 <svg
                   className="w-5 h-5"
@@ -593,11 +623,11 @@ const CompanyProfile = () => {
             data-aos-delay="600"
           >
             <div className="flex flex-col items-center">
-              <span className="text-sm text-gray-400 mb-2 tracking-wider">
+              <span className="text-sm text-gray-500 mb-2 tracking-wider">
                 EXPLORE
               </span>
               <svg
-                className="w-6 h-6 text-cyan-400"
+                className="w-6 h-6 text-cyan-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -624,36 +654,36 @@ const CompanyProfile = () => {
                 {
                   value: `${stats.experience}+`,
                   label: "Tahun Pengalaman",
-                  color: "from-blue-500 to-cyan-500",
-                  gradient: "bg-gradient-to-r from-blue-500/5 to-cyan-500/5",
-                  border: "border-blue-500/10",
+                  color: "from-blue-600 to-cyan-600",
+                  gradient: "bg-gradient-to-r from-blue-500/20 to-cyan-500/20",
+                  border: "border-blue-500/30",
                 },
                 {
                   value: `${stats.clients}+`,
                   label: "Klien Terpercaya",
-                  color: "from-purple-500 to-pink-500",
-                  gradient: "bg-gradient-to-r from-purple-500/5 to-pink-500/5",
-                  border: "border-purple-500/10",
+                  color: "from-purple-600 to-pink-600",
+                  gradient: "bg-gradient-to-r from-purple-500/20 to-pink-500/20",
+                  border: "border-purple-500/30",
                 },
                 {
                   value: `${stats.totalProducts}+`,
                   label: "Produk Tersedia",
-                  color: "from-emerald-500 to-green-500",
+                  color: "from-emerald-600 to-green-600",
                   gradient:
-                    "bg-gradient-to-r from-emerald-500/5 to-green-500/5",
-                  border: "border-emerald-500/10",
+                    "bg-gradient-to-r from-emerald-500/20 to-green-500/20",
+                  border: "border-emerald-500/30",
                 },
                 {
                   value: `${stats.projects}+`,
                   label: "Proyek Selesai",
-                  color: "from-amber-500 to-orange-500",
-                  gradient: "bg-gradient-to-r from-amber-500/5 to-orange-500/5",
-                  border: "border-amber-500/10",
+                  color: "from-amber-600 to-orange-600",
+                  gradient: "bg-gradient-to-r from-amber-500/20 to-orange-500/20",
+                  border: "border-amber-500/30",
                 },
               ].map((stat, index) => (
                 <div
                   key={index}
-                  className={`p-6 rounded-xl backdrop-blur-sm border ${stat.border} ${stat.gradient} hover:scale-[1.02] transition-all duration-300 hover:shadow-lg`}
+                  className={`p-6 rounded-xl backdrop-blur-sm border ${stat.border} ${stat.gradient} hover:scale-[1.02] transition-all duration-300 hover:shadow-lg bg-white/30`}
                   data-aos="zoom-in"
                   data-aos-delay={index * 100}
                 >
@@ -663,7 +693,7 @@ const CompanyProfile = () => {
                     >
                       {stat.value}
                     </div>
-                    <div className="text-xs font-medium text-gray-400 tracking-wider">
+                    <div className="text-xs font-medium text-gray-600 tracking-wider">
                       {stat.label}
                     </div>
                   </div>
@@ -679,36 +709,36 @@ const CompanyProfile = () => {
           className="py-20 px-4 md:px-8 lg:px-12 relative"
           data-aos="fade-up"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-900/3 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-400/10 to-transparent"></div>
           <div className="relative max-w-7xl mx-auto">
             <div className="text-center mb-16">
               <div
                 className="inline-flex items-center gap-4 mb-6"
                 data-aos="fade-down"
               >
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
-                <span className="px-5 py-2 bg-gradient-to-r from-gray-800/60 to-gray-900/60 rounded-full backdrop-blur-sm border border-gray-700/50">
-                  <span className="text-sm font-medium text-gray-300 tracking-widest">
+                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
+                <span className="px-5 py-2 bg-gradient-to-r from-gray-200/80 to-gray-300/80 rounded-full backdrop-blur-sm border border-gray-300/50">
+                  <span className="text-sm font-medium text-gray-700 tracking-widest">
                     TENTANG KAMI
                   </span>
                 </span>
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
+                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
               </div>
               <div className="mb-10">
                 <h2
                   className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight"
                   data-aos="fade-up"
                 >
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-700">
                     Presisi & Keandalan
                   </span>
                   <br />
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-600 to-blue-600">
                     dalam Setiap Detail
                   </span>
                 </h2>
                 <p
-                  className="text-lg text-gray-400 max-w-3xl mx-auto leading-relaxed font-light"
+                  className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed font-light"
                   data-aos="fade-up"
                   data-aos-delay="100"
                 >
@@ -721,15 +751,15 @@ const CompanyProfile = () => {
 
             <div className="flex justify-center">
               <div className="relative max-w-md w-full" data-aos="fade-up">
-                <div className="absolute -inset-3 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-2xl blur-2xl opacity-30"></div>
-                <div className="relative bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl p-6 backdrop-blur-sm border border-gray-700/50 overflow-hidden">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-cyan-500/3 to-transparent rounded-full -translate-y-12 translate-x-12"></div>
+                <div className="absolute -inset-3 bg-gradient-to-r from-cyan-500/30 to-blue-500/30 rounded-2xl blur-2xl opacity-50"></div>
+                <div className="relative bg-gradient-to-br from-white/80 to-gray-100/80 rounded-2xl p-6 backdrop-blur-sm border border-gray-300/50 overflow-hidden">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-full -translate-y-12 translate-x-12"></div>
                   <div className="relative">
                     <div className="mb-6">
-                      <h3 className="text-xl font-bold text-white mb-3">
+                      <h3 className="text-xl font-bold text-gray-900 mb-3">
                         Komitmen Kualitas
                       </h3>
-                      <p className="text-gray-300 leading-relaxed text-sm">
+                      <p className="text-gray-700 leading-relaxed text-sm">
                         Setiap komponen yang kami produksi melalui proses
                         inspeksi ketat dengan toleransi hingga 0.01mm,
                         memastikan presisi dan daya tahan optimal untuk aplikasi
@@ -737,19 +767,19 @@ const CompanyProfile = () => {
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center p-4 bg-gradient-to-b from-gray-800/50 to-gray-900/50 rounded-lg border border-gray-700/50">
-                        <div className="text-2xl font-bold text-cyan-400 mb-1">
+                      <div className="text-center p-4 bg-gradient-to-b from-white/80 to-gray-100/80 rounded-lg border border-gray-300/50">
+                        <div className="text-2xl font-bold text-cyan-600 mb-1">
                           0.01mm
                         </div>
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-gray-600">
                           Akurasi Toleransi
                         </div>
                       </div>
-                      <div className="text-center p-4 bg-gradient-to-b from-gray-800/50 to-gray-900/50 rounded-lg border border-gray-700/50">
-                        <div className="text-2xl font-bold text-purple-400 mb-1">
+                      <div className="text-center p-4 bg-gradient-to-b from-white/80 to-gray-100/80 rounded-lg border border-gray-300/50">
+                        <div className="text-2xl font-bold text-purple-600 mb-1">
                           99.8%
                         </div>
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-gray-600">
                           Tingkat Keberhasilan
                         </div>
                       </div>
@@ -766,16 +796,16 @@ const CompanyProfile = () => {
           className="py-20 px-4 md:px-8 lg:px-12 relative"
           data-aos="fade-up"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-900/5 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-400/10 to-transparent"></div>
           <div className="relative max-w-7xl mx-auto">
             <div className="text-center mb-16">
               <div
                 className="inline-flex items-center gap-4 mb-6"
                 data-aos="fade-down"
               >
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
-                <span className="px-5 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-full backdrop-blur-sm border border-amber-500/30">
-                  <span className="text-sm font-medium text-amber-300 tracking-widest flex items-center gap-2">
+                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
+                <span className="px-5 py-2 bg-gradient-to-r from-amber-500/30 to-orange-500/30 rounded-full backdrop-blur-sm border border-amber-500/40">
+                  <span className="text-sm font-medium text-amber-700 tracking-widest flex items-center gap-2">
                     <svg
                       className="w-4 h-4"
                       fill="currentColor"
@@ -786,7 +816,7 @@ const CompanyProfile = () => {
                     PRODUK UNGGULAN
                   </span>
                 </span>
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
+                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
               </div>
 
               <div className="mb-10">
@@ -794,16 +824,16 @@ const CompanyProfile = () => {
                   className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight"
                   data-aos="fade-up"
                 >
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-orange-500">
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-600 to-orange-600">
                     Solusi Terpercaya
                   </span>
                   <br />
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-700">
                     Industri
                   </span>
                 </h2>
                 <p
-                  className="text-lg text-gray-400 max-w-2xl mx-auto font-light"
+                  className="text-lg text-gray-600 max-w-2xl mx-auto font-light"
                   data-aos="fade-up"
                   data-aos-delay="100"
                 >
@@ -817,19 +847,19 @@ const CompanyProfile = () => {
               {bestSellers.map((product, index) => (
                 <div
                   key={product.id}
-                  className="group bg-gradient-to-b from-gray-800/40 to-gray-900/40 rounded-xl overflow-hidden backdrop-blur-sm border border-gray-700/50 hover:border-amber-500/20 transition-all duration-300"
+                  className="group bg-gradient-to-b from-white/80 to-gray-100/80 rounded-xl overflow-hidden backdrop-blur-sm border border-gray-300/50 hover:border-amber-500/40 transition-all duration-300 shadow-sm hover:shadow-md"
                   data-aos="zoom-in"
                   data-aos-delay={index * 100}
                 >
                   {/* Best seller badge */}
                   <div className="absolute top-3 right-3 z-10">
-                    <div className="px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-600 rounded-full text-xs font-bold shadow-md">
+                    <div className="px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-600 rounded-full text-xs font-bold shadow-md text-white">
                       TERLARIS
                     </div>
                   </div>
 
                   <div
-                    className="relative h-56 bg-gradient-to-br from-gray-900 to-black overflow-hidden cursor-pointer"
+                    className="relative h-56 bg-gradient-to-br from-gray-200 to-gray-300 overflow-hidden cursor-pointer"
                     onClick={() => openImageModal(product)}
                   >
                     {/* Foto Container dengan Carousel Hover */}
@@ -866,23 +896,23 @@ const CompanyProfile = () => {
                     {/* Dot Indicator untuk menunjukkan ada 3 foto */}
                     <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       <div
-                        className={`w-1.5 h-1.5 rounded-full ${product.foto_depan ? "bg-amber-400" : "bg-gray-600"}`}
+                        className={`w-1.5 h-1.5 rounded-full ${product.foto_depan ? "bg-amber-500" : "bg-gray-400"}`}
                       ></div>
                       <div
-                        className={`w-1.5 h-1.5 rounded-full ${product.foto_samping ? "bg-amber-400" : "bg-gray-600"}`}
+                        className={`w-1.5 h-1.5 rounded-full ${product.foto_samping ? "bg-amber-500" : "bg-gray-400"}`}
                       ></div>
                       <div
-                        className={`w-1.5 h-1.5 rounded-full ${product.foto_atas ? "bg-amber-400" : "bg-gray-600"}`}
+                        className={`w-1.5 h-1.5 rounded-full ${product.foto_atas ? "bg-amber-500" : "bg-gray-400"}`}
                       ></div>
                     </div>
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent opacity-50"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-gray-300 via-transparent to-transparent opacity-50"></div>
 
                     {/* Zoom Icon Overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20">
-                      <div className="p-3 bg-gray-900/80 backdrop-blur-sm rounded-full border border-gray-700/50">
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/10">
+                      <div className="p-3 bg-white/80 backdrop-blur-sm rounded-full border border-gray-300/50">
                         <svg
-                          className="w-6 h-6 text-amber-400"
+                          className="w-6 h-6 text-amber-600"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -900,38 +930,45 @@ const CompanyProfile = () => {
 
                   <div className="p-5">
                     <div className="mb-3">
-                      <h3 className="text-base text-center font-bold text-white mb-2 group-hover:text-amber-300 transition-colors line-clamp-2">
+                      <h3 className="text-base text-center font-bold text-gray-900 mb-2 group-hover:text-amber-600 transition-colors line-clamp-2">
                         {formatProductName(product)}
                       </h3>
+                      {product.kode && (
+                        <p className="text-xs text-center text-gray-500">
+                          Kode: {product.kode}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-3">
-                      <div className="flex items-center">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <svg
-                            className="w-3 h-3 text-amber-500"
+                            className="w-3 h-3 text-amber-600"
                             fill="currentColor"
                             viewBox="0 0 20 20"
                           >
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                           </svg>
-                          <span className="text-xs text-gray-300">
+                          <span className="text-xs text-gray-700">
                             Terjual:{" "}
-                            <span className="font-bold text-amber-400">
+                            <span className="font-bold text-amber-600">
                               {product.total_terjual}
                             </span>
                           </span>
                         </div>
                       </div>
 
-                      <div className="pt-3 border-t border-gray-700/50">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-400">Harga</span>
-                          <span className="text-sm font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-orange-400">
-                            {formatRupiah(product.harga_umum)}
-                          </span>
-                        </div>
-                      </div>
+                      {/* Tombol Tanyakan Product */}
+                      <button
+                        onClick={() => handleWhatsApp(product)}
+                        className="w-full mt-2 py-2 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 rounded-lg text-white text-sm font-medium flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] shadow-sm hover:shadow-md"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                        </svg>
+                        Tanyakan Product
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -947,20 +984,20 @@ const CompanyProfile = () => {
           className="py-20 px-4 md:px-8 lg:px-12 relative"
           data-aos="fade-up"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-900/3 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-400/10 to-transparent"></div>
           <div className="relative max-w-7xl mx-auto">
             <div className="text-center mb-12">
               <div
                 className="inline-flex items-center gap-4 mb-6"
                 data-aos="fade-down"
               >
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
-                <span className="px-5 py-2 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-full backdrop-blur-sm border border-blue-500/30">
-                  <span className="text-sm font-medium text-blue-300 tracking-widest">
+                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
+                <span className="px-5 py-2 bg-gradient-to-r from-blue-500/30 to-cyan-500/30 rounded-full backdrop-blur-sm border border-blue-500/40">
+                  <span className="text-sm font-medium text-blue-700 tracking-widest">
                     KATALOG PRODUK
                   </span>
                 </span>
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
+                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
               </div>
 
               <div className="mb-8">
@@ -968,16 +1005,16 @@ const CompanyProfile = () => {
                   className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight"
                   data-aos="fade-up"
                 >
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-500">
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-600">
                     Portofolio Lengkap
                   </span>
                   <br />
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-700">
                     Komponen Karet
                   </span>
                 </h2>
                 <p
-                  className="text-lg text-gray-400 max-w-2xl mx-auto font-light"
+                  className="text-lg text-gray-600 max-w-2xl mx-auto font-light"
                   data-aos="fade-up"
                   data-aos-delay="100"
                 >
@@ -993,14 +1030,14 @@ const CompanyProfile = () => {
               data-aos="fade-up"
               data-aos-delay="100"
             >
-              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-xl p-5 backdrop-blur-sm border border-gray-700/50">
+              <div className="bg-gradient-to-br from-white/80 to-gray-100/80 rounded-xl p-5 backdrop-blur-sm border border-gray-300/50">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-2 font-medium">
+                    <label className="block text-xs text-gray-700 mb-2 font-medium">
                       JENIS PRODUK
                     </label>
                     <select
-                      className="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent appearance-none text-sm"
+                      className="w-full bg-white/80 border border-gray-300/50 rounded-lg px-3 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent appearance-none text-sm"
                       value={filters.jenis_id}
                       onChange={(e) =>
                         handleFilterChange("jenis_id", e.target.value)
@@ -1016,11 +1053,11 @@ const CompanyProfile = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs text-gray-400 mb-2 font-medium">
+                    <label className="block text-xs text-gray-700 mb-2 font-medium">
                       KATEGORI
                     </label>
                     <select
-                      className="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent appearance-none disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      className="w-full bg-white/80 border border-gray-300/50 rounded-lg px-3 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent appearance-none disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                       value={filters.type_id}
                       onChange={(e) =>
                         handleFilterChange("type_id", e.target.value)
@@ -1043,7 +1080,7 @@ const CompanyProfile = () => {
                   <div className="flex items-end">
                     <button
                       onClick={resetFilters}
-                      className="w-full py-2.5 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg font-medium hover:from-gray-700 hover:to-gray-800 transition-all duration-300 border border-gray-700/50 hover:border-gray-600/50 flex items-center justify-center gap-2 text-sm"
+                      className="w-full py-2.5 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg font-medium hover:from-gray-300 hover:to-gray-400 transition-all duration-300 border border-gray-300/50 hover:border-gray-400/50 flex items-center justify-center gap-2 text-sm text-gray-800"
                     >
                       <svg
                         className="w-4 h-4"
@@ -1068,7 +1105,7 @@ const CompanyProfile = () => {
             {/* Product Grid */}
             {loading ? (
               <div className="flex justify-center items-center h-48">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
               </div>
             ) : products.length > 0 ? (
               <>
@@ -1076,12 +1113,12 @@ const CompanyProfile = () => {
                   {products.map((product, index) => (
                     <div
                       key={product.id}
-                      className="group bg-gradient-to-b from-gray-800/40 to-gray-900/40 rounded-lg overflow-hidden backdrop-blur-sm border border-gray-700/50 hover:border-blue-500/20 transition-all duration-300 hover:scale-[1.02]"
+                      className="group bg-gradient-to-b from-white/80 to-gray-100/80 rounded-lg overflow-hidden backdrop-blur-sm border border-gray-300/50 hover:border-blue-500/40 transition-all duration-300 hover:scale-[1.02] shadow-sm hover:shadow-md"
                       data-aos="fade-up"
                       data-aos-delay={(index % 4) * 50}
                     >
                       <div
-                        className="relative h-40 bg-gradient-to-br from-gray-900 to-black overflow-hidden cursor-pointer"
+                        className="relative h-40 bg-gradient-to-br from-gray-200 to-gray-300 overflow-hidden cursor-pointer"
                         onClick={() => openImageModal(product)}
                       >
                         {/* Foto Container dengan Carousel Hover untuk Catalog */}
@@ -1118,23 +1155,23 @@ const CompanyProfile = () => {
                         {/* Dot Indicator untuk Catalog */}
                         <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           <div
-                            className={`w-1 h-1 rounded-full ${product.foto_depan ? "bg-blue-400" : "bg-gray-600"}`}
+                            className={`w-1 h-1 rounded-full ${product.foto_depan ? "bg-blue-500" : "bg-gray-400"}`}
                           ></div>
                           <div
-                            className={`w-1 h-1 rounded-full ${product.foto_samping ? "bg-blue-400" : "bg-gray-600"}`}
+                            className={`w-1 h-1 rounded-full ${product.foto_samping ? "bg-blue-500" : "bg-gray-400"}`}
                           ></div>
                           <div
-                            className={`w-1 h-1 rounded-full ${product.foto_atas ? "bg-blue-400" : "bg-gray-600"}`}
+                            className={`w-1 h-1 rounded-full ${product.foto_atas ? "bg-blue-500" : "bg-gray-400"}`}
                           ></div>
                         </div>
 
-                        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-gray-300 via-transparent to-transparent opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
 
                         {/* Zoom Icon Overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20">
-                          <div className="p-2 bg-gray-900/80 backdrop-blur-sm rounded-full border border-gray-700/50">
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/10">
+                          <div className="p-2 bg-white/80 backdrop-blur-sm rounded-full border border-gray-300/50">
                             <svg
-                              className="w-5 h-5 text-blue-400"
+                              className="w-5 h-5 text-blue-600"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -1152,18 +1189,26 @@ const CompanyProfile = () => {
 
                       <div className="p-4">
                         <div className="mb-2">
-                          <h3 className="font-bold text-white mb-1 group-hover:text-blue-300 transition-colors line-clamp-2 text-xs text-center">
+                          <h3 className="font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors line-clamp-2 text-xs text-center">
                             {formatProductName(product)}
                           </h3>
+                          {product.kode && (
+                            <p className="text-xs text-center text-gray-500">
+                              Kode: {product.kode}
+                            </p>
+                          )}
                         </div>
 
-                        <div className="pt-2 border-t border-gray-700/50">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-400">Harga</span>
-                            <span className="font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400 text-xs">
-                              {formatRupiah(product.harga_umum)}
-                            </span>
-                          </div>
+                        <div className="pt-2 border-t border-gray-300/50">
+                          <button
+                            onClick={() => handleWhatsApp(product)}
+                            className="w-full py-1.5 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 rounded-lg text-white text-xs font-medium flex items-center justify-center gap-1 transition-all duration-300 hover:scale-[1.02]"
+                          >
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                            </svg>
+                            Tanyakan
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1181,7 +1226,7 @@ const CompanyProfile = () => {
                         setCurrentPage((prev) => Math.max(1, prev - 1))
                       }
                       disabled={currentPage === 1}
-                      className="px-3 py-2 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg border border-gray-700/50 disabled:opacity-50 disabled:cursor-not-allowed hover:border-blue-500/20 transition-colors"
+                      className="px-3 py-2 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg border border-gray-300/50 disabled:opacity-50 disabled:cursor-not-allowed hover:border-blue-500/40 transition-colors text-gray-800"
                     >
                       <svg
                         className="w-4 h-4"
@@ -1217,8 +1262,8 @@ const CompanyProfile = () => {
                             onClick={() => setCurrentPage(pageNum)}
                             className={`px-3 py-2 rounded-lg transition-all duration-300 text-sm ${
                               currentPage === pageNum
-                                ? "bg-gradient-to-r from-blue-600 to-cyan-700 text-white shadow-md shadow-blue-500/20"
-                                : "bg-gradient-to-r from-gray-800 to-gray-900 text-gray-300 hover:text-white border border-gray-700/50 hover:border-blue-500/20"
+                                ? "bg-gradient-to-r from-blue-600 to-cyan-700 text-white shadow-md shadow-blue-500/30"
+                                : "bg-gradient-to-r from-gray-200 to-gray-300 text-gray-800 hover:text-gray-900 border border-gray-300/50 hover:border-blue-500/40"
                             }`}
                           >
                             {pageNum}
@@ -1232,7 +1277,7 @@ const CompanyProfile = () => {
                         setCurrentPage((prev) => Math.min(totalPages, prev + 1))
                       }
                       disabled={currentPage === totalPages}
-                      className="px-3 py-2 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg border border-gray-700/50 disabled:opacity-50 disabled:cursor-not-allowed hover:border-blue-500/20 transition-colors"
+                      className="px-3 py-2 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg border border-gray-300/50 disabled:opacity-50 disabled:cursor-not-allowed hover:border-blue-500/40 transition-colors text-gray-800"
                     >
                       <svg
                         className="w-4 h-4"
@@ -1253,10 +1298,10 @@ const CompanyProfile = () => {
               </>
             ) : (
               <div className="text-center py-12" data-aos="fade-up">
-                <div className="inline-flex p-6 bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl backdrop-blur-sm border border-gray-700/50">
+                <div className="inline-flex p-6 bg-gradient-to-br from-white/80 to-gray-100/80 rounded-xl backdrop-blur-sm border border-gray-300/50">
                   <div>
                     <svg
-                      className="w-12 h-12 mx-auto text-gray-600 mb-3"
+                      className="w-12 h-12 mx-auto text-gray-500 mb-3"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1268,7 +1313,7 @@ const CompanyProfile = () => {
                         d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
-                    <h3 className="text-lg font-bold text-gray-400 mb-2">
+                    <h3 className="text-lg font-bold text-gray-700 mb-2">
                       Produk Tidak Ditemukan
                     </h3>
                     <p className="text-gray-500 text-sm">
@@ -1287,8 +1332,8 @@ const CompanyProfile = () => {
           className="pb-20 pt-16 px-4 md:px-8 lg:px-12 relative overflow-hidden"
           data-aos="fade-up"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900/10 via-black/5 to-gray-900/10">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl h-48 bg-gradient-to-r from-blue-500/3 to-purple-500/3 rounded-full blur-3xl"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-400/20 via-transparent to-gray-400/20">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl h-48 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-full blur-3xl"></div>
           </div>
           <div className="relative max-w-6xl mx-auto">
             <div className="text-center mb-12">
@@ -1296,25 +1341,25 @@ const CompanyProfile = () => {
                 className="inline-flex items-center gap-4 mb-6"
                 data-aos="fade-down"
               >
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
-                <span className="px-5 py-2 bg-gradient-to-r from-gray-800/60 to-gray-900/60 rounded-full backdrop-blur-sm border border-gray-700/50">
-                  <span className="text-sm font-medium text-gray-300 tracking-widest">
+                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
+                <span className="px-5 py-2 bg-gradient-to-r from-gray-200/80 to-gray-300/80 rounded-full backdrop-blur-sm border border-gray-300/50">
+                  <span className="text-sm font-medium text-gray-700 tracking-widest">
                     HUBUNGI KAMI
                   </span>
                 </span>
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-600/50 to-transparent"></div>
+                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
               </div>
               <div className="mb-8">
                 <h2
                   className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight"
                   data-aos="fade-up"
                 >
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-700">
                     Hubungi Tim Kami
                   </span>
                 </h2>
                 <p
-                  className="text-lg text-gray-400 max-w-2xl mx-auto font-light"
+                  className="text-lg text-gray-600 max-w-2xl mx-auto font-light"
                   data-aos="fade-up"
                   data-aos-delay="100"
                 >
@@ -1329,12 +1374,12 @@ const CompanyProfile = () => {
               data-aos="fade-up"
             >
               {/* Card 1: Telepon */}
-              <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 backdrop-blur-sm border border-gray-700/50 hover:border-blue-500/30 transition-all duration-300 group">
+              <div className="bg-gradient-to-br from-white/80 to-gray-100/80 rounded-xl p-6 backdrop-blur-sm border border-gray-300/50 hover:border-blue-500/40 transition-all duration-300 group shadow-sm hover:shadow-md">
                 <div className="flex flex-col h-full">
                   <div className="flex items-start gap-4 mb-4">
-                    <div className="p-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-lg border border-blue-500/20 group-hover:border-blue-400/40 transition-colors duration-300">
+                    <div className="p-3 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-lg border border-blue-500/30 group-hover:border-blue-400/50 transition-colors duration-300">
                       <svg
-                        className="w-6 h-6 text-blue-400"
+                        className="w-6 h-6 text-blue-600"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1348,17 +1393,17 @@ const CompanyProfile = () => {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white mb-1">
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">
                         Telepon
                       </h3>
-                      <p className="text-gray-400 text-sm">Hubungi langsung</p>
+                      <p className="text-gray-600 text-sm">Hubungi langsung</p>
                     </div>
                   </div>
                   <div className="mt-auto">
-                    <p className="text-gray-300 text-lg mb-2">(021) 62305916</p>
+                    <p className="text-gray-800 text-lg mb-2">(021) 62305916</p>
                     <a
                       href="tel:+622112345678"
-                      className="inline-flex items-center text-blue-400 hover:text-blue-300 font-medium transition-colors duration-200"
+                      className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium transition-colors duration-200"
                     >
                       <span>Hubungi Sekarang</span>
                       <svg
@@ -1380,12 +1425,12 @@ const CompanyProfile = () => {
               </div>
 
               {/* Card 2: WhatsApp */}
-              <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 backdrop-blur-sm border border-gray-700/50 hover:border-emerald-500/30 transition-all duration-300 group">
+              <div className="bg-gradient-to-br from-white/80 to-gray-100/80 rounded-xl p-6 backdrop-blur-sm border border-gray-300/50 hover:border-emerald-500/40 transition-all duration-300 group shadow-sm hover:shadow-md">
                 <div className="flex flex-col h-full">
                   <div className="flex items-start gap-4 mb-4">
-                    <div className="p-3 bg-gradient-to-r from-emerald-500/10 to-green-500/10 rounded-lg border border-emerald-500/20 group-hover:border-emerald-400/40 transition-colors duration-300">
+                    <div className="p-3 bg-gradient-to-r from-emerald-500/20 to-green-500/20 rounded-lg border border-emerald-500/30 group-hover:border-emerald-400/50 transition-colors duration-300">
                       <svg
-                        className="w-6 h-6 text-emerald-400"
+                        className="w-6 h-6 text-emerald-600"
                         fill="currentColor"
                         viewBox="0 0 24 24"
                       >
@@ -1393,19 +1438,19 @@ const CompanyProfile = () => {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white mb-1">
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">
                         WhatsApp
                       </h3>
-                      <p className="text-gray-400 text-sm">Chat langsung</p>
+                      <p className="text-gray-600 text-sm">Chat langsung</p>
                     </div>
                   </div>
                   <div className="mt-auto">
-                    <p className="text-gray-300 text-lg mb-2">0812-8795-1140</p>
+                    <p className="text-gray-800 text-lg mb-2">0812-8795-1140</p>
                     <a
                       href="https://wa.me/6281287951140"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center text-emerald-400 hover:text-emerald-300 font-medium transition-colors duration-200"
+                      className="inline-flex items-center text-emerald-600 hover:text-emerald-700 font-medium transition-colors duration-200"
                     >
                       <span>Kirim Pesan</span>
                       <svg
@@ -1427,12 +1472,12 @@ const CompanyProfile = () => {
               </div>
 
               {/* Card 3: Email */}
-              <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 backdrop-blur-sm border border-gray-700/50 hover:border-amber-500/30 transition-all duration-300 group">
+              <div className="bg-gradient-to-br from-white/80 to-gray-100/80 rounded-xl p-6 backdrop-blur-sm border border-gray-300/50 hover:border-amber-500/40 transition-all duration-300 group shadow-sm hover:shadow-md">
                 <div className="flex flex-col h-full">
                   <div className="flex items-start gap-4 mb-4">
-                    <div className="p-3 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-lg border border-amber-500/20 group-hover:border-amber-400/40 transition-colors duration-300">
+                    <div className="p-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-lg border border-amber-500/30 group-hover:border-amber-400/50 transition-colors duration-300">
                       <svg
-                        className="w-6 h-6 text-amber-400"
+                        className="w-6 h-6 text-amber-600"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1446,19 +1491,19 @@ const CompanyProfile = () => {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white mb-1">
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">
                         Email
                       </h3>
-                      <p className="text-gray-400 text-sm">Kirim email</p>
+                      <p className="text-gray-600 text-sm">Kirim email</p>
                     </div>
                   </div>
                   <div className="mt-auto">
-                    <p className="text-gray-300 text-lg mb-2 truncate">
+                    <p className="text-gray-800 text-lg mb-2 truncate">
                       sales.jayarubberseal@gmail.com
                     </p>
                     <a
                       href="mailto:sales.jayarubberseal@gmail.com"
-                      className="inline-flex items-center text-amber-400 hover:text-amber-300 font-medium transition-colors duration-200"
+                      className="inline-flex items-center text-amber-600 hover:text-amber-700 font-medium transition-colors duration-200"
                     >
                       <span>Kirim Email</span>
                       <svg
@@ -1480,12 +1525,12 @@ const CompanyProfile = () => {
               </div>
 
               {/* Card 4: Lokasi */}
-              <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 backdrop-blur-sm border border-gray-700/50 hover:border-purple-500/30 transition-all duration-300 group">
+              <div className="bg-gradient-to-br from-white/80 to-gray-100/80 rounded-xl p-6 backdrop-blur-sm border border-gray-300/50 hover:border-purple-500/40 transition-all duration-300 group shadow-sm hover:shadow-md">
                 <div className="flex flex-col h-full">
                   <div className="flex items-start gap-4 mb-4">
-                    <div className="p-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/20 group-hover:border-purple-400/40 transition-colors duration-300">
+                    <div className="p-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg border border-purple-500/30 group-hover:border-purple-400/50 transition-colors duration-300">
                       <svg
-                        className="w-6 h-6 text-purple-400"
+                        className="w-6 h-6 text-purple-600"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1505,17 +1550,17 @@ const CompanyProfile = () => {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white mb-1">
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">
                         Lokasi Toko
                       </h3>
-                      <p className="text-gray-400 text-sm">Kunjungi kami</p>
+                      <p className="text-gray-600 text-sm">Kunjungi kami</p>
                     </div>
                   </div>
                   <div className="mt-auto">
-                    <p className="text-gray-300 text-base mb-1 text-justify">
+                    <p className="text-gray-800 text-base mb-1 text-justify">
                       Pertokoan Glodok Jaya Lt.2 Blok A 35
                     </p>
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-gray-600 text-sm">
                       Kota Jakarta Barat, Daerah Khusus Ibukota Jakarta 11180,
                       Indonesia
                     </p>
@@ -1523,7 +1568,7 @@ const CompanyProfile = () => {
                       href="https://www.google.com/maps/search/Pertokoan+Glodok+Jaya+Lt.2+Blok+A+35,+Jl.+Hayam+Wuruk,+RT.1%2FRW.6,+Mangga+Besar,+Kec.+Taman+Sari,+Kota+Jakarta+Barat,+Daerah+Khusus+Ibukota+Jakarta+11180,+Indonesia/@-6.1446,106.8166,17z?hl=id&entry=ttu&g_ep=EgoyMDI2MDEyMS4wIKXMDSoASAFQAw%3D%3D"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center text-purple-400 hover:text-purple-300 font-medium transition-colors duration-200 mt-2"
+                      className="inline-flex items-center text-purple-600 hover:text-purple-700 font-medium transition-colors duration-200 mt-2"
                     >
                       <span>Lihat Peta</span>
                       <svg
@@ -1545,12 +1590,12 @@ const CompanyProfile = () => {
               </div>
 
               {/* Card 5: Jam Operasional */}
-              <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 backdrop-blur-sm border border-gray-700/50 hover:border-cyan-500/30 transition-all duration-300 group">
+              <div className="bg-gradient-to-br from-white/80 to-gray-100/80 rounded-xl p-6 backdrop-blur-sm border border-gray-300/50 hover:border-cyan-500/40 transition-all duration-300 group shadow-sm hover:shadow-md">
                 <div className="flex flex-col h-full">
                   <div className="flex items-start gap-4 mb-4">
-                    <div className="p-3 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-lg border border-cyan-500/20 group-hover:border-cyan-400/40 transition-colors duration-300">
+                    <div className="p-3 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-lg border border-cyan-500/30 group-hover:border-cyan-400/50 transition-colors duration-300">
                       <svg
-                        className="w-6 h-6 text-cyan-400"
+                        className="w-6 h-6 text-cyan-600"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1564,23 +1609,23 @@ const CompanyProfile = () => {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white mb-1">
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">
                         Jam Operasional
                       </h3>
-                      <p className="text-gray-400 text-sm">Waktu kerja</p>
+                      <p className="text-gray-600 text-sm">Waktu kerja</p>
                     </div>
                   </div>
                   <div className="mt-auto">
                     <div className="space-y-1">
-                      <p className="text-gray-300 text-base">
+                      <p className="text-gray-800 text-base">
                         <span className="font-medium">Senin - Jumat:</span>{" "}
                         08:00 - 17:00
                       </p>
-                      <p className="text-gray-300 text-base">
+                      <p className="text-gray-800 text-base">
                         <span className="font-medium">Sabtu:</span> 08:00 -
                         12:00
                       </p>
-                      <p className="text-gray-400 text-sm mt-2">
+                      <p className="text-gray-600 text-sm mt-2">
                         Minggu & Hari Libur: Tutup
                       </p>
                     </div>
@@ -1589,12 +1634,12 @@ const CompanyProfile = () => {
               </div>
 
               {/* Card 6: Layanan */}
-              <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-6 backdrop-blur-sm border border-gray-700/50 hover:border-red-500/30 transition-all duration-300 group">
+              <div className="bg-gradient-to-br from-white/80 to-gray-100/80 rounded-xl p-6 backdrop-blur-sm border border-gray-300/50 hover:border-red-500/40 transition-all duration-300 group shadow-sm hover:shadow-md">
                 <div className="flex flex-col h-full">
                   <div className="flex items-start gap-4 mb-4">
-                    <div className="p-3 bg-gradient-to-r from-red-500/10 to-pink-500/10 rounded-lg border border-red-500/20 group-hover:border-red-400/40 transition-colors duration-300">
+                    <div className="p-3 bg-gradient-to-r from-red-500/20 to-pink-500/20 rounded-lg border border-red-500/30 group-hover:border-red-400/50 transition-colors duration-300">
                       <svg
-                        className="w-6 h-6 text-red-400"
+                        className="w-6 h-6 text-red-600"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1608,27 +1653,27 @@ const CompanyProfile = () => {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white mb-1">
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">
                         Layanan Cepat
                       </h3>
-                      <p className="text-gray-400 text-sm">Dukungan teknis</p>
+                      <p className="text-gray-600 text-sm">Dukungan teknis</p>
                     </div>
                   </div>
                   <div className="mt-auto">
                     <div className="space-y-3">
                       <div>
-                        <p className="text-gray-300 text-base font-medium">
+                        <p className="text-gray-800 text-base font-medium">
                           Respon dalam 24 jam
                         </p>
-                        <p className="text-gray-400 text-sm">
+                        <p className="text-gray-600 text-sm">
                           Untuk semua pertanyaan
                         </p>
                       </div>
                       <div>
-                        <p className="text-gray-300 text-base font-medium">
+                        <p className="text-gray-800 text-base font-medium">
                           Konsultasi teknis
                         </p>
-                        <p className="text-gray-400 text-sm">
+                        <p className="text-gray-600 text-sm">
                           Tim ahli tersedia
                         </p>
                       </div>
@@ -1640,15 +1685,15 @@ const CompanyProfile = () => {
 
             {/* CTA Section */}
             <div
-              className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-8 backdrop-blur-sm border border-gray-700/50"
+              className="bg-gradient-to-br from-white/80 to-gray-100/80 rounded-xl p-8 backdrop-blur-sm border border-gray-300/50 shadow-sm"
               data-aos="fade-up"
               data-aos-delay="200"
             >
               <div className="text-center">
-                <h3 className="text-2xl font-bold text-white mb-4">
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">
                   Butuh Bantuan Cepat?
                 </h3>
-                <p className="text-gray-400 mb-6 max-w-2xl mx-auto">
+                <p className="text-gray-700 mb-6 max-w-2xl mx-auto">
                   Tim customer service kami siap membantu Anda dengan pertanyaan
                   teknis, penawaran harga, atau konsultasi produk.
                 </p>
@@ -1657,20 +1702,20 @@ const CompanyProfile = () => {
                     href="https://wa.me/6281287951140"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all duration-300 hover:scale-[1.02]"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all duration-300 hover:scale-[1.02] text-white"
                   >
                     <svg
                       className="w-5 h-5 mr-2"
                       fill="currentColor"
                       viewBox="0 0 24 24"
                     >
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
                     </svg>
                     Chat WhatsApp
                   </a>
                   <a
                     href="tel:+622162305916"
-                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all duration-300 hover:scale-[1.02]"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all duration-300 hover:scale-[1.02] text-white"
                   >
                     <svg
                       className="w-5 h-5 mr-2"
@@ -1689,7 +1734,7 @@ const CompanyProfile = () => {
                   </a>
                   <a
                     href="mailto:sales.jayarubberseal@gmail.com"
-                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg font-bold text-base border border-gray-700/50 hover:border-cyan-500/20 transition-all duration-300 hover:scale-[1.02]"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg font-bold text-base border border-gray-300/50 hover:border-cyan-500/40 transition-all duration-300 hover:scale-[1.02] text-gray-800"
                   >
                     <svg
                       className="w-5 h-5 mr-2"
