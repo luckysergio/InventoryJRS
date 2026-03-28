@@ -11,13 +11,30 @@ const PreLoader = () => {
   if (!loading) return null;
 
   return (
-    <div className="w-screen h-screen fixed flex items-center justify-center bg-gradient-to-br from-gray-100 via-white to-gray-200 z-50">
-      <div className="relative">
-        {/* Spinner utama */}
-        <div role="status">
+    <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 via-white to-gray-200 z-50">
+      <div className="relative flex flex-col items-center">
+        {/* Logo atau Ikon */}
+        <div className="mb-6 p-3 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl shadow-lg">
+          <svg
+            className="w-12 h-12 text-white"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+            />
+          </svg>
+        </div>
+
+        {/* Spinner */}
+        <div role="status" className="mb-4">
           <svg
             aria-hidden="true"
-            className="inline w-16 h-16 text-gray-300 animate-spin fill-cyan-600"
+            className="w-12 h-12 text-gray-300 animate-spin fill-cyan-600"
             viewBox="0 0 100 101"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -33,12 +50,13 @@ const PreLoader = () => {
           </svg>
           <span className="sr-only">Loading...</span>
         </div>
-        
+
         {/* Teks loading */}
-        <div className="mt-4 text-center">
-          <p className="text-sm font-medium text-gray-600 animate-pulse">
-            Memuat Jaya Rubber Seal
+        <div className="text-center">
+          <p className="text-sm font-medium text-gray-700 animate-pulse">
+            Jaya Rubber Seal
           </p>
+          <p className="text-xs text-gray-500 mt-1">Memuat...</p>
         </div>
       </div>
     </div>

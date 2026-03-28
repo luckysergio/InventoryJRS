@@ -92,6 +92,11 @@ const CustomerPage = ({ setNavbarContent }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
+  
+  // ✅ State baru untuk loading submit & pagination
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   const fetchData = useCallback(async (searchTerm = "") => {
     try {
@@ -142,6 +147,11 @@ const CustomerPage = ({ setNavbarContent }) => {
     );
   }, [search]);
 
+  // ✅ Reset ke halaman 1 saat search berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   const handleTambah = () => {
     setForm({ name: "", phone: "", email: "" });
     setIsEdit(false);
@@ -158,6 +168,12 @@ const CustomerPage = ({ setNavbarContent }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // ✅ Mencegah double submit
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    
     try {
       if (isEdit) {
         await api.put(`/customers/${selectedId}`, form);
@@ -177,6 +193,9 @@ const CustomerPage = ({ setNavbarContent }) => {
       } else {
         Swal.fire("Error", "Terjadi kesalahan", "error");
       }
+    } finally {
+      // ✅ Matikan loading setelah selesai
+      setIsSubmitting(false);
     }
   };
 
@@ -278,11 +297,10 @@ const CustomerPage = ({ setNavbarContent }) => {
   };
 
   const handlePrintTagihan = (customer) => {
-    // Ambil data transaksi detail dari customer
     const transaksiDetails = Array.isArray(customer.transaksi_details)
       ? customer.transaksi_details.filter((detail) => {
           if (!detail || !detail.transaksi || !detail.product) return false;
-          if (detail.status_transaksi_id === 6) return false; // Dibatalkan
+          if (detail.status_transaksi_id === 6) return false;
           const subtotal = safeParseFloat(detail.subtotal);
           const totalBayar = Array.isArray(detail.pembayarans)
             ? detail.pembayarans.reduce(
@@ -299,7 +317,6 @@ const CustomerPage = ({ setNavbarContent }) => {
       return;
     }
 
-    // Hitung total
     let totalSubtotal = 0;
     let totalDiscount = 0;
     let totalTagihan = 0;
@@ -402,11 +419,8 @@ const CustomerPage = ({ setNavbarContent }) => {
             border: 1px solid #e5e7eb;
             vertical-align: top;
           }
-          /* Kolom Tanggal */
           td:nth-child(1) { text-align: center; width: 10%; }
-          /* Kolom Produk - diperbesar agar 1 baris */
           td:nth-child(2) { text-align: left; width: 35%; white-space: nowrap; }
-          /* Kolom Angka - disamakan ukuran dengan produk */
           td:nth-child(3),
           td:nth-child(4),
           td:nth-child(5),
@@ -518,121 +532,212 @@ const CustomerPage = ({ setNavbarContent }) => {
     }
   };
 
+  // ✅ Pagination Logic (Client-side)
+  const filteredCustomers = customers.filter((item) => {
+    const searchLower = search.toLowerCase();
+    return (
+      item.name?.toLowerCase().includes(searchLower) ||
+      item.phone?.toLowerCase().includes(searchLower) ||
+      item.email?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedCustomers = filteredCustomers.slice(
+    startIndex,
+    startIndex + ITEMS_PER_PAGE
+  );
+
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   return (
     <div className="space-y-6 p-2 md:p-4 max-w-7xl mx-auto">
       {/* LOADING & KOSONG */}
       {loading ? (
         <p className="text-center text-gray-500 py-12">Memuat data...</p>
-      ) : customers.length === 0 ? (
+      ) : filteredCustomers.length === 0 ? (
         <p className="text-center text-gray-500 py-12">
           Tidak ada customer yang ditemukan.
         </p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {customers.map((item) => {
-            const tagihanHarian = Number(item.tagihan_harian_belum_lunas || 0);
-            const tagihanPesanan = Number(
-              item.tagihan_pesanan_belum_lunas || 0,
-            );
-            const hasTagihan = tagihanHarian > 0 || tagihanPesanan > 0;
+        <>
 
-            return (
-              <div
-                key={item.id}
-                className="bg-white rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-md transition border border-gray-100 min-w-0"
-              >
-                <h3 className="text-sm font-bold text-gray-900 text-center truncate">
-                  {item.name}
-                </h3>
+          {/* Grid Customers */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {paginatedCustomers.map((item) => {
+              const tagihanHarian = Number(
+                item.tagihan_harian_belum_lunas || 0
+              );
+              const tagihanPesanan = Number(
+                item.tagihan_pesanan_belum_lunas || 0
+              );
+              const hasTagihan = tagihanHarian > 0 || tagihanPesanan > 0;
 
-                <p className="text-xs text-gray-500 mt-1 text-center truncate">
-                  📞 {item.phone || "-"}
-                </p>
+              return (
+                <div
+                  key={item.id}
+                  className="bg-white rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-md transition border border-gray-100 min-w-0"
+                >
+                  <h3 className="text-sm font-bold text-gray-900 text-center truncate">
+                    {item.name}
+                  </h3>
 
-                <p className="text-xs text-gray-500 text-center break-words">
-                  ✉️ {item.email || "-"}
-                </p>
+                  <p className="text-xs text-gray-500 mt-1 text-center truncate">
+                    📞 {item.phone || "-"}
+                  </p>
 
-                <div className="mt-3 space-y-1 text-xs min-w-0">
-                  {tagihanHarian > 0 && (
-                    <div
-                      className="flex justify-between pt-2 border-t border-gray-100 cursor-pointer hover:bg-orange-50 rounded p-1 gap-1"
-                      onClick={() =>
-                        openCustomerModal(item.id, item.name, "daily")
-                      }
-                    >
-                      <span className="text-orange-600 font-medium truncate">
-                        Tagihan Harian:
-                      </span>
-                      <span className="text-orange-600 font-bold shrink-0">
-                        {formatRupiah(tagihanHarian)}
-                      </span>
-                    </div>
-                  )}
+                  <p className="text-xs text-gray-500 text-center break-words">
+                    ✉️ {item.email || "-"}
+                  </p>
 
-                  {tagihanPesanan > 0 && (
-                    <div
-                      className="flex justify-between pt-1 cursor-pointer hover:bg-purple-50 rounded p-1 gap-1"
-                      onClick={() =>
-                        openCustomerModal(item.id, item.name, "pesanan")
-                      }
-                    >
-                      <span className="text-purple-600 font-medium truncate">
-                        Tagihan Pesanan:
-                      </span>
-                      <span className="text-purple-600 font-bold shrink-0">
-                        {formatRupiah(tagihanPesanan)}
-                      </span>
-                    </div>
-                  )}
+                  <div className="mt-3 space-y-1 text-xs min-w-0">
+                    {tagihanHarian > 0 && (
+                      <div
+                        className="flex justify-between pt-2 border-t border-gray-100 cursor-pointer hover:bg-orange-50 rounded p-1 gap-1"
+                        onClick={() =>
+                          openCustomerModal(item.id, item.name, "daily")
+                        }
+                      >
+                        <span className="text-orange-600 font-medium truncate">
+                          Tagihan Harian:
+                        </span>
+                        <span className="text-orange-600 font-bold shrink-0">
+                          {formatRupiah(tagihanHarian)}
+                        </span>
+                      </div>
+                    )}
 
-                  {tagihanHarian === 0 && tagihanPesanan === 0 && (
-                    <div className="flex justify-between pt-2 border-t border-gray-100">
-                      <span className="text-green-600 font-medium">
-                        Tidak ada tagihan
-                      </span>
-                      <span className="text-green-600">✅</span>
-                    </div>
-                  )}
-                </div>
+                    {tagihanPesanan > 0 && (
+                      <div
+                        className="flex justify-between pt-1 cursor-pointer hover:bg-purple-50 rounded p-1 gap-1"
+                        onClick={() =>
+                          openCustomerModal(item.id, item.name, "pesanan")
+                        }
+                      >
+                        <span className="text-purple-600 font-medium truncate">
+                          Tagihan Pesanan:
+                        </span>
+                        <span className="text-purple-600 font-bold shrink-0">
+                          {formatRupiah(tagihanPesanan)}
+                        </span>
+                      </div>
+                    )}
 
-                {hasTagihan && (
-                  <div className="mt-2">
-                    <button
-                      onClick={() => handlePrintTagihan(item)}
-                      className="flex items-center justify-center gap-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-xs w-full"
-                    >
-                      <Receipt size={14} />
-                      Cetak
-                    </button>
+                    {tagihanHarian === 0 && tagihanPesanan === 0 && (
+                      <div className="flex justify-between pt-2 border-t border-gray-100">
+                        <span className="text-green-600 font-medium">
+                          Tidak ada tagihan
+                        </span>
+                        <span className="text-green-600">✅</span>
+                      </div>
+                    )}
                   </div>
-                )}
 
-                <div className="flex gap-2 mt-3">
-                  {(role === "admin" || role === "admin_toko") && (
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 text-xs"
-                    >
-                      <Pencil size={14} />
-                      Edit
-                    </button>
+                  {hasTagihan && (
+                    <div className="mt-2">
+                      <button
+                        onClick={() => handlePrintTagihan(item)}
+                        className="flex items-center justify-center gap-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-xs w-full"
+                      >
+                        <Receipt size={14} />
+                        Cetak
+                      </button>
+                    </div>
                   )}
 
-                  {role === "admin" && (
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-xs"
-                    >
-                      <Trash2 size={14} />
-                      Hapus
-                    </button>
-                  )}
+                  <div className="flex gap-2 mt-3">
+                    {(role === "admin" || role === "admin_toko") && (
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 text-xs"
+                      >
+                        <Pencil size={14} />
+                        Edit
+                      </button>
+                    )}
+
+                    {role === "admin" && (
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-xs"
+                      >
+                        <Trash2 size={14} />
+                        Hapus
+                      </button>
+                    )}
+                  </div>
                 </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6 pb-20">
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                  currentPage === 1
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                ← Prev
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from(
+                  { length: Math.min(5, totalPages) },
+                  (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => goToPage(pageNum)}
+                        className={`w-8 h-8 rounded-lg text-sm font-medium transition ${
+                          currentPage === pageNum
+                            ? "bg-indigo-600 text-white"
+                            : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  }
+                )}
               </div>
-            );
-          })}
-        </div>
+
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                  currentPage === totalPages
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {(role === "admin" || role === "admin_toko") && (
@@ -662,6 +767,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                   className="mt-1 w-full border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Masukkan nama"
                   required
+                  disabled={isSubmitting}
                 />
               </div>
               <div>
@@ -674,6 +780,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   className="mt-1 w-full border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Masukkan nomor telepon"
+                  disabled={isSubmitting}
                 />
               </div>
               <div>
@@ -686,21 +793,54 @@ const CustomerPage = ({ setNavbarContent }) => {
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   className="mt-1 w-full border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Masukkan email"
+                  disabled={isSubmitting}
                 />
               </div>
               <div className="flex justify-center gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={isSubmitting}
+                  className={`px-6 py-2 rounded-xl text-white flex items-center justify-center gap-2 transition ${
+                    isSubmitting
+                      ? "bg-blue-400 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
                 >
-                  {isEdit ? "Update" : "Simpan"}
+                  {isSubmitting ? (
+                    <>
+                      <svg
+                        className="animate-spin h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Menyimpan...
+                    </>
+                  ) : (
+                    <>{isEdit ? "Update" : "Simpan"}</>
+                  )}
                 </button>
               </div>
             </form>
@@ -712,7 +852,7 @@ const CustomerPage = ({ setNavbarContent }) => {
         (() => {
           const customer = findCustomerById(
             customers,
-            customerModal.customerId,
+            customerModal.customerId
           );
           if (!customer) return null;
 
@@ -762,8 +902,8 @@ const CustomerPage = ({ setNavbarContent }) => {
                       {customerModal.jenisFilter === "daily"
                         ? "Transaksi Harian"
                         : customerModal.jenisFilter === "pesanan"
-                          ? "Transaksi Pesanan"
-                          : "Semua Tagihan Belum Lunas"}
+                        ? "Transaksi Pesanan"
+                        : "Semua Tagihan Belum Lunas"}
                     </p>
                   </div>
                   <button
@@ -782,8 +922,8 @@ const CustomerPage = ({ setNavbarContent }) => {
                         {customerModal.jenisFilter === "daily"
                           ? "Tidak ada tagihan harian yang belum lunas"
                           : customerModal.jenisFilter === "pesanan"
-                            ? "Tidak ada tagihan pesanan yang belum lunas"
-                            : "Tidak ada tagihan yang belum lunas"}
+                          ? "Tidak ada tagihan pesanan yang belum lunas"
+                          : "Tidak ada tagihan yang belum lunas"}
                       </p>
                     </div>
                   ) : (
@@ -807,7 +947,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                             onClick={() =>
                               openDetailModal(
                                 detail.id,
-                                customerModal.customerName,
+                                customerModal.customerName
                               )
                             }
                           >
@@ -849,16 +989,14 @@ const CustomerPage = ({ setNavbarContent }) => {
           );
         })()}
 
-      {/* MODAL DETAIL TAGIHAN — FIX TOTAL BAYAR */}
       {detailModal &&
         (() => {
           const transaksiDetail = findTransaksiDetailById(
             customers,
-            detailModal.id,
+            detailModal.id
           );
           if (!transaksiDetail) return null;
 
-          // ✅ Gunakan safeParseFloat di sini juga!
           const subtotal = safeParseFloat(transaksiDetail.subtotal);
           const totalBayar = Array.isArray(transaksiDetail.pembayarans)
             ? transaksiDetail.pembayarans.reduce(
@@ -938,7 +1076,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                       onClick={() =>
                         openBayarModal(
                           transaksiDetail,
-                          detailModal.customerName,
+                          detailModal.customerName
                         )
                       }
                       className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg transition"
@@ -961,7 +1099,6 @@ const CustomerPage = ({ setNavbarContent }) => {
           );
         })()}
 
-      {/* MODAL PEMBAYARAN */}
       {bayarModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-xl">
@@ -990,7 +1127,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                   <span>
                     Rp{" "}
                     {formatRupiah(
-                      safeParseFloat(bayarModal.transaksiDetail.subtotal),
+                      safeParseFloat(bayarModal.transaksiDetail.subtotal)
                     )}
                   </span>
                 </div>
@@ -1003,9 +1140,9 @@ const CustomerPage = ({ setNavbarContent }) => {
                       Array.isArray(bayarModal.transaksiDetail.pembayarans)
                         ? bayarModal.transaksiDetail.pembayarans.reduce(
                             (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-                            0,
+                            0
                           )
-                        : 0,
+                        : 0
                     )}
                   </span>
                 </div>
@@ -1018,10 +1155,11 @@ const CustomerPage = ({ setNavbarContent }) => {
                       safeParseFloat(bayarModal.transaksiDetail.subtotal) -
                         (Array.isArray(bayarModal.transaksiDetail.pembayarans)
                           ? bayarModal.transaksiDetail.pembayarans.reduce(
-                              (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-                              0,
+                              (sum, p) =>
+                                sum + safeParseFloat(p.jumlah_bayar),
+                              0
                             )
-                          : 0),
+                          : 0)
                     )}
                   </span>
                 </div>

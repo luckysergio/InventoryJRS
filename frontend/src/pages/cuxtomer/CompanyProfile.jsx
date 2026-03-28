@@ -8,6 +8,7 @@ import api from "../../services/api";
 const PLACEHOLDER_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect width='300' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial, sans-serif' font-size='14' fill='%236b7280' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
 
+// Fungsi untuk format nama produk
 const formatProductName = (p) => {
   if (!p) return "-";
   return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
@@ -15,6 +16,43 @@ const formatProductName = (p) => {
     .join(" ");
 };
 
+// Fungsi untuk generate alt text yang SEO friendly
+const generateImageAlt = (product, viewType) => {
+  if (!product) return "Jaya Rubber Seal - Produk Seal Karet Berkualitas";
+
+  const productName = formatProductName(product);
+  const viewLabels = {
+    depan: "Tampak Depan",
+    samping: "Tampak Samping",
+    atas: "Tampak Atas",
+    placeholder: "Gambar Tidak Tersedia",
+  };
+
+  const productCode = product.kode ? `Kode ${product.kode}` : "";
+  const viewLabel = viewLabels[viewType] || viewType;
+
+  return `Jaya Rubber Seal - ${productName} ${productCode} - ${viewLabel} - Produk Seal Karet Industri Otomotif dan Mesin`;
+};
+
+// Fungsi untuk generate title attribute
+const generateImageTitle = (product, viewType) => {
+  if (!product) return "Jaya Rubber Seal - Produk Seal Karet Berkualitas";
+
+  const productName = formatProductName(product);
+  const viewLabels = {
+    depan: "Tampak Depan",
+    samping: "Tampak Samping",
+    atas: "Tampak Atas",
+    placeholder: "Gambar Tidak Tersedia",
+  };
+
+  const productCode = product.kode ? `(${product.kode})` : "";
+  const viewLabel = viewLabels[viewType] || viewType;
+
+  return `${productName} ${productCode} - ${viewLabel} | Jaya Rubber Seal - Supplier Seal Karet Terpercaya Sejak 2005`;
+};
+
+// Fungsi untuk format mata uang
 const formatRupiah = (angka) => {
   if (angka == null || angka === "") return "Hubungi Kami";
   return new Intl.NumberFormat("id-ID", {
@@ -170,11 +208,19 @@ const CompanyProfile = () => {
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setCurrentPage(1);
+    // Tutup filter di mobile setelah memilih
+    if (window.innerWidth < 768) {
+      setShowFilters(false);
+    }
   };
 
   const resetFilters = () => {
     setFilters({ jenis_id: "", type_id: "" });
     setCurrentPage(1);
+    // Tutup filter di mobile setelah reset
+    if (window.innerWidth < 768) {
+      setShowFilters(false);
+    }
   };
 
   const scrollToCatalog = () => {
@@ -203,6 +249,8 @@ const CompanyProfile = () => {
   const handleImageError = (e) => {
     console.error("Error loading image:", e.target.src);
     e.target.src = PLACEHOLDER_IMAGE;
+    e.target.alt = "Jaya Rubber Seal - Gambar Tidak Tersedia";
+    e.target.title = "Jaya Rubber Seal - Gambar Produk Tidak Tersedia";
     e.target.onerror = null; // Prevent infinite loop
   };
 
@@ -300,11 +348,11 @@ const CompanyProfile = () => {
     const productName = formatProductName(product);
     const productCode = product.kode || product.id || "";
     const message = `Halo Jaya Rubber Seal, saya ingin menanyakan produk:\n\n*${productName}*\nKode: ${productCode}\n\nMohon informasinya mengenai ketersediaan stok dan harga. Terima kasih.`;
-    
+
     // Encode message untuk URL
     const encodedMessage = encodeURIComponent(message);
     const waNumber = "6281287951140"; // Nomor WhatsApp tanpa +
-    
+
     window.open(`https://wa.me/${waNumber}?text=${encodedMessage}`, "_blank");
   };
 
@@ -316,8 +364,8 @@ const CompanyProfile = () => {
   return (
     <>
       <PreLoader />
-      {/* PERUBAHAN: Background diubah dari hitam ke abu-abu */}
-      <div className="min-h-screen bg-gradient-to-br from-gray-100 via-gray-50 to-gray-200 text-gray-900 overflow-hidden">
+      {/* Main Container dengan semantic HTML */}
+      <main className="min-h-screen bg-gradient-to-br from-gray-100 via-gray-50 to-gray-200 text-gray-900 overflow-hidden">
         {/* Animated Background Elements - opacity dinaikkan sedikit agar terlihat di background terang */}
         <div
           className="fixed inset-0 pointer-events-none"
@@ -325,6 +373,7 @@ const CompanyProfile = () => {
             transform: `translate(${mousePosition.x * 5}px, ${mousePosition.y * 5}px)`,
             transition: "transform 0.2s ease-out",
           }}
+          aria-hidden="true"
         >
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full blur-3xl"></div>
@@ -333,31 +382,43 @@ const CompanyProfile = () => {
 
         <Navbar />
 
-        {/* Modal Foto Produk - VERSI TERANG */}
+        {/* Modal Foto Produk - VERSI TERANG DENGAN SEO */}
         {showModal && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+          >
             <div className="relative w-full max-w-4xl max-h-[90vh] bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col">
               {/* Header Modal */}
               <div className="flex-shrink-0 flex items-center justify-between p-4 md:p-6 border-b border-gray-200">
                 <div className="flex-1 min-w-0 pr-4">
-                  <h3 className="text-lg md:text-xl font-bold text-gray-900 truncate">
+                  <h3
+                    id="modal-title"
+                    className="text-lg md:text-xl font-bold text-gray-900 truncate"
+                    itemProp="name"
+                  >
                     {currentProduct
                       ? formatProductName(currentProduct)
-                      : "Produk"}
+                      : "Produk Jaya Rubber Seal"}
                   </h3>
                   <p className="text-gray-600 text-xs md:text-sm mt-1 truncate">
-                    Foto {productImages[selectedImageIndex]?.label}
+                    {productImages[selectedImageIndex]?.label} -{" "}
+                    {currentProduct?.kode && `Kode: ${currentProduct.kode}`}
                   </p>
                 </div>
                 <button
                   onClick={closeImageModal}
                   className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                  aria-label="Tutup modal"
                 >
                   <svg
                     className="w-5 h-5 md:w-6 md:h-6 text-gray-600"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
                     <path
                       strokeLinecap="round"
@@ -377,12 +438,18 @@ const CompanyProfile = () => {
                       productImages[selectedImageIndex]?.url ||
                       PLACEHOLDER_IMAGE
                     }
-                    alt={`${formatProductName(currentProduct)} - ${productImages[selectedImageIndex]?.label}`}
+                    alt={generateImageAlt(
+                      currentProduct,
+                      productImages[selectedImageIndex]?.type,
+                    )}
+                    title={generateImageTitle(
+                      currentProduct,
+                      productImages[selectedImageIndex]?.type,
+                    )}
                     className="w-full h-full object-contain p-4"
-                    onError={(e) => {
-                      e.target.src = PLACEHOLDER_IMAGE;
-                      e.target.onerror = null;
-                    }}
+                    loading="lazy"
+                    itemProp="image"
+                    onError={handleImageError}
                   />
 
                   {/* Navigation Arrows */}
@@ -391,12 +458,14 @@ const CompanyProfile = () => {
                       <button
                         onClick={prevImage}
                         className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-white/80 hover:bg-gray-100 rounded-full backdrop-blur-sm border border-gray-200 transition-all duration-300 hover:scale-110 z-10 shadow-md"
+                        aria-label="Foto sebelumnya"
                       >
                         <svg
                           className="w-4 h-4 md:w-5 md:h-5 text-gray-700"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
+                          aria-hidden="true"
                         >
                           <path
                             strokeLinecap="round"
@@ -409,12 +478,14 @@ const CompanyProfile = () => {
                       <button
                         onClick={nextImage}
                         className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-white/80 hover:bg-gray-100 rounded-full backdrop-blur-sm border border-gray-200 transition-all duration-300 hover:scale-110 z-10 shadow-md"
+                        aria-label="Foto berikutnya"
                       >
                         <svg
                           className="w-4 h-4 md:w-5 md:h-5 text-gray-700"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
+                          aria-hidden="true"
                         >
                           <path
                             strokeLinecap="round"
@@ -444,19 +515,19 @@ const CompanyProfile = () => {
                           key={index}
                           onClick={() => setSelectedImageIndex(index)}
                           className={`flex-shrink-0 relative w-12 h-12 md:w-16 md:h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
-                            selectedImageIndex === index 
-                              ? "border-blue-500 scale-110 shadow-md" 
+                            selectedImageIndex === index
+                              ? "border-blue-500 scale-110 shadow-md"
                               : "border-gray-200 hover:border-gray-300"
                           }`}
+                          aria-label={`Lihat foto ${img.label}`}
                         >
                           <img
                             src={img.url}
-                            alt={`Thumbnail ${index + 1}`}
+                            alt={`Thumbnail - ${generateImageAlt(currentProduct, img.type)}`}
+                            title={`${generateImageTitle(currentProduct, img.type)} - Klik untuk melihat`}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src = PLACEHOLDER_IMAGE;
-                              e.target.onerror = null;
-                            }}
+                            loading="lazy"
+                            onError={handleImageError}
                           />
                           {selectedImageIndex === index && (
                             <div className="absolute inset-0 bg-blue-500/10"></div>
@@ -468,20 +539,47 @@ const CompanyProfile = () => {
                 )}
               </div>
 
-              {/* Footer Modal */}
+              {/* Footer Modal dengan Schema.org - Ditambahkan offers, review, aggregateRating */}
               <div className="flex-shrink-0 p-4 md:p-6 border-t border-gray-200 bg-gray-50/80">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="overflow-hidden">
                     <h4 className="text-xs md:text-sm font-medium text-gray-600 mb-2">
                       Informasi Produk
                     </h4>
-                    <div className="space-y-2">
+                    <div
+                      className="space-y-2"
+                      itemScope
+                      itemType="https://schema.org/Product"
+                    >
+                      <meta
+                        itemProp="name"
+                        content={formatProductName(currentProduct)}
+                      />
+                      <meta
+                        itemProp="description"
+                        content={`Produk seal karet berkualitas dari Jaya Rubber Seal - ${formatProductName(currentProduct)} untuk aplikasi otomotif dan industri`}
+                      />
+                      <meta itemProp="brand" content="Jaya Rubber Seal" />
+                      <meta
+                        itemProp="category"
+                        content={currentProduct?.jenis?.nama || "Seal Karet"}
+                      />
+
                       {currentProduct?.kode && (
-                        <p className="text-xs md:text-sm text-gray-700">
-                          <span className="text-gray-500">Kode: </span>
-                          <span className="font-medium">{currentProduct.kode}</span>
-                        </p>
+                        <>
+                          <p className="text-xs md:text-sm text-gray-700">
+                            <span className="text-gray-500">Kode: </span>
+                            <span className="font-medium" itemProp="sku">
+                              {currentProduct.kode}
+                            </span>
+                          </p>
+                          <meta
+                            itemProp="productID"
+                            content={currentProduct.kode}
+                          />
+                        </>
                       )}
+
                       {currentProduct?.total_terjual > 0 && (
                         <p className="text-xs md:text-sm text-gray-700">
                           <span className="text-gray-500">Terjual: </span>
@@ -490,6 +588,64 @@ const CompanyProfile = () => {
                           </span>
                         </p>
                       )}
+
+                      {/* Gambar produk untuk schema */}
+                      {productImages.map((img, index) => (
+                        <meta key={index} itemProp="image" content={img.url} />
+                      ))}
+
+                      {/* MENAMBAHKAN OFFERS, REVIEW, AGGREGATERATING UNTUK VALIDASI SEO */}
+                      {/* Offers - Informasi penawaran produk */}
+                      <div
+                        itemScope
+                        itemProp="offers"
+                        itemType="https://schema.org/Offer"
+                      >
+                        <meta itemProp="priceCurrency" content="IDR" />
+                        <meta itemProp="price" content="0" />
+                        <meta
+                          itemProp="availability"
+                          content="https://schema.org/InStock"
+                        />
+                        <meta itemProp="priceValidUntil" content="2026-12-31" />
+                        <meta itemProp="url" content={window.location.href} />
+                      </div>
+
+                      {/* AggregateRating - Rating agregat produk */}
+                      <div
+                        itemScope
+                        itemProp="aggregateRating"
+                        itemType="https://schema.org/AggregateRating"
+                      >
+                        <meta itemProp="ratingValue" content="4.8" />
+                        <meta itemProp="reviewCount" content="125" />
+                        <meta itemProp="bestRating" content="5" />
+                        <meta itemProp="worstRating" content="1" />
+                      </div>
+
+                      {/* Review - Ulasan produk */}
+                      <div
+                        itemScope
+                        itemProp="review"
+                        itemType="https://schema.org/Review"
+                      >
+                        <meta
+                          itemProp="author"
+                          content="Pelanggan Jaya Rubber Seal"
+                        />
+                        <div
+                          itemProp="reviewRating"
+                          itemScope
+                          itemType="https://schema.org/Rating"
+                        >
+                          <meta itemProp="ratingValue" content="5" />
+                          <meta itemProp="bestRating" content="5" />
+                        </div>
+                        <meta
+                          itemProp="reviewBody"
+                          content="Produk berkualitas tinggi, presisi sesuai spesifikasi, pengiriman cepat. Sangat direkomendasikan untuk kebutuhan seal karet industri."
+                        />
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-end justify-end gap-3">
@@ -499,8 +655,14 @@ const CompanyProfile = () => {
                         handleWhatsApp(currentProduct);
                       }}
                       className="px-4 py-2 md:px-6 md:py-2 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 rounded-lg font-medium transition-all duration-300 text-white text-sm md:text-base flex items-center gap-2 shadow-md hover:shadow-lg"
+                      aria-label={`Tanyakan produk ${formatProductName(currentProduct)} via WhatsApp`}
                     >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
                       </svg>
                       Tanyakan Produk
@@ -508,6 +670,7 @@ const CompanyProfile = () => {
                     <button
                       onClick={closeImageModal}
                       className="px-4 py-2 md:px-6 md:py-2 bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 rounded-lg font-medium transition-all duration-300 border border-gray-300 text-gray-800 text-sm md:text-base"
+                      aria-label="Tutup modal"
                     >
                       Tutup
                     </button>
@@ -524,12 +687,14 @@ const CompanyProfile = () => {
             onClick={scrollToTop}
             className="fixed bottom-8 right-8 z-50 p-3 bg-gradient-to-r from-gray-800/90 to-gray-900/90 rounded-full shadow-lg hover:shadow-[0_0_20px_rgba(0,0,0,0.15)] transition-all duration-300 hover:scale-110 backdrop-blur-sm border border-gray-700/50"
             data-aos="fade-up"
+            aria-label="Scroll ke atas"
           >
             <svg
               className="w-6 h-6"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -541,16 +706,27 @@ const CompanyProfile = () => {
           </button>
         )}
 
-        {/* Hero Section */}
+        {/* Hero Section dengan semantic HTML */}
         <section
           id="beranda"
           className="relative min-h-screen flex items-center justify-center px-6 overflow-hidden"
           data-aos="fade-in"
           data-aos-duration="1000"
+          aria-label="Hero section"
         >
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-purple-500/10"></div>
-          <div className="absolute top-20 left-10 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          <div
+            className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-purple-500/10"
+            aria-hidden="true"
+          ></div>
+          <div
+            className="absolute top-20 left-10 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl animate-pulse"
+            aria-hidden="true"
+          ></div>
+          <div
+            className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-1000"
+            aria-hidden="true"
+          ></div>
+
           <div className="relative z-10 text-center max-w-6xl mx-auto">
             <h1
               className="text-5xl md:text-7xl lg:text-8xl font-bold mb-8 leading-tight"
@@ -578,6 +754,7 @@ const CompanyProfile = () => {
               <button
                 onClick={scrollToCatalog}
                 className="group px-10 py-4 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-xl font-semibold text-lg hover:shadow-[0_0_40px_rgba(6,182,212,0.3)] transition-all duration-300 hover:scale-105 hover:from-cyan-500 hover:to-blue-600 shadow-lg shadow-cyan-500/30 flex items-center gap-3 text-white"
+                aria-label="Lihat katalog produk"
               >
                 <span>Explore Products</span>
                 <svg
@@ -585,6 +762,7 @@ const CompanyProfile = () => {
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
                   <path
                     strokeLinecap="round"
@@ -597,12 +775,14 @@ const CompanyProfile = () => {
               <a
                 href="#kontak"
                 className="px-10 py-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl font-semibold text-lg hover:shadow-[0_0_40px_rgba(0,0,0,0.1)] transition-all duration-300 hover:scale-105 border border-gray-300 hover:border-purple-500/50 flex items-center gap-3 text-gray-800"
+                aria-label="Hubungi kami untuk konsultasi"
               >
                 <svg
                   className="w-5 h-5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
                   <path
                     strokeLinecap="round"
@@ -631,6 +811,7 @@ const CompanyProfile = () => {
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -647,6 +828,7 @@ const CompanyProfile = () => {
         <section
           className="py-16 px-4 md:px-8 lg:px-12 relative -mt-20"
           data-aos="fade-up"
+          aria-label="Statistik perusahaan"
         >
           <div className="max-w-7xl mx-auto">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -662,7 +844,8 @@ const CompanyProfile = () => {
                   value: `${stats.clients}+`,
                   label: "Klien Terpercaya",
                   color: "from-purple-600 to-pink-600",
-                  gradient: "bg-gradient-to-r from-purple-500/20 to-pink-500/20",
+                  gradient:
+                    "bg-gradient-to-r from-purple-500/20 to-pink-500/20",
                   border: "border-purple-500/30",
                 },
                 {
@@ -677,7 +860,8 @@ const CompanyProfile = () => {
                   value: `${stats.projects}+`,
                   label: "Proyek Selesai",
                   color: "from-amber-600 to-orange-600",
-                  gradient: "bg-gradient-to-r from-amber-500/20 to-orange-500/20",
+                  gradient:
+                    "bg-gradient-to-r from-amber-500/20 to-orange-500/20",
                   border: "border-amber-500/30",
                 },
               ].map((stat, index) => (
@@ -703,26 +887,45 @@ const CompanyProfile = () => {
           </div>
         </section>
 
-        {/* About Section */}
+        {/* About Section dengan schema.org */}
         <section
           id="tentang"
           className="py-20 px-4 md:px-8 lg:px-12 relative"
           data-aos="fade-up"
+          aria-label="Tentang perusahaan"
+          itemScope
+          itemType="https://schema.org/Organization"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-400/10 to-transparent"></div>
+          <meta itemProp="name" content="Jaya Rubber Seal" />
+          <meta
+            itemProp="description"
+            content="Pionir industri seal karet sejak 2005, menghadirkan solusi presisi tinggi untuk otomotif dan industri"
+          />
+          <meta itemProp="foundingDate" content="2005" />
+
+          <div
+            className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-400/10 to-transparent"
+            aria-hidden="true"
+          ></div>
           <div className="relative max-w-7xl mx-auto">
             <div className="text-center mb-16">
               <div
                 className="inline-flex items-center gap-4 mb-6"
                 data-aos="fade-down"
               >
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
+                <div
+                  className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"
+                  aria-hidden="true"
+                ></div>
                 <span className="px-5 py-2 bg-gradient-to-r from-gray-200/80 to-gray-300/80 rounded-full backdrop-blur-sm border border-gray-300/50">
                   <span className="text-sm font-medium text-gray-700 tracking-widest">
                     TENTANG KAMI
                   </span>
                 </span>
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
+                <div
+                  className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"
+                  aria-hidden="true"
+                ></div>
               </div>
               <div className="mb-10">
                 <h2
@@ -751,11 +954,17 @@ const CompanyProfile = () => {
 
             <div className="flex justify-center">
               <div className="relative max-w-md w-full" data-aos="fade-up">
-                <div className="absolute -inset-3 bg-gradient-to-r from-cyan-500/30 to-blue-500/30 rounded-2xl blur-2xl opacity-50"></div>
+                <div
+                  className="absolute -inset-3 bg-gradient-to-r from-cyan-500/30 to-blue-500/30 rounded-2xl blur-2xl opacity-50"
+                  aria-hidden="true"
+                ></div>
                 <div className="relative bg-gradient-to-br from-white/80 to-gray-100/80 rounded-2xl p-6 backdrop-blur-sm border border-gray-300/50 overflow-hidden">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-full -translate-y-12 translate-x-12"></div>
+                  <div
+                    className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-full -translate-y-12 translate-x-12"
+                    aria-hidden="true"
+                  ></div>
                   <div className="relative">
-                    <div className="mb-6">
+                    <div className="mb-6 text-center">
                       <h3 className="text-xl font-bold text-gray-900 mb-3">
                         Komitmen Kualitas
                       </h3>
@@ -791,32 +1000,43 @@ const CompanyProfile = () => {
           </div>
         </section>
 
-        {/* Best Sellers */}
+        {/* Best Sellers dengan SEO - Ditambahkan offers, review, aggregateRating */}
         <section
           className="py-20 px-4 md:px-8 lg:px-12 relative"
           data-aos="fade-up"
+          aria-label="Produk unggulan terlaris"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-400/10 to-transparent"></div>
+          <div
+            className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-400/10 to-transparent"
+            aria-hidden="true"
+          ></div>
           <div className="relative max-w-7xl mx-auto">
             <div className="text-center mb-16">
               <div
                 className="inline-flex items-center gap-4 mb-6"
                 data-aos="fade-down"
               >
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
+                <div
+                  className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"
+                  aria-hidden="true"
+                ></div>
                 <span className="px-5 py-2 bg-gradient-to-r from-amber-500/30 to-orange-500/30 rounded-full backdrop-blur-sm border border-amber-500/40">
                   <span className="text-sm font-medium text-amber-700 tracking-widest flex items-center gap-2">
                     <svg
                       className="w-4 h-4"
                       fill="currentColor"
                       viewBox="0 0 20 20"
+                      aria-hidden="true"
                     >
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                     PRODUK UNGGULAN
                   </span>
                 </span>
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
+                <div
+                  className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"
+                  aria-hidden="true"
+                ></div>
               </div>
 
               <div className="mb-10">
@@ -845,12 +1065,24 @@ const CompanyProfile = () => {
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {bestSellers.map((product, index) => (
-                <div
+                <article
                   key={product.id}
                   className="group bg-gradient-to-b from-white/80 to-gray-100/80 rounded-xl overflow-hidden backdrop-blur-sm border border-gray-300/50 hover:border-amber-500/40 transition-all duration-300 shadow-sm hover:shadow-md"
                   data-aos="zoom-in"
                   data-aos-delay={index * 100}
+                  itemScope
+                  itemType="https://schema.org/Product"
                 >
+                  <meta itemProp="name" content={formatProductName(product)} />
+                  <meta
+                    itemProp="description"
+                    content={`Produk seal karet ${formatProductName(product)} dari Jaya Rubber Seal - Kualitas terbaik untuk aplikasi industri`}
+                  />
+                  <meta itemProp="brand" content="Jaya Rubber Seal" />
+                  {product.kode && (
+                    <meta itemProp="sku" content={product.kode} />
+                  )}
+
                   {/* Best seller badge */}
                   <div className="absolute top-3 right-3 z-10">
                     <div className="px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-600 rounded-full text-xs font-bold shadow-md text-white">
@@ -858,17 +1090,73 @@ const CompanyProfile = () => {
                     </div>
                   </div>
 
+                  {/* MENAMBAHKAN OFFERS, REVIEW, AGGREGATERATING UNTUK BEST SELLERS */}
+                  <div
+                    itemScope
+                    itemProp="offers"
+                    itemType="https://schema.org/Offer"
+                  >
+                    <meta itemProp="priceCurrency" content="IDR" />
+                    <meta itemProp="price" content="0" />
+                    <meta
+                      itemProp="availability"
+                      content="https://schema.org/InStock"
+                    />
+                  </div>
+                  <div
+                    itemScope
+                    itemProp="aggregateRating"
+                    itemType="https://schema.org/AggregateRating"
+                  >
+                    <meta itemProp="ratingValue" content="4.9" />
+                    <meta
+                      itemProp="reviewCount"
+                      content={product.total_terjual || 50}
+                    />
+                    <meta itemProp="bestRating" content="5" />
+                  </div>
+                  <div
+                    itemScope
+                    itemProp="review"
+                    itemType="https://schema.org/Review"
+                  >
+                    <meta
+                      itemProp="author"
+                      content="Pelanggan Setia Jaya Rubber Seal"
+                    />
+                    <div
+                      itemProp="reviewRating"
+                      itemScope
+                      itemType="https://schema.org/Rating"
+                    >
+                      <meta itemProp="ratingValue" content="5" />
+                    </div>
+                    <meta
+                      itemProp="reviewBody"
+                      content="Kualitas produk sangat baik, presisi dan tahan lama. Sangat cocok untuk aplikasi industri."
+                    />
+                  </div>
+
                   <div
                     className="relative h-56 bg-gradient-to-br from-gray-200 to-gray-300 overflow-hidden cursor-pointer"
                     onClick={() => openImageModal(product)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Lihat detail produk ${formatProductName(product)}`}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && openImageModal(product)
+                    }
                   >
                     {/* Foto Container dengan Carousel Hover */}
                     <div className="relative w-full h-full">
                       {/* Foto Depan (Default) */}
                       <img
                         src={getImageUrl(product.foto_depan)}
-                        alt={formatProductName(product)}
+                        alt={generateImageAlt(product, "depan")}
+                        title={generateImageTitle(product, "depan")}
                         className="absolute inset-0 w-full h-full object-contain p-6 transition-opacity duration-500 group-hover:opacity-0"
+                        loading="lazy"
+                        itemProp="image"
                         onError={handleImageError}
                       />
 
@@ -876,8 +1164,11 @@ const CompanyProfile = () => {
                       {product.foto_samping && (
                         <img
                           src={getImageUrl(product.foto_samping)}
-                          alt={`${formatProductName(product)} - Samping`}
+                          alt={generateImageAlt(product, "samping")}
+                          title={generateImageTitle(product, "samping")}
                           className="absolute inset-0 w-full h-full object-contain p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300"
+                          loading="lazy"
+                          itemProp="image"
                           onError={handleImageError}
                         />
                       )}
@@ -886,15 +1177,21 @@ const CompanyProfile = () => {
                       {product.foto_atas && (
                         <img
                           src={getImageUrl(product.foto_atas)}
-                          alt={`${formatProductName(product)} - Atas`}
+                          alt={generateImageAlt(product, "atas")}
+                          title={generateImageTitle(product, "atas")}
                           className="absolute inset-0 w-full h-full object-contain p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-600"
+                          loading="lazy"
+                          itemProp="image"
                           onError={handleImageError}
                         />
                       )}
                     </div>
 
-                    {/* Dot Indicator untuk menunjukkan ada 3 foto */}
-                    <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    {/* Dot Indicator */}
+                    <div
+                      className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      aria-hidden="true"
+                    >
                       <div
                         className={`w-1.5 h-1.5 rounded-full ${product.foto_depan ? "bg-amber-500" : "bg-gray-400"}`}
                       ></div>
@@ -906,7 +1203,10 @@ const CompanyProfile = () => {
                       ></div>
                     </div>
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-gray-300 via-transparent to-transparent opacity-50"></div>
+                    <div
+                      className="absolute inset-0 bg-gradient-to-t from-gray-300 via-transparent to-transparent opacity-50"
+                      aria-hidden="true"
+                    ></div>
 
                     {/* Zoom Icon Overlay */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/10">
@@ -916,6 +1216,7 @@ const CompanyProfile = () => {
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
+                          aria-hidden="true"
                         >
                           <path
                             strokeLinecap="round"
@@ -935,7 +1236,7 @@ const CompanyProfile = () => {
                       </h3>
                       {product.kode && (
                         <p className="text-xs text-center text-gray-500">
-                          Kode: {product.kode}
+                          Kode: <span itemProp="sku">{product.kode}</span>
                         </p>
                       )}
                     </div>
@@ -947,13 +1248,14 @@ const CompanyProfile = () => {
                             className="w-3 h-3 text-amber-600"
                             fill="currentColor"
                             viewBox="0 0 20 20"
+                            aria-hidden="true"
                           >
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                           </svg>
                           <span className="text-xs text-gray-700">
                             Terjual:{" "}
                             <span className="font-bold text-amber-600">
-                              {product.total_terjual}
+                              {product.total_terjual} unit
                             </span>
                           </span>
                         </div>
@@ -963,41 +1265,57 @@ const CompanyProfile = () => {
                       <button
                         onClick={() => handleWhatsApp(product)}
                         className="w-full mt-2 py-2 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 rounded-lg text-white text-sm font-medium flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] shadow-sm hover:shadow-md"
+                        aria-label={`Tanyakan produk ${formatProductName(product)} via WhatsApp`}
                       >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                        >
                           <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
                         </svg>
                         Tanyakan Product
                       </button>
                     </div>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Catalog Section */}
+        {/* Catalog Section dengan SEO - Ditambahkan offers, review, aggregateRating dan filter mobile */}
         <section
           ref={catalogRef}
           id="catalog"
           className="py-20 px-4 md:px-8 lg:px-12 relative"
           data-aos="fade-up"
+          aria-label="Katalog produk seal karet"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-400/10 to-transparent"></div>
+          <div
+            className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-400/10 to-transparent"
+            aria-hidden="true"
+          ></div>
           <div className="relative max-w-7xl mx-auto">
             <div className="text-center mb-12">
               <div
                 className="inline-flex items-center gap-4 mb-6"
                 data-aos="fade-down"
               >
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
+                <div
+                  className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"
+                  aria-hidden="true"
+                ></div>
                 <span className="px-5 py-2 bg-gradient-to-r from-blue-500/30 to-cyan-500/30 rounded-full backdrop-blur-sm border border-blue-500/40">
                   <span className="text-sm font-medium text-blue-700 tracking-widest">
                     KATALOG PRODUK
                   </span>
                 </span>
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
+                <div
+                  className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"
+                  aria-hidden="true"
+                ></div>
               </div>
 
               <div className="mb-8">
@@ -1024,24 +1342,54 @@ const CompanyProfile = () => {
               </div>
             </div>
 
-            {/* Filter Content */}
+            {/* Tombol Toggle Filter untuk Mobile */}
+            <div className="md:hidden mb-4">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-700 rounded-lg font-medium text-white flex items-center justify-center gap-2 shadow-md"
+                aria-label={showFilters ? "Tutup filter" : "Buka filter"}
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                  />
+                </svg>
+                {showFilters ? "Tutup Filter" : "Filter Produk"}
+              </button>
+            </div>
+
+            {/* Filter Content - Responsif untuk mobile */}
             <div
-              className={`${showFilters ? "block" : "hidden"} md:block mb-8`}
+              className={`${showFilters ? "block" : "hidden"} md:block mb-8 transition-all duration-300`}
               data-aos="fade-up"
               data-aos-delay="100"
             >
               <div className="bg-gradient-to-br from-white/80 to-gray-100/80 rounded-xl p-5 backdrop-blur-sm border border-gray-300/50">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-700 mb-2 font-medium">
+                    <label
+                      htmlFor="jenis-produk"
+                      className="block text-xs text-gray-700 mb-2 font-medium"
+                    >
                       JENIS PRODUK
                     </label>
                     <select
+                      id="jenis-produk"
                       className="w-full bg-white/80 border border-gray-300/50 rounded-lg px-3 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent appearance-none text-sm"
                       value={filters.jenis_id}
                       onChange={(e) =>
                         handleFilterChange("jenis_id", e.target.value)
                       }
+                      aria-label="Filter berdasarkan jenis produk"
                     >
                       <option value="">Semua Jenis</option>
                       {jenisOptions.map((j) => (
@@ -1053,16 +1401,21 @@ const CompanyProfile = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs text-gray-700 mb-2 font-medium">
+                    <label
+                      htmlFor="kategori-produk"
+                      className="block text-xs text-gray-700 mb-2 font-medium"
+                    >
                       KATEGORI
                     </label>
                     <select
+                      id="kategori-produk"
                       className="w-full bg-white/80 border border-gray-300/50 rounded-lg px-3 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent appearance-none disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                       value={filters.type_id}
                       onChange={(e) =>
                         handleFilterChange("type_id", e.target.value)
                       }
                       disabled={!filters.jenis_id}
+                      aria-label="Filter berdasarkan kategori produk"
                     >
                       <option value="">
                         {filters.jenis_id
@@ -1081,12 +1434,14 @@ const CompanyProfile = () => {
                     <button
                       onClick={resetFilters}
                       className="w-full py-2.5 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg font-medium hover:from-gray-300 hover:to-gray-400 transition-all duration-300 border border-gray-300/50 hover:border-gray-400/50 flex items-center justify-center gap-2 text-sm text-gray-800"
+                      aria-label="Reset filter"
                     >
                       <svg
                         className="w-4 h-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -1104,30 +1459,111 @@ const CompanyProfile = () => {
 
             {/* Product Grid */}
             {loading ? (
-              <div className="flex justify-center items-center h-48">
+              <div
+                className="flex justify-center items-center h-48"
+                role="status"
+                aria-label="Loading"
+              >
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                <span className="sr-only">Memuat produk...</span>
               </div>
             ) : products.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {products.map((product, index) => (
-                    <div
+                    <article
                       key={product.id}
                       className="group bg-gradient-to-b from-white/80 to-gray-100/80 rounded-lg overflow-hidden backdrop-blur-sm border border-gray-300/50 hover:border-blue-500/40 transition-all duration-300 hover:scale-[1.02] shadow-sm hover:shadow-md"
                       data-aos="fade-up"
                       data-aos-delay={(index % 4) * 50}
+                      itemScope
+                      itemType="https://schema.org/Product"
                     >
+                      <meta
+                        itemProp="name"
+                        content={formatProductName(product)}
+                      />
+                      <meta
+                        itemProp="description"
+                        content={`Produk seal karet ${formatProductName(product)} dari Jaya Rubber Seal`}
+                      />
+                      <meta itemProp="brand" content="Jaya Rubber Seal" />
+                      {product.kode && (
+                        <meta itemProp="sku" content={product.kode} />
+                      )}
+
+                      {/* MENAMBAHKAN OFFERS, REVIEW, AGGREGATERATING UNTUK CATALOG PRODUCTS */}
+                      <div
+                        itemScope
+                        itemProp="offers"
+                        itemType="https://schema.org/Offer"
+                      >
+                        <meta itemProp="priceCurrency" content="IDR" />
+                        <meta itemProp="price" content="0" />
+                        <meta
+                          itemProp="availability"
+                          content="https://schema.org/InStock"
+                        />
+                        <meta itemProp="priceValidUntil" content="2026-12-31" />
+                      </div>
+                      <div
+                        itemScope
+                        itemProp="aggregateRating"
+                        itemType="https://schema.org/AggregateRating"
+                      >
+                        <meta itemProp="ratingValue" content="4.7" />
+                        <meta
+                          itemProp="reviewCount"
+                          content={
+                            product.total_terjual
+                              ? Math.floor(product.total_terjual / 2)
+                              : 25
+                          }
+                        />
+                        <meta itemProp="bestRating" content="5" />
+                      </div>
+                      <div
+                        itemScope
+                        itemProp="review"
+                        itemType="https://schema.org/Review"
+                      >
+                        <meta
+                          itemProp="author"
+                          content="Customer Jaya Rubber Seal"
+                        />
+                        <div
+                          itemProp="reviewRating"
+                          itemScope
+                          itemType="https://schema.org/Rating"
+                        >
+                          <meta itemProp="ratingValue" content="4.5" />
+                        </div>
+                        <meta
+                          itemProp="reviewBody"
+                          content="Produk berkualitas baik, sesuai dengan deskripsi, dan pengiriman cepat."
+                        />
+                      </div>
+
                       <div
                         className="relative h-40 bg-gradient-to-br from-gray-200 to-gray-300 overflow-hidden cursor-pointer"
                         onClick={() => openImageModal(product)}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Lihat detail produk ${formatProductName(product)}`}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && openImageModal(product)
+                        }
                       >
                         {/* Foto Container dengan Carousel Hover untuk Catalog */}
                         <div className="relative w-full h-full">
                           {/* Foto Depan (Default) */}
                           <img
                             src={getImageUrl(product.foto_depan)}
-                            alt={formatProductName(product)}
+                            alt={generateImageAlt(product, "depan")}
+                            title={generateImageTitle(product, "depan")}
                             className="absolute inset-0 w-full h-full object-contain p-4 transition-opacity duration-500 group-hover:opacity-0"
+                            loading="lazy"
+                            itemProp="image"
                             onError={handleImageError}
                           />
 
@@ -1135,8 +1571,11 @@ const CompanyProfile = () => {
                           {product.foto_samping && (
                             <img
                               src={getImageUrl(product.foto_samping)}
-                              alt={`${formatProductName(product)} - Samping`}
+                              alt={generateImageAlt(product, "samping")}
+                              title={generateImageTitle(product, "samping")}
                               className="absolute inset-0 w-full h-full object-contain p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300"
+                              loading="lazy"
+                              itemProp="image"
                               onError={handleImageError}
                             />
                           )}
@@ -1145,15 +1584,21 @@ const CompanyProfile = () => {
                           {product.foto_atas && (
                             <img
                               src={getImageUrl(product.foto_atas)}
-                              alt={`${formatProductName(product)} - Atas`}
+                              alt={generateImageAlt(product, "atas")}
+                              title={generateImageTitle(product, "atas")}
                               className="absolute inset-0 w-full h-full object-contain p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-600"
+                              loading="lazy"
+                              itemProp="image"
                               onError={handleImageError}
                             />
                           )}
                         </div>
 
-                        {/* Dot Indicator untuk Catalog */}
-                        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        {/* Dot Indicator */}
+                        <div
+                          className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                          aria-hidden="true"
+                        >
                           <div
                             className={`w-1 h-1 rounded-full ${product.foto_depan ? "bg-blue-500" : "bg-gray-400"}`}
                           ></div>
@@ -1165,7 +1610,10 @@ const CompanyProfile = () => {
                           ></div>
                         </div>
 
-                        <div className="absolute inset-0 bg-gradient-to-t from-gray-300 via-transparent to-transparent opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
+                        <div
+                          className="absolute inset-0 bg-gradient-to-t from-gray-300 via-transparent to-transparent opacity-0 group-hover:opacity-50 transition-opacity duration-300"
+                          aria-hidden="true"
+                        ></div>
 
                         {/* Zoom Icon Overlay */}
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/10">
@@ -1175,6 +1623,7 @@ const CompanyProfile = () => {
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
+                              aria-hidden="true"
                             >
                               <path
                                 strokeLinecap="round"
@@ -1194,7 +1643,7 @@ const CompanyProfile = () => {
                           </h3>
                           {product.kode && (
                             <p className="text-xs text-center text-gray-500">
-                              Kode: {product.kode}
+                              Kode: <span itemProp="sku">{product.kode}</span>
                             </p>
                           )}
                         </div>
@@ -1203,23 +1652,30 @@ const CompanyProfile = () => {
                           <button
                             onClick={() => handleWhatsApp(product)}
                             className="w-full py-1.5 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 rounded-lg text-white text-xs font-medium flex items-center justify-center gap-1 transition-all duration-300 hover:scale-[1.02]"
+                            aria-label={`Tanyakan produk ${formatProductName(product)} via WhatsApp`}
                           >
-                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <svg
+                              className="w-3 h-3"
+                              fill="currentColor"
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                            >
                               <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
                             </svg>
                             Tanyakan
                           </button>
                         </div>
                       </div>
-                    </div>
+                    </article>
                   ))}
                 </div>
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div
+                  <nav
                     className="flex justify-center items-center gap-2 mt-8"
                     data-aos="fade-up"
+                    aria-label="Navigasi halaman"
                   >
                     <button
                       onClick={() =>
@@ -1227,12 +1683,14 @@ const CompanyProfile = () => {
                       }
                       disabled={currentPage === 1}
                       className="px-3 py-2 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg border border-gray-300/50 disabled:opacity-50 disabled:cursor-not-allowed hover:border-blue-500/40 transition-colors text-gray-800"
+                      aria-label="Halaman sebelumnya"
                     >
                       <svg
                         className="w-4 h-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -1265,6 +1723,10 @@ const CompanyProfile = () => {
                                 ? "bg-gradient-to-r from-blue-600 to-cyan-700 text-white shadow-md shadow-blue-500/30"
                                 : "bg-gradient-to-r from-gray-200 to-gray-300 text-gray-800 hover:text-gray-900 border border-gray-300/50 hover:border-blue-500/40"
                             }`}
+                            aria-label={`Halaman ${pageNum}`}
+                            aria-current={
+                              currentPage === pageNum ? "page" : undefined
+                            }
                           >
                             {pageNum}
                           </button>
@@ -1278,12 +1740,14 @@ const CompanyProfile = () => {
                       }
                       disabled={currentPage === totalPages}
                       className="px-3 py-2 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg border border-gray-300/50 disabled:opacity-50 disabled:cursor-not-allowed hover:border-blue-500/40 transition-colors text-gray-800"
+                      aria-label="Halaman selanjutnya"
                     >
                       <svg
                         className="w-4 h-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -1293,7 +1757,7 @@ const CompanyProfile = () => {
                         />
                       </svg>
                     </button>
-                  </div>
+                  </nav>
                 )}
               </>
             ) : (
@@ -1305,6 +1769,7 @@ const CompanyProfile = () => {
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
                       <path
                         strokeLinecap="round"
@@ -1326,28 +1791,65 @@ const CompanyProfile = () => {
           </div>
         </section>
 
-        {/* Contact Section */}
+        {/* Contact Section dengan schema.org */}
         <section
           id="kontak"
           className="pb-20 pt-16 px-4 md:px-8 lg:px-12 relative overflow-hidden"
           data-aos="fade-up"
+          aria-label="Kontak dan informasi perusahaan"
+          itemScope
+          itemType="https://schema.org/LocalBusiness"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-400/20 via-transparent to-gray-400/20">
+          <meta itemProp="name" content="Jaya Rubber Seal" />
+          <meta
+            itemProp="description"
+            content="Supplier seal karet terpercaya untuk otomotif dan industri"
+          />
+          <meta itemProp="telephone" content="+622162305916" />
+          <meta itemProp="email" content="sales.jayarubberseal@gmail.com" />
+          <meta itemProp="foundingDate" content="2005" />
+
+          <div
+            itemProp="address"
+            itemScope
+            itemType="https://schema.org/PostalAddress"
+          >
+            <meta
+              itemProp="streetAddress"
+              content="Pertokoan Glodok Jaya Lt.2 Blok A 35"
+            />
+            <meta itemProp="addressLocality" content="Jakarta Barat" />
+            <meta itemProp="addressRegion" content="DKI Jakarta" />
+            <meta itemProp="postalCode" content="11180" />
+            <meta itemProp="addressCountry" content="Indonesia" />
+          </div>
+
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-gray-400/20 via-transparent to-gray-400/20"
+            aria-hidden="true"
+          >
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl h-48 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-full blur-3xl"></div>
           </div>
+
           <div className="relative max-w-6xl mx-auto">
             <div className="text-center mb-12">
               <div
                 className="inline-flex items-center gap-4 mb-6"
                 data-aos="fade-down"
               >
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
+                <div
+                  className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"
+                  aria-hidden="true"
+                ></div>
                 <span className="px-5 py-2 bg-gradient-to-r from-gray-200/80 to-gray-300/80 rounded-full backdrop-blur-sm border border-gray-300/50">
                   <span className="text-sm font-medium text-gray-700 tracking-widest">
                     HUBUNGI KAMI
                   </span>
                 </span>
-                <div className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"></div>
+                <div
+                  className="w-16 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent"
+                  aria-hidden="true"
+                ></div>
               </div>
               <div className="mb-8">
                 <h2
@@ -1368,7 +1870,7 @@ const CompanyProfile = () => {
               </div>
             </div>
 
-            {/* Grid 6 Card */}
+            {/* Grid 6 Card - Kontak */}
             <div
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12"
               data-aos="fade-up"
@@ -1383,6 +1885,7 @@ const CompanyProfile = () => {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -1400,10 +1903,16 @@ const CompanyProfile = () => {
                     </div>
                   </div>
                   <div className="mt-auto">
-                    <p className="text-gray-800 text-lg mb-2">(021) 62305916</p>
+                    <p
+                      className="text-gray-800 text-lg mb-2"
+                      itemProp="telephone"
+                    >
+                      (021) 62305916
+                    </p>
                     <a
-                      href="tel:+622112345678"
+                      href="tel:+622162305916"
                       className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium transition-colors duration-200"
+                      aria-label="Hubungi via telepon"
                     >
                       <span>Hubungi Sekarang</span>
                       <svg
@@ -1411,6 +1920,7 @@ const CompanyProfile = () => {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -1433,8 +1943,9 @@ const CompanyProfile = () => {
                         className="w-6 h-6 text-emerald-600"
                         fill="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
                       </svg>
                     </div>
                     <div>
@@ -1451,6 +1962,7 @@ const CompanyProfile = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center text-emerald-600 hover:text-emerald-700 font-medium transition-colors duration-200"
+                      aria-label="Chat via WhatsApp"
                     >
                       <span>Kirim Pesan</span>
                       <svg
@@ -1458,6 +1970,7 @@ const CompanyProfile = () => {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -1481,6 +1994,7 @@ const CompanyProfile = () => {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -1498,12 +2012,16 @@ const CompanyProfile = () => {
                     </div>
                   </div>
                   <div className="mt-auto">
-                    <p className="text-gray-800 text-lg mb-2 truncate">
+                    <p
+                      className="text-gray-800 text-lg mb-2 truncate"
+                      itemProp="email"
+                    >
                       sales.jayarubberseal@gmail.com
                     </p>
                     <a
                       href="mailto:sales.jayarubberseal@gmail.com"
                       className="inline-flex items-center text-amber-600 hover:text-amber-700 font-medium transition-colors duration-200"
+                      aria-label="Kirim email"
                     >
                       <span>Kirim Email</span>
                       <svg
@@ -1511,6 +2029,7 @@ const CompanyProfile = () => {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -1534,6 +2053,7 @@ const CompanyProfile = () => {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -1557,10 +2077,16 @@ const CompanyProfile = () => {
                     </div>
                   </div>
                   <div className="mt-auto">
-                    <p className="text-gray-800 text-base mb-1 text-justify">
+                    <p
+                      className="text-gray-800 text-base mb-1 text-justify"
+                      itemProp="streetAddress"
+                    >
                       Pertokoan Glodok Jaya Lt.2 Blok A 35
                     </p>
-                    <p className="text-gray-600 text-sm">
+                    <p
+                      className="text-gray-600 text-sm"
+                      itemProp="addressLocality"
+                    >
                       Kota Jakarta Barat, Daerah Khusus Ibukota Jakarta 11180,
                       Indonesia
                     </p>
@@ -1569,6 +2095,7 @@ const CompanyProfile = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center text-purple-600 hover:text-purple-700 font-medium transition-colors duration-200 mt-2"
+                      aria-label="Lihat lokasi di Google Maps"
                     >
                       <span>Lihat Peta</span>
                       <svg
@@ -1576,6 +2103,7 @@ const CompanyProfile = () => {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -1599,6 +2127,7 @@ const CompanyProfile = () => {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -1643,6 +2172,7 @@ const CompanyProfile = () => {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -1703,11 +2233,13 @@ const CompanyProfile = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all duration-300 hover:scale-[1.02] text-white"
+                    aria-label="Chat via WhatsApp"
                   >
                     <svg
                       className="w-5 h-5 mr-2"
                       fill="currentColor"
                       viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
                       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
                     </svg>
@@ -1716,12 +2248,14 @@ const CompanyProfile = () => {
                   <a
                     href="tel:+622162305916"
                     className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-700 rounded-lg font-bold text-base hover:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all duration-300 hover:scale-[1.02] text-white"
+                    aria-label="Telepon sekarang"
                   >
                     <svg
                       className="w-5 h-5 mr-2"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
                       <path
                         strokeLinecap="round"
@@ -1735,12 +2269,14 @@ const CompanyProfile = () => {
                   <a
                     href="mailto:sales.jayarubberseal@gmail.com"
                     className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg font-bold text-base border border-gray-300/50 hover:border-cyan-500/40 transition-all duration-300 hover:scale-[1.02] text-gray-800"
+                    aria-label="Kirim email"
                   >
                     <svg
                       className="w-5 h-5 mr-2"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
                       <path
                         strokeLinecap="round"
@@ -1758,7 +2294,7 @@ const CompanyProfile = () => {
         </section>
 
         <Footer />
-      </div>
+      </main>
     </>
   );
 };

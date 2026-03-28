@@ -45,7 +45,7 @@ const getActiveDetails = (details) => {
   return (details || []).filter((d) => d.status_transaksi_id !== 6);
 };
 
-// 🔽 FilterBar tanpa tombol Export
+// 🔽 FilterBar yang diperbaiki - semua dalam 1 baris
 export const RiwayatTransaksiFilterBar = ({
   tanggalDari,
   setTanggalDari,
@@ -60,32 +60,36 @@ export const RiwayatTransaksiFilterBar = ({
   customers,
   handleReset,
 }) => (
-  <div className="flex items-center gap-2 w-full">
-    {/* DESKTOP */}
-    <div className="hidden sm:flex flex-wrap items-center gap-2 flex-1">
-      <div className="relative w-[150px]">
-        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+  <div className="w-full overflow-x-auto">
+    <div className="flex items-center gap-2 min-w-max">
+      {/* Tanggal Dari */}
+      <div className="relative">
+        <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
         <input
           type="date"
           value={tanggalDari}
           onChange={(e) => setTanggalDari(e.target.value)}
-          className="w-full pl-10 pr-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="w-[130px] pl-8 pr-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          placeholder="Dari"
         />
       </div>
 
-      <div className="relative w-[150px]">
-        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      {/* Tanggal Sampai */}
+      <div className="relative">
+        <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
         <input
           type="date"
           value={tanggalSampai}
           onChange={(e) => setTanggalSampai(e.target.value)}
           min={tanggalDari || undefined}
-          className="w-full pl-10 pr-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="w-[130px] pl-8 pr-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          placeholder="Sampai"
         />
       </div>
 
+      {/* Jenis Transaksi */}
       <select
-        className="py-1.5 px-3 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[120px]"
+        className="py-1.5 px-2.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[110px] bg-white"
         value={selectedJenis}
         onChange={(e) => setSelectedJenis(e.target.value)}
       >
@@ -94,8 +98,9 @@ export const RiwayatTransaksiFilterBar = ({
         <option value="pesanan">Pesanan</option>
       </select>
 
+      {/* Customer */}
       <select
-        className="py-1.5 px-3 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[140px]"
+        className="py-1.5 px-2.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[130px] bg-white"
         value={selectedCustomer}
         onChange={(e) => setSelectedCustomer(e.target.value)}
       >
@@ -107,48 +112,24 @@ export const RiwayatTransaksiFilterBar = ({
         ))}
       </select>
 
-      <button
-        onClick={handleReset}
-        className="py-1.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm font-medium transition"
-      >
-        Reset
-      </button>
-    </div>
-
-    {/* MOBILE */}
-    <div className="sm:hidden flex items-center gap-2 w-full">
+      {/* Status (hanya di mobile) */}
       <select
-        className="flex-1 py-2 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-        value={selectedJenis}
-        onChange={(e) => setSelectedJenis(e.target.value)}
-      >
-        <option value="all">Jenis</option>
-        <option value="daily">Harian</option>
-        <option value="pesanan">Pesanan</option>
-      </select>
-
-      <select
-        className="flex-1 py-2 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-        value={selectedCustomer}
-        onChange={(e) => setSelectedCustomer(e.target.value)}
-      >
-        <option value="">Customer</option>
-        {customers.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
-
-      <select
-        className="flex-1 py-2 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+        className="sm:hidden py-1.5 px-2.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none min-w-[100px] bg-white"
         value={selectedStatus}
         onChange={(e) => setSelectedStatus(e.target.value)}
       >
-        <option value="all">Status</option>
+        <option value="all">Semua Status</option>
         <option value="selesai">Selesai</option>
         <option value="dibatalkan">Dibatalkan</option>
       </select>
+
+      {/* Reset Button */}
+      <button
+        onClick={handleReset}
+        className="py-1.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs font-medium transition whitespace-nowrap"
+      >
+        Reset
+      </button>
     </div>
   </div>
 );
@@ -314,7 +295,6 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
     setTanggalSampai("");
   };
 
-  // 🔽 Fungsi Export ke Excel — DIPERBAIKI SESUAI PERMINTAAN
   const exportToExcel = () => {
     if (transaksi.length === 0) {
       Swal.fire("Info", "Tidak ada data untuk diekspor", "info");
@@ -366,7 +346,6 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
     const link = document.createElement("a");
     link.href = url;
 
-    // 🔽 PENYESUAIAN NAMA FILE SESUAI PERMINTAAN
     const formatDateForFilename = (dateString) => {
       if (!dateString) return "tidak-diketahui";
       return new Date(dateString)
@@ -375,7 +354,7 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
           month: "short",
           year: "numeric",
         })
-        .replace(/\s+/g, "-"); // "01 Jan 2026" → "01-Jan-2026"
+        .replace(/\s+/g, "-");
     };
 
     const start = formatDateForFilename(tanggalDari);
@@ -541,7 +520,6 @@ const RiwayatTransaksi = ({ setNavbarContent }) => {
         </div>
       )}
 
-      {/* 🔽 Floating Export Button — muncul hanya jika rentang tanggal lengkap */}
       {tanggalDari && tanggalSampai && (
         <button
           onClick={exportToExcel}
