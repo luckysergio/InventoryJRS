@@ -9,11 +9,16 @@ import {
   Pencil,
   CheckCircle,
   Search,
+  Filter,
+  Users,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import api from "../../services/api";
 import InvoiceSimplePrint from "../../components/InvoiceSimplePrint";
 import { useReactToPrint } from "react-to-print";
 
+// ============ UTILITIES ============
 const safeParseFloat = (value) => {
   if (value == null) return 0;
   const num = typeof value === "string" ? parseFloat(value) : value;
@@ -31,6 +36,7 @@ const unformatRupiah = (str) => {
   return clean === "" ? 0 : parseInt(clean, 10);
 };
 
+// ============ COMPONENT: Filter Bar Utama ============
 export const PesananFilterBar = ({ search, setSearch }) => (
   <div className="flex items-center gap-2 w-full max-w-4xl">
     <div className="relative flex-1 min-w-[150px]">
@@ -46,7 +52,425 @@ export const PesananFilterBar = ({ search, setSearch }) => (
   </div>
 );
 
+// ============ COMPONENT: Searchable Dropdown (Reusable) ============
+export const SearchableDropdown = ({
+  options,
+  selectedValue,
+  onSelect,
+  placeholder = "Pilih...",
+  searchPlaceholder = "Cari...",
+  renderOption,
+  renderSelected,
+  onCreateNew,
+  showCreateNew = false,
+  className = "",
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Filter options berdasarkan search
+  const filteredOptions = options.filter((opt) => {
+    if (!search.trim()) return true;
+    const searchLower = search.toLowerCase();
+    const label = typeof opt === "string" ? opt : opt.label || opt.name || "";
+    return label.toLowerCase().includes(searchLower);
+  });
+
+  // Close dropdown ketika klik di luar
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Focus input saat dropdown terbuka
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  const handleSelect = (value) => {
+    onSelect(value);
+    setIsOpen(false);
+    setSearch("");
+  };
+
+  const selectedOption = options.find(
+    (opt) =>
+      (typeof opt === "object" ? opt.value || opt.id : opt) === selectedValue,
+  );
+
+  return (
+    <div className={`relative ${className}`} ref={dropdownRef}>
+      {/* Trigger Button */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg bg-white text-left text-sm hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+      >
+        <span className="truncate">
+          {selectedOption
+            ? renderSelected
+              ? renderSelected(selectedOption)
+              : typeof selectedOption === "object"
+                ? selectedOption.label || selectedOption.name
+                : selectedOption
+            : placeholder}
+        </span>
+        {isOpen ? (
+          <ChevronUp size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        ) : (
+          <ChevronDown size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        )}
+      </button>
+
+      {/* Dropdown Panel */}
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+          {/* Search Input */}
+          <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={searchPlaceholder}
+                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearch("");
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Options List */}
+          <div className="overflow-y-auto flex-1 max-h-40">
+            {filteredOptions.length === 0 ? (
+              <div className="p-3 text-sm text-gray-500 text-center">
+                Tidak ditemukan
+              </div>
+            ) : (
+              filteredOptions.map((opt, idx) => {
+                const value =
+                  typeof opt === "object" ? opt.value || opt.id : opt;
+                const isSelected = value === selectedValue;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelect(value)}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 flex items-center justify-between ${
+                      isSelected ? "bg-indigo-100 text-indigo-800" : ""
+                    }`}
+                  >
+                    <span className="truncate">
+                      {renderOption
+                        ? renderOption(opt)
+                        : typeof opt === "object"
+                          ? opt.label || opt.name
+                          : opt}
+                    </span>
+                    {isSelected && (
+                      <CheckCircle size={14} className="text-indigo-600 ml-2" />
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Create New Button */}
+          {showCreateNew && (
+            <button
+              type="button"
+              onClick={() => {
+                onCreateNew?.();
+                setIsOpen(false);
+                setSearch("");
+              }}
+              className="p-2 border-t border-gray-100 text-sm text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-1"
+            >
+              <Plus size={14} /> Buat Baru
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============ COMPONENT: Searchable Product Dropdown dengan Filter ============
+export const SearchableProductDropdown = ({
+  products,
+  selectedValue,
+  onSelect,
+  placeholder = "Pilih Produk...",
+  searchPlaceholder = "Cari kode/nama...",
+  jenisList,
+  typeList,
+  filterJenis,
+  setFilterJenis,
+  filterType,
+  setFilterType,
+  onCreateNew,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Filter produk: search + jenis + type
+  const filteredProducts = products.filter((p) => {
+    // Search filter
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      const namaProduk = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (
+        !p.kode?.toLowerCase().includes(searchLower) &&
+        !namaProduk.includes(searchLower)
+      ) {
+        return false;
+      }
+    }
+    // Jenis filter
+    if (filterJenis && String(p.jenis_id) !== String(filterJenis)) {
+      return false;
+    }
+    // Type filter
+    if (filterType && String(p.type_id) !== String(filterType)) {
+      return false;
+    }
+    return true;
+  });
+
+  // Close dropdown ketika klik di luar
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Focus input saat dropdown terbuka
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  const handleSelect = (value) => {
+    onSelect(value);
+    setIsOpen(false);
+    setSearch("");
+  };
+
+  const selectedProduct = products.find((p) => p.id === selectedValue);
+
+  const formatProductName = (p) => {
+    if (!p) return "";
+    return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
+      .filter(Boolean)
+      .join(" ");
+  };
+
+  const getFilteredTypes = () => {
+    if (!filterJenis) return typeList;
+    return typeList.filter((t) => String(t.jenis_id) === String(filterJenis));
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setFilterJenis("");
+    setFilterType("");
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      {/* Trigger Button */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg bg-white text-left text-sm hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+      >
+        <span className="truncate">
+          {selectedProduct
+            ? `${selectedProduct.kode} - ${formatProductName(selectedProduct)}`
+            : placeholder}
+        </span>
+        {isOpen ? (
+          <ChevronUp size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        ) : (
+          <ChevronDown size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        )}
+      </button>
+
+      {/* Dropdown Panel */}
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden flex flex-col">
+          {/* Search & Filters Header */}
+          <div className="p-3 border-b border-gray-100 sticky top-0 bg-white space-y-2">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={searchPlaceholder}
+                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearch("");
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Filter Buttons */}
+            <div className="flex gap-1">
+              <select
+                className="flex-1 py-1.5 px-2 text-xs border border-gray-200 rounded bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-200"
+                value={filterJenis}
+                onChange={(e) => {
+                  setFilterJenis(e.target.value);
+                  setFilterType("");
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="">Jenis</option>
+                {jenisList.map((j) => (
+                  <option key={j.id} value={j.id}>
+                    {j.nama}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="flex-1 py-1.5 px-2 text-xs border border-gray-200 rounded bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-200 disabled:bg-gray-100"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                disabled={!filterJenis}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="">Tipe</option>
+                {getFilteredTypes().map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nama}
+                  </option>
+                ))}
+              </select>
+              {(search || filterJenis || filterType) && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    resetFilters();
+                  }}
+                  className="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                  title="Reset filter"
+                >
+                  <Filter size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* Info Results */}
+            {(search || filterJenis || filterType) && (
+              <p className="text-[10px] text-gray-500 text-center">
+                {filteredProducts.length} dari {products.length} produk
+              </p>
+            )}
+          </div>
+
+          {/* Products List */}
+          <div className="overflow-y-auto flex-1 max-h-40">
+            {filteredProducts.length === 0 ? (
+              <div className="p-3 text-sm text-gray-500 text-center">
+                Tidak ditemukan
+              </div>
+            ) : (
+              filteredProducts.map((p) => {
+                const isSelected = p.id === selectedValue;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleSelect(p.id)}
+                    className={`w-full px-3 py-2 text-left text-xs hover:bg-indigo-50 flex items-center justify-between border-b border-gray-50 last:border-0 ${
+                      isSelected ? "bg-indigo-100 text-indigo-800" : ""
+                    }`}
+                  >
+                    <div className="truncate pr-2">
+                      <span className="font-medium">{p.kode}</span>
+                      <span className="text-gray-500 ml-1">
+                        {formatProductName(p)}
+                      </span>
+                    </div>
+                    {isSelected && (
+                      <CheckCircle size={14} className="text-indigo-600 flex-shrink-0" />
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Create New Button */}
+          <button
+            type="button"
+            onClick={() => {
+              onCreateNew?.();
+              setIsOpen(false);
+              setSearch("");
+            }}
+            className="p-2 border-t border-gray-100 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-1"
+          >
+            <Plus size={12} /> Produk Baru
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============ MAIN COMPONENT ============
 const PesananPage = ({ setNavbarContent }) => {
+  // State utama
   const [pesanan, setPesanan] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -57,57 +481,34 @@ const PesananPage = ({ setNavbarContent }) => {
   const [statusSelesaiId, setStatusSelesaiId] = useState(null);
   const [statusDibatalkanId, setStatusDibatalkanId] = useState(null);
 
+  // State modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [isCreatingNewCustomer, setIsCreatingNewCustomer] = useState(false);
+
+  // State filter untuk produk di dropdown
+  const [productFilterJenis, setProductFilterJenis] = useState("");
+  const [productFilterType, setProductFilterType] = useState("");
+
+  // State master data
   const [jenisProducts, setJenisProducts] = useState([]);
   const [bahanProducts, setBahanProducts] = useState([]);
   const [typeOptions, setTypeOptions] = useState({});
+  const [productJenisList, setProductJenisList] = useState([]);
+  const [productTypeList, setProductTypeList] = useState([]);
+
+  // State form helpers
   const [showProductBaru, setShowProductBaru] = useState({});
   const [hargaOptions, setHargaOptions] = useState({});
   const [showHargaBaru, setShowHargaBaru] = useState({});
+
+  // State user & print
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.role;
-
   const [printTransaksi, setPrintTransaksi] = useState(null);
   const printRef = useRef();
 
-  const getInvoiceNumber = (transaksiItem) => {
-    const date = new Date(transaksiItem.tanggal || new Date());
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
-  };
-
-  const getSafeFileName = (transaksiItem) => {
-    if (!transaksiItem) return "Invoice-JRS";
-
-    const invoiceNum = getInvoiceNumber(transaksiItem);
-    const customerName = transaksiItem.customer?.name || "Umum";
-
-    const safeInvoiceNum = invoiceNum.replace(/\//g, "-");
-    const safeCustomerName = customerName
-      .replace(/[^a-zA-Z0-9\s\-_]/g, "")
-      .trim()
-      .replace(/\s+/g, "_");
-
-    return `${safeInvoiceNum}-${safeCustomerName}`;
-  };
-
-  const handlePrintInvoice = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: getSafeFileName(printTransaksi),
-  });
-
-  const onPrintClick = (transaksiItem) => {
-    setPrintTransaksi(transaksiItem);
-    setTimeout(() => {
-      if (printRef.current) {
-        handlePrintInvoice();
-      }
-    }, 150);
-  };
-
+  // State form
   const initialDetail = {
     id: "",
     product_id: null,
@@ -136,21 +537,140 @@ const PesananPage = ({ setNavbarContent }) => {
     details: [{ ...initialDetail, status_transaksi_id: "" }],
   });
 
+  // ============ HELPER FUNCTIONS ============
+  const getInvoiceNumber = (transaksiItem) => {
+    const date = new Date(transaksiItem.tanggal || new Date());
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
+  };
+
+  const getSafeFileName = (transaksiItem) => {
+    if (!transaksiItem) return "Invoice-JRS";
+    const invoiceNum = getInvoiceNumber(transaksiItem);
+    const customerName = transaksiItem.customer?.name || "Umum";
+    const safeInvoiceNum = invoiceNum.replace(/\//g, "-");
+    const safeCustomerName = customerName
+      .replace(/[^a-zA-Z0-9\s\-_]/g, "")
+      .trim()
+      .replace(/\s+/g, "_");
+    return `${safeInvoiceNum}-${safeCustomerName}`;
+  };
+
+  const handlePrintInvoice = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: getSafeFileName(printTransaksi),
+  });
+
+  const onPrintClick = (transaksiItem) => {
+    setPrintTransaksi(transaksiItem);
+    setTimeout(() => {
+      if (printRef.current) handlePrintInvoice();
+    }, 150);
+  };
+
+  const formatProductName = (p) => {
+    if (!p) return "Produk tidak ditemukan";
+    return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
+      .filter(Boolean)
+      .join(" ");
+  };
+
+  const formatTanggal = (tgl) => {
+    if (!tgl) return "-";
+    return new Date(tgl).toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const getSisaBayar = (detail) => {
+    if (!detail) return 0;
+    const subtotal = safeParseFloat(detail.subtotal);
+    const pembayarans = Array.isArray(detail.pembayarans)
+      ? detail.pembayarans
+      : [];
+    const totalBayar = pembayarans.reduce(
+      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+      0,
+    );
+    return subtotal - totalBayar;
+  };
+
+  const getTotalBayar = (detail) => {
+    if (!detail) return 0;
+    const pembayarans = Array.isArray(detail.pembayarans)
+      ? detail.pembayarans
+      : [];
+    return pembayarans.reduce(
+      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+      0,
+    );
+  };
+
+  const calculateActiveTotalForPesanan = (details) => {
+    return details
+      .filter((d) => ![5, 6].includes(d.status_transaksi_id))
+      .reduce((sum, d) => sum + safeParseFloat(d.subtotal), 0);
+  };
+
+  const getStatusInfo = (statusId) => {
+    const status = statusList.find((s) => s.id === statusId);
+    if (!status)
+      return { text: "–", bg: "bg-gray-100", textClass: "text-gray-800" };
+    const map = {
+      "Di Pesan": {
+        text: "Di Pesan",
+        bg: "bg-blue-100",
+        textClass: "text-blue-800",
+      },
+      "Di Buat": {
+        text: "Di Buat",
+        bg: "bg-yellow-100",
+        textClass: "text-yellow-800",
+      },
+      Siap: { text: "Siap", bg: "bg-green-100", textClass: "text-green-800" },
+      Selesai: {
+        text: "Selesai",
+        bg: "bg-emerald-100",
+        textClass: "text-emerald-800",
+      },
+      Dibatalkan: {
+        text: "Dibatalkan",
+        bg: "bg-red-100",
+        textClass: "text-red-800",
+      },
+    };
+    return (
+      map[status.nama] || {
+        text: status.nama,
+        bg: "bg-gray-100",
+        textClass: "text-gray-800",
+      }
+    );
+  };
+
+  // ============ API FUNCTIONS ============
   const fetchData = async (searchTerm = "") => {
     try {
       setLoading(true);
-      const pesananRes = await api.get("/pesanan/aktif", {
-        params: { search: searchTerm },
-      });
+      const [pesananRes, customersRes, productsRes, statusRes, jenisRes, bahanRes, productJenisRes, productTypeRes] =
+        await Promise.all([
+          api.get("/pesanan/aktif", { params: { search: searchTerm } }),
+          api.get("/customers"),
+          api.get("/products/lowStok"),
+          api.get("/status-transaksi"),
+          api.get("/jenis"),
+          api.get("/bahan"),
+          api.get("/jenis"),
+          api.get("/type"),
+        ]);
+
       setPesanan(pesananRes.data || []);
-
-      const customersRes = await api.get("/customers");
       setCustomers(customersRes.data.data || []);
-
-      const productsRes = await api.get("/products/lowStok");
       setProducts(productsRes.data.data || []);
 
-      const statusRes = await api.get("/status-transaksi");
       const statuses = statusRes.data.data || [];
       setStatusList(statuses);
 
@@ -161,29 +681,16 @@ const PesananPage = ({ setNavbarContent }) => {
       setStatusSelesaiId(selesai?.id || 5);
       setStatusDibatalkanId(dibatalkan?.id || 6);
 
-      const jenisRes = await api.get("/jenis");
       setJenisProducts(jenisRes.data.data || []);
-
-      const bahanRes = await api.get("/bahan");
       setBahanProducts(bahanRes.data.data || []);
-    } catch (err) {
+      setProductJenisList(productJenisRes.data.data || []);
+      setProductTypeList(productTypeRes.data.data || []);
+    } catch {
       Swal.fire("Error", "Gagal memuat data", "error");
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchData(search);
-  }, [search]);
-
-  useEffect(() => {
-    if (typeof setNavbarContent === "function") {
-      setNavbarContent(
-        <PesananFilterBar search={search} setSearch={setSearch} />,
-      );
-    }
-  }, [search, setNavbarContent]);
 
   const fetchTypeByJenis = async (jenisId, rowIndex) => {
     if (!jenisId) {
@@ -193,17 +700,13 @@ const PesananPage = ({ setNavbarContent }) => {
     try {
       const res = await api.get(`/type/by-jenis/${jenisId}`);
       setTypeOptions((prev) => ({ ...prev, [rowIndex]: res.data.data || [] }));
-    } catch (err) {
+    } catch {
       Swal.fire("Error", "Gagal memuat tipe produk", "error");
       setTypeOptions((prev) => ({ ...prev, [rowIndex]: [] }));
     }
   };
 
-  const fetchHargaByProduct = async (
-    productId,
-    rowIndex,
-    customerId = null,
-  ) => {
+  const fetchHargaByProduct = async (productId, rowIndex, customerId = null) => {
     if (!productId) {
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: [] }));
       setShowHargaBaru((prev) => ({ ...prev, [rowIndex]: false }));
@@ -214,13 +717,14 @@ const PesananPage = ({ setNavbarContent }) => {
       const res = await api.get(`/harga/by-product/${productId}${params}`);
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: res.data.data || [] }));
       setShowHargaBaru((prev) => ({ ...prev, [rowIndex]: false }));
-    } catch (err) {
+    } catch {
       Swal.fire("Error", "Gagal memuat harga produk", "error");
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: [] }));
       setShowHargaBaru((prev) => ({ ...prev, [rowIndex]: false }));
     }
   };
 
+  // ============ FORM HANDLERS ============
   const addDetailRow = () => {
     const newIndex = form.details.length;
     setForm({
@@ -234,6 +738,9 @@ const PesananPage = ({ setNavbarContent }) => {
     setShowHargaBaru((prev) => ({ ...prev, [newIndex]: false }));
     setShowProductBaru((prev) => ({ ...prev, [newIndex]: false }));
     setTypeOptions((prev) => ({ ...prev, [newIndex]: [] }));
+    // Reset filter produk untuk row baru
+    setProductFilterJenis("");
+    setProductFilterType("");
   };
 
   const removeDetailRow = (index) => {
@@ -381,6 +888,7 @@ const PesananPage = ({ setNavbarContent }) => {
       setShowProductBaru(showProductBaruMap);
       setShowHargaBaru(showHargaBaruMap);
       setTypeOptions(typeOptionsMap);
+      setHargaOptions(hargaOptionsMap);
       setEditingId(data.id);
     } else {
       setForm({
@@ -396,6 +904,9 @@ const PesananPage = ({ setNavbarContent }) => {
       setHargaOptions({});
       setEditingId(null);
     }
+    // Reset filter produk
+    setProductFilterJenis("");
+    setProductFilterType("");
   };
 
   const handleSubmit = async (e) => {
@@ -515,6 +1026,7 @@ const PesananPage = ({ setNavbarContent }) => {
       }
     }
   };
+
   const transaksi = pesanan;
 
   const handleSelesaiDetail = async (detailId) => {
@@ -551,7 +1063,7 @@ const PesananPage = ({ setNavbarContent }) => {
         });
         Swal.fire("Berhasil!", "Detail transaksi diselesaikan", "success");
         fetchData();
-      } catch (error) {
+      } catch {
         Swal.fire("Error", "Gagal menyelesaikan detail", "error");
       }
     }
@@ -572,7 +1084,7 @@ const PesananPage = ({ setNavbarContent }) => {
         await api.post(`/pesanan/${detailId}/cancel`);
         Swal.fire("Berhasil", "Detail transaksi dibatalkan", "success");
         fetchData();
-      } catch (err) {
+      } catch {
         Swal.fire("Error", "Gagal membatalkan detail", "error");
       }
     }
@@ -581,57 +1093,6 @@ const PesananPage = ({ setNavbarContent }) => {
   const handleEditTransaksi = (transaksiItem) => {
     resetForm(transaksiItem);
     setIsModalOpen(true);
-  };
-
-  const formatTanggal = (tgl) => {
-    if (!tgl) return "-";
-    return new Date(tgl).toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-  };
-
-  const getSisaBayar = (detail) => {
-    if (!detail) return 0;
-    const subtotal = safeParseFloat(detail.subtotal);
-    const pembayarans = Array.isArray(detail.pembayarans)
-      ? detail.pembayarans
-      : [];
-    const totalBayar = pembayarans.reduce(
-      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-      0,
-    );
-    return subtotal - totalBayar;
-  };
-
-  const getTotalBayar = (detail) => {
-    if (!detail) return 0;
-    const pembayarans = Array.isArray(detail.pembayarans)
-      ? detail.pembayarans
-      : [];
-    return pembayarans.reduce(
-      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-      0,
-    );
-  };
-
-  const cekLunas = (detail) => {
-    const subtotal = safeParseFloat(detail.subtotal);
-    const totalBayar = Array.isArray(detail.pembayarans)
-      ? detail.pembayarans.reduce(
-          (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-          0,
-        )
-      : 0;
-    return subtotal - totalBayar <= 0;
-  };
-
-  const formatProductName = (p) => {
-    if (!p) return "Produk tidak ditemukan";
-    return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
-      .filter(Boolean)
-      .join(" ");
   };
 
   const handleBayar = (detailId) => {
@@ -700,55 +1161,27 @@ const PesananPage = ({ setNavbarContent }) => {
             Swal.fire("Berhasil!", "Pembayaran telah dicatat", "success");
             fetchData();
           })
-          .catch((err) => {
+          .catch(() => {
             Swal.fire("Error", "Gagal menyimpan pembayaran", "error");
           });
       }
     });
   };
 
-  const getStatusInfo = (statusId) => {
-    const status = statusList.find((s) => s.id === statusId);
-    if (!status)
-      return { text: "–", bg: "bg-gray-100", textClass: "text-gray-800" };
-    const map = {
-      "Di Pesan": {
-        text: "Di Pesan",
-        bg: "bg-blue-100",
-        textClass: "text-blue-800",
-      },
-      "Di Buat": {
-        text: "Di Buat",
-        bg: "bg-yellow-100",
-        textClass: "text-yellow-800",
-      },
-      Siap: { text: "Siap", bg: "bg-green-100", textClass: "text-green-800" },
-      Selesai: {
-        text: "Selesai",
-        bg: "bg-emerald-100",
-        textClass: "text-emerald-800",
-      },
-      Dibatalkan: {
-        text: "Dibatalkan",
-        bg: "bg-red-100",
-        textClass: "text-red-800",
-      },
-    };
-    return (
-      map[status.nama] || {
-        text: status.nama,
-        bg: "bg-gray-100",
-        textClass: "text-gray-800",
-      }
-    );
-  };
+  // ============ EFFECTS ============
+  useEffect(() => {
+    fetchData(search);
+  }, [search]);
 
-  const calculateActiveTotalForPesanan = (details) => {
-    return details
-      .filter((d) => ![5, 6].includes(d.status_transaksi_id))
-      .reduce((sum, d) => sum + safeParseFloat(d.subtotal), 0);
-  };
+  useEffect(() => {
+    if (typeof setNavbarContent === "function") {
+      setNavbarContent(
+        <PesananFilterBar search={search} setSearch={setSearch} />,
+      );
+    }
+  }, [search, setNavbarContent]);
 
+  // ============ RENDER ============
   return (
     <>
       <div className="space-y-8">
@@ -928,6 +1361,7 @@ const PesananPage = ({ setNavbarContent }) => {
           </div>
         )}
 
+        {/* FAB Button */}
         <button
           onClick={() => {
             resetForm();
@@ -938,6 +1372,7 @@ const PesananPage = ({ setNavbarContent }) => {
           <Plus size={18} />
         </button>
 
+        {/* MODAL */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl">
@@ -956,43 +1391,56 @@ const PesananPage = ({ setNavbarContent }) => {
                 </button>
               </div>
               <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                {/* Customer & Tanggal */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Customer */}
+                  {/* Customer dengan Searchable Dropdown */}
                   <div>
                     <label className="font-semibold block mb-2">Customer</label>
-                    <select
-                      className="w-full border px-3 py-2 rounded-lg"
-                      value={
-                        form.customer_id || (isCreatingNewCustomer ? "new" : "")
-                      }
-                      onChange={(e) => {
-                        const selectedValue = e.target.value;
-                        if (selectedValue === "new") {
-                          setIsCreatingNewCustomer(true);
-                          setForm({
-                            ...form,
-                            customer_id: "",
-                            customer_baru: { name: "", phone: "", email: "" },
-                          });
-                        } else {
-                          setIsCreatingNewCustomer(false);
-                          setForm({
-                            ...form,
-                            customer_id: selectedValue,
-                            customer_baru: { name: "", phone: "", email: "" },
-                          });
-                        }
+                    <SearchableDropdown
+                      options={customers.map((c) => ({
+                        id: c.id,
+                        name: c.name,
+                        phone: c.phone,
+                      }))}
+                      selectedValue={form.customer_id}
+                      onSelect={(val) => {
+                        setIsCreatingNewCustomer(false);
+                        setForm({
+                          ...form,
+                          customer_id: val,
+                          customer_baru: { name: "", phone: "", email: "" },
+                        });
                       }}
-                    >
-                      <option value="">Pilih Customer</option>
-                      {customers.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                      <option value="new">➕ Buat Customer Baru</option>
-                    </select>
+                      placeholder="Pilih Customer"
+                      searchPlaceholder="Cari nama/phone..."
+                      renderOption={(c) => (
+                        <span>
+                          {c.name}{" "}
+                          {c.phone && (
+                            <span className="text-gray-400">📞 {c.phone}</span>
+                          )}
+                        </span>
+                      )}
+                      renderSelected={(c) => (
+                        <span>
+                          {c.name}{" "}
+                          {c.phone && (
+                            <span className="text-gray-400">📞 {c.phone}</span>
+                          )}
+                        </span>
+                      )}
+                      onCreateNew={() => {
+                        setIsCreatingNewCustomer(true);
+                        setForm({
+                          ...form,
+                          customer_id: "",
+                          customer_baru: { name: "", phone: "", email: "" },
+                        });
+                      }}
+                      showCreateNew
+                    />
 
+                    {/* Form Customer Baru */}
                     {isCreatingNewCustomer && (
                       <div className="grid grid-cols-1 gap-2 mt-3">
                         <input
@@ -1045,7 +1493,7 @@ const PesananPage = ({ setNavbarContent }) => {
                     )}
                   </div>
 
-                  {/* Tanggal Transaksi */}
+                  {/* Tanggal */}
                   <div>
                     <label className="font-semibold block mb-2">
                       Tanggal Transaksi *
@@ -1061,40 +1509,48 @@ const PesananPage = ({ setNavbarContent }) => {
                     />
                   </div>
                 </div>
+
+                {/* Detail Transaksi */}
                 <div className="space-y-4">
                   <div className="flex justify-center items-center">
                     <h3 className="font-bold text-lg">Detail Transaksi</h3>
                   </div>
+
                   {form.details.map((d, i) => (
                     <div
                       key={i}
                       className="p-4 border border-gray-200 rounded-xl bg-gray-50 space-y-4"
                     >
-                      <div>
+                      {/* Produk dengan Searchable Dropdown + Filter */}
+                      <div className="space-y-2">
                         <label className="block mb-1 font-medium text-gray-700">
                           Produk *
                         </label>
-                        <select
-                          value={d.product_id ?? ""}
-                          onChange={(e) => {
-                            const val = e.target.value;
+
+                        <SearchableProductDropdown
+                          products={products}
+                          selectedValue={d.product_id}
+                          onSelect={(val) =>
                             handleDetailChange(
                               i,
                               "product_id",
                               val === "new" ? "new" : val,
-                            );
-                          }}
-                          className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        >
-                          <option value="">Pilih Produk</option>
-                          {products.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.kode} - {formatProductName(p)}
-                            </option>
-                          ))}
-                          <option value="new">➕ Produk Baru</option>
-                        </select>
+                            )
+                          }
+                          placeholder="Pilih Produk..."
+                          searchPlaceholder="Cari kode/nama..."
+                          jenisList={productJenisList}
+                          typeList={productTypeList}
+                          filterJenis={productFilterJenis}
+                          setFilterJenis={setProductFilterJenis}
+                          filterType={productFilterType}
+                          setFilterType={setProductFilterType}
+                          onCreateNew={() =>
+                            handleDetailChange(i, "product_id", "new")
+                          }
+                        />
 
+                        {/* Form Produk Baru */}
                         {showProductBaru[i] && (
                           <div className="mt-4 space-y-4 p-4 bg-blue-50 rounded-lg">
                             {/* Jenis */}
@@ -1103,7 +1559,7 @@ const PesananPage = ({ setNavbarContent }) => {
                                 Jenis Produk *
                               </label>
                               <select
-                                className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                                 value={d.product_baru.jenis_id || ""}
                                 onChange={(e) =>
                                   handleProductBaruChange(
@@ -1140,6 +1596,7 @@ const PesananPage = ({ setNavbarContent }) => {
                               )}
                             </div>
 
+                            {/* Tipe */}
                             <div>
                               <label className="block text-sm font-medium mb-1 text-gray-700">
                                 Tipe Produk
@@ -1161,7 +1618,7 @@ const PesananPage = ({ setNavbarContent }) => {
                               ) : d.product_baru.jenis_id ? (
                                 <>
                                   <select
-                                    className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                                     value={d.product_baru.type_id || ""}
                                     onChange={(e) =>
                                       handleProductBaruChange(
@@ -1204,12 +1661,13 @@ const PesananPage = ({ setNavbarContent }) => {
                               )}
                             </div>
 
+                            {/* Bahan */}
                             <div>
                               <label className="block text-sm font-medium mb-1 text-gray-700">
                                 Bahan Produk
                               </label>
                               <select
-                                className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                className="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                                 value={d.product_baru.bahan_id || ""}
                                 onChange={(e) =>
                                   handleProductBaruChange(
@@ -1244,6 +1702,7 @@ const PesananPage = ({ setNavbarContent }) => {
                               )}
                             </div>
 
+                            {/* Ukuran & Keterangan */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <input
                                 type="text"
@@ -1334,7 +1793,7 @@ const PesananPage = ({ setNavbarContent }) => {
                             </div>
                           ) : (
                             <select
-                              className="w-full border px-3 py-2 rounded-lg"
+                              className="w-full border px-3 py-2 rounded-lg bg-white"
                               value={
                                 d.harga_product_id ||
                                 (showHargaBaru[i] ? "tambah_harga_khusus" : "")
@@ -1424,6 +1883,7 @@ const PesananPage = ({ setNavbarContent }) => {
                         </div>
                       )}
 
+                      {/* Qty, Diskon, Catatan */}
                       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
                         <input
                           type="number"
@@ -1472,6 +1932,7 @@ const PesananPage = ({ setNavbarContent }) => {
                         />
                       </div>
 
+                      {/* Hapus Detail */}
                       <button
                         type="button"
                         onClick={() => removeDetailRow(i)}
@@ -1483,16 +1944,18 @@ const PesananPage = ({ setNavbarContent }) => {
                   ))}
                 </div>
 
+                {/* Tambah Detail Button */}
                 <div className="flex justify-center items-center">
                   <button
                     type="button"
                     onClick={addDetailRow}
-                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm"
+                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm hover:bg-green-700 transition"
                   >
                     + Tambah Detail
                   </button>
                 </div>
 
+                {/* Submit Button */}
                 <div className="flex justify-center gap-3 pt-4 border-t">
                   <button
                     type="submit"
@@ -1507,6 +1970,7 @@ const PesananPage = ({ setNavbarContent }) => {
         )}
       </div>
 
+      {/* Print Container */}
       <div
         style={{
           position: "absolute",

@@ -250,21 +250,21 @@ class PesananTransaksiController extends Controller
                 'details.*.product_baru.jenis_nama' => [
                     'string',
                     'max:100',
-                    'regex:/^[A-Z0-9\s]+$/'
+                    'regex:/^[A-Z0-9\s\-\(\)#]+$/'
                 ],
 
                 'details.*.product_baru.type_id' => 'nullable',
                 'details.*.product_baru.type_nama' => [
                     'string',
                     'max:100',
-                    'regex:/^[A-Z0-9\s]+$/'
+                    'regex:/^[A-Z0-9\s\-\(\)#]+$/'
                 ],
 
                 'details.*.product_baru.bahan_id' => 'nullable|exists:bahan_products,id',
                 'details.*.product_baru.bahan_nama' => [
                     'string',
                     'max:100',
-                    'regex:/^[A-Z0-9\s]+$/'
+                    'regex:/^[A-Z0-9\s\-\(\)#]+$/'
                 ],
 
                 'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null',
@@ -455,21 +455,21 @@ class PesananTransaksiController extends Controller
                 'details.*.product_baru.jenis_nama' => [
                     'string',
                     'max:100',
-                    'regex:/^[A-Z0-9\s]+$/'
+                    'regex:/^[A-Z0-9\s\-\(\)#]+$/'
                 ],
 
                 'details.*.product_baru.type_id' => 'nullable',
                 'details.*.product_baru.type_nama' => [
                     'string',
                     'max:100',
-                    'regex:/^[A-Z0-9\s]+$/'
+                    'regex:/^[A-Z0-9\s\-\(\)#]+$/'
                 ],
 
                 'details.*.product_baru.bahan_id' => 'nullable|exists:bahan_products,id',
                 'details.*.product_baru.bahan_nama' => [
                     'string',
                     'max:100',
-                    'regex:/^[A-Z0-9\s]+$/'
+                    'regex:/^[A-Z0-9\s\-\(\)#]+$/'
                 ],
 
                 'details.*.product_baru.ukuran' => 'required_if:details.*.product_id,null',

@@ -9,11 +9,17 @@ import {
   XCircle,
   Pencil,
   Search,
+  Filter,
+  X,
+  Users,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import api from "../../services/api";
 import InvoiceSimplePrint from "../../components/InvoiceSimplePrint";
 import { useReactToPrint } from "react-to-print";
 
+// ============ UTILITIES ============
 const safeParseFloat = (value) => {
   if (value == null) return 0;
   const num = typeof value === "string" ? parseFloat(value) : value;
@@ -31,6 +37,7 @@ const unformatRupiah = (str) => {
   return clean === "" ? 0 : parseInt(clean, 10);
 };
 
+// ============ COMPONENT: Filter Bar Utama ============
 export const TransaksiFilterBar = ({ search, setSearch }) => (
   <div className="flex items-center gap-2 w-full max-w-4xl">
     <div className="relative flex-1 min-w-[150px]">
@@ -46,7 +53,425 @@ export const TransaksiFilterBar = ({ search, setSearch }) => (
   </div>
 );
 
+// ============ COMPONENT: Searchable Dropdown (Reusable) ============
+export const SearchableDropdown = ({
+  options,
+  selectedValue,
+  onSelect,
+  placeholder = "Pilih...",
+  searchPlaceholder = "Cari...",
+  renderOption,
+  renderSelected,
+  onCreateNew,
+  showCreateNew = false,
+  className = "",
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const filteredOptions = options.filter((opt) => {
+    if (!search.trim()) return true;
+    const searchLower = search.toLowerCase();
+    const label = typeof opt === "string" ? opt : opt.label || opt.name || "";
+    return label.toLowerCase().includes(searchLower);
+  });
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  const handleSelect = (value) => {
+    onSelect(value);
+    setIsOpen(false);
+    setSearch("");
+  };
+
+  const selectedOption = options.find(
+    (opt) =>
+      (typeof opt === "object" ? opt.value || opt.id : opt) === selectedValue,
+  );
+
+  return (
+    <div className={`relative ${className}`} ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg bg-white text-left text-sm hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+      >
+        <span className="truncate">
+          {selectedOption
+            ? renderSelected
+              ? renderSelected(selectedOption)
+              : typeof selectedOption === "object"
+                ? selectedOption.label || selectedOption.name
+                : selectedOption
+            : placeholder}
+        </span>
+        {isOpen ? (
+          <ChevronUp size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        ) : (
+          <ChevronDown size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+          <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={searchPlaceholder}
+                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearch("");
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="overflow-y-auto flex-1 max-h-40">
+            {filteredOptions.length === 0 ? (
+              <div className="p-3 text-sm text-gray-500 text-center">
+                Tidak ditemukan
+              </div>
+            ) : (
+              filteredOptions.map((opt, idx) => {
+                const value =
+                  typeof opt === "object" ? opt.value || opt.id : opt;
+                const isSelected = value === selectedValue;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelect(value)}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 flex items-center justify-between ${
+                      isSelected ? "bg-indigo-100 text-indigo-800" : ""
+                    }`}
+                  >
+                    <span className="truncate">
+                      {renderOption
+                        ? renderOption(opt)
+                        : typeof opt === "object"
+                          ? opt.label || opt.name
+                          : opt}
+                    </span>
+                    {isSelected && (
+                      <CheckCircle size={14} className="text-indigo-600 ml-2" />
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {showCreateNew && (
+            <button
+              type="button"
+              onClick={() => {
+                onCreateNew?.();
+                setIsOpen(false);
+                setSearch("");
+              }}
+              className="p-2 border-t border-gray-100 text-sm text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-1"
+            >
+              <Plus size={14} /> Buat Baru
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============ COMPONENT: Searchable Product Dropdown dengan Filter ============
+export const SearchableProductDropdown = ({
+  products,
+  selectedValue,
+  onSelect,
+  placeholder = "Pilih Produk...",
+  searchPlaceholder = "Cari kode/nama...",
+  jenisList,
+  typeList,
+  filterJenis,
+  setFilterJenis,
+  filterType,
+  setFilterType,
+  onCreateNew,
+  onFilterChange, // ✅ Callback untuk info filter
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const filteredProducts = products.filter((p) => {
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      const namaProduk = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (
+        !p.kode?.toLowerCase().includes(searchLower) &&
+        !namaProduk.includes(searchLower)
+      ) {
+        return false;
+      }
+    }
+    if (filterJenis && String(p.jenis_id) !== String(filterJenis)) {
+      return false;
+    }
+    if (filterType && String(p.type_id) !== String(filterType)) {
+      return false;
+    }
+    return true;
+  });
+
+  // ✅ Notify parent tentang perubahan filter
+  useEffect(() => {
+    if (onFilterChange) {
+      onFilterChange({ search, filterJenis, filterType, count: filteredProducts.length });
+    }
+  }, [search, filterJenis, filterType, filteredProducts.length, onFilterChange]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  const handleSelect = (value) => {
+    onSelect(value);
+    setIsOpen(false);
+    setSearch("");
+  };
+
+  const selectedProduct = products.find((p) => p.id === selectedValue);
+
+  const formatProductName = (p) => {
+    if (!p) return "";
+    return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
+      .filter(Boolean)
+      .join(" ");
+  };
+
+  const getFilteredTypes = () => {
+    if (!filterJenis) return typeList;
+    return typeList.filter((t) => String(t.jenis_id) === String(filterJenis));
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setFilterJenis("");
+    setFilterType("");
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg bg-white text-left text-sm hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+      >
+        <span className="truncate">
+          {selectedProduct
+            ? `${selectedProduct.kode} - ${formatProductName(selectedProduct)}`
+            : placeholder}
+        </span>
+        {isOpen ? (
+          <ChevronUp size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        ) : (
+          <ChevronDown size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden flex flex-col">
+          <div className="p-3 border-b border-gray-100 sticky top-0 bg-white space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={searchPlaceholder}
+                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearch("");
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="flex gap-1">
+              <select
+                className="flex-1 py-1.5 px-2 text-xs border border-gray-200 rounded bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-200"
+                value={filterJenis}
+                onChange={(e) => {
+                  setFilterJenis(e.target.value);
+                  setFilterType("");
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="">Jenis</option>
+                {jenisList.map((j) => (
+                  <option key={j.id} value={j.id}>
+                    {j.nama}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="flex-1 py-1.5 px-2 text-xs border border-gray-200 rounded bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-200 disabled:bg-gray-100"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                disabled={!filterJenis}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="">Tipe</option>
+                {getFilteredTypes().map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nama}
+                  </option>
+                ))}
+              </select>
+              {(search || filterJenis || filterType) && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    resetFilters();
+                  }}
+                  className="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                  title="Reset filter"
+                >
+                  <Filter size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* ✅ Info Results - ditampilkan di dalam dropdown */}
+            {(search || filterJenis || filterType) && (
+              <p className="text-[10px] text-gray-500 text-center">
+                {filteredProducts.length} dari {products.length} produk
+              </p>
+            )}
+          </div>
+
+          <div className="overflow-y-auto flex-1 max-h-40">
+            {filteredProducts.length === 0 ? (
+              <div className="p-3 text-sm text-gray-500 text-center">
+                Tidak ditemukan
+              </div>
+            ) : (
+              filteredProducts.map((p) => {
+                const isSelected = p.id === selectedValue;
+                const stok = p.inventories?.find(
+                  (inv) => inv.place?.kode === "TOKO",
+                )?.qty || 0;
+                const isOutOfStock = stok <= 0;
+                
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => !isOutOfStock && handleSelect(p.id)}
+                    disabled={isOutOfStock}
+                    className={`w-full px-3 py-2 text-left text-xs hover:bg-indigo-50 flex items-center justify-between border-b border-gray-50 last:border-0 ${
+                      isSelected 
+                        ? "bg-indigo-100 text-indigo-800" 
+                        : isOutOfStock 
+                          ? "text-gray-400 cursor-not-allowed" 
+                          : ""
+                    }`}
+                  >
+                    <div className="truncate pr-2">
+                      <span className="font-medium">{p.kode}</span>
+                      <span className="text-gray-500 ml-1">
+                        {formatProductName(p)}
+                      </span>
+                      {isOutOfStock && (
+                        <span className="text-red-400 ml-1">(Habis)</span>
+                      )}
+                    </div>
+                    {isSelected && (
+                      <CheckCircle size={14} className="text-indigo-600 flex-shrink-0" />
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              onCreateNew?.();
+              setIsOpen(false);
+              setSearch("");
+            }}
+            className="p-2 border-t border-gray-100 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-1"
+          >
+            <Plus size={12} /> Produk Baru
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============ MAIN COMPONENT ============
 const TransaksiPage = ({ setNavbarContent }) => {
+  // State utama
   const [transaksi, setTransaksi] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -57,51 +482,25 @@ const TransaksiPage = ({ setNavbarContent }) => {
   const [statusProsesId, setStatusProsesId] = useState(null);
   const [statusDibatalkanId, setStatusDibatalkanId] = useState(null);
 
+  // State modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [isCreatingNewCustomer, setIsCreatingNewCustomer] = useState(false);
+
+  // ✅ State filter produk (dikelola oleh SearchableProductDropdown)
+  const [productFilterInfo, setProductFilterInfo] = useState({});
+
+  // State master data
+  const [productJenisList, setProductJenisList] = useState([]);
+  const [productTypeList, setProductTypeList] = useState([]);
+
+  // State user & print
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.role;
-
   const [printTransaksi, setPrintTransaksi] = useState(null);
   const printRef = useRef();
 
-  const getInvoiceNumber = (transaksiItem) => {
-    const date = new Date(transaksiItem.tanggal || new Date());
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
-  };
-
-  const getSafeFileName = (transaksiItem) => {
-    if (!transaksiItem) return "Invoice-JRS";
-
-    const invoiceNum = getInvoiceNumber(transaksiItem);
-    const customerName = transaksiItem.customer?.name || "Umum";
-
-    const safeInvoiceNum = invoiceNum.replace(/\//g, "-");
-    const safeCustomerName = customerName
-      .replace(/[^a-zA-Z0-9\s\-_]/g, "")
-      .trim()
-      .replace(/\s+/g, "_");
-
-    return `${safeInvoiceNum}-${safeCustomerName}`;
-  };
-
-  const handlePrintInvoice = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: getSafeFileName(printTransaksi),
-  });
-
-  const onPrintClick = (transaksiItem) => {
-    setPrintTransaksi(transaksiItem);
-    setTimeout(() => {
-      if (printRef.current) {
-        handlePrintInvoice();
-      }
-    }, 150);
-  };
-
+  // State form
   const initialDetail = {
     id: "",
     product_id: "",
@@ -123,21 +522,114 @@ const TransaksiPage = ({ setNavbarContent }) => {
   const [hargaOptions, setHargaOptions] = useState({});
   const [showHargaBaru, setShowHargaBaru] = useState({});
 
+  // ============ HELPER FUNCTIONS ============
+  const getInvoiceNumber = (transaksiItem) => {
+    const date = new Date(transaksiItem.tanggal || new Date());
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    return `JRS/INV/${year}/${month}/${transaksiItem.id}`;
+  };
+
+  const getSafeFileName = (transaksiItem) => {
+    if (!transaksiItem) return "Invoice-JRS";
+    const invoiceNum = getInvoiceNumber(transaksiItem);
+    const customerName = transaksiItem.customer?.name || "Umum";
+    const safeInvoiceNum = invoiceNum.replace(/\//g, "-");
+    const safeCustomerName = customerName
+      .replace(/[^a-zA-Z0-9\s\-_]/g, "")
+      .trim()
+      .replace(/\s+/g, "_");
+    return `${safeInvoiceNum}-${safeCustomerName}`;
+  };
+
+  const handlePrintInvoice = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: getSafeFileName(printTransaksi),
+  });
+
+  const onPrintClick = (transaksiItem) => {
+    setPrintTransaksi(transaksiItem);
+    setTimeout(() => {
+      if (printRef.current) handlePrintInvoice();
+    }, 150);
+  };
+
+  const formatProductName = (p) => {
+    if (!p) return "-";
+    return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
+      .filter(Boolean)
+      .join(" ");
+  };
+
+  const getStokToko = (product) => {
+    if (!product || !product.inventories) return 0;
+    const tokoInventory = product.inventories.find(
+      (inv) => inv.place && inv.place.kode === "TOKO",
+    );
+    return tokoInventory ? tokoInventory.qty : 0;
+  };
+
+  const formatTanggal = (tgl) => {
+    if (!tgl) return "-";
+    return new Date(tgl).toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const getSisaBayar = (detail) => {
+    if (!detail) return 0;
+    const subtotal = safeParseFloat(detail.subtotal);
+    const pembayarans = Array.isArray(detail.pembayarans)
+      ? detail.pembayarans
+      : [];
+    const totalBayar = pembayarans.reduce(
+      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+      0,
+    );
+    return subtotal - totalBayar;
+  };
+
+  const getTotalBayar = (detail) => {
+    if (!detail) return 0;
+    const pembayarans = Array.isArray(detail.pembayarans)
+      ? detail.pembayarans
+      : [];
+    return pembayarans.reduce(
+      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+      0,
+    );
+  };
+
+  const calculateActiveTotal = (details, prosesId) => {
+    return details
+      .filter((d) => d.status_transaksi_id === prosesId)
+      .reduce((sum, d) => sum + safeParseFloat(d.subtotal), 0);
+  };
+
+  const getActiveDetails = (details) => {
+    return details.filter((d) => d.status_transaksi_id === statusProsesId);
+  };
+
+  // ============ API FUNCTIONS ============
   const fetchData = async (searchTerm = "") => {
     try {
       setLoading(true);
-      const transaksiRes = await api.get("/transaksi/aktif", {
-        params: { search: searchTerm },
-      });
+      const [transaksiRes, customersRes, productsRes, statusRes, productJenisRes, productTypeRes] =
+        await Promise.all([
+          api.get("/transaksi/aktif", { params: { search: searchTerm } }),
+          api.get("/customers"),
+          api.get("/products/available"),
+          api.get("/status-transaksi"),
+          api.get("/jenis"),
+          api.get("/type"),
+        ]);
+
       setTransaksi(transaksiRes.data || []);
-
-      const customersRes = await api.get("/customers");
       setCustomers(customersRes.data.data || []);
-
-      const productsRes = await api.get("/products/available");
       setProducts(productsRes.data.data || []);
 
-      const statusRes = await api.get("/status-transaksi");
       const statuses = statusRes.data.data || [];
       setStatusList(statuses);
 
@@ -151,38 +643,20 @@ const TransaksiPage = ({ setNavbarContent }) => {
         s.nama.toLowerCase().includes("dibatalkan"),
       );
 
-      // ✅ Ubah ID menjadi string untuk menghindari masalah perbandingan tipe data
       setStatusSelesaiId(selesai?.id?.toString() || null);
       setStatusProsesId(proses?.id?.toString() || null);
       setStatusDibatalkanId(dibatalkan?.id?.toString() || null);
-    } catch (err) {
+
+      setProductJenisList(productJenisRes.data.data || []);
+      setProductTypeList(productTypeRes.data.data || []);
+    } catch {
       Swal.fire("Error", "Gagal memuat data", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData(search);
-  }, [search]);
-
-  useEffect(() => {
-    if (typeof setNavbarContent === "function") {
-      setNavbarContent(
-        <TransaksiFilterBar search={search} setSearch={setSearch} />,
-      );
-    }
-  }, [search, setNavbarContent]);
-
-  const getActiveDetails = (details) => {
-    return details.filter((d) => d.status_transaksi_id === statusProsesId);
-  };
-
-  const fetchHargaByProduct = async (
-    productId,
-    rowIndex,
-    customerId = null,
-  ) => {
+  const fetchHargaByProduct = async (productId, rowIndex, customerId = null) => {
     if (!productId) {
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: [] }));
       setShowHargaBaru((prev) => ({ ...prev, [rowIndex]: false }));
@@ -193,13 +667,14 @@ const TransaksiPage = ({ setNavbarContent }) => {
       const res = await api.get(`/harga/by-product/${productId}${params}`);
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: res.data.data || [] }));
       setShowHargaBaru((prev) => ({ ...prev, [rowIndex]: false }));
-    } catch (err) {
+    } catch {
       Swal.fire("Error", "Gagal memuat harga produk", "error");
       setHargaOptions((prev) => ({ ...prev, [rowIndex]: [] }));
       setShowHargaBaru((prev) => ({ ...prev, [rowIndex]: false }));
     }
   };
 
+  // ============ FORM HANDLERS ============
   const addDetailRow = () => {
     const newIndex = form.details.length;
     setForm({
@@ -229,6 +704,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
     const updated = [...form.details];
     updated[index][field] = value;
     setForm({ ...form, details: updated });
+
     if (field === "product_id") {
       fetchHargaByProduct(value, index, form.customer_id || null);
       updated[index].harga_product_id = "";
@@ -343,18 +819,12 @@ const TransaksiPage = ({ setNavbarContent }) => {
       return;
     }
 
-    const hasEmpty = form.details.some(
-      (d) => !d.product_id || !d.qty || d.qty <= 0,
-    );
-
     const cleanedDetails = form.details.map((detail) => {
       const cleaned = { ...detail };
       if (!editingId) {
         cleaned.status_transaksi_id = statusProsesId;
       } else {
-        if (!cleaned.id) {
-          cleaned.status_transaksi_id = statusProsesId;
-        }
+        if (!cleaned.id) cleaned.status_transaksi_id = statusProsesId;
       }
       if (detail.harga_product_id) {
         delete cleaned.harga_baru;
@@ -374,7 +844,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
         await api.post("/transaksi", payload);
         Swal.fire("Berhasil!", "Transaksi berhasil dibuat", "success");
       }
-
       resetForm();
       setIsModalOpen(false);
       fetchData();
@@ -401,6 +870,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
         (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
         0,
       ) || 0);
+
     if (sisa > 0) {
       Swal.fire(
         "Peringatan",
@@ -427,7 +897,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
         });
         Swal.fire("Berhasil!", "Detail transaksi diselesaikan", "success");
         fetchData();
-      } catch (error) {
+      } catch {
         Swal.fire("Error", "Gagal menyelesaikan detail", "error");
       }
     }
@@ -443,12 +913,13 @@ const TransaksiPage = ({ setNavbarContent }) => {
       cancelButtonText: "Batal",
       confirmButtonColor: "#d33",
     });
+
     if (confirm.isConfirmed) {
       try {
         await api.post(`/transaksi-detail/${detailId}/cancel`);
         Swal.fire("Berhasil", "Detail transaksi dibatalkan", "success");
         fetchData();
-      } catch (err) {
+      } catch {
         Swal.fire("Error", "Gagal membatalkan detail", "error");
       }
     }
@@ -457,39 +928,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
   const handleEditTransaksi = (transaksiItem) => {
     resetForm(transaksiItem);
     setIsModalOpen(true);
-  };
-
-  const formatTanggal = (tgl) => {
-    if (!tgl) return "-";
-    return new Date(tgl).toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-  };
-
-  const getSisaBayar = (detail) => {
-    if (!detail) return 0;
-    const subtotal = safeParseFloat(detail.subtotal);
-    const pembayarans = Array.isArray(detail.pembayarans)
-      ? detail.pembayarans
-      : [];
-    const totalBayar = pembayarans.reduce(
-      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-      0,
-    );
-    return subtotal - totalBayar;
-  };
-
-  const getTotalBayar = (detail) => {
-    if (!detail) return 0;
-    const pembayarans = Array.isArray(detail.pembayarans)
-      ? detail.pembayarans
-      : [];
-    return pembayarans.reduce(
-      (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-      0,
-    );
   };
 
   const handleBayar = (detailId) => {
@@ -527,11 +965,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
         const today = new Date().toISOString().split("T")[0];
         const tanggalInput = Swal.getPopup().querySelector("#tanggalBayar");
         const jumlahInput = Swal.getPopup().querySelector("#jumlahBayar");
-
-        if (tanggalInput) {
-          tanggalInput.value = today;
-        }
-
+        if (tanggalInput) tanggalInput.value = today;
         if (jumlahInput) {
           jumlahInput.value = formatRupiah(sisa);
           jumlahInput.addEventListener("input", (e) => {
@@ -554,34 +988,27 @@ const TransaksiPage = ({ setNavbarContent }) => {
             Swal.fire("Berhasil!", "Pembayaran telah dicatat", "success");
             fetchData();
           })
-          .catch((err) => {
+          .catch(() => {
             Swal.fire("Error", "Gagal menyimpan pembayaran", "error");
           });
       }
     });
   };
 
-  const formatProductName = (p) => {
-    if (!p) return "-";
-    return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
-      .filter(Boolean)
-      .join(" ");
-  };
+  // ============ EFFECTS ============
+  useEffect(() => {
+    fetchData(search);
+  }, [search]);
 
-  const getStokToko = (product) => {
-    if (!product || !product.inventories) return 0;
-    const tokoInventory = product.inventories.find(
-      (inv) => inv.place && inv.place.kode === "TOKO",
-    );
-    return tokoInventory ? tokoInventory.qty : 0;
-  };
+  useEffect(() => {
+    if (typeof setNavbarContent === "function") {
+      setNavbarContent(
+        <TransaksiFilterBar search={search} setSearch={setSearch} />,
+      );
+    }
+  }, [search, setNavbarContent]);
 
-  const calculateActiveTotal = (details, statusProsesId) => {
-    return details
-      .filter((d) => d.status_transaksi_id === statusProsesId)
-      .reduce((sum, d) => sum + safeParseFloat(d.subtotal), 0);
-  };
-
+  // ============ RENDER ============
   return (
     <>
       <div className="space-y-8">
@@ -606,7 +1033,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                       <span className="text-xs font-mono text-gray-600">
                         {getInvoiceNumber(item)}
                       </span>
-
                       <button
                         onClick={() => onPrintClick(item)}
                         className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 flex items-center justify-center gap-1 w-full sm:w-auto"
@@ -629,7 +1055,9 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         </p>
                       </div>
                     </div>
+
                     <hr className="my-2 border-gray-200" />
+
                     <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                       {activeDetails.map((d) => {
                         const sisaBayar = getSisaBayar(d);
@@ -647,9 +1075,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                               <span className="font-semibold">Qty</span> {d.qty}
                             </p>
                             <p className="mt-1">
-                              <span className="font-semibold">
-                                Harga Satuan
-                              </span>{" "}
+                              <span className="font-semibold">Harga Satuan</span>{" "}
                               Rp {formatRupiah(d.harga)}
                             </p>
                             <p className="mt-1">
@@ -660,30 +1086,24 @@ const TransaksiPage = ({ setNavbarContent }) => {
                               <span className="font-semibold">Tagihan</span> Rp{" "}
                               {formatRupiah(d.subtotal)}
                             </p>
-
                             {d.catatan && (
                               <p className="mt-1 italic">{d.catatan}</p>
                             )}
 
                             <div className="mt-2 pt-2 border-t border-gray-200">
-                              <div className="mt-1">
-                                <p className="text-xs">
-                                  <span
-                                    className={`font-semibold ${
-                                      isLunas
-                                        ? "text-green-600"
-                                        : "text-orange-600"
-                                    }`}
-                                  >
-                                    {isLunas
-                                      ? "✅ Lunas"
-                                      : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
-                                          sisaBayar,
-                                        )})`}
-                                  </span>
-                                </p>
-                              </div>
-
+                              <p className="text-xs">
+                                <span
+                                  className={`font-semibold ${
+                                    isLunas ? "text-green-600" : "text-orange-600"
+                                  }`}
+                                >
+                                  {isLunas
+                                    ? "✅ Lunas"
+                                    : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
+                                        sisaBayar,
+                                      )})`}
+                                </span>
+                              </p>
                               <p className="text-[10px] text-gray-600 mt-1">
                                 Dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
                                 {formatRupiah(d.subtotal)}
@@ -735,6 +1155,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         );
                       })}
                     </div>
+
                     <div className="flex justify-center mt-2">
                       {role === "admin" && (
                         <button
@@ -752,16 +1173,20 @@ const TransaksiPage = ({ setNavbarContent }) => {
           </div>
         )}
 
-        <button
-          onClick={() => {
-            resetForm();
-            setIsModalOpen(true);
-          }}
-          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
-        >
-          <Plus size={18} />
-        </button>
+        {/* FAB Button */}
+        {(role === "admin" || role === "admin_toko") && (
+          <button
+            onClick={() => {
+              resetForm();
+              setIsModalOpen(true);
+            }}
+            className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+          >
+            <Plus size={18} />
+          </button>
+        )}
 
+        {/* MODAL */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
             <div className="bg-white w-full max-w-4xl p-6 rounded-2xl overflow-y-auto max-h-[90vh]">
@@ -779,48 +1204,61 @@ const TransaksiPage = ({ setNavbarContent }) => {
                   <XCircle size={24} />
                 </button>
               </div>
+
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Customer & Tanggal */}
                 <div className="bg-gray-50 p-4 rounded-xl">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Customer */}
+                    {/* Customer dengan Searchable Dropdown */}
                     <div>
                       <label className="font-semibold block mb-2">
                         Customer
                       </label>
-                      <select
-                        className="w-full border px-3 py-2 rounded-lg"
-                        value={
-                          form.customer_id ||
-                          (isCreatingNewCustomer ? "new" : "")
-                        }
-                        onChange={(e) => {
-                          const selectedValue = e.target.value;
-                          if (selectedValue === "new") {
-                            setIsCreatingNewCustomer(true);
-                            setForm({
-                              ...form,
-                              customer_id: "",
-                              customer_baru: { name: "", phone: "", email: "" },
-                            });
-                          } else {
-                            setIsCreatingNewCustomer(false);
-                            setForm({
-                              ...form,
-                              customer_id: selectedValue,
-                              customer_baru: { name: "", phone: "", email: "" },
-                            });
-                          }
+                      <SearchableDropdown
+                        options={customers.map((c) => ({
+                          id: c.id,
+                          name: c.name,
+                          phone: c.phone,
+                        }))}
+                        selectedValue={form.customer_id}
+                        onSelect={(val) => {
+                          setIsCreatingNewCustomer(false);
+                          setForm({
+                            ...form,
+                            customer_id: val,
+                            customer_baru: { name: "", phone: "", email: "" },
+                          });
                         }}
-                      >
-                        <option value="">Pilih Customer</option>
-                        {customers.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                        <option value="new">➕ Buat Customer Baru</option>
-                      </select>
+                        placeholder="Pilih Customer"
+                        searchPlaceholder="Cari nama/phone..."
+                        renderOption={(c) => (
+                          <span>
+                            {c.name}{" "}
+                            {c.phone && (
+                              <span className="text-gray-400">📞 {c.phone}</span>
+                            )}
+                          </span>
+                        )}
+                        renderSelected={(c) => (
+                          <span>
+                            {c.name}{" "}
+                            {c.phone && (
+                              <span className="text-gray-400">📞 {c.phone}</span>
+                            )}
+                          </span>
+                        )}
+                        onCreateNew={() => {
+                          setIsCreatingNewCustomer(true);
+                          setForm({
+                            ...form,
+                            customer_id: "",
+                            customer_baru: { name: "", phone: "", email: "" },
+                          });
+                        }}
+                        showCreateNew
+                      />
 
+                      {/* Form Customer Baru */}
                       {isCreatingNewCustomer && (
                         <div className="grid grid-cols-1 gap-2 mt-3">
                           <input
@@ -873,7 +1311,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                       )}
                     </div>
 
-                    {/* Tanggal Transaksi */}
+                    {/* Tanggal */}
                     <div>
                       <label className="font-semibold block mb-2">
                         Tanggal Transaksi *
@@ -890,44 +1328,65 @@ const TransaksiPage = ({ setNavbarContent }) => {
                     </div>
                   </div>
                 </div>
+
+                {/* Detail Transaksi */}
                 <div className="space-y-4">
                   <div className="flex justify-center items-center">
                     <h3 className="font-bold text-lg">Detail Transaksi</h3>
                   </div>
+
                   {form.details.map((d, i) => (
                     <div
                       key={i}
                       className="p-4 border border-gray-200 rounded-xl bg-gray-50 space-y-4"
                     >
-                      <div>
+                      {/* Produk dengan Searchable Dropdown + Filter */}
+                      <div className="space-y-2">
                         <label className="block mb-1 font-medium">
                           Produk *
                         </label>
-                        <select
-                          className="w-full border px-3 py-2 rounded-lg"
-                          value={d.product_id}
-                          onChange={(e) =>
-                            handleDetailChange(i, "product_id", e.target.value)
+
+                        <SearchableProductDropdown
+                          products={products}
+                          selectedValue={d.product_id}
+                          onSelect={(val) =>
+                            handleDetailChange(i, "product_id", val)
                           }
-                          required
-                        >
-                          <option value="">Pilih Produk</option>
-                          {products.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.kode} - {formatProductName(p)} (Stok:{" "}
-                              {getStokToko(p)})
-                            </option>
-                          ))}
-                        </select>
+                          placeholder="Pilih Produk..."
+                          searchPlaceholder="Cari kode/nama..."
+                          jenisList={productJenisList}
+                          typeList={productTypeList}
+                          filterJenis={productFilterInfo?.filterJenis || ""}
+                          setFilterJenis={(val) => 
+                            setProductFilterInfo(prev => ({ ...prev, filterJenis: val }))
+                          }
+                          filterType={productFilterInfo?.filterType || ""}
+                          setFilterType={(val) => 
+                            setProductFilterInfo(prev => ({ ...prev, filterType: val }))
+                          }
+                          onCreateNew={() => {}}
+                          onFilterChange={(info) => 
+                            setProductFilterInfo(prev => ({ ...prev, [`row${i}`]: info }))
+                          }
+                        />
+
+                        {/* ✅ Info hasil filter - diambil dari callback */}
+                        {productFilterInfo?.[`row${i}`]?.count !== undefined && 
+                         productFilterInfo?.[`row${i}`]?.count < products.length && (
+                          <p className="text-xs text-gray-500 text-center">
+                            Menampilkan {productFilterInfo[`row${i}`].count} dari {products.length} produk
+                          </p>
+                        )}
                       </div>
 
+                      {/* Harga */}
                       {d.product_id && (
                         <div className="mt-3">
                           <label className="block mb-1 font-medium">
                             Pilih Harga
                           </label>
                           <select
-                            className="w-full border px-3 py-2 rounded-lg"
+                            className="w-full border px-3 py-2 rounded-lg bg-white"
                             value={
                               d.harga_product_id ||
                               (showHargaBaru[i] ? "tambah_harga_khusus" : "")
@@ -968,7 +1427,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                               <label className="block mb-2 font-medium text-blue-800">
                                 Harga Khusus Customer Baru
                               </label>
-
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <input
                                   type="text"
@@ -985,7 +1443,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                     handleHargaBaruChange(i, "harga", raw);
                                   }}
                                 />
-
                                 <input
                                   type="text"
                                   placeholder="Keterangan Harga"
@@ -999,7 +1456,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                     )
                                   }
                                 />
-
                                 <input
                                   type="date"
                                   className="border px-3 h-11 rounded-lg w-full"
@@ -1018,6 +1474,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         </div>
                       )}
 
+                      {/* Qty, Diskon, Catatan */}
                       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
                         <input
                           type="number"
@@ -1037,7 +1494,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                           }}
                           required
                         />
-
                         <input
                           type="text"
                           inputMode="numeric"
@@ -1054,7 +1510,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                             }
                           }}
                         />
-
                         <input
                           type="text"
                           placeholder="Catatan (opsional)"
@@ -1066,6 +1521,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         />
                       </div>
 
+                      {/* Hapus Detail */}
                       <button
                         type="button"
                         onClick={() => removeDetailRow(i)}
@@ -1077,20 +1533,22 @@ const TransaksiPage = ({ setNavbarContent }) => {
                   ))}
                 </div>
 
+                {/* Tambah Detail Button */}
                 <div className="flex justify-center items-center">
                   <button
                     type="button"
                     onClick={addDetailRow}
-                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm"
+                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm hover:bg-green-700 transition"
                   >
                     + Tambah Detail
                   </button>
                 </div>
 
+                {/* Submit Button */}
                 <div className="flex justify-center gap-3 pt-4 border-t">
                   <button
                     type="submit"
-                    className="px-6 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700"
+                    className="px-6 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition"
                   >
                     {editingId ? "Simpan Perubahan" : "Simpan Transaksi"}
                   </button>
@@ -1101,6 +1559,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
         )}
       </div>
 
+      {/* Print Container */}
       <div
         style={{
           position: "absolute",

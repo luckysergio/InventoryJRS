@@ -92,7 +92,7 @@ const CustomerPage = ({ setNavbarContent }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
-  
+
   // ✅ State baru untuk loading submit & pagination
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -168,12 +168,12 @@ const CustomerPage = ({ setNavbarContent }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // ✅ Mencegah double submit
     if (isSubmitting) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
       if (isEdit) {
         await api.put(`/customers/${selectedId}`, form);
@@ -546,7 +546,7 @@ const CustomerPage = ({ setNavbarContent }) => {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedCustomers = filteredCustomers.slice(
     startIndex,
-    startIndex + ITEMS_PER_PAGE
+    startIndex + ITEMS_PER_PAGE,
   );
 
   const goToPage = (page) => {
@@ -567,15 +567,14 @@ const CustomerPage = ({ setNavbarContent }) => {
         </p>
       ) : (
         <>
-
           {/* Grid Customers */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {paginatedCustomers.map((item) => {
               const tagihanHarian = Number(
-                item.tagihan_harian_belum_lunas || 0
+                item.tagihan_harian_belum_lunas || 0,
               );
               const tagihanPesanan = Number(
-                item.tagihan_pesanan_belum_lunas || 0
+                item.tagihan_pesanan_belum_lunas || 0,
               );
               const hasTagihan = tagihanHarian > 0 || tagihanPesanan > 0;
 
@@ -588,13 +587,22 @@ const CustomerPage = ({ setNavbarContent }) => {
                     {item.name}
                   </h3>
 
-                  <p className="text-xs text-gray-500 mt-1 text-center truncate">
-                    📞 {item.phone || "-"}
-                  </p>
-
-                  <p className="text-xs text-gray-500 text-center break-words">
-                    ✉️ {item.email || "-"}
-                  </p>
+                  {role === "admin" ? (
+                    <>
+                      <p className="text-xs text-gray-500 mt-1 text-center truncate">
+                        📞 {item.phone || "-"}
+                      </p>
+                      <p className="text-xs text-gray-500 text-center break-words">
+                        ✉️ {item.email || "-"}
+                      </p>
+                    </>
+                  ) : (
+                    <div className="text-center mt-2">
+                      <p className="text-xs text-gray-400">
+                        (kontak hanya untuk admin)
+                      </p>
+                    </div>
+                  )}
 
                   <div className="mt-3 space-y-1 text-xs min-w-0">
                     {tagihanHarian > 0 && (
@@ -652,7 +660,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                   )}
 
                   <div className="flex gap-2 mt-3">
-                    {(role === "admin" || role === "admin_toko") && (
+                    {role === "admin" && (
                       <button
                         onClick={() => handleEdit(item)}
                         className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 text-xs"
@@ -693,35 +701,32 @@ const CustomerPage = ({ setNavbarContent }) => {
               </button>
 
               <div className="flex items-center gap-1">
-                {Array.from(
-                  { length: Math.min(5, totalPages) },
-                  (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => goToPage(pageNum)}
-                        className={`w-8 h-8 rounded-lg text-sm font-medium transition ${
-                          currentPage === pageNum
-                            ? "bg-indigo-600 text-white"
-                            : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
                   }
-                )}
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => goToPage(pageNum)}
+                      className={`w-8 h-8 rounded-lg text-sm font-medium transition ${
+                        currentPage === pageNum
+                          ? "bg-indigo-600 text-white"
+                          : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
               </div>
 
               <button
@@ -852,7 +857,7 @@ const CustomerPage = ({ setNavbarContent }) => {
         (() => {
           const customer = findCustomerById(
             customers,
-            customerModal.customerId
+            customerModal.customerId,
           );
           if (!customer) return null;
 
@@ -902,8 +907,8 @@ const CustomerPage = ({ setNavbarContent }) => {
                       {customerModal.jenisFilter === "daily"
                         ? "Transaksi Harian"
                         : customerModal.jenisFilter === "pesanan"
-                        ? "Transaksi Pesanan"
-                        : "Semua Tagihan Belum Lunas"}
+                          ? "Transaksi Pesanan"
+                          : "Semua Tagihan Belum Lunas"}
                     </p>
                   </div>
                   <button
@@ -922,8 +927,8 @@ const CustomerPage = ({ setNavbarContent }) => {
                         {customerModal.jenisFilter === "daily"
                           ? "Tidak ada tagihan harian yang belum lunas"
                           : customerModal.jenisFilter === "pesanan"
-                          ? "Tidak ada tagihan pesanan yang belum lunas"
-                          : "Tidak ada tagihan yang belum lunas"}
+                            ? "Tidak ada tagihan pesanan yang belum lunas"
+                            : "Tidak ada tagihan yang belum lunas"}
                       </p>
                     </div>
                   ) : (
@@ -947,7 +952,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                             onClick={() =>
                               openDetailModal(
                                 detail.id,
-                                customerModal.customerName
+                                customerModal.customerName,
                               )
                             }
                           >
@@ -993,7 +998,7 @@ const CustomerPage = ({ setNavbarContent }) => {
         (() => {
           const transaksiDetail = findTransaksiDetailById(
             customers,
-            detailModal.id
+            detailModal.id,
           );
           if (!transaksiDetail) return null;
 
@@ -1076,7 +1081,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                       onClick={() =>
                         openBayarModal(
                           transaksiDetail,
-                          detailModal.customerName
+                          detailModal.customerName,
                         )
                       }
                       className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg transition"
@@ -1127,7 +1132,7 @@ const CustomerPage = ({ setNavbarContent }) => {
                   <span>
                     Rp{" "}
                     {formatRupiah(
-                      safeParseFloat(bayarModal.transaksiDetail.subtotal)
+                      safeParseFloat(bayarModal.transaksiDetail.subtotal),
                     )}
                   </span>
                 </div>
@@ -1140,9 +1145,9 @@ const CustomerPage = ({ setNavbarContent }) => {
                       Array.isArray(bayarModal.transaksiDetail.pembayarans)
                         ? bayarModal.transaksiDetail.pembayarans.reduce(
                             (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
-                            0
+                            0,
                           )
-                        : 0
+                        : 0,
                     )}
                   </span>
                 </div>
@@ -1155,11 +1160,10 @@ const CustomerPage = ({ setNavbarContent }) => {
                       safeParseFloat(bayarModal.transaksiDetail.subtotal) -
                         (Array.isArray(bayarModal.transaksiDetail.pembayarans)
                           ? bayarModal.transaksiDetail.pembayarans.reduce(
-                              (sum, p) =>
-                                sum + safeParseFloat(p.jumlah_bayar),
-                              0
+                              (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+                              0,
                             )
-                          : 0)
+                          : 0),
                     )}
                   </span>
                 </div>

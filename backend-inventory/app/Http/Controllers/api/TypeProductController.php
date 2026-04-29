@@ -64,7 +64,7 @@ class TypeProductController extends Controller
                 'required',
                 'string',
                 'max:255',
-                'regex:/^[A-Z0-9\s]+$/'
+                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
             ],
             'jenis_id' => 'required|exists:jenis_products,id',
         ], [
@@ -120,7 +120,7 @@ class TypeProductController extends Controller
                 'required',
                 'string',
                 'max:255',
-                'regex:/^[A-Z0-9\s]+$/'
+                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
             ],
             'jenis_id' => 'required|exists:jenis_products,id',
         ], [

@@ -258,21 +258,21 @@ class ProductDistributorController extends Controller
                 'required_without:jenis_id',
                 'string',
                 'max:100',
-                'regex:/^[A-Z0-9\s]+$/'
+                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
             ],
             'type_id' => 'nullable|exists:type_products,id',
             'type_nama' => [
                 'required_without:type_id',
                 'string',
                 'max:100',
-                'regex:/^[A-Z0-9\s]+$/'
+                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
             ],
             'bahan_id' => 'nullable|exists:bahan_products,id',
             'bahan_nama' => [
                 'required_without:bahan_id',
                 'string',
                 'max:100',
-                'regex:/^[A-Z0-9\s]+$/'
+                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
             ],
             'ukuran' => 'required|string|max:20',
             'distributor_id' => 'required|exists:distributors,id',
