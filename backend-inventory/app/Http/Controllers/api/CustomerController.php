@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Customer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Database\QueryException;
 
 class CustomerController extends Controller
 {
@@ -73,26 +74,30 @@ class CustomerController extends Controller
             'data' => $customers,
         ]);
     }
+    
     public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'name'  => 'required|string|max:100',
-            'phone' => 'nullable|string|max:20',
-            'email'  => 'nullable|string|max:100',
-        ]);
+{
+    $validator = Validator::make($request->all(), [
+        'name'  => 'required|string|max:100',
+        'phone' => 'nullable|string|max:20|unique:customers,phone',
+        'email' => 'nullable|string|max:100',
+    ], [
+        'phone.unique' => 'Nomor telepon sudah digunakan customer lain',
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false,
+            'message' => 'Validasi gagal',
+            'errors'  => $validator->errors()
+        ], 422);
+    }
 
+    try {
         $customer = Customer::create([
             'name'  => $request->name,
             'phone' => $request->phone,
-            'email'  => $request->email,
+            'email' => $request->email,
         ]);
 
         return response()->json([
@@ -100,7 +105,22 @@ class CustomerController extends Controller
             'message'  => 'Customer berhasil dibuat',
             'customer' => $customer
         ], 201);
+
+    } catch (QueryException $e) {
+        // handle duplicate dari DB (fallback safety)
+        if ($e->getCode() == 23000) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Nomor telepon sudah digunakan customer lain'
+            ], 422);
+        }
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Terjadi kesalahan pada server'
+        ], 500);
     }
+}
 
     public function show($id)
     {
@@ -120,32 +140,35 @@ class CustomerController extends Controller
     }
 
     public function update(Request $request, $id)
-    {
-        $customer = Customer::find($id);
+{
+    $customer = Customer::find($id);
 
-        if (!$customer) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Customer tidak ditemukan'
-            ], 404);
-        }
+    if (!$customer) {
+        return response()->json([
+            'status'  => false,
+            'message' => 'Customer tidak ditemukan'
+        ], 404);
+    }
 
-        $data = $request->json()->all();
+    $data = $request->all();
 
-        $validator = Validator::make($data, [
-            'name'  => 'required|string|max:100',
-            'phone' => 'nullable|string|max:20',
-            'email'  => 'nullable|string|max:100',
-        ]);
+    $validator = Validator::make($data, [
+        'name'  => 'required|string|max:100',
+        'phone' => 'nullable|string|max:20|unique:customers,phone,' . $id,
+        'email' => 'nullable|string|max:100',
+    ], [
+        'phone.unique' => 'Nomor telepon sudah digunakan customer lain',
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
+    if ($validator->fails()) {
+        return response()->json([
+            'status'  => false,
+            'message' => 'Validasi gagal',
+            'errors'  => $validator->errors()
+        ], 422);
+    }
 
+    try {
         $customer->update([
             'name'  => $data['name'],
             'phone' => $data['phone'] ?? null,
@@ -157,7 +180,21 @@ class CustomerController extends Controller
             'message'  => 'Customer berhasil diupdate',
             'customer' => $customer
         ]);
+
+    } catch (QueryException $e) {
+        if ($e->getCode() == 23000) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Nomor telepon sudah digunakan customer lain'
+            ], 422);
+        }
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Terjadi kesalahan pada server'
+        ], 500);
     }
+}
 
     public function destroy($id)
     {

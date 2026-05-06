@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\BahanProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 
 class BahanProductController extends Controller
 {
@@ -44,7 +43,7 @@ class BahanProductController extends Controller
                 'required',
                 'string',
                 'max:255',
-                'regex:/^[A-Z\s]+$/'
+                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
             ]
         ], [
             'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL semua'
@@ -96,7 +95,7 @@ class BahanProductController extends Controller
                 'required',
                 'string',
                 'max:255',
-                'regex:/^[A-Z\s]+$/'
+                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
             ]
         ], [
             'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL semua'

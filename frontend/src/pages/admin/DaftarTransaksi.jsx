@@ -14,6 +14,7 @@ import {
   Users,
   ChevronDown,
   ChevronUp,
+  Package,
 } from "lucide-react";
 import api from "../../services/api";
 import InvoiceSimplePrint from "../../components/InvoiceSimplePrint";
@@ -212,7 +213,7 @@ export const SearchableDropdown = ({
   );
 };
 
-// ============ COMPONENT: Searchable Product Dropdown dengan Filter ============
+// ============ COMPONENT: Searchable Product Dropdown dengan Filter & Stok ============
 export const SearchableProductDropdown = ({
   products,
   selectedValue,
@@ -226,7 +227,7 @@ export const SearchableProductDropdown = ({
   filterType,
   setFilterType,
   onCreateNew,
-  onFilterChange, // ✅ Callback untuk info filter
+  onFilterChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -256,7 +257,6 @@ export const SearchableProductDropdown = ({
     return true;
   });
 
-  // ✅ Notify parent tentang perubahan filter
   useEffect(() => {
     if (onFilterChange) {
       onFilterChange({ search, filterJenis, filterType, count: filteredProducts.length });
@@ -304,6 +304,14 @@ export const SearchableProductDropdown = ({
     setSearch("");
     setFilterJenis("");
     setFilterType("");
+  };
+
+  const getProductStok = (product) => {
+    if (!product || !product.inventories) return 0;
+    const tokoInventory = product.inventories.find(
+      (inv) => inv.place && inv.place.kode === "TOKO"
+    );
+    return tokoInventory ? tokoInventory.qty : 0;
   };
 
   return (
@@ -399,7 +407,6 @@ export const SearchableProductDropdown = ({
               )}
             </div>
 
-            {/* ✅ Info Results - ditampilkan di dalam dropdown */}
             {(search || filterJenis || filterType) && (
               <p className="text-[10px] text-gray-500 text-center">
                 {filteredProducts.length} dari {products.length} produk
@@ -415,9 +422,7 @@ export const SearchableProductDropdown = ({
             ) : (
               filteredProducts.map((p) => {
                 const isSelected = p.id === selectedValue;
-                const stok = p.inventories?.find(
-                  (inv) => inv.place?.kode === "TOKO",
-                )?.qty || 0;
+                const stok = getProductStok(p);
                 const isOutOfStock = stok <= 0;
                 
                 return (
@@ -434,17 +439,25 @@ export const SearchableProductDropdown = ({
                           : ""
                     }`}
                   >
-                    <div className="truncate pr-2">
-                      <span className="font-medium">{p.kode}</span>
-                      <span className="text-gray-500 ml-1">
+                    <div className="truncate pr-2 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Package size={12} className="flex-shrink-0" />
+                        <span className="font-medium">{p.kode}</span>
+                      </div>
+                      <div className="text-gray-600 mt-0.5">
                         {formatProductName(p)}
-                      </span>
-                      {isOutOfStock && (
-                        <span className="text-red-400 ml-1">(Habis)</span>
-                      )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 text-[10px]">
+                        <span className={`font-semibold ${stok > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          Stok: {stok}
+                        </span>
+                        {isOutOfStock && (
+                          <span className="text-red-500">(Habis)</span>
+                        )}
+                      </div>
                     </div>
                     {isSelected && (
-                      <CheckCircle size={14} className="text-indigo-600 flex-shrink-0" />
+                      <CheckCircle size={14} className="text-indigo-600 flex-shrink-0 ml-2" />
                     )}
                   </button>
                 );
@@ -487,7 +500,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
   const [editingId, setEditingId] = useState(null);
   const [isCreatingNewCustomer, setIsCreatingNewCustomer] = useState(false);
 
-  // ✅ State filter produk (dikelola oleh SearchableProductDropdown)
+  // State filter produk
   const [productFilterInfo, setProductFilterInfo] = useState({});
 
   // State master data
@@ -521,6 +534,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
 
   const [hargaOptions, setHargaOptions] = useState({});
   const [showHargaBaru, setShowHargaBaru] = useState({});
+  const [isFormReady, setIsFormReady] = useState(false);
 
   // ============ HELPER FUNCTIONS ============
   const getInvoiceNumber = (transaksiItem) => {
@@ -740,22 +754,38 @@ const TransaksiPage = ({ setNavbarContent }) => {
     setForm({ ...form, details: updated });
   };
 
-  const resetForm = (data = null) => {
+  const resetForm = async (data = null) => {
+    setIsFormReady(false);
+    
     if (data) {
-      const isCustomerBaru = !customers.some((c) => c.id == data.customer_id);
-      const customerBaru = isCustomerBaru
-        ? {
-            name: data.customer?.name || "",
-            phone: data.customer?.phone || "",
-            email: data.customer?.email || "",
-          }
-        : { name: "", phone: "", email: "" };
+      // Cek apakah customer adalah customer baru atau sudah ada
+      const existingCustomer = customers.find((c) => c.id == data.customer_id);
+      const isCustomerBaru = !existingCustomer && data.customer_id;
+      
+      let customerBaruData = { name: "", phone: "", email: "" };
+      let customerId = "";
+      
+      if (isCustomerBaru && data.customer) {
+        customerBaruData = {
+          name: data.customer.name || "",
+          phone: data.customer.phone || "",
+          email: data.customer.email || "",
+        };
+        customerId = "";
+        setIsCreatingNewCustomer(true);
+      } else if (existingCustomer) {
+        customerId = existingCustomer.id;
+        setIsCreatingNewCustomer(false);
+      } else {
+        setIsCreatingNewCustomer(false);
+      }
 
-      const details = (data.details || [])
+      // Filter detail yang statusnya proses
+      const detailsData = (data.details || [])
         .filter((d) => d.status_transaksi_id === statusProsesId)
         .map((d) => ({
           id: d.id || "",
-          product_id: d.product_id || "",
+          product_id: d.product_id ? Number(d.product_id) : "",
           harga_product_id: d.harga_product_id || "",
           harga_baru: d.harga_baru || {
             harga: "",
@@ -763,36 +793,54 @@ const TransaksiPage = ({ setNavbarContent }) => {
             keterangan: "",
           },
           qty: d.qty || "",
-          status_transaksi_id: d.status_transaksi_id,
+          status_transaksi_id: d.status_transaksi_id || statusProsesId,
           discount: d.discount || 0,
           catatan: d.catatan || "",
         }));
 
+      // Set form dengan data yang sudah diproses
+      const newForm = {
+        customer_id: customerId,
+        customer_baru: customerBaruData,
+        tanggal: data.tanggal || "",
+        details: detailsData.length > 0 ? detailsData : [{ ...initialDetail, status_transaksi_id: statusProsesId }],
+      };
+      
+      setForm(newForm);
+
+      // Load harga options untuk setiap detail yang memiliki product
       const hargaOpts = {};
       const showHarga = {};
-      details.forEach((d, idx) => {
-        if (d.harga_baru.harga) {
-          showHarga[idx] = true;
+      
+      for (let idx = 0; idx < newForm.details.length; idx++) {
+        const d = newForm.details[idx];
+        if (d.product_id) {
+          await fetchHargaByProduct(d.product_id, idx, customerId || null);
+          
+          if (d.harga_product_id) {
+            hargaOpts[idx] = [];
+            showHarga[idx] = false;
+          } else if (d.harga_baru && d.harga_baru.harga) {
+            showHarga[idx] = true;
+            hargaOpts[idx] = [];
+          } else {
+            showHarga[idx] = false;
+          }
         } else {
+          hargaOpts[idx] = [];
           showHarga[idx] = false;
-          fetchHargaByProduct(d.product_id, idx, data.customer_id);
         }
-      });
-
-      setForm({
-        customer_id: isCustomerBaru ? "" : data.customer_id,
-        customer_baru: customerBaru,
-        tanggal: data.tanggal || "",
-        details,
-      });
-      setIsCreatingNewCustomer(isCustomerBaru);
+      }
+      
       setHargaOptions(hargaOpts);
       setShowHargaBaru(showHarga);
       setEditingId(data.id);
     } else {
+      // Reset ke form kosong
       setForm({
         customer_id: "",
         customer_baru: { name: "", phone: "", email: "" },
+        tanggal: "",
         details: [{ ...initialDetail, status_transaksi_id: statusProsesId }],
       });
       setIsCreatingNewCustomer(false);
@@ -800,6 +848,8 @@ const TransaksiPage = ({ setNavbarContent }) => {
       setShowHargaBaru({});
       setEditingId(null);
     }
+    
+    setIsFormReady(true);
   };
 
   const handleSubmit = async (e) => {
@@ -828,7 +878,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
       }
       if (detail.harga_product_id) {
         delete cleaned.harga_baru;
-      } else if (detail.harga_baru.harga) {
+      } else if (detail.harga_baru && detail.harga_baru.harga) {
         cleaned.harga_baru.harga = unformatRupiah(detail.harga_baru.harga);
       }
       return cleaned;
@@ -1187,7 +1237,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
         )}
 
         {/* MODAL */}
-        {isModalOpen && (
+        {isModalOpen && isFormReady && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
             <div className="bg-white w-full max-w-4xl p-6 rounded-2xl overflow-y-auto max-h-[90vh]">
               <div className="flex justify-between items-center mb-4">
@@ -1227,6 +1277,12 @@ const TransaksiPage = ({ setNavbarContent }) => {
                             ...form,
                             customer_id: val,
                             customer_baru: { name: "", phone: "", email: "" },
+                          });
+                          // Refresh harga options untuk semua detail dengan customer baru
+                          form.details.forEach((detail, idx) => {
+                            if (detail.product_id) {
+                              fetchHargaByProduct(detail.product_id, idx, val);
+                            }
                           });
                         }}
                         placeholder="Pilih Customer"
@@ -1370,7 +1426,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                           }
                         />
 
-                        {/* ✅ Info hasil filter - diambil dari callback */}
                         {productFilterInfo?.[`row${i}`]?.count !== undefined && 
                          productFilterInfo?.[`row${i}`]?.count < products.length && (
                           <p className="text-xs text-gray-500 text-center">

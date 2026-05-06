@@ -103,9 +103,11 @@ export const SearchableDropdown = ({
     setSearch("");
   };
 
+  // ✅ PERBAIKAN: Gunakan String() untuk perbandingan tipe yang aman
   const selectedOption = options.find(
     (opt) =>
-      (typeof opt === "object" ? opt.value || opt.id : opt) === selectedValue,
+      String(typeof opt === "object" ? opt.value || opt.id : opt) ===
+      String(selectedValue),
   );
 
   return (
@@ -173,7 +175,8 @@ export const SearchableDropdown = ({
               filteredOptions.map((opt, idx) => {
                 const value =
                   typeof opt === "object" ? opt.value || opt.id : opt;
-                const isSelected = value === selectedValue;
+                // ✅ PERBAIKAN: Gunakan String() untuk perbandingan isSelected
+                const isSelected = String(value) === String(selectedValue);
                 return (
                   <button
                     key={idx}
@@ -291,7 +294,10 @@ export const SearchableProductDropdown = ({
     setSearch("");
   };
 
-  const selectedProduct = products.find((p) => p.id === selectedValue);
+  // ✅ PERBAIKAN: Gunakan String() untuk perbandingan selectedProduct
+  const selectedProduct = products.find(
+    (p) => String(p.id) === String(selectedValue),
+  );
 
   const formatProductName = (p) => {
     if (!p) return "";
@@ -425,7 +431,8 @@ export const SearchableProductDropdown = ({
               </div>
             ) : (
               filteredProducts.map((p) => {
-                const isSelected = p.id === selectedValue;
+                // ✅ PERBAIKAN: Gunakan String() untuk perbandingan isSelected
+                const isSelected = String(p.id) === String(selectedValue);
                 return (
                   <button
                     key={p.id}
@@ -731,7 +738,7 @@ const PesananPage = ({ setNavbarContent }) => {
       ...form,
       details: [
         ...form.details,
-        { ...initialDetail, status_transaksi_id: statusDiPesanId },
+        { ...initialDetail, status_transaksi_id: String(statusDiPesanId) },
       ],
     });
     setHargaOptions((prev) => ({ ...prev, [newIndex]: [] }));
@@ -764,12 +771,11 @@ const PesananPage = ({ setNavbarContent }) => {
 
   const handleDetailChange = (index, field, value) => {
     const updated = [...form.details];
-    updated[index][field] = value;
-    setForm({ ...form, details: updated });
-
+    
     if (field === "product_id") {
       const isProductBaru = value === "new";
-      updated[index].product_id = isProductBaru ? null : value;
+      // ✅ PERBAIKAN: Simpan product_id sebagai string untuk konsistensi
+      updated[index].product_id = isProductBaru ? null : String(value);
       setShowProductBaru((prev) => ({ ...prev, [index]: isProductBaru }));
 
       updated[index].harga_product_id = "";
@@ -783,12 +789,15 @@ const PesananPage = ({ setNavbarContent }) => {
         setShowHargaBaru((prev) => ({ ...prev, [index]: true }));
         setHargaOptions((prev) => ({ ...prev, [index]: [] }));
       } else if (value) {
-        fetchHargaByProduct(value, index, form.customer_id || null);
+        // ✅ PERBAIKAN: Pastikan value berupa string saat fetch
+        fetchHargaByProduct(String(value), index, form.customer_id || null);
         setShowHargaBaru((prev) => ({ ...prev, [index]: false }));
       }
-
-      setForm({ ...form, details: updated });
+    } else {
+      updated[index][field] = value;
     }
+    
+    setForm({ ...form, details: updated });
   };
 
   const handleProductBaruChange = (index, field, value) => {
@@ -835,7 +844,10 @@ const PesananPage = ({ setNavbarContent }) => {
 
   const resetForm = (data = null) => {
     if (data) {
-      const isCustomerBaru = !customers.some((c) => c.id == data.customer_id);
+      // ✅ PERBAIKAN: Gunakan String() untuk perbandingan customer_id
+      const isCustomerBaru = !customers.some(
+        (c) => String(c.id) === String(data.customer_id),
+      );
 
       const customerBaru = isCustomerBaru
         ? {
@@ -850,12 +862,17 @@ const PesananPage = ({ setNavbarContent }) => {
 
         return {
           id: d.id || "",
-          product_id: isProductBaru ? null : d.product_id,
+          // ✅ PERBAIKAN: Konversi product_id ke string untuk konsistensi
+          product_id: isProductBaru ? null : String(d.product_id),
           product_baru: { ...initialDetail.product_baru },
-          harga_product_id: d.harga_product_id || "",
+          // ✅ PERBAIKAN: Konversi harga_product_id ke string
+          harga_product_id: d.harga_product_id ? String(d.harga_product_id) : "",
           harga_baru: { harga: "", tanggal_berlaku: "", keterangan: "" },
           qty: d.qty || "",
-          status_transaksi_id: d.status_transaksi_id || statusDiPesanId,
+          // ✅ PERBAIKAN: Konversi status_transaksi_id ke string
+          status_transaksi_id: d.status_transaksi_id 
+            ? String(d.status_transaksi_id) 
+            : String(statusDiPesanId),
           discount: d.discount || 0,
           catatan: d.catatan || "",
         };
@@ -878,7 +895,8 @@ const PesananPage = ({ setNavbarContent }) => {
       });
 
       setForm({
-        customer_id: isCustomerBaru ? "" : data.customer_id,
+        // ✅ PERBAIKAN: Konversi customer_id ke string untuk konsistensi
+        customer_id: isCustomerBaru ? "" : String(data.customer_id),
         customer_baru: customerBaru,
         tanggal: data.tanggal || "",
         details,
@@ -894,7 +912,7 @@ const PesananPage = ({ setNavbarContent }) => {
       setForm({
         customer_id: "",
         customer_baru: { name: "", phone: "", email: "" },
-        details: [{ ...initialDetail, status_transaksi_id: statusDiPesanId }],
+        details: [{ ...initialDetail, status_transaksi_id: String(statusDiPesanId) }],
       });
 
       setIsCreatingNewCustomer(false);
@@ -1031,7 +1049,7 @@ const PesananPage = ({ setNavbarContent }) => {
 
   const handleSelesaiDetail = async (detailId) => {
     const allDetails = transaksi.flatMap((t) => t.details);
-    const detail = allDetails.find((d) => d.id == detailId);
+    const detail = allDetails.find((d) => String(d.id) === String(detailId));
     if (!detail) return;
     const sisa =
       safeParseFloat(detail.subtotal) -
@@ -1097,7 +1115,7 @@ const PesananPage = ({ setNavbarContent }) => {
 
   const handleBayar = (detailId) => {
     const allDetails = transaksi.flatMap((t) => t.details);
-    const detail = allDetails.find((d) => d.id === detailId);
+    const detail = allDetails.find((d) => String(d.id) === String(detailId));
     if (!detail) return;
 
     const sisa = getSisaBayar(detail);
@@ -1197,7 +1215,7 @@ const PesananPage = ({ setNavbarContent }) => {
               .map((item) => {
                 const isCompletedOrCancelled = item.details.every((d) =>
                   [statusSelesaiId, statusDibatalkanId].includes(
-                    d.status_transaksi_id,
+                    Number(d.status_transaksi_id),
                   ),
                 );
                 if (isCompletedOrCancelled) return null;
