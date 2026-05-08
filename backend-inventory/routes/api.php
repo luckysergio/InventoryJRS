@@ -18,6 +18,7 @@ use App\Http\Controllers\api\PlaceController;
 use App\Http\Controllers\api\ProductController;
 use App\Http\Controllers\api\ProductCustomerController;
 use App\Http\Controllers\api\ProductDistributorController;
+use App\Http\Controllers\api\ProductInternalController;
 use App\Http\Controllers\api\ProductionController;
 use App\Http\Controllers\api\ProductMovementController;
 use App\Http\Controllers\api\PublicProductController;
@@ -84,6 +85,15 @@ Route::group(['middleware' => ['jwt.auth']], function () {
     Route::get('/distributors/{id}', [DistributorController::class, 'show'])->middleware('role:admin,admin_toko,operator');
     Route::put('/distributors/{id}', [DistributorController::class, 'update'])->middleware('role:admin,admin_toko');
     Route::delete('/distributors/{id}', [DistributorController::class, 'destroy'])->middleware('role:admin');
+
+    // Product Internal Routes (khusus produk internal, bukan milik distributor/customer)
+    Route::prefix('internal-products')->group(function () {
+        Route::get('/', [ProductInternalController::class, 'index']);
+        Route::get('/summary', [ProductInternalController::class, 'summary']);
+        Route::get('/low-stock', [ProductInternalController::class, 'lowStock']);
+        Route::get('/by-jenis/{jenisId}', [ProductInternalController::class, 'byJenis']);
+        Route::get('/{id}', [ProductInternalController::class, 'show']);
+    });
 
     // Products
     Route::get('/products/available', [ProductController::class, 'available'])->middleware('role:admin,admin_toko,operator');

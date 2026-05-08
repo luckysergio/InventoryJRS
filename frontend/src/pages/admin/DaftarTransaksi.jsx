@@ -11,7 +11,6 @@ import {
   Search,
   Filter,
   X,
-  Users,
   ChevronDown,
   ChevronUp,
   Package,
@@ -228,6 +227,7 @@ export const SearchableProductDropdown = ({
   setFilterType,
   onCreateNew,
   onFilterChange,
+  allowOutOfStockSelection = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -425,17 +425,20 @@ export const SearchableProductDropdown = ({
                 const stok = getProductStok(p);
                 const isOutOfStock = stok <= 0;
                 
+                // Izinkan klik jika: mode edit, atau produk terpilih, atau stok tersedia
+                const isClickable = allowOutOfStockSelection || isSelected || !isOutOfStock;
+                
                 return (
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => !isOutOfStock && handleSelect(p.id)}
-                    disabled={isOutOfStock}
+                    onClick={() => isClickable && handleSelect(p.id)}
+                    disabled={!isClickable}
                     className={`w-full px-3 py-2 text-left text-xs hover:bg-indigo-50 flex items-center justify-between border-b border-gray-50 last:border-0 ${
                       isSelected 
                         ? "bg-indigo-100 text-indigo-800" 
-                        : isOutOfStock 
-                          ? "text-gray-400 cursor-not-allowed" 
+                        : !isClickable
+                          ? "text-gray-400 cursor-not-allowed opacity-60" 
                           : ""
                     }`}
                   >
@@ -451,8 +454,11 @@ export const SearchableProductDropdown = ({
                         <span className={`font-semibold ${stok > 0 ? 'text-green-600' : 'text-red-500'}`}>
                           Stok: {stok}
                         </span>
-                        {isOutOfStock && (
+                        {isOutOfStock && !isSelected && (
                           <span className="text-red-500">(Habis)</span>
+                        )}
+                        {isOutOfStock && isSelected && (
+                          <span className="text-orange-500">(Stok habis - dipilih)</span>
                         )}
                       </div>
                     </div>
@@ -758,7 +764,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
     setIsFormReady(false);
     
     if (data) {
-      // Cek apakah customer adalah customer baru atau sudah ada
       const existingCustomer = customers.find((c) => c.id == data.customer_id);
       const isCustomerBaru = !existingCustomer && data.customer_id;
       
@@ -780,7 +785,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
         setIsCreatingNewCustomer(false);
       }
 
-      // Filter detail yang statusnya proses
       const detailsData = (data.details || [])
         .filter((d) => d.status_transaksi_id === statusProsesId)
         .map((d) => ({
@@ -798,7 +802,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
           catatan: d.catatan || "",
         }));
 
-      // Set form dengan data yang sudah diproses
       const newForm = {
         customer_id: customerId,
         customer_baru: customerBaruData,
@@ -809,30 +812,27 @@ const TransaksiPage = ({ setNavbarContent }) => {
       setForm(newForm);
 
       // Load harga options untuk setiap detail yang memiliki product
-      const hargaOpts = {};
       const showHarga = {};
       
       for (let idx = 0; idx < newForm.details.length; idx++) {
         const d = newForm.details[idx];
         if (d.product_id) {
+          // Fetch harga - biarkan fetchHargaByProduct yang mengelola state hargaOptions
           await fetchHargaByProduct(d.product_id, idx, customerId || null);
           
-          if (d.harga_product_id) {
-            hargaOpts[idx] = [];
-            showHarga[idx] = false;
-          } else if (d.harga_baru && d.harga_baru.harga) {
+          // Hanya atur showHargaBaru berdasarkan data yang ada
+          if (d.harga_baru && d.harga_baru.harga) {
             showHarga[idx] = true;
-            hargaOpts[idx] = [];
           } else {
             showHarga[idx] = false;
           }
         } else {
-          hargaOpts[idx] = [];
           showHarga[idx] = false;
         }
       }
       
-      setHargaOptions(hargaOpts);
+      // PERBAIKAN: Jangan set hargaOptions di sini! 
+      // fetchHargaByProduct sudah memanggil setHargaOptions secara internal
       setShowHargaBaru(showHarga);
       setEditingId(data.id);
     } else {
@@ -1424,6 +1424,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                           onFilterChange={(info) => 
                             setProductFilterInfo(prev => ({ ...prev, [`row${i}`]: info }))
                           }
+                          allowOutOfStockSelection={!!editingId}
                         />
 
                         {productFilterInfo?.[`row${i}`]?.count !== undefined && 

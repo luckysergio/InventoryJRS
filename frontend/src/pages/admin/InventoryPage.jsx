@@ -11,6 +11,7 @@ const formatProductName = (p) => {
   return parts.join(" ");
 };
 
+// ✅ FILTER BAR: Desain clean & minimalis
 export const InventoryFilterBar = ({
   searchTerm,
   setSearchTerm,
@@ -20,10 +21,12 @@ export const InventoryFilterBar = ({
   setSelectedTypeId,
   jenisList,
   typeList,
+  sortBy,
+  setSortBy,
 }) => (
   <div className="flex items-center gap-2 w-full">
-    {/* Search - Selalu ditampilkan */}
-    <div className="relative min-w-[140px] sm:min-w-[180px] flex-1">
+    {/* Search Input */}
+    <div className="relative flex-1 min-w-[140px] sm:min-w-[180px]">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
       <input
         type="text"
@@ -34,16 +37,31 @@ export const InventoryFilterBar = ({
       />
     </div>
 
-    <div className="hidden sm:flex flex-wrap items-center gap-2">
+    {/* Desktop Filters */}
+    <div className="hidden sm:flex items-center gap-2">
+      {/* Sort Dropdown */}
       <select
-        className="py-1.5 px-3 text-xs sm:text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-200 focus:outline-none min-w-[120px]"
+        className="py-1.5 px-3 text-xs sm:text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-200 focus:outline-none min-w-[130px] bg-white"
+        value={sortBy}
+        onChange={(e) => setSortBy(e.target.value)}
+        title="Urutkan berdasarkan"
+      >
+        <option value="stok-desc">📦 Stok ↓</option>
+        <option value="stok-asc">📦 Stok ↑</option>
+        <option value="nama-asc">🔤 A-Z</option>
+        <option value="nama-desc">🔤 Z-A</option>
+      </select>
+
+      {/* Jenis Dropdown */}
+      <select
+        className="py-1.5 px-3 text-xs sm:text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-200 focus:outline-none min-w-[110px]"
         value={selectedJenisId}
         onChange={(e) => {
           setSelectedJenisId(e.target.value);
           setSelectedTypeId("");
         }}
       >
-        <option value="">Semua Jenis</option>
+        <option value="">Jenis</option>
         {jenisList.map((j) => (
           <option key={j.id} value={j.id}>
             {j.nama}
@@ -51,13 +69,14 @@ export const InventoryFilterBar = ({
         ))}
       </select>
 
+      {/* Type Dropdown */}
       <select
-        className="py-1.5 px-3 text-xs sm:text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-200 focus:outline-none min-w-[120px]"
+        className="py-1.5 px-3 text-xs sm:text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-200 focus:outline-none min-w-[110px]"
         value={selectedTypeId}
         onChange={(e) => setSelectedTypeId(e.target.value)}
         disabled={!selectedJenisId}
       >
-        <option value="">Semua Type</option>
+        <option value="">Type</option>
         {typeList.map((t) => (
           <option key={t.id} value={t.id}>
             {t.nama}
@@ -65,24 +84,45 @@ export const InventoryFilterBar = ({
         ))}
       </select>
 
+      {/* Reset Button */}
       <button
         onClick={() => {
           setSearchTerm("");
           setSelectedJenisId("");
           setSelectedTypeId("");
+          setSortBy("stok-desc");
         }}
-        className="py-1.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs sm:text-sm whitespace-nowrap font-medium transition"
+        className="py-1.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs sm:text-sm whitespace-nowrap font-medium transition flex items-center gap-1"
+        title="Reset semua filter"
       >
-        Reset
+        <RefreshCw size={12} />
       </button>
     </div>
 
-    <button
-      onClick={() => setSearchTerm("")}
-      className="sm:hidden py-1.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs whitespace-nowrap"
-    >
-      ⓧ
-    </button>
+    {/* Mobile: Sort + Reset */}
+    <div className="sm:hidden flex items-center gap-1">
+      <select
+        className="py-1.5 px-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-purple-200 focus:outline-none bg-white"
+        value={sortBy}
+        onChange={(e) => setSortBy(e.target.value)}
+      >
+        <option value="stok-desc">📦</option>
+        <option value="stok-asc">📈</option>
+        <option value="nama-asc">🔤</option>
+      </select>
+      <button
+        onClick={() => {
+          setSearchTerm("");
+          setSelectedJenisId("");
+          setSelectedTypeId("");
+          setSortBy("stok-desc");
+        }}
+        className="py-1.5 px-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs"
+        title="Reset"
+      >
+        ⓧ
+      </button>
+    </div>
   </div>
 );
 
@@ -105,6 +145,7 @@ const InventoryPage = ({ setNavbarContent }) => {
   const [selectedJenisId, setSelectedJenisId] = useState("");
   const [selectedTypeId, setSelectedTypeId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("stok-desc");
 
   const fetchData = useCallback(async () => {
     try {
@@ -127,11 +168,15 @@ const InventoryPage = ({ setNavbarContent }) => {
     fetchData();
   }, [fetchData]);
 
+  // ✅ FILTER: Hanya produk yang tidak memiliki customer_id (produk internal & distributor)
   const produkWithInventori = useMemo(() => {
     const productMap = new Map();
 
     allInventories.forEach((inv) => {
       if (!inv.product || !inv.place) return;
+      
+      // 🔥 Kunci: Skip produk yang memiliki customer_id
+      if (inv.product.customer_id !== null) return;
 
       const productId = inv.product.id;
       if (!productMap.has(productId)) {
@@ -166,12 +211,18 @@ const InventoryPage = ({ setNavbarContent }) => {
         (inv) => Number(inv.place_id) === Number(placeBengkel?.id),
       );
 
+      // Tambahkan informasi distributor
+      const isDistributor = item.product.distributor_id !== null;
+      const distributorName = item.product.distributor?.nama || null;
+
       return {
         ...item,
         stok_toko: inventoriToko?.qty || 0,
         stok_bengkel: inventoriBengkel?.qty || 0,
         inv_toko: inventoriToko,
         inv_bengkel: inventoriBengkel,
+        isDistributor,
+        distributorName,
       };
     });
   }, [produkWithInventori, placeToko, placeBengkel]);
@@ -232,8 +283,29 @@ const InventoryPage = ({ setNavbarContent }) => {
       });
     }
 
+    // Sorting
+    result.sort((a, b) => {
+      const totalA = (a.stok_toko || 0) + (a.stok_bengkel || 0);
+      const totalB = (b.stok_toko || 0) + (b.stok_bengkel || 0);
+      const namaA = formatProductName(a.product)?.toLowerCase() || "";
+      const namaB = formatProductName(b.product)?.toLowerCase() || "";
+
+      switch (sortBy) {
+        case "stok-desc":
+          return totalB - totalA;
+        case "stok-asc":
+          return totalA - totalB;
+        case "nama-asc":
+          return namaA.localeCompare(namaB);
+        case "nama-desc":
+          return namaB.localeCompare(namaA);
+        default:
+          return totalB - totalA;
+      }
+    });
+
     return result;
-  }, [produkLengkap, selectedJenisId, selectedTypeId, searchTerm]);
+  }, [produkLengkap, selectedJenisId, selectedTypeId, searchTerm, sortBy]);
 
   useEffect(() => {
     setNavbarContent(
@@ -246,12 +318,15 @@ const InventoryPage = ({ setNavbarContent }) => {
         setSelectedTypeId={setSelectedTypeId}
         jenisList={jenisList}
         typeList={typeList}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
       />,
     );
   }, [
     searchTerm,
     selectedJenisId,
     selectedTypeId,
+    sortBy,
     jenisList,
     typeList,
     setNavbarContent,
@@ -325,111 +400,136 @@ const InventoryPage = ({ setNavbarContent }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {filteredProducts.map((item) => (
-            <div
-              key={item.product.id}
-              className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-4"
-            >
-              <div className="text-center mb-3">
-                <p className="text-sm text-gray-500 font-medium truncate">
-                  {item.product.kode}
-                </p>
-                <p className="font-medium text-gray-800 mt-1 text-sm min-h-[40px] leading-tight px-1">
-                  {formatProductName(item.product)}
-                </p>
-              </div>
-
-              <div className="border border-green-200 rounded-lg p-3 mb-4 bg-green-50">
-                <div
-                  className={`flex items-start ${
-                    role === "admin" || role === "admin_toko"
-                      ? "justify-between"
-                      : "justify-center"
-                  }`}
-                >
-                  <div className="text-center">
-                    <span className="text-xs font-medium text-green-800">
-                      TOKO
+          {filteredProducts.map((item) => {
+            const totalStok = item.stok_toko + item.stok_bengkel;
+            return (
+              <div
+                key={item.product.id}
+                className={`bg-white border rounded-xl shadow-sm hover:shadow-md transition p-4 ${
+                  item.isDistributor 
+                    ? "border-blue-200 bg-blue-50/30" 
+                    : "border-gray-200"
+                }`}
+              >
+                {/* Badge Distributor */}
+                {item.isDistributor && (
+                  <div className="mb-2 text-right">
+                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                      Distributor
                     </span>
-                    <p className="font-bold text-lg text-green-700 mt-1">
-                      {item.stok_toko}
+                  </div>
+                )}
+
+                <div className="text-center mb-3">
+                  <p className="text-sm text-gray-500 font-medium truncate">
+                    {item.product.kode}
+                  </p>
+                  <p className="font-medium text-gray-800 mt-1 text-sm min-h-[40px] leading-tight px-1">
+                    {formatProductName(item.product)}
+                  </p>
+                </div>
+
+                {/* Informasi Distributor */}
+                {item.isDistributor && item.distributorName && (
+                  <div className="text-center mb-3">
+                    <p className="text-xs text-blue-600">
+                      Supplier: {item.distributorName}
                     </p>
                   </div>
+                )}
 
-                  {(role === "admin" || role === "admin_toko") && (
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => openModal("in", item.inv_toko)}
-                        className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
-                        title="Stok Masuk"
-                      >
-                        <Plus size={10} />
-                      </button>
-                      <button
-                        onClick={() => openModal("out", item.inv_toko)}
-                        className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
-                        title="Stok Keluar"
-                      >
-                        <Minus size={10} />
-                      </button>
-                      <button
-                        onClick={() => openModal("transfer", item.inv_toko)}
-                        className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
-                        title="Transfer"
-                      >
-                        <RefreshCw size={10} />
-                      </button>
+                <div className="border border-green-200 rounded-lg p-3 mb-4 bg-green-50">
+                  <div
+                    className={`flex items-start ${
+                      role === "admin" || role === "admin_toko"
+                        ? "justify-between"
+                        : "justify-center"
+                    }`}
+                  >
+                    <div className="text-center">
+                      <span className="text-xs font-medium text-green-800">
+                        TOKO
+                      </span>
+                      <p className="font-bold text-lg text-green-700 mt-1">
+                        {item.stok_toko}
+                      </p>
                     </div>
-                  )}
-                </div>
-              </div>
 
-              <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
-                <div
-                  className={`flex items-start ${
-                    role === "admin" || role === "admin_toko"
-                      ? "justify-between"
-                      : "justify-center"
-                  }`}
-                >
-                  <div className="text-center">
-                    <span className="text-xs font-medium text-blue-800">
-                      BENGKEL
-                    </span>
-                    <p className="font-bold text-lg text-blue-700 mt-1">
-                      {item.stok_bengkel}
-                    </p>
+                    {(role === "admin" || role === "admin_toko") && (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => openModal("in", item.inv_toko)}
+                          className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
+                          title="Stok Masuk"
+                        >
+                          <Plus size={10} />
+                        </button>
+                        <button
+                          onClick={() => openModal("out", item.inv_toko)}
+                          className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
+                          title="Stok Keluar"
+                        >
+                          <Minus size={10} />
+                        </button>
+                        <button
+                          onClick={() => openModal("transfer", item.inv_toko)}
+                          className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
+                          title="Transfer"
+                        >
+                          <RefreshCw size={10} />
+                        </button>
+                      </div>
+                    )}
                   </div>
+                </div>
 
-                  {(role === "admin" || role === "admin_toko") && (
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => openModal("in", item.inv_bengkel)}
-                        className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
-                        title="Stok Masuk"
-                      >
-                        <Plus size={10} />
-                      </button>
-                      <button
-                        onClick={() => openModal("out", item.inv_bengkel)}
-                        className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
-                        title="Stok Keluar"
-                      >
-                        <Minus size={10} />
-                      </button>
-                      <button
-                        onClick={() => openModal("transfer", item.inv_bengkel)}
-                        className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
-                        title="Transfer"
-                      >
-                        <RefreshCw size={10} />
-                      </button>
+                <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
+                  <div
+                    className={`flex items-start ${
+                      role === "admin" || role === "admin_toko"
+                        ? "justify-between"
+                        : "justify-center"
+                    }`}
+                  >
+                    <div className="text-center">
+                      <span className="text-xs font-medium text-blue-800">
+                        BENGKEL
+                      </span>
+                      <p className="font-bold text-lg text-blue-700 mt-1">
+                        {item.stok_bengkel}
+                      </p>
                     </div>
-                  )}
+
+                    {(role === "admin" || role === "admin_toko") && (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => openModal("in", item.inv_bengkel)}
+                          className="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded transition"
+                          title="Stok Masuk"
+                        >
+                          <Plus size={10} />
+                        </button>
+                        <button
+                          onClick={() => openModal("out", item.inv_bengkel)}
+                          className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition"
+                          title="Stok Keluar"
+                        >
+                          <Minus size={10} />
+                        </button>
+                        <button
+                          onClick={() => openModal("transfer", item.inv_bengkel)}
+                          className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition"
+                          title="Transfer"
+                        >
+                          <RefreshCw size={10} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

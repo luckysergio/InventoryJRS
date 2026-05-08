@@ -97,12 +97,6 @@ const ukuranKode = (text) => {
   return matches.map((n) => n.replace(/[.,]/g, "")).join("");
 };
 
-const extractNumbers = (text) => {
-  if (!text) return "";
-  const matches = text.match(/\d+/g);
-  return matches ? matches.join("") : "";
-};
-
 const generateKode = (jenisNama, typeNama, bahanNama, ukuran) => {
   return (
     jenisKode(jenisNama) +
@@ -191,6 +185,7 @@ const ProductPage = ({ setNavbarContent }) => {
   const [filterType, setFilterType] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.role;
 
@@ -229,65 +224,90 @@ const ProductPage = ({ setNavbarContent }) => {
   const fileInputSamping = useRef(null);
   const fileInputAtas = useRef(null);
 
+  // Fetch internal products using the new endpoint
   const fetchData = async (params = {}) => {
     try {
       setLoading(true);
-      const res = await api.get("/products", {
-        params: { ...params, page: currentPage },
+      
+      // Prepare query parameters
+      const queryParams = {
+        page: currentPage,
+        per_page: 15,
+        ...params
+      };
+      
+      // Remove empty params
+      Object.keys(queryParams).forEach(key => {
+        if (queryParams[key] === "" || queryParams[key] === null || queryParams[key] === undefined) {
+          delete queryParams[key];
+        }
       });
+      
+      // Use internal-products endpoint
+      const res = await api.get("/internal-products", { params: queryParams });
 
-      const filteredProducts = res.data.data.filter(
-        (item) => item.distributor_id === null && item.customer_id === null,
-      );
-
-      setProducts(filteredProducts);
+      setProducts(res.data.data || []);
       setLastPage(res.data.meta?.last_page || 1);
-
-      const [jRes, tRes, bRes] = await Promise.all([
-        api.get("/jenis"),
-        api.get("/type"),
-        api.get("/bahan"),
-      ]);
-      setJenis(jRes.data.data);
-      setAllTypes(tRes.data.data);
-      setBahan(bRes.data.data);
-    } catch {
-      Swal.fire("Error", "Gagal mengambil data", "error");
+      setTotalProducts(res.data.meta?.total || 0);
+    } catch (error) {
+      console.error("Fetch error:", error);
+      Swal.fire("Error", "Gagal mengambil data produk", "error");
+      setProducts([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData({ search, jenis_id: filterJenis, type_id: filterType });
-  }, [search, filterJenis, filterType, currentPage]);
+  // Fetch master data (jenis, type, bahan)
+  const fetchMasterData = async () => {
+    try {
+      const [jRes, tRes, bRes] = await Promise.all([
+        api.get("/jenis"),
+        api.get("/type"),
+        api.get("/bahan"),
+      ]);
+      setJenis(jRes.data.data || []);
+      setAllTypes(tRes.data.data || []);
+      setBahan(bRes.data.data || []);
+    } catch (error) {
+      console.error("Error loading master data:", error);
+    }
+  };
 
+  // Reset ke page 1 saat filter berubah
   useEffect(() => {
     setCurrentPage(1);
   }, [search, filterJenis, filterType]);
 
-  const prevFilterJenisRef = useRef(filterJenis);
+  // Fetch data saat filter atau page berubah
+  useEffect(() => {
+    const params = {};
+    if (search) params.search = search;
+    if (filterJenis) params.jenis_id = filterJenis;
+    if (filterType) params.type_id = filterType;
+    
+    fetchData(params);
+  }, [search, filterJenis, filterType, currentPage]);
 
+  // Fetch master data on mount
+  useEffect(() => {
+    fetchMasterData();
+  }, []);
+
+  // Filter types for filter bar based on selected jenis
   useEffect(() => {
     if (!filterJenis) {
       setFilteredTypesForFilter([]);
-      setFilterType("");
-      prevFilterJenisRef.current = filterJenis;
       return;
     }
 
     const filtered = allTypes.filter(
       (t) => String(t.jenis_id) === String(filterJenis),
     );
-
     setFilteredTypesForFilter(filtered);
-
-    if (prevFilterJenisRef.current !== filterJenis) {
-      setFilterType("");
-      prevFilterJenisRef.current = filterJenis;
-    }
   }, [filterJenis, allTypes]);
 
+  // Filter types for form based on selected jenis
   useEffect(() => {
     if (allTypes.length === 0) return;
 
@@ -302,7 +322,6 @@ const ProductPage = ({ setNavbarContent }) => {
     const filtered = allTypes.filter(
       (t) => String(t.jenis_id) === String(form.jenis_id),
     );
-
     setFilteredTypes(filtered);
 
     if (!isEdit) {
@@ -352,7 +371,7 @@ const ProductPage = ({ setNavbarContent }) => {
 
   const handleEdit = (item) => {
     if (loading) {
-      Swal.fire("Tunggu...", "Data master sedang dimuat", "info");
+      Swal.fire("Tunggu...", "Data sedang dimuat", "info");
       return;
     }
 
@@ -514,12 +533,18 @@ const ProductPage = ({ setNavbarContent }) => {
       );
       setIsModalOpen(false);
       
-      // ✅ FIX: Hanya reset ke page 1 saat tambah baru, bukan saat edit
+      // Reset ke page 1 saat tambah baru
       if (!isEdit) {
         setCurrentPage(1);
       }
       
-      fetchData({ search, jenis_id: filterJenis, type_id: filterType });
+      // Refresh data dengan filter yang sama
+      const params = {};
+      if (search) params.search = search;
+      if (filterJenis) params.jenis_id = filterJenis;
+      if (filterType) params.type_id = filterType;
+      
+      fetchData(params);
     } catch (error) {
       Swal.close();
       if (error.response?.status === 422) {
@@ -547,8 +572,14 @@ const ProductPage = ({ setNavbarContent }) => {
       try {
         await api.delete(`/products/${id}`);
         Swal.fire("Berhasil", "Product dihapus", "success");
-        // ✅ FIX: Tetap di page saat ini setelah delete (jangan reset)
-        fetchData({ search, jenis_id: filterJenis, type_id: filterType });
+        
+        // Refresh data dengan filter yang sama
+        const params = {};
+        if (search) params.search = search;
+        if (filterJenis) params.jenis_id = filterJenis;
+        if (filterType) params.type_id = filterType;
+        
+        fetchData(params);
       } catch {
         Swal.fire("Error", "Gagal menghapus Product", "error");
       }
@@ -590,31 +621,38 @@ const ProductPage = ({ setNavbarContent }) => {
   };
 
   const renderPagination = () => {
+    if (lastPage <= 1) return null;
+    
     const pages = [];
-    const startPage = Math.max(1, currentPage - 1);
-    const endPage = Math.min(lastPage, currentPage + 1);
-    for (let i = startPage; i <= endPage; i++) pages.push(i);
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(lastPage, currentPage + 2);
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
 
     return (
-      <div className="flex items-center justify-center gap-1 mt-6">
+      <div className="flex items-center justify-center gap-2 mt-6">
         <button
           onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
           disabled={currentPage === 1}
-          className="px-3 py-1 rounded border disabled:opacity-50"
+          className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-gray-100"
         >
-          {"<"}
+          &laquo; Prev
         </button>
+        
         {startPage > 1 && (
           <>
             <button
               onClick={() => setCurrentPage(1)}
-              className="px-3 py-1 rounded border"
+              className="px-3 py-1 rounded border hover:bg-gray-100"
             >
               1
             </button>
             {startPage > 2 && <span className="px-2">...</span>}
           </>
         )}
+        
         {pages.map((page) => (
           <button
             key={page}
@@ -622,29 +660,31 @@ const ProductPage = ({ setNavbarContent }) => {
             className={`px-3 py-1 rounded border ${
               page === currentPage
                 ? "bg-indigo-600 text-white"
-                : "bg-white text-gray-700"
+                : "hover:bg-gray-100"
             }`}
           >
             {page}
           </button>
         ))}
+        
         {endPage < lastPage && (
           <>
             {endPage < lastPage - 1 && <span className="px-2">...</span>}
             <button
               onClick={() => setCurrentPage(lastPage)}
-              className="px-3 py-1 rounded border"
+              className="px-3 py-1 rounded border hover:bg-gray-100"
             >
               {lastPage}
             </button>
           </>
         )}
+        
         <button
           onClick={() => setCurrentPage((p) => Math.min(lastPage, p + 1))}
           disabled={currentPage === lastPage}
-          className="px-3 py-1 rounded border disabled:opacity-50"
+          className="px-3 py-1 rounded border disabled:opacity-50 hover:bg-gray-100"
         >
-          {">"}
+          Next &raquo;
         </button>
       </div>
     );
@@ -743,16 +783,38 @@ const ProductPage = ({ setNavbarContent }) => {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {loading ? (
+      {loading && products.length === 0 ? (
         <div className="text-center py-12">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+          <p className="mt-4 text-gray-600">Memuat data produk...</p>
         </div>
       ) : products.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          Tidak ada Product ditemukan
+        <div className="text-center py-12">
+          <div className="text-gray-400 mb-4">
+            <Package size={48} className="mx-auto" />
+          </div>
+          <p className="text-gray-500">Tidak ada produk internal ditemukan</p>
+          {(search || filterJenis || filterType) && (
+            <button
+              onClick={() => {
+                setSearch("");
+                setFilterJenis("");
+                setFilterType("");
+              }}
+              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              Reset Filter
+            </button>
+          )}
         </div>
       ) : (
         <>
+          <div className="flex justify-between items-center mb-2">
+            <p className="text-sm text-gray-500">
+              Menampilkan {products.length} dari {totalProducts} produk
+            </p>
+          </div>
+          
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
             {products.map((item) => {
               const totalQty = (item.qty_toko || 0) + (item.qty_bengkel || 0);
@@ -765,48 +827,36 @@ const ProductPage = ({ setNavbarContent }) => {
                   <div className="flex justify-center gap-2 mb-3">
                     {item.foto_depan && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
-                          item.foto_depan
-                        }`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`}
                         alt="Foto Depan"
                         className="w-14 h-14 object-cover rounded cursor-pointer border hover:shadow transition"
                         onClick={() =>
                           openFotoModal(
-                            `${import.meta.env.VITE_ASSET_URL}/storage/${
-                              item.foto_depan
-                            }`,
+                            `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_depan}`,
                           )
                         }
                       />
                     )}
                     {item.foto_samping && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
-                          item.foto_samping
-                        }`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`}
                         alt="Foto Samping"
                         className="w-14 h-14 object-cover rounded cursor-pointer border hover:shadow transition"
                         onClick={() =>
                           openFotoModal(
-                            `${import.meta.env.VITE_ASSET_URL}/storage/${
-                              item.foto_samping
-                            }`,
+                            `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_samping}`,
                           )
                         }
                       />
                     )}
                     {item.foto_atas && (
                       <img
-                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${
-                          item.foto_atas
-                        }`}
+                        src={`${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`}
                         alt="Foto Atas"
                         className="w-14 h-14 object-cover rounded cursor-pointer border hover:shadow transition"
                         onClick={() =>
                           openFotoModal(
-                            `${import.meta.env.VITE_ASSET_URL}/storage/${
-                              item.foto_atas
-                            }`,
+                            `${import.meta.env.VITE_ASSET_URL}/storage/${item.foto_atas}`,
                           )
                         }
                       />
@@ -891,7 +941,7 @@ const ProductPage = ({ setNavbarContent }) => {
               );
             })}
           </div>
-          {lastPage > 1 && renderPagination()}
+          {renderPagination()}
         </>
       )}
 

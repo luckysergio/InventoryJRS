@@ -11,6 +11,9 @@ import {
   Tag,
   User,
   Building2,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -108,6 +111,153 @@ const generateKode = (
   return customerPrefix ? `${customerPrefix}-${baseKode}` : baseKode;
 };
 // ===== END KODE GENERATOR =====
+
+// ===== COMPONENT: Searchable Customer Dropdown =====
+const SearchableCustomerDropdown = ({
+  customers,
+  selectedValue,
+  onSelect,
+  placeholder = "Pilih Customer...",
+  searchPlaceholder = "Cari nama/phone...",
+  disabled = false,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const filteredCustomers = customers.filter((c) => {
+    if (!search.trim()) return true;
+    const searchLower = search.toLowerCase();
+    return (
+      c.name?.toLowerCase().includes(searchLower) ||
+      c.phone?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current && !disabled) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen, disabled]);
+
+  const handleSelect = (value) => {
+    onSelect(value);
+    setIsOpen(false);
+    setSearch("");
+  };
+
+  const selectedCustomer = customers.find(
+    (c) => String(c.id) === String(selectedValue),
+  );
+
+  if (disabled) {
+    return (
+      <div className="w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+        {selectedCustomer
+          ? `${selectedCustomer.name} - ${selectedCustomer.phone}`
+          : placeholder}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className="w-full flex items-center justify-between px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-left hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
+      >
+        <span className="truncate">
+          {selectedCustomer
+            ? `${selectedCustomer.name} - ${selectedCustomer.phone}`
+            : placeholder}
+        </span>
+        {isOpen ? (
+          <ChevronUp size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        ) : (
+          <ChevronDown size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        )}
+      </button>
+
+      {isOpen && !disabled && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+          <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={searchPlaceholder}
+                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearch("");
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="overflow-y-auto flex-1 max-h-40">
+            {filteredCustomers.length === 0 ? (
+              <div className="p-3 text-sm text-gray-500 text-center">
+                Tidak ditemukan
+              </div>
+            ) : (
+              filteredCustomers.map((c) => {
+                const isSelected = String(c.id) === String(selectedValue);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => handleSelect(c.id)}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 flex items-center justify-between ${
+                      isSelected ? "bg-indigo-100 text-indigo-800" : ""
+                    }`}
+                  >
+                    <span className="truncate">
+                      {c.name}{" "}
+                      {c.phone && (
+                        <span className="text-gray-400">- {c.phone}</span>
+                      )}
+                    </span>
+                    {isSelected && (
+                      <CheckCircle size={14} className="text-indigo-600 ml-2" />
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+// ===== END Searchable Customer Dropdown =====
 
 export const ProductCustomerFilterBar = ({
   search,
@@ -397,7 +547,6 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
       try {
         await api.delete(`/product-customers/${id}`);
         Swal.fire("Berhasil", "Produk customer dihapus", "success");
-        // ✅ FIX: Tetap di page saat ini setelah delete
         fetchData();
       } catch (error) {
         Swal.fire(
@@ -924,7 +1073,7 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
               )}
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-5">
-              {/* ✅ KODE PREVIEW - BARU DITAMBAHKAN */}
+              {/* ✅ KODE PREVIEW */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Kode <span className="text-red-500">*</span>
@@ -950,22 +1099,33 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Customer <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-                    value={form.customer_id}
-                    onChange={(e) =>
-                      setForm({ ...form, customer_id: e.target.value })
+                  {/* ✅ SEARCHABLE CUSTOMER DROPDOWN */}
+                  <SearchableCustomerDropdown
+                    customers={customers}
+                    selectedValue={form.customer_id}
+                    onSelect={(val) =>
+                      setForm({ ...form, customer_id: val })
                     }
-                    required
+                    placeholder="Pilih Customer..."
+                    searchPlaceholder="Cari nama atau phone..."
                     disabled={isEdit}
-                  >
-                    <option value="">Pilih Customer</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} - {c.phone}
-                      </option>
-                    ))}
-                  </select>
+                  />
+                </div>
+              )}
+
+              {isEdit && form.customer_id && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Customer
+                  </label>
+                  <div className="w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+                    {customers.find((c) => String(c.id) === String(form.customer_id))
+                      ? `${customers.find((c) => String(c.id) === String(form.customer_id)).name} - ${customers.find((c) => String(c.id) === String(form.customer_id)).phone}`
+                      : "—"}
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Customer tidak dapat diubah saat edit
+                  </p>
                 </div>
               )}
 
