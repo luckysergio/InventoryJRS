@@ -37,21 +37,32 @@ const unformatRupiah = (str) => {
   return clean === "" ? 0 : parseInt(clean, 10);
 };
 
-// ============ COMPONENT: Filter Bar Utama ============
-export const TransaksiFilterBar = ({ search, setSearch }) => (
-  <div className="flex items-center gap-2 w-full max-w-4xl">
-    <div className="relative flex-1 min-w-[150px]">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-      <input
-        type="text"
-        placeholder="Cari customer..."
-        className="w-full pl-10 pr-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded text-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+// ============ COMPONENT: Filter Bar ============
+export const TransaksiFilterBar = ({ search, setSearch }) => {
+  return (
+    <div className="flex items-center gap-2 w-full">
+      <div className="relative flex-1 min-w-[150px]">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Cari berdasarkan Nama Customer..."
+          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      {search && (
+        <button
+          onClick={() => setSearch("")}
+          className="py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm whitespace-nowrap font-medium"
+        >
+          Reset
+        </button>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 // ============ COMPONENT: Searchable Dropdown (Reusable) ============
 export const SearchableDropdown = ({
@@ -425,7 +436,6 @@ export const SearchableProductDropdown = ({
                 const stok = getProductStok(p);
                 const isOutOfStock = stok <= 0;
                 
-                // Izinkan klik jika: mode edit, atau produk terpilih, atau stok tersedia
                 const isClickable = allowOutOfStockSelection || isSelected || !isOutOfStock;
                 
                 return (
@@ -541,6 +551,9 @@ const TransaksiPage = ({ setNavbarContent }) => {
   const [hargaOptions, setHargaOptions] = useState({});
   const [showHargaBaru, setShowHargaBaru] = useState({});
   const [isFormReady, setIsFormReady] = useState(false);
+
+  // Flag untuk menandai apakah navbar content sudah diset
+  const [isNavbarSet, setIsNavbarSet] = useState(false);
 
   // ============ HELPER FUNCTIONS ============
   const getInvoiceNumber = (transaksiItem) => {
@@ -666,10 +679,11 @@ const TransaksiPage = ({ setNavbarContent }) => {
       setStatusSelesaiId(selesai?.id?.toString() || null);
       setStatusProsesId(proses?.id?.toString() || null);
       setStatusDibatalkanId(dibatalkan?.id?.toString() || null);
-
+      
       setProductJenisList(productJenisRes.data.data || []);
       setProductTypeList(productTypeRes.data.data || []);
-    } catch {
+    } catch (error) {
+      console.error("Fetch error:", error);
       Swal.fire("Error", "Gagal memuat data", "error");
     } finally {
       setLoading(false);
@@ -811,16 +825,12 @@ const TransaksiPage = ({ setNavbarContent }) => {
       
       setForm(newForm);
 
-      // Load harga options untuk setiap detail yang memiliki product
       const showHarga = {};
       
       for (let idx = 0; idx < newForm.details.length; idx++) {
         const d = newForm.details[idx];
         if (d.product_id) {
-          // Fetch harga - biarkan fetchHargaByProduct yang mengelola state hargaOptions
           await fetchHargaByProduct(d.product_id, idx, customerId || null);
-          
-          // Hanya atur showHargaBaru berdasarkan data yang ada
           if (d.harga_baru && d.harga_baru.harga) {
             showHarga[idx] = true;
           } else {
@@ -831,12 +841,9 @@ const TransaksiPage = ({ setNavbarContent }) => {
         }
       }
       
-      // PERBAIKAN: Jangan set hargaOptions di sini! 
-      // fetchHargaByProduct sudah memanggil setHargaOptions secara internal
       setShowHargaBaru(showHarga);
       setEditingId(data.id);
     } else {
-      // Reset ke form kosong
       setForm({
         customer_id: "",
         customer_baru: { name: "", phone: "", email: "" },
@@ -896,7 +903,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
       }
       resetForm();
       setIsModalOpen(false);
-      fetchData();
+      fetchData(search);
     } catch (error) {
       if (error.response?.status === 422) {
         const msg = Object.values(error.response.data.errors)
@@ -946,7 +953,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
           status_transaksi_id: statusSelesaiId,
         });
         Swal.fire("Berhasil!", "Detail transaksi diselesaikan", "success");
-        fetchData();
+        fetchData(search);
       } catch {
         Swal.fire("Error", "Gagal menyelesaikan detail", "error");
       }
@@ -968,7 +975,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
       try {
         await api.post(`/transaksi-detail/${detailId}/cancel`);
         Swal.fire("Berhasil", "Detail transaksi dibatalkan", "success");
-        fetchData();
+        fetchData(search);
       } catch {
         Swal.fire("Error", "Gagal membatalkan detail", "error");
       }
@@ -1036,7 +1043,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
           })
           .then(() => {
             Swal.fire("Berhasil!", "Pembayaran telah dicatat", "success");
-            fetchData();
+            fetchData(search);
           })
           .catch(() => {
             Swal.fire("Error", "Gagal menyimpan pembayaran", "error");
@@ -1045,182 +1052,223 @@ const TransaksiPage = ({ setNavbarContent }) => {
     });
   };
 
-  // ============ EFFECTS ============
+  // ============ SET NAVBAR CONTENT ============
+  // Effect untuk mengirim filter bar ke navbar saat mount dan saat search berubah
+  useEffect(() => {
+    if (typeof setNavbarContent === "function") {
+      const filterBar = <TransaksiFilterBar search={search} setSearch={setSearch} />;
+      setNavbarContent(filterBar);
+      setIsNavbarSet(true);
+    }
+  }, [search, setNavbarContent]);
+
+  // Effect untuk initial data load
   useEffect(() => {
     fetchData(search);
   }, [search]);
 
+  // Effect untuk memastikan navbar content tetap ada setelah loading selesai
   useEffect(() => {
-    if (typeof setNavbarContent === "function") {
-      setNavbarContent(
-        <TransaksiFilterBar search={search} setSearch={setSearch} />,
-      );
+    if (!loading && isNavbarSet) {
+      // Refresh navbar content to ensure it's still there
+      if (typeof setNavbarContent === "function") {
+        const filterBar = <TransaksiFilterBar search={search} setSearch={setSearch} />;
+        setNavbarContent(filterBar);
+      }
     }
-  }, [search, setNavbarContent]);
+  }, [loading, search, setNavbarContent, isNavbarSet]);
 
   // ============ RENDER ============
   return (
     <>
       <div className="space-y-8">
+        {/* Filter bar juga ditampilkan inline sebagai fallback jika navbar tidak menampilkan */}
+        <div className="block lg:hidden">
+          <TransaksiFilterBar search={search} setSearch={setSearch} />
+        </div>
+
         {loading ? (
-          <p className="text-center py-8 text-gray-600">Memuat data...</p>
-        ) : transaksi.length === 0 ? (
-          <p className="text-center py-8 text-gray-500">
-            Tidak ada transaksi harian dengan status proses.
-          </p>
+          <div className="text-center py-12">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+            <p className="mt-4 text-gray-600">Memuat data transaksi...</p>
+          </div>
+        ) : transaksi.filter(item => getActiveDetails(item.details).length > 0).length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-400 mb-4">
+              <Receipt size={48} className="mx-auto" />
+            </div>
+            <p className="text-gray-500">
+              {search ? "Tidak ada transaksi yang ditemukan." : "Tidak ada transaksi harian dengan status proses."}
+            </p>
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              >
+                Reset Pencarian
+              </button>
+            )}
+          </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
-            {transaksi
-              .map((item) => {
-                const activeDetails = getActiveDetails(item.details);
-                if (activeDetails.length === 0) return null;
-                return (
-                  <div
-                    key={item.id}
-                    className="p-4 bg-white rounded-xl shadow border border-gray-100 space-y-3"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-1">
-                      <span className="text-xs font-mono text-gray-600">
-                        {getInvoiceNumber(item)}
-                      </span>
-                      <button
-                        onClick={() => onPrintClick(item)}
-                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 flex items-center justify-center gap-1 w-full sm:w-auto"
-                      >
-                        <Receipt size={12} /> Print
-                      </button>
-                    </div>
-
-                    <div className="flex justify-center items-start">
-                      <div>
-                        <p className="text-gray-700 font-medium text-center text-sm">
-                          {item.customer?.name || "Umum"} –{" "}
-                          {formatTanggal(item.tanggal)}
-                        </p>
-                        <p className="text-gray-700 font-bold text-center text-base mt-1">
-                          Rp{" "}
-                          {formatRupiah(
-                            calculateActiveTotal(item.details, statusProsesId),
-                          )}
-                        </p>
+          <>
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-sm text-gray-500">
+                Menampilkan {transaksi.filter(item => getActiveDetails(item.details).length > 0).length} transaksi
+              </p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
+              {transaksi
+                .map((item) => {
+                  const activeDetails = getActiveDetails(item.details);
+                  if (activeDetails.length === 0) return null;
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-4 bg-white rounded-xl shadow border border-gray-100 space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-1">
+                        <span className="text-xs font-mono text-gray-600">
+                          {getInvoiceNumber(item)}
+                        </span>
+                        <button
+                          onClick={() => onPrintClick(item)}
+                          className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 flex items-center justify-center gap-1 w-full sm:w-auto"
+                        >
+                          <Receipt size={12} /> Print
+                        </button>
                       </div>
-                    </div>
 
-                    <hr className="my-2 border-gray-200" />
-
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                      {activeDetails.map((d) => {
-                        const sisaBayar = getSisaBayar(d);
-                        const isLunas = sisaBayar <= 0;
-                        const totalBayar = getTotalBayar(d);
-                        return (
-                          <div
-                            key={d.id}
-                            className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-xs text-center"
-                          >
-                            <p className="font-medium">
-                              {formatProductName(d.product)}
-                            </p>
-                            <p className="mt-1">
-                              <span className="font-semibold">Qty</span> {d.qty}
-                            </p>
-                            <p className="mt-1">
-                              <span className="font-semibold">Harga Satuan</span>{" "}
-                              Rp {formatRupiah(d.harga)}
-                            </p>
-                            <p className="mt-1">
-                              <span className="font-semibold">Diskon</span> Rp{" "}
-                              {formatRupiah(d.discount)}
-                            </p>
-                            <p className="mt-1">
-                              <span className="font-semibold">Tagihan</span> Rp{" "}
-                              {formatRupiah(d.subtotal)}
-                            </p>
-                            {d.catatan && (
-                              <p className="mt-1 italic">{d.catatan}</p>
+                      <div className="flex justify-center items-start">
+                        <div>
+                          <p className="text-gray-700 font-medium text-center text-sm">
+                            {item.customer?.name || "Umum"} –{" "}
+                            {formatTanggal(item.tanggal)}
+                          </p>
+                          <p className="text-gray-700 font-bold text-center text-base mt-1">
+                            Rp{" "}
+                            {formatRupiah(
+                              calculateActiveTotal(item.details, statusProsesId),
                             )}
+                          </p>
+                        </div>
+                      </div>
 
-                            <div className="mt-2 pt-2 border-t border-gray-200">
-                              <p className="text-xs">
-                                <span
-                                  className={`font-semibold ${
-                                    isLunas ? "text-green-600" : "text-orange-600"
-                                  }`}
-                                >
-                                  {isLunas
-                                    ? "✅ Lunas"
-                                    : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
-                                        sisaBayar,
-                                      )})`}
-                                </span>
+                      <hr className="my-2 border-gray-200" />
+
+                      <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                        {activeDetails.map((d) => {
+                          const sisaBayar = getSisaBayar(d);
+                          const isLunas = sisaBayar <= 0;
+                          const totalBayar = getTotalBayar(d);
+                          return (
+                            <div
+                              key={d.id}
+                              className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-xs text-center"
+                            >
+                              <p className="font-medium">
+                                {formatProductName(d.product)}
                               </p>
-                              <p className="text-[10px] text-gray-600 mt-1">
-                                Dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                              <p className="mt-1">
+                                <span className="font-semibold">Qty</span> {d.qty}
+                              </p>
+                              <p className="mt-1">
+                                <span className="font-semibold">Harga Satuan</span>{" "}
+                                Rp {formatRupiah(d.harga)}
+                              </p>
+                              <p className="mt-1">
+                                <span className="font-semibold">Diskon</span> Rp{" "}
+                                {formatRupiah(d.discount)}
+                              </p>
+                              <p className="mt-1">
+                                <span className="font-semibold">Tagihan</span> Rp{" "}
                                 {formatRupiah(d.subtotal)}
                               </p>
-
-                              {d.pembayarans && d.pembayarans.length > 0 && (
-                                <div className="mt-1 text-[10px]">
-                                  <p className="font-medium flex items-center justify-center gap-1">
-                                    <Receipt size={10} /> Riwayat:
-                                  </p>
-                                  <ul className="list-disc list-inside space-y-0.5 mt-0.5">
-                                    {d.pembayarans.map((p) => (
-                                      <li key={p.id} className="text-gray-700">
-                                        Rp {formatRupiah(p.jumlah_bayar)} -{" "}
-                                        {formatTanggal(p.tanggal_bayar)}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
+                              {d.catatan && (
+                                <p className="mt-1 italic">{d.catatan}</p>
                               )}
 
-                              {!isLunas && (
-                                <button
-                                  onClick={() => handleBayar(d.id)}
-                                  className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] hover:bg-green-200"
-                                >
-                                  <Wallet size={12} /> Bayar
-                                </button>
-                              )}
-
-                              <div className="flex gap-1 mt-2">
-                                <button
-                                  onClick={() => handleSelesaiDetail(d.id)}
-                                  className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-[10px] px-1 py-1 rounded hover:bg-green-700"
-                                >
-                                  <CheckCircle size={12} /> Selesai
-                                </button>
-                                {role === "admin" && (
-                                  <button
-                                    onClick={() => handleCancelDetail(d.id)}
-                                    className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
+                              <div className="mt-2 pt-2 border-t border-gray-200">
+                                <p className="text-xs">
+                                  <span
+                                    className={`font-semibold ${
+                                      isLunas ? "text-green-600" : "text-orange-600"
+                                    }`}
                                   >
-                                    <XCircle size={12} /> Batal
+                                    {isLunas
+                                      ? "✅ Lunas"
+                                      : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
+                                          sisaBayar,
+                                        )})`}
+                                  </span>
+                                </p>
+                                <p className="text-[10px] text-gray-600 mt-1">
+                                  Dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                                  {formatRupiah(d.subtotal)}
+                                </p>
+
+                                {d.pembayarans && d.pembayarans.length > 0 && (
+                                  <div className="mt-1 text-[10px]">
+                                    <p className="font-medium flex items-center justify-center gap-1">
+                                      <Receipt size={10} /> Riwayat:
+                                    </p>
+                                    <ul className="list-disc list-inside space-y-0.5 mt-0.5">
+                                      {d.pembayarans.map((p) => (
+                                        <li key={p.id} className="text-gray-700">
+                                          Rp {formatRupiah(p.jumlah_bayar)} -{" "}
+                                          {formatTanggal(p.tanggal_bayar)}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {!isLunas && (
+                                  <button
+                                    onClick={() => handleBayar(d.id)}
+                                    className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] hover:bg-green-200"
+                                  >
+                                    <Wallet size={12} /> Bayar
                                   </button>
                                 )}
+
+                                <div className="flex gap-1 mt-2">
+                                  <button
+                                    onClick={() => handleSelesaiDetail(d.id)}
+                                    className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-[10px] px-1 py-1 rounded hover:bg-green-700"
+                                  >
+                                    <CheckCircle size={12} /> Selesai
+                                  </button>
+                                  {role === "admin" && (
+                                    <button
+                                      onClick={() => handleCancelDetail(d.id)}
+                                      className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
+                                    >
+                                      <XCircle size={12} /> Batal
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
 
-                    <div className="flex justify-center mt-2">
-                      {role === "admin" && (
-                        <button
-                          onClick={() => handleEditTransaksi(item)}
-                          className="w-full flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700"
-                        >
-                          <Pencil size={12} /> Edit
-                        </button>
-                      )}
+                      <div className="flex justify-center mt-2">
+                        {role === "admin" && (
+                          <button
+                            onClick={() => handleEditTransaksi(item)}
+                            className="w-full flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700"
+                          >
+                            <Pencil size={12} /> Edit
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })
-              .filter(Boolean)}
-          </div>
+                  );
+                })
+                .filter(Boolean)}
+            </div>
+          </>
         )}
 
         {/* FAB Button */}
@@ -1278,7 +1326,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                             customer_id: val,
                             customer_baru: { name: "", phone: "", email: "" },
                           });
-                          // Refresh harga options untuk semua detail dengan customer baru
                           form.details.forEach((detail, idx) => {
                             if (detail.product_id) {
                               fetchHargaByProduct(detail.product_id, idx, val);

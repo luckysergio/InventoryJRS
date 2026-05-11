@@ -321,12 +321,14 @@ const CustomerPage = ({ setNavbarContent }) => {
     let totalDiscount = 0;
     let totalTagihan = 0;
     let totalDibayar = 0;
+    let totalQuantity = 0;
 
     const rowsHtml = transaksiDetails
       .map((detail) => {
         const subtotal = safeParseFloat(detail.subtotal);
         const discount = safeParseFloat(detail.discount);
         const subtotalAsli = subtotal + discount;
+        const quantity = detail.quantity || 1; // Default quantity to 1 if not present
 
         const totalBayar = Array.isArray(detail.pembayarans)
           ? detail.pembayarans.reduce(
@@ -340,17 +342,18 @@ const CustomerPage = ({ setNavbarContent }) => {
         totalDiscount += discount;
         totalTagihan += subtotal;
         totalDibayar += totalBayar;
+        totalQuantity += quantity;
 
         return `
         <tr>
           <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center; font-size: 11px;">${formatTanggal(detail.transaksi?.tanggal)}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 11px; white-space: nowrap;">${formatProductName(detail.product)}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center; font-size: 11px;">${quantity}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(subtotalAsli)}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(discount)}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(subtotal)}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; font-size: 11px;">Rp ${formatRupiah(totalBayar)}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: right; color: #dc2626; font-weight: bold; font-size: 11px;">Rp ${formatRupiah(sisa)}</td>
-        </tr>
+        </table>
       `;
       })
       .join("");
@@ -419,15 +422,16 @@ const CustomerPage = ({ setNavbarContent }) => {
             border: 1px solid #e5e7eb;
             vertical-align: top;
           }
+          /* Updated column widths to accommodate the new quantity column */
           td:nth-child(1) { text-align: center; width: 10%; }
-          td:nth-child(2) { text-align: left; width: 35%; white-space: nowrap; }
-          td:nth-child(3),
+          td:nth-child(2) { text-align: left; width: 30%; white-space: nowrap; }
+          td:nth-child(3) { text-align: center; width: 8%; }
           td:nth-child(4),
           td:nth-child(5),
           td:nth-child(6),
           td:nth-child(7) { 
             text-align: right; 
-            width: 11%; 
+            width: 13%; 
           }
           tr:last-child td {
             border-bottom: 1px solid #e5e7eb;
@@ -484,9 +488,9 @@ const CustomerPage = ({ setNavbarContent }) => {
               <tr>
                 <th>Tgl</th>
                 <th>Produk</th>
+                <th>Qty</th>
                 <th>Subtotal</th>
                 <th>Diskon</th>
-                <th>Tagihan</th>
                 <th>Dibayar</th>
                 <th>Sisa</th>
               </tr>
