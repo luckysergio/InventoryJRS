@@ -372,9 +372,9 @@ export const SearchableProductDropdown = ({
               )}
             </div>
 
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap">
               <select
-                className="flex-1 py-1.5 px-2 text-xs border border-gray-200 rounded bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-200"
+                className="flex-1 min-w-[80px] py-1.5 px-2 text-xs border border-gray-200 rounded bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-200"
                 value={filterJenis}
                 onChange={(e) => {
                   setFilterJenis(e.target.value);
@@ -390,7 +390,7 @@ export const SearchableProductDropdown = ({
                 ))}
               </select>
               <select
-                className="flex-1 py-1.5 px-2 text-xs border border-gray-200 rounded bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-200 disabled:bg-gray-100"
+                className="flex-1 min-w-[80px] py-1.5 px-2 text-xs border border-gray-200 rounded bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-200 disabled:bg-gray-100"
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
                 disabled={!filterJenis}
@@ -1041,8 +1041,21 @@ const TransaksiPage = ({ setNavbarContent }) => {
             jumlah_bayar: result.value.jumlah,
             tanggal_bayar: result.value.tanggal,
           })
-          .then(() => {
-            Swal.fire("Berhasil!", "Pembayaran telah dicatat", "success");
+          .then(async () => {
+            // FIX #2: Auto-complete when payment reaches 0
+            const newSisa = sisa - result.value.jumlah;
+            if (newSisa <= 0) {
+              try {
+                await api.patch(`/transaksi-detail/${detailId}/status`, {
+                  status_transaksi_id: statusSelesaiId,
+                });
+                Swal.fire("Berhasil!", "Pembayaran lunas & detail diselesaikan", "success");
+              } catch {
+                Swal.fire("Berhasil!", "Pembayaran dicatat (gagal auto-selesai)", "success");
+              }
+            } else {
+              Swal.fire("Berhasil!", "Pembayaran telah dicatat", "success");
+            }
             fetchData(search);
           })
           .catch(() => {
@@ -1053,7 +1066,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
   };
 
   // ============ SET NAVBAR CONTENT ============
-  // Effect untuk mengirim filter bar ke navbar saat mount dan saat search berubah
+  // FIX #1: Only send filter to navbar, remove inline fallback on mobile
   useEffect(() => {
     if (typeof setNavbarContent === "function") {
       const filterBar = <TransaksiFilterBar search={search} setSearch={setSearch} />;
@@ -1062,15 +1075,14 @@ const TransaksiPage = ({ setNavbarContent }) => {
     }
   }, [search, setNavbarContent]);
 
-  // Effect untuk initial data load
+  // Effect for initial data load
   useEffect(() => {
     fetchData(search);
   }, [search]);
 
-  // Effect untuk memastikan navbar content tetap ada setelah loading selesai
+  // Effect to ensure navbar content stays after loading
   useEffect(() => {
     if (!loading && isNavbarSet) {
-      // Refresh navbar content to ensure it's still there
       if (typeof setNavbarContent === "function") {
         const filterBar = <TransaksiFilterBar search={search} setSearch={setSearch} />;
         setNavbarContent(filterBar);
@@ -1081,29 +1093,26 @@ const TransaksiPage = ({ setNavbarContent }) => {
   // ============ RENDER ============
   return (
     <>
-      <div className="space-y-8">
-        {/* Filter bar juga ditampilkan inline sebagai fallback jika navbar tidak menampilkan */}
-        <div className="block lg:hidden">
-          <TransaksiFilterBar search={search} setSearch={setSearch} />
-        </div>
-
+      <div className="space-y-4 sm:space-y-6 md:space-y-8 px-2 sm:px-4">
+        {/* FIX #1: Removed inline filter bar fallback - only show in navbar */}
+        
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
-            <p className="mt-4 text-gray-600">Memuat data transaksi...</p>
+            <p className="mt-4 text-gray-600 text-sm sm:text-base">Memuat data transaksi...</p>
           </div>
         ) : transaksi.filter(item => getActiveDetails(item.details).length > 0).length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               <Receipt size={48} className="mx-auto" />
             </div>
-            <p className="text-gray-500">
+            <p className="text-gray-500 text-sm sm:text-base">
               {search ? "Tidak ada transaksi yang ditemukan." : "Tidak ada transaksi harian dengan status proses."}
             </p>
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
               >
                 Reset Pencarian
               </button>
@@ -1111,12 +1120,13 @@ const TransaksiPage = ({ setNavbarContent }) => {
           </div>
         ) : (
           <>
-            <div className="flex justify-between items-center mb-2">
-              <p className="text-sm text-gray-500">
+            <div className="flex justify-between items-center mb-2 px-1">
+              <p className="text-xs sm:text-sm text-gray-500">
                 Menampilkan {transaksi.filter(item => getActiveDetails(item.details).length > 0).length} transaksi
               </p>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
+            {/* FIX #3: Improved responsive grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {transaksi
                 .map((item) => {
                   const activeDetails = getActiveDetails(item.details);
@@ -1124,27 +1134,27 @@ const TransaksiPage = ({ setNavbarContent }) => {
                   return (
                     <div
                       key={item.id}
-                      className="p-4 bg-white rounded-xl shadow border border-gray-100 space-y-3"
+                      className="p-3 sm:p-4 bg-white rounded-xl shadow border border-gray-100 space-y-3 flex flex-col"
                     >
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-1">
-                        <span className="text-xs font-mono text-gray-600">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-2">
+                        <span className="text-[10px] sm:text-xs font-mono text-gray-600 break-all">
                           {getInvoiceNumber(item)}
                         </span>
                         <button
                           onClick={() => onPrintClick(item)}
-                          className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 flex items-center justify-center gap-1 w-full sm:w-auto"
+                          className="text-[10px] sm:text-xs bg-blue-600 text-white px-2 py-1.5 rounded hover:bg-blue-700 flex items-center justify-center gap-1 w-full sm:w-auto whitespace-nowrap"
                         >
                           <Receipt size={12} /> Print
                         </button>
                       </div>
 
                       <div className="flex justify-center items-start">
-                        <div>
-                          <p className="text-gray-700 font-medium text-center text-sm">
+                        <div className="text-center">
+                          <p className="text-gray-700 font-medium text-xs sm:text-sm">
                             {item.customer?.name || "Umum"} –{" "}
                             {formatTanggal(item.tanggal)}
                           </p>
-                          <p className="text-gray-700 font-bold text-center text-base mt-1">
+                          <p className="text-gray-700 font-bold text-base sm:text-lg mt-1">
                             Rp{" "}
                             {formatRupiah(
                               calculateActiveTotal(item.details, statusProsesId),
@@ -1155,7 +1165,8 @@ const TransaksiPage = ({ setNavbarContent }) => {
 
                       <hr className="my-2 border-gray-200" />
 
-                      <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                      {/* FIX #3: Scrollable details container with better spacing */}
+                      <div className="space-y-2 max-h-[300px] sm:max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
                         {activeDetails.map((d) => {
                           const sisaBayar = getSisaBayar(d);
                           const isLunas = sisaBayar <= 0;
@@ -1163,9 +1174,9 @@ const TransaksiPage = ({ setNavbarContent }) => {
                           return (
                             <div
                               key={d.id}
-                              className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-xs text-center"
+                              className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-[10px] sm:text-xs text-center"
                             >
-                              <p className="font-medium">
+                              <p className="font-medium line-clamp-2">
                                 {formatProductName(d.product)}
                               </p>
                               <p className="mt-1">
@@ -1184,11 +1195,11 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                 {formatRupiah(d.subtotal)}
                               </p>
                               {d.catatan && (
-                                <p className="mt-1 italic">{d.catatan}</p>
+                                <p className="mt-1 italic line-clamp-2">{d.catatan}</p>
                               )}
 
                               <div className="mt-2 pt-2 border-t border-gray-200">
-                                <p className="text-xs">
+                                <p className="text-[10px]">
                                   <span
                                     className={`font-semibold ${
                                       isLunas ? "text-green-600" : "text-orange-600"
@@ -1201,17 +1212,17 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                         )})`}
                                   </span>
                                 </p>
-                                <p className="text-[10px] text-gray-600 mt-1">
+                                <p className="text-[9px] sm:text-[10px] text-gray-600 mt-1">
                                   Dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
                                   {formatRupiah(d.subtotal)}
                                 </p>
 
                                 {d.pembayarans && d.pembayarans.length > 0 && (
-                                  <div className="mt-1 text-[10px]">
+                                  <div className="mt-1 text-[9px] sm:text-[10px]">
                                     <p className="font-medium flex items-center justify-center gap-1">
                                       <Receipt size={10} /> Riwayat:
                                     </p>
-                                    <ul className="list-disc list-inside space-y-0.5 mt-0.5">
+                                    <ul className="list-disc list-inside space-y-0.5 mt-0.5 max-h-16 overflow-y-auto">
                                       {d.pembayarans.map((p) => (
                                         <li key={p.id} className="text-gray-700">
                                           Rp {formatRupiah(p.jumlah_bayar)} -{" "}
@@ -1225,7 +1236,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                 {!isLunas && (
                                   <button
                                     onClick={() => handleBayar(d.id)}
-                                    className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] hover:bg-green-200"
+                                    className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-1.5 py-1.5 rounded text-[10px] hover:bg-green-200 transition active:scale-95"
                                   >
                                     <Wallet size={12} /> Bayar
                                   </button>
@@ -1234,14 +1245,14 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                 <div className="flex gap-1 mt-2">
                                   <button
                                     onClick={() => handleSelesaiDetail(d.id)}
-                                    className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-[10px] px-1 py-1 rounded hover:bg-green-700"
+                                    className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-[10px] px-1 py-1.5 rounded hover:bg-green-700 transition active:scale-95"
                                   >
                                     <CheckCircle size={12} /> Selesai
                                   </button>
                                   {role === "admin" && (
                                     <button
                                       onClick={() => handleCancelDetail(d.id)}
-                                      className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
+                                      className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1.5 rounded hover:bg-red-700 transition active:scale-95"
                                     >
                                       <XCircle size={12} /> Batal
                                     </button>
@@ -1253,13 +1264,13 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         })}
                       </div>
 
-                      <div className="flex justify-center mt-2">
+                      <div className="flex justify-center mt-2 pt-2 border-t border-gray-100">
                         {role === "admin" && (
                           <button
                             onClick={() => handleEditTransaksi(item)}
-                            className="w-full flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700"
+                            className="w-full flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-2 rounded hover:bg-yellow-700 transition active:scale-95"
                           >
-                            <Pencil size={12} /> Edit
+                            <Pencil size={12} /> Edit Transaksi
                           </button>
                         )}
                       </div>
@@ -1271,25 +1282,29 @@ const TransaksiPage = ({ setNavbarContent }) => {
           </>
         )}
 
-        {/* FAB Button */}
+        {/* FIX #3: FAB with better mobile positioning and size */}
         {(role === "admin" || role === "admin_toko") && (
           <button
             onClick={() => {
               resetForm();
               setIsModalOpen(true);
             }}
-            className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-full shadow-lg transition"
+            className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white w-12 h-12 sm:w-auto sm:px-5 sm:py-3 rounded-full shadow-lg transition active:scale-95"
+            aria-label="Tambah Transaksi"
           >
-            <Plus size={18} />
+            <Plus size={20} className="sm:hidden" />
+            <span className="hidden sm:inline-flex items-center gap-2">
+              <Plus size={18} /> Tambah
+            </span>
           </button>
         )}
 
-        {/* MODAL */}
+        {/* MODAL - FIX #3: Full screen on mobile, better responsive styling */}
         {isModalOpen && isFormReady && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white w-full max-w-4xl p-6 rounded-2xl overflow-y-auto max-h-[90vh]">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">
+          <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50">
+            <div className="bg-white w-full sm:w-full sm:max-w-4xl p-4 sm:p-6 rounded-t-2xl sm:rounded-2xl overflow-y-auto max-h-[95vh] sm:max-h-[90vh]">
+              <div className="flex justify-between items-center mb-4 sticky top-0 bg-white pb-2 z-10">
+                <h2 className="text-lg sm:text-xl font-bold">
                   {editingId ? "Edit Transaksi" : "Tambah Transaksi"}
                 </h2>
                 <button
@@ -1297,19 +1312,20 @@ const TransaksiPage = ({ setNavbarContent }) => {
                     resetForm();
                     setIsModalOpen(false);
                   }}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full transition"
+                  aria-label="Tutup"
                 >
                   <XCircle size={24} />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                 {/* Customer & Tanggal */}
-                <div className="bg-gray-50 p-4 rounded-xl">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-xl">
+                  <div className="grid grid-cols-1 gap-4">
                     {/* Customer dengan Searchable Dropdown */}
                     <div>
-                      <label className="font-semibold block mb-2">
+                      <label className="font-semibold block mb-2 text-sm">
                         Customer
                       </label>
                       <SearchableDropdown
@@ -1367,7 +1383,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                           <input
                             type="text"
                             placeholder="Nama *"
-                            className="border px-3 py-2 rounded-lg"
+                            className="border px-3 py-2.5 rounded-lg text-sm w-full"
                             value={form.customer_baru.name}
                             onChange={(e) =>
                               setForm({
@@ -1381,9 +1397,9 @@ const TransaksiPage = ({ setNavbarContent }) => {
                             required
                           />
                           <input
-                            type="text"
+                            type="tel"
                             placeholder="Phone"
-                            className="border px-3 py-2 rounded-lg"
+                            className="border px-3 py-2.5 rounded-lg text-sm w-full"
                             value={form.customer_baru.phone}
                             onChange={(e) =>
                               setForm({
@@ -1398,7 +1414,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                           <input
                             type="email"
                             placeholder="Email"
-                            className="border px-3 py-2 rounded-lg"
+                            className="border px-3 py-2.5 rounded-lg text-sm w-full"
                             value={form.customer_baru.email}
                             onChange={(e) =>
                               setForm({
@@ -1416,12 +1432,12 @@ const TransaksiPage = ({ setNavbarContent }) => {
 
                     {/* Tanggal */}
                     <div>
-                      <label className="font-semibold block mb-2">
+                      <label className="font-semibold block mb-2 text-sm">
                         Tanggal Transaksi *
                       </label>
                       <input
                         type="date"
-                        className="w-full border px-3 py-2 rounded-lg"
+                        className="w-full border px-3 py-2.5 rounded-lg text-sm"
                         value={form.tanggal}
                         onChange={(e) =>
                           setForm({ ...form, tanggal: e.target.value })
@@ -1435,17 +1451,17 @@ const TransaksiPage = ({ setNavbarContent }) => {
                 {/* Detail Transaksi */}
                 <div className="space-y-4">
                   <div className="flex justify-center items-center">
-                    <h3 className="font-bold text-lg">Detail Transaksi</h3>
+                    <h3 className="font-bold text-base sm:text-lg">Detail Transaksi</h3>
                   </div>
 
                   {form.details.map((d, i) => (
                     <div
                       key={i}
-                      className="p-4 border border-gray-200 rounded-xl bg-gray-50 space-y-4"
+                      className="p-3 sm:p-4 border border-gray-200 rounded-xl bg-gray-50 space-y-4"
                     >
                       {/* Produk dengan Searchable Dropdown + Filter */}
                       <div className="space-y-2">
-                        <label className="block mb-1 font-medium">
+                        <label className="block mb-1 font-medium text-sm">
                           Produk *
                         </label>
 
@@ -1476,7 +1492,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
 
                         {productFilterInfo?.[`row${i}`]?.count !== undefined && 
                          productFilterInfo?.[`row${i}`]?.count < products.length && (
-                          <p className="text-xs text-gray-500 text-center">
+                          <p className="text-[10px] text-gray-500 text-center">
                             Menampilkan {productFilterInfo[`row${i}`].count} dari {products.length} produk
                           </p>
                         )}
@@ -1485,11 +1501,11 @@ const TransaksiPage = ({ setNavbarContent }) => {
                       {/* Harga */}
                       {d.product_id && (
                         <div className="mt-3">
-                          <label className="block mb-1 font-medium">
+                          <label className="block mb-1 font-medium text-sm">
                             Pilih Harga
                           </label>
                           <select
-                            className="w-full border px-3 py-2 rounded-lg bg-white"
+                            className="w-full border px-3 py-2.5 rounded-lg bg-white text-sm"
                             value={
                               d.harga_product_id ||
                               (showHargaBaru[i] ? "tambah_harga_khusus" : "")
@@ -1527,15 +1543,15 @@ const TransaksiPage = ({ setNavbarContent }) => {
 
                           {showHargaBaru[i] && (
                             <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                              <label className="block mb-2 font-medium text-blue-800">
+                              <label className="block mb-2 font-medium text-blue-800 text-sm">
                                 Harga Khusus Customer Baru
                               </label>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <input
                                   type="text"
                                   inputMode="numeric"
                                   placeholder="Harga Baru (Rp)"
-                                  className="border px-3 h-11 rounded-lg w-full"
+                                  className="border px-3 h-11 rounded-lg w-full text-sm"
                                   value={
                                     d.harga_baru.harga
                                       ? formatRupiah(d.harga_baru.harga)
@@ -1549,7 +1565,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                 <input
                                   type="text"
                                   placeholder="Keterangan Harga"
-                                  className="border px-3 h-11 rounded-lg w-full"
+                                  className="border px-3 h-11 rounded-lg w-full text-sm"
                                   value={d.harga_baru.keterangan}
                                   onChange={(e) =>
                                     handleHargaBaruChange(
@@ -1561,7 +1577,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                                 />
                                 <input
                                   type="date"
-                                  className="border px-3 h-11 rounded-lg w-full"
+                                  className="border px-3 h-11 rounded-lg w-full text-sm"
                                   value={d.harga_baru.tanggal_berlaku}
                                   onChange={(e) =>
                                     handleHargaBaruChange(
@@ -1577,14 +1593,14 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         </div>
                       )}
 
-                      {/* Qty, Diskon, Catatan */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {/* Qty, Diskon, Catatan - FIX #3: Better mobile layout */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <input
                           type="number"
                           min="1"
                           max="9999"
                           placeholder="Qty *"
-                          className="border px-3 py-3 rounded-lg w-full"
+                          className="border px-3 py-3 rounded-lg w-full text-sm"
                           value={d.qty}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -1601,7 +1617,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                           type="text"
                           inputMode="numeric"
                           placeholder="Diskon (Rp)"
-                          className="border px-3 py-3 rounded-lg w-full"
+                          className="border px-3 py-3 rounded-lg w-full text-sm"
                           value={d.discount ? formatRupiah(d.discount) : ""}
                           onChange={(e) => {
                             let raw = unformatRupiah(e.target.value);
@@ -1616,7 +1632,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         <input
                           type="text"
                           placeholder="Catatan (opsional)"
-                          className="border px-3 py-3 rounded-lg w-full md:col-span-3 lg:col-span-2"
+                          className="border px-3 py-3 rounded-lg w-full sm:col-span-2 lg:col-span-2 text-sm"
                           value={d.catatan}
                           onChange={(e) =>
                             handleDetailChange(i, "catatan", e.target.value)
@@ -1624,11 +1640,11 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         />
                       </div>
 
-                      {/* Hapus Detail */}
+                      {/* Hapus Detail - FIX #3: Better mobile button */}
                       <button
                         type="button"
                         onClick={() => removeDetailRow(i)}
-                        className="w-full mt-2 bg-red-100 text-red-600 py-2 rounded-lg hover:bg-red-200 flex items-center justify-center gap-1"
+                        className="w-full mt-2 bg-red-100 text-red-600 py-2.5 rounded-lg hover:bg-red-200 flex items-center justify-center gap-1.5 text-sm transition active:scale-95"
                       >
                         <Trash2 size={16} /> Hapus Detail
                       </button>
@@ -1641,9 +1657,9 @@ const TransaksiPage = ({ setNavbarContent }) => {
                   <button
                     type="button"
                     onClick={addDetailRow}
-                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm hover:bg-green-700 transition"
+                    className="bg-green-600 text-white px-4 py-2.5 rounded-lg flex items-center gap-1.5 text-sm hover:bg-green-700 transition active:scale-95"
                   >
-                    + Tambah Detail
+                    <Plus size={16} /> Tambah Detail
                   </button>
                 </div>
 
@@ -1651,7 +1667,7 @@ const TransaksiPage = ({ setNavbarContent }) => {
                 <div className="flex justify-center gap-3 pt-4 border-t">
                   <button
                     type="submit"
-                    className="px-6 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition"
+                    className="px-6 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition active:scale-95 text-sm sm:text-base"
                   >
                     {editingId ? "Simpan Perubahan" : "Simpan Transaksi"}
                   </button>
@@ -1675,6 +1691,24 @@ const TransaksiPage = ({ setNavbarContent }) => {
       >
         <InvoiceSimplePrint ref={printRef} transaksi={printTransaksi} />
       </div>
+      
+      {/* Custom scrollbar styles */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #c1c1c1;
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #a1a1a1;
+        }
+      `}</style>
     </>
   );
 };
