@@ -108,22 +108,95 @@ const DistributorPage = ({ setNavbarContent }) => {
   };
 
   const handleDelete = async (id) => {
-    const result = await Swal.fire({
+    // Tampilkan konfirmasi sebelum menghapus
+    const confirmResult = await Swal.fire({
       title: "Hapus Distributor?",
-      text: "Data tidak bisa dikembalikan!",
+      text: "Data distributor akan dihapus secara permanen",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonText: "Ya, Hapus",
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Ya, Hapus!",
       cancelButtonText: "Batal",
     });
 
-    if (result.isConfirmed) {
-      try {
-        await api.delete(`/distributors/${id}`);
-        Swal.fire("Dihapus!", "Distributor berhasil dihapus", "success");
+    if (!confirmResult.isConfirmed) return;
+
+    // Tampilkan loading saat proses delete
+    Swal.fire({
+      title: "Menghapus...",
+      text: "Mohon tunggu sebentar",
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
+    try {
+      const response = await api.delete(`/distributors/${id}`);
+
+      // Tutup loading alert
+      Swal.close();
+
+      // Cek success response dari API
+      if (response.data.success === true) {
+        await Swal.fire({
+          icon: "success",
+          title: "Berhasil!",
+          text: response.data.message || "Distributor berhasil dihapus",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+        // Refresh data
         fetchData(search);
-      } catch (err) {
-        Swal.fire("Error", "Gagal menghapus distributor", "error");
+      } else {
+        // Jika success false (seharusnya tidak terjadi untuk success case)
+        throw new Error(response.data.message || "Gagal menghapus distributor");
+      }
+    } catch (error) {
+      // Tutup loading alert
+      Swal.close();
+
+      // Handle error 422 (Distributor memiliki product)
+      if (error.response?.status === 422) {
+        await Swal.fire({
+          icon: "warning",
+          title: "Tidak Dapat Menghapus",
+          text:
+            error.response.data?.message ||
+            "Distributor tidak dapat dihapus karena masih memiliki product",
+          confirmButtonText: "Mengerti",
+          confirmButtonColor: "#d33",
+        });
+      }
+      // Handle error 404 (Distributor tidak ditemukan)
+      else if (error.response?.status === 404) {
+        await Swal.fire({
+          icon: "error",
+          title: "Tidak Ditemukan",
+          text: error.response.data?.message || "Distributor tidak ditemukan",
+          confirmButtonText: "OK",
+        });
+        // Refresh data untuk menghapus distributor yang tidak valid dari state
+        fetchData(search);
+      }
+      // Handle error lainnya (network error, server error, dll)
+      else {
+        console.error("Delete error details:", error);
+
+        let errorMessage = "Terjadi kesalahan saat menghapus data";
+        if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+
+        await Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: errorMessage,
+          confirmButtonText: "OK",
+        });
       }
     }
   };

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Swal from "sweetalert2";
 import {
   Plus,
@@ -10,7 +10,6 @@ import {
   CheckCircle,
   Search,
   Filter,
-  Users,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -36,21 +35,32 @@ const unformatRupiah = (str) => {
   return clean === "" ? 0 : parseInt(clean, 10);
 };
 
-// ============ COMPONENT: Filter Bar Utama ============
-export const PesananFilterBar = ({ search, setSearch }) => (
-  <div className="flex items-center gap-2 w-full max-w-4xl">
-    <div className="relative flex-1 min-w-[150px]">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-      <input
-        type="text"
-        placeholder="Cari customer..."
-        className="w-full pl-10 pr-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded text-gray-700 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+// ============ COMPONENT: Filter Bar dengan Search Customer ============
+export const PesananFilterBar = ({ search, setSearch }) => {
+  return (
+    <div className="flex items-center gap-2 w-full">
+      <div className="relative flex-1 min-w-[150px]">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Cari pesanan atas nama customer..."
+          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      {search && (
+        <button
+          onClick={() => setSearch("")}
+          className="py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm whitespace-nowrap font-medium"
+        >
+          Reset
+        </button>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 // ============ COMPONENT: Searchable Dropdown (Reusable) ============
 export const SearchableDropdown = ({
@@ -70,7 +80,6 @@ export const SearchableDropdown = ({
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Filter options berdasarkan search
   const filteredOptions = options.filter((opt) => {
     if (!search.trim()) return true;
     const searchLower = search.toLowerCase();
@@ -78,7 +87,6 @@ export const SearchableDropdown = ({
     return label.toLowerCase().includes(searchLower);
   });
 
-  // Close dropdown ketika klik di luar
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -90,7 +98,6 @@ export const SearchableDropdown = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Focus input saat dropdown terbuka
   useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -103,7 +110,6 @@ export const SearchableDropdown = ({
     setSearch("");
   };
 
-  // ✅ PERBAIKAN: Gunakan String() untuk perbandingan tipe yang aman
   const selectedOption = options.find(
     (opt) =>
       String(typeof opt === "object" ? opt.value || opt.id : opt) ===
@@ -112,7 +118,6 @@ export const SearchableDropdown = ({
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
-      {/* Trigger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -134,10 +139,8 @@ export const SearchableDropdown = ({
         )}
       </button>
 
-      {/* Dropdown Panel */}
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
-          {/* Search Input */}
           <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -165,7 +168,6 @@ export const SearchableDropdown = ({
             </div>
           </div>
 
-          {/* Options List */}
           <div className="overflow-y-auto flex-1 max-h-40">
             {filteredOptions.length === 0 ? (
               <div className="p-3 text-sm text-gray-500 text-center">
@@ -175,7 +177,6 @@ export const SearchableDropdown = ({
               filteredOptions.map((opt, idx) => {
                 const value =
                   typeof opt === "object" ? opt.value || opt.id : opt;
-                // ✅ PERBAIKAN: Gunakan String() untuk perbandingan isSelected
                 const isSelected = String(value) === String(selectedValue);
                 return (
                   <button
@@ -202,7 +203,6 @@ export const SearchableDropdown = ({
             )}
           </div>
 
-          {/* Create New Button */}
           {showCreateNew && (
             <button
               type="button"
@@ -222,7 +222,7 @@ export const SearchableDropdown = ({
   );
 };
 
-// ============ COMPONENT: Searchable Product Dropdown dengan Filter ============
+// ============ COMPONENT: Searchable Product Dropdown dengan Filter & Customer Filter ============
 export const SearchableProductDropdown = ({
   products,
   selectedValue,
@@ -236,40 +236,39 @@ export const SearchableProductDropdown = ({
   filterType,
   setFilterType,
   onCreateNew,
+  showCreateNewButton = true,
+  emptyMessage = "Tidak ditemukan",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Filter produk: search + jenis + type
-  const filteredProducts = products.filter((p) => {
-    // Search filter
-    if (search.trim()) {
-      const searchLower = search.toLowerCase();
-      const namaProduk = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      if (
-        !p.kode?.toLowerCase().includes(searchLower) &&
-        !namaProduk.includes(searchLower)
-      ) {
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (search.trim()) {
+        const searchLower = search.toLowerCase();
+        const namaProduk = [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (
+          !p.kode?.toLowerCase().includes(searchLower) &&
+          !namaProduk.includes(searchLower)
+        ) {
+          return false;
+        }
+      }
+      if (filterJenis && String(p.jenis_id) !== String(filterJenis)) {
         return false;
       }
-    }
-    // Jenis filter
-    if (filterJenis && String(p.jenis_id) !== String(filterJenis)) {
-      return false;
-    }
-    // Type filter
-    if (filterType && String(p.type_id) !== String(filterType)) {
-      return false;
-    }
-    return true;
-  });
+      if (filterType && String(p.type_id) !== String(filterType)) {
+        return false;
+      }
+      return true;
+    });
+  }, [products, search, filterJenis, filterType]);
 
-  // Close dropdown ketika klik di luar
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -281,7 +280,6 @@ export const SearchableProductDropdown = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Focus input saat dropdown terbuka
   useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -294,7 +292,6 @@ export const SearchableProductDropdown = ({
     setSearch("");
   };
 
-  // ✅ PERBAIKAN: Gunakan String() untuk perbandingan selectedProduct
   const selectedProduct = products.find(
     (p) => String(p.id) === String(selectedValue),
   );
@@ -317,9 +314,10 @@ export const SearchableProductDropdown = ({
     setFilterType("");
   };
 
+  const hasProducts = filteredProducts.length > 0;
+
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Trigger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -337,12 +335,9 @@ export const SearchableProductDropdown = ({
         )}
       </button>
 
-      {/* Dropdown Panel */}
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden flex flex-col">
-          {/* Search & Filters Header */}
           <div className="p-3 border-b border-gray-100 sticky top-0 bg-white space-y-2">
-            {/* Search Input */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -368,7 +363,6 @@ export const SearchableProductDropdown = ({
               )}
             </div>
 
-            {/* Filter Buttons */}
             <div className="flex gap-1">
               <select
                 className="flex-1 py-1.5 px-2 text-xs border border-gray-200 rounded bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-200"
@@ -415,7 +409,6 @@ export const SearchableProductDropdown = ({
               )}
             </div>
 
-            {/* Info Results */}
             {(search || filterJenis || filterType) && (
               <p className="text-[10px] text-gray-500 text-center">
                 {filteredProducts.length} dari {products.length} produk
@@ -423,15 +416,13 @@ export const SearchableProductDropdown = ({
             )}
           </div>
 
-          {/* Products List */}
           <div className="overflow-y-auto flex-1 max-h-40">
-            {filteredProducts.length === 0 ? (
+            {!hasProducts ? (
               <div className="p-3 text-sm text-gray-500 text-center">
-                Tidak ditemukan
+                {emptyMessage}
               </div>
             ) : (
               filteredProducts.map((p) => {
-                // ✅ PERBAIKAN: Gunakan String() untuk perbandingan isSelected
                 const isSelected = String(p.id) === String(selectedValue);
                 return (
                   <button
@@ -457,18 +448,23 @@ export const SearchableProductDropdown = ({
             )}
           </div>
 
-          {/* Create New Button */}
-          <button
-            type="button"
-            onClick={() => {
-              onCreateNew?.();
-              setIsOpen(false);
-              setSearch("");
-            }}
-            className="p-2 border-t border-gray-100 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-1"
-          >
-            <Plus size={12} /> Produk Baru
-          </button>
+          {showCreateNewButton && (
+            <button
+              type="button"
+              onClick={() => {
+                onCreateNew?.();
+                setIsOpen(false);
+                setSearch("");
+              }}
+              className={`p-2 border-t border-gray-100 text-xs flex items-center justify-center gap-1 ${
+                !hasProducts 
+                  ? "bg-indigo-600 text-white hover:bg-indigo-700 font-medium" 
+                  : "text-indigo-600 hover:bg-indigo-50"
+              }`}
+            >
+              <Plus size={12} /> {!hasProducts ? "Buat Produk Baru" : "Produk Baru"}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -480,9 +476,11 @@ const PesananPage = ({ setNavbarContent }) => {
   // State utama
   const [pesanan, setPesanan] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(""); // ✅ Search state untuk filter customer
   const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [customerProducts, setCustomerProducts] = useState([]);
+  const [loadingCustomerProducts, setLoadingCustomerProducts] = useState(false);
   const [statusList, setStatusList] = useState([]);
   const [statusDiPesanId, setStatusDiPesanId] = useState(null);
   const [statusSelesaiId, setStatusSelesaiId] = useState(null);
@@ -664,6 +662,7 @@ const PesananPage = ({ setNavbarContent }) => {
       setLoading(true);
       const [pesananRes, customersRes, productsRes, statusRes, jenisRes, bahanRes, productJenisRes, productTypeRes] =
         await Promise.all([
+          // ✅ PASS SEARCH PARAMETER ke API untuk filter customer
           api.get("/pesanan/aktif", { params: { search: searchTerm } }),
           api.get("/customers"),
           api.get("/products/lowStok"),
@@ -676,7 +675,7 @@ const PesananPage = ({ setNavbarContent }) => {
 
       setPesanan(pesananRes.data || []);
       setCustomers(customersRes.data.data || []);
-      setProducts(productsRes.data.data || []);
+      setAllProducts(productsRes.data.data || []);
 
       const statuses = statusRes.data.data || [];
       setStatusList(statuses);
@@ -696,6 +695,36 @@ const PesananPage = ({ setNavbarContent }) => {
       Swal.fire("Error", "Gagal memuat data", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch products specific to selected customer
+  const fetchCustomerProducts = async (customerId) => {
+    if (!customerId) {
+      setCustomerProducts(allProducts);
+      return;
+    }
+    
+    setLoadingCustomerProducts(true);
+    try {
+      const res = await api.get(`/products/by-customer/${customerId}`);
+      const customerSpecific = res.data.data || [];
+      
+      if (customerSpecific.length === 0) {
+        const filtered = allProducts.filter(
+          (p) => String(p.customer_id) === String(customerId)
+        );
+        setCustomerProducts(filtered);
+      } else {
+        setCustomerProducts(customerSpecific);
+      }
+    } catch {
+      const filtered = allProducts.filter(
+        (p) => String(p.customer_id) === String(customerId)
+      );
+      setCustomerProducts(filtered);
+    } finally {
+      setLoadingCustomerProducts(false);
     }
   };
 
@@ -745,7 +774,6 @@ const PesananPage = ({ setNavbarContent }) => {
     setShowHargaBaru((prev) => ({ ...prev, [newIndex]: false }));
     setShowProductBaru((prev) => ({ ...prev, [newIndex]: false }));
     setTypeOptions((prev) => ({ ...prev, [newIndex]: [] }));
-    // Reset filter produk untuk row baru
     setProductFilterJenis("");
     setProductFilterType("");
   };
@@ -774,7 +802,6 @@ const PesananPage = ({ setNavbarContent }) => {
     
     if (field === "product_id") {
       const isProductBaru = value === "new";
-      // ✅ PERBAIKAN: Simpan product_id sebagai string untuk konsistensi
       updated[index].product_id = isProductBaru ? null : String(value);
       setShowProductBaru((prev) => ({ ...prev, [index]: isProductBaru }));
 
@@ -789,7 +816,6 @@ const PesananPage = ({ setNavbarContent }) => {
         setShowHargaBaru((prev) => ({ ...prev, [index]: true }));
         setHargaOptions((prev) => ({ ...prev, [index]: [] }));
       } else if (value) {
-        // ✅ PERBAIKAN: Pastikan value berupa string saat fetch
         fetchHargaByProduct(String(value), index, form.customer_id || null);
         setShowHargaBaru((prev) => ({ ...prev, [index]: false }));
       }
@@ -844,7 +870,6 @@ const PesananPage = ({ setNavbarContent }) => {
 
   const resetForm = (data = null) => {
     if (data) {
-      // ✅ PERBAIKAN: Gunakan String() untuk perbandingan customer_id
       const isCustomerBaru = !customers.some(
         (c) => String(c.id) === String(data.customer_id),
       );
@@ -862,14 +887,11 @@ const PesananPage = ({ setNavbarContent }) => {
 
         return {
           id: d.id || "",
-          // ✅ PERBAIKAN: Konversi product_id ke string untuk konsistensi
           product_id: isProductBaru ? null : String(d.product_id),
           product_baru: { ...initialDetail.product_baru },
-          // ✅ PERBAIKAN: Konversi harga_product_id ke string
           harga_product_id: d.harga_product_id ? String(d.harga_product_id) : "",
           harga_baru: { harga: "", tanggal_berlaku: "", keterangan: "" },
           qty: d.qty || "",
-          // ✅ PERBAIKAN: Konversi status_transaksi_id ke string
           status_transaksi_id: d.status_transaksi_id 
             ? String(d.status_transaksi_id) 
             : String(statusDiPesanId),
@@ -885,7 +907,6 @@ const PesananPage = ({ setNavbarContent }) => {
 
       details.forEach((d, i) => {
         const isProductBaru = d.product_id === null;
-
         showProductBaruMap[i] = isProductBaru;
         showHargaBaruMap[i] = isProductBaru;
 
@@ -895,7 +916,6 @@ const PesananPage = ({ setNavbarContent }) => {
       });
 
       setForm({
-        // ✅ PERBAIKAN: Konversi customer_id ke string untuk konsistensi
         customer_id: isCustomerBaru ? "" : String(data.customer_id),
         customer_baru: customerBaru,
         tanggal: data.tanggal || "",
@@ -908,6 +928,10 @@ const PesananPage = ({ setNavbarContent }) => {
       setTypeOptions(typeOptionsMap);
       setHargaOptions(hargaOptionsMap);
       setEditingId(data.id);
+      
+      if (data.customer_id) {
+        fetchCustomerProducts(String(data.customer_id));
+      }
     } else {
       setForm({
         customer_id: "",
@@ -921,8 +945,8 @@ const PesananPage = ({ setNavbarContent }) => {
       setTypeOptions({});
       setHargaOptions({});
       setEditingId(null);
+      setCustomerProducts(allProducts);
     }
-    // Reset filter produk
     setProductFilterJenis("");
     setProductFilterType("");
   };
@@ -1032,7 +1056,7 @@ const PesananPage = ({ setNavbarContent }) => {
       }
       setIsModalOpen(false);
       resetForm();
-      fetchData();
+      fetchData(search); // ✅ Refetch dengan search term saat ini
     } catch (error) {
       if (error.response?.status === 422) {
         const msg = Object.values(error.response.data.errors)
@@ -1080,7 +1104,7 @@ const PesananPage = ({ setNavbarContent }) => {
           status_transaksi_id: statusSelesaiId,
         });
         Swal.fire("Berhasil!", "Detail transaksi diselesaikan", "success");
-        fetchData();
+        fetchData(search); // ✅ Refetch dengan search term saat ini
       } catch {
         Swal.fire("Error", "Gagal menyelesaikan detail", "error");
       }
@@ -1101,7 +1125,7 @@ const PesananPage = ({ setNavbarContent }) => {
       try {
         await api.post(`/pesanan/${detailId}/cancel`);
         Swal.fire("Berhasil", "Detail transaksi dibatalkan", "success");
-        fetchData();
+        fetchData(search); // ✅ Refetch dengan search term saat ini
       } catch {
         Swal.fire("Error", "Gagal membatalkan detail", "error");
       }
@@ -1177,7 +1201,7 @@ const PesananPage = ({ setNavbarContent }) => {
           })
           .then(() => {
             Swal.fire("Berhasil!", "Pembayaran telah dicatat", "success");
-            fetchData();
+            fetchData(search); // ✅ Refetch dengan search term saat ini
           })
           .catch(() => {
             Swal.fire("Error", "Gagal menyimpan pembayaran", "error");
@@ -1187,196 +1211,229 @@ const PesananPage = ({ setNavbarContent }) => {
   };
 
   // ============ EFFECTS ============
+  
+  // ✅ Effect 1: Fetch data ketika search berubah (filter pesanan by customer name)
   useEffect(() => {
     fetchData(search);
   }, [search]);
 
+  // ✅ Effect 2: Set navbar content dengan filter bar (seperti TransaksiPage)
   useEffect(() => {
     if (typeof setNavbarContent === "function") {
-      setNavbarContent(
-        <PesananFilterBar search={search} setSearch={setSearch} />,
-      );
+      const filterBar = <PesananFilterBar search={search} setSearch={setSearch} />;
+      setNavbarContent(filterBar);
     }
   }, [search, setNavbarContent]);
+
+  // ✅ Effect 3: Fetch customer products ketika customer_id berubah
+  useEffect(() => {
+    if (form.customer_id) {
+      fetchCustomerProducts(String(form.customer_id));
+    } else {
+      setCustomerProducts(allProducts);
+    }
+  }, [form.customer_id, allProducts]);
 
   // ============ RENDER ============
   return (
     <>
       <div className="space-y-8">
+        {/* ✅ Search bar sekarang muncul di navbar via setNavbarContent */}
+        
         {loading ? (
           <p className="text-center py-8 text-gray-600">Memuat data...</p>
         ) : pesanan.length === 0 ? (
-          <p className="text-center py-8 text-gray-500">
-            Tidak ada pesanan aktif.
-          </p>
+          <div className="text-center py-8">
+            <p className="text-gray-500">
+              {search 
+                ? "Tidak ada pesanan yang ditemukan untuk pencarian ini." 
+                : "Tidak ada pesanan aktif."}
+            </p>
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+              >
+                Reset Pencarian
+              </button>
+            )}
+          </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-5">
-            {pesanan
-              .map((item) => {
-                const isCompletedOrCancelled = item.details.every((d) =>
-                  [statusSelesaiId, statusDibatalkanId].includes(
-                    Number(d.status_transaksi_id),
-                  ),
-                );
-                if (isCompletedOrCancelled) return null;
+          <>
+            <div className="flex justify-between items-center mb-2 px-1">
+              <p className="text-xs sm:text-sm text-gray-500">
+                Menampilkan {pesanan.length} pesanan
+                {search && ` untuk "${search}"`}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-5">
+              {pesanan
+                .map((item) => {
+                  const isCompletedOrCancelled = item.details.every((d) =>
+                    [statusSelesaiId, statusDibatalkanId].includes(
+                      Number(d.status_transaksi_id),
+                    ),
+                  );
+                  if (isCompletedOrCancelled) return null;
 
-                return (
-                  <div
-                    key={item.id}
-                    className="p-4 bg-white rounded-xl shadow border border-gray-200 space-y-3 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-1">
-                      <span className="text-xs font-mono text-gray-600">
-                        {getInvoiceNumber(item)}
-                      </span>
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-4 bg-white rounded-xl shadow border border-gray-200 space-y-3 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-1">
+                        <span className="text-xs font-mono text-gray-600">
+                          {getInvoiceNumber(item)}
+                        </span>
 
-                      <button
-                        onClick={() => onPrintClick(item)}
-                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 flex items-center justify-center gap-1 w-full sm:w-auto"
-                      >
-                        <Receipt size={12} /> Print
-                      </button>
-                    </div>
-                    <div className="flex justify-center items-start">
-                      <div>
-                        <p className="text-gray-700 font-medium text-center text-sm">
-                          {item.customer?.name || "Umum"} –{" "}
-                          {formatTanggal(item.tanggal)}
-                        </p>
-                        <p className="text-gray-700 font-bold text-center text-base mt-1">
-                          Rp{" "}
-                          {formatRupiah(
-                            calculateActiveTotalForPesanan(item.details),
-                          )}
-                        </p>
+                        <button
+                          onClick={() => onPrintClick(item)}
+                          className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 flex items-center justify-center gap-1 w-full sm:w-auto"
+                        >
+                          <Receipt size={12} /> Print
+                        </button>
                       </div>
-                    </div>
-                    <hr className="my-2 border-gray-200" />
-                    <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-                      {item.details.map((d) => {
-                        const sisaBayar = getSisaBayar(d);
-                        const isLunas = sisaBayar <= 0;
-                        const totalBayar = getTotalBayar(d);
-                        return (
-                          <div
-                            key={d.id}
-                            className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-xs text-center"
-                          >
-                            <p className="font-medium">
-                              {formatProductName(d.product)}
-                            </p>
-                            <p className="mt-1">
-                              <span className="font-semibold">Qty</span> {d.qty}
-                            </p>
-                            <p className="mt-1">
-                              <span className="font-semibold">
-                                Harga satuan
-                              </span>{" "}
-                              Rp {formatRupiah(d.harga)}
-                            </p>
-                            <p className="mt-1">
-                              <span className="font-semibold">Diskon</span> Rp{" "}
-                              {formatRupiah(d.discount)}
-                            </p>
-                            <p className="mt-1">
-                              <span className="font-semibold">Tagihan</span> Rp{" "}
-                              {formatRupiah(d.subtotal)}
-                            </p>
-
-                            {d.catatan && (
-                              <p className="mt-1 italic text-[10px] line-clamp-1">
-                                {d.catatan}
-                              </p>
+                      <div className="flex justify-center items-start">
+                        <div>
+                          <p className="text-gray-700 font-medium text-center text-sm">
+                            {item.customer?.name || "Umum"} –{" "}
+                            {formatTanggal(item.tanggal)}
+                          </p>
+                          <p className="text-gray-700 font-bold text-center text-base mt-1">
+                            Rp{" "}
+                            {formatRupiah(
+                              calculateActiveTotalForPesanan(item.details),
                             )}
-
-                            <div className="mt-2 pt-2 border-t border-gray-200">
-                              <p className="text-[10px]">
-                                <span
-                                  className={`font-semibold ${
-                                    isLunas
-                                      ? "text-green-600"
-                                      : "text-orange-600"
-                                  }`}
-                                >
-                                  {isLunas
-                                    ? "✅ Lunas"
-                                    : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
-                                        sisaBayar,
-                                      )})`}
-                                </span>
+                          </p>
+                        </div>
+                      </div>
+                      <hr className="my-2 border-gray-200" />
+                      <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                        {item.details.map((d) => {
+                          const sisaBayar = getSisaBayar(d);
+                          const isLunas = sisaBayar <= 0;
+                          const totalBayar = getTotalBayar(d);
+                          return (
+                            <div
+                              key={d.id}
+                              className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-xs text-center"
+                            >
+                              <p className="font-medium">
+                                {formatProductName(d.product)}
                               </p>
-
-                              <p className="text-[9px] text-gray-600 mt-1">
-                                Dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                              <p className="mt-1">
+                                <span className="font-semibold">Qty</span> {d.qty}
+                              </p>
+                              <p className="mt-1">
+                                <span className="font-semibold">
+                                  Harga satuan
+                                </span>{" "}
+                                Rp {formatRupiah(d.harga)}
+                              </p>
+                              <p className="mt-1">
+                                <span className="font-semibold">Diskon</span> Rp{" "}
+                                {formatRupiah(d.discount)}
+                              </p>
+                              <p className="mt-1">
+                                <span className="font-semibold">Tagihan</span> Rp{" "}
                                 {formatRupiah(d.subtotal)}
                               </p>
 
-                              {d.pembayarans && d.pembayarans.length > 0 && (
-                                <div className="mt-1 text-[9px]">
-                                  <p className="font-medium flex items-center justify-center gap-1">
-                                    <Receipt size={10} /> Riwayat:
-                                  </p>
-                                  <ul className="list-disc list-inside space-y-0.5 mt-0.5">
-                                    {d.pembayarans.slice(0, 2).map((p) => (
-                                      <li key={p.id} className="text-gray-700">
-                                        Rp {formatRupiah(p.jumlah_bayar)} -{" "}
-                                        {formatTanggal(p.tanggal_bayar)}
-                                      </li>
-                                    ))}
-                                    {d.pembayarans.length > 2 && (
-                                      <li className="text-gray-500 italic">
-                                        +{d.pembayarans.length - 2} lainnya
-                                      </li>
-                                    )}
-                                  </ul>
-                                </div>
+                              {d.catatan && (
+                                <p className="mt-1 italic text-[10px] line-clamp-1">
+                                  {d.catatan}
+                                </p>
                               )}
 
-                              {!isLunas && (
-                                <button
-                                  onClick={() => handleBayar(d.id)}
-                                  className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] hover:bg-green-200"
-                                >
-                                  <Wallet size={12} /> Bayar
-                                </button>
-                              )}
-
-                              <div className="flex gap-1 mt-2">
-                                <button
-                                  onClick={() => handleSelesaiDetail(d.id)}
-                                  className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-[10px] px-1 py-1 rounded hover:bg-green-700"
-                                >
-                                  <CheckCircle size={12} /> Selesai
-                                </button>
-                                {role === "admin" && (
-                                  <button
-                                    onClick={() => handleCancelDetail(d.id)}
-                                    className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
+                              <div className="mt-2 pt-2 border-t border-gray-200">
+                                <p className="text-[10px]">
+                                  <span
+                                    className={`font-semibold ${
+                                      isLunas
+                                        ? "text-green-600"
+                                        : "text-orange-600"
+                                    }`}
                                   >
-                                    <XCircle size={12} /> Batal
+                                    {isLunas
+                                      ? "✅ Lunas"
+                                      : `⏳ Belum lunas (Sisa: Rp ${formatRupiah(
+                                          sisaBayar,
+                                        )})`}
+                                  </span>
+                                </p>
+
+                                <p className="text-[9px] text-gray-600 mt-1">
+                                  Dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                                  {formatRupiah(d.subtotal)}
+                                </p>
+
+                                {d.pembayarans && d.pembayarans.length > 0 && (
+                                  <div className="mt-1 text-[9px]">
+                                    <p className="font-medium flex items-center justify-center gap-1">
+                                      <Receipt size={10} /> Riwayat:
+                                    </p>
+                                    <ul className="list-disc list-inside space-y-0.5 mt-0.5">
+                                      {d.pembayarans.slice(0, 2).map((p) => (
+                                        <li key={p.id} className="text-gray-700">
+                                          Rp {formatRupiah(p.jumlah_bayar)} -{" "}
+                                          {formatTanggal(p.tanggal_bayar)}
+                                        </li>
+                                      ))}
+                                      {d.pembayarans.length > 2 && (
+                                        <li className="text-gray-500 italic">
+                                          +{d.pembayarans.length - 2} lainnya
+                                        </li>
+                                      )}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {!isLunas && (
+                                  <button
+                                    onClick={() => handleBayar(d.id)}
+                                    className="mt-2 w-full flex items-center justify-center gap-1 bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] hover:bg-green-200"
+                                  >
+                                    <Wallet size={12} /> Bayar
                                   </button>
                                 )}
+
+                                <div className="flex gap-1 mt-2">
+                                  <button
+                                    onClick={() => handleSelesaiDetail(d.id)}
+                                    className="flex-1 flex items-center justify-center gap-1 bg-green-600 text-white text-[10px] px-1 py-1 rounded hover:bg-green-700"
+                                  >
+                                    <CheckCircle size={12} /> Selesai
+                                  </button>
+                                  {role === "admin" && (
+                                    <button
+                                      onClick={() => handleCancelDetail(d.id)}
+                                      className="flex-1 flex items-center justify-center gap-1 bg-red-600 text-white text-[10px] px-1 py-1 rounded hover:bg-red-700"
+                                    >
+                                      <XCircle size={12} /> Batal
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
+                      <div className="mt-2">
+                        {role === "admin" && (
+                          <button
+                            onClick={() => handleEditTransaksi(item)}
+                            className="w-full flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700"
+                          >
+                            <Pencil size={12} /> Edit
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-2">
-                      {role === "admin" && (
-                        <button
-                          onClick={() => handleEditTransaksi(item)}
-                          className="w-full flex items-center justify-center gap-1 bg-yellow-600 text-white text-[10px] px-2 py-1 rounded hover:bg-yellow-700"
-                        >
-                          <Pencil size={12} /> Edit
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-              .filter(Boolean)}
-          </div>
+                  );
+                })
+                .filter(Boolean)}
+            </div>
+          </>
         )}
 
         {/* FAB Button */}
@@ -1546,7 +1603,7 @@ const PesananPage = ({ setNavbarContent }) => {
                         </label>
 
                         <SearchableProductDropdown
-                          products={products}
+                          products={customerProducts}
                           selectedValue={d.product_id}
                           onSelect={(val) =>
                             handleDetailChange(
@@ -1555,7 +1612,11 @@ const PesananPage = ({ setNavbarContent }) => {
                               val === "new" ? "new" : val,
                             )
                           }
-                          placeholder="Pilih Produk..."
+                          placeholder={
+                            loadingCustomerProducts 
+                              ? "Memuat produk..." 
+                              : "Pilih Produk..."
+                          }
                           searchPlaceholder="Cari kode/nama..."
                           jenisList={productJenisList}
                           typeList={productTypeList}
@@ -1566,7 +1627,19 @@ const PesananPage = ({ setNavbarContent }) => {
                           onCreateNew={() =>
                             handleDetailChange(i, "product_id", "new")
                           }
+                          showCreateNewButton={true}
+                          emptyMessage={
+                            form.customer_id
+                              ? "Customer ini belum memiliki produk. Buat produk baru untuk melanjutkan."
+                              : "Tidak ditemukan"
+                          }
                         />
+
+                        {loadingCustomerProducts && (
+                          <p className="text-xs text-gray-500 text-center">
+                            Memuat produk customer...
+                          </p>
+                        )}
 
                         {/* Form Produk Baru */}
                         {showProductBaru[i] && (

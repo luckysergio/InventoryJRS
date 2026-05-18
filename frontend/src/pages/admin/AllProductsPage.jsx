@@ -293,7 +293,11 @@ const AllProductsPage = ({ setNavbarContent }) => {
           
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
             {processedProducts.map((item) => {
-              const totalQty = (item.qty_toko || 0) + (item.qty_bengkel || 0);
+              // ✅ PERBAIKAN: Konversi ke Number sebelum penjumlahan untuk menghindari string concatenation
+              const qtyToko = Number(item.qty_toko) || 0;
+              const qtyBengkel = Number(item.qty_bengkel) || 0;
+              const totalQty = qtyToko + qtyBengkel;
+              
               const isDistributor = item.isDistributor;
               
               return (
@@ -388,15 +392,15 @@ const AllProductsPage = ({ setNavbarContent }) => {
                     </div>
                   )}
 
-                  {/* Stok */}
+                  {/* Stok - ✅ PERBAIKAN: Gunakan variabel yang sudah dikonversi ke number */}
                   <div className="text-center mb-2 text-xs text-gray-600 space-y-0.5">
                     <div className="flex items-center justify-center gap-1">
                       <Warehouse size={12} className="flex-shrink-0" />
-                      <span>TOKO: {item.qty_toko || 0}</span>
+                      <span>TOKO: {qtyToko}</span>
                     </div>
                     <div className="flex items-center justify-center gap-1">
                       <Warehouse size={12} className="flex-shrink-0" />
-                      <span>BENGKEL: {item.qty_bengkel || 0}</span>
+                      <span>BENGKEL: {qtyBengkel}</span>
                     </div>
                     <div className="flex items-center justify-center gap-1 font-medium">
                       <Warehouse size={12} className="flex-shrink-0" />

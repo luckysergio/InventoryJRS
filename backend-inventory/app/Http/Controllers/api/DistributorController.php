@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Distributor;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -14,17 +15,17 @@ class DistributorController extends Controller
         $search = $request->query('search');
 
         $distributors = Distributor::when($search, function ($query) use ($search) {
-                $query->whereRaw(
-                    'LOWER(nama) LIKE ?',
-                    ['%' . strtolower($search) . '%']
-                );
-            })
+            $query->whereRaw(
+                'LOWER(nama) LIKE ?',
+                ['%' . strtolower($search) . '%']
+            );
+        })
             ->orderByRaw('LOWER(nama) ASC')
             ->get();
 
         return response()->json([
             'success'     => true,
-            'distributors'=> $distributors
+            'distributors' => $distributors
         ]);
     }
 
@@ -119,6 +120,16 @@ class DistributorController extends Controller
                 'success' => false,
                 'message' => 'Distributor tidak ditemukan'
             ], 404);
+        }
+
+        // Cek apakah distributor masih memiliki product
+        $hasProduct = Product::where('distributor_id', $distributor->id)->exists();
+
+        if ($hasProduct) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Distributor tidak dapat dihapus karena masih memiliki product'
+            ], 422);
         }
 
         $distributor->delete();

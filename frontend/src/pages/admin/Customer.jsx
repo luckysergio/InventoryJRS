@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   CheckCircle,
   X,
+  Calendar, // ✅ TAMBAHKAN: Icon Calendar untuk tanggal
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -109,7 +110,7 @@ const CustomerPage = ({ setNavbarContent }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
-  
+
   const [isNavbarSet, setIsNavbarSet] = useState(false);
 
   const fetchData = useCallback(async (searchTerm = "") => {
@@ -157,7 +158,9 @@ const CustomerPage = ({ setNavbarContent }) => {
   // FIX: Set navbar content - ONLY in navbar, no inline fallback
   useEffect(() => {
     if (typeof setNavbarContent === "function") {
-      const filterBar = <CustomerFilterBar search={search} setSearch={setSearch} />;
+      const filterBar = (
+        <CustomerFilterBar search={search} setSearch={setSearch} />
+      );
       setNavbarContent(filterBar);
       setIsNavbarSet(true);
     }
@@ -172,7 +175,9 @@ const CustomerPage = ({ setNavbarContent }) => {
   // Refresh navbar after loading completes
   useEffect(() => {
     if (!loading && isNavbarSet && typeof setNavbarContent === "function") {
-      const filterBar = <CustomerFilterBar search={search} setSearch={setSearch} />;
+      const filterBar = (
+        <CustomerFilterBar search={search} setSearch={setSearch} />
+      );
       setNavbarContent(filterBar);
     }
   }, [loading, isNavbarSet, search, setNavbarContent]);
@@ -226,22 +231,95 @@ const CustomerPage = ({ setNavbarContent }) => {
   };
 
   const handleDelete = async (id) => {
-    const result = await Swal.fire({
+    // Tampilkan konfirmasi sebelum menghapus
+    const confirmResult = await Swal.fire({
       title: "Yakin ingin menghapus?",
-      text: "Data tidak bisa dikembalikan",
+      text: "Data customer akan dihapus secara permanen",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonText: "Ya, hapus",
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Ya, hapus!",
       cancelButtonText: "Batal",
     });
 
-    if (result.isConfirmed) {
-      try {
-        await api.delete(`/customers/${id}`);
-        Swal.fire("Berhasil", "Customer berhasil dihapus", "success");
+    if (!confirmResult.isConfirmed) return;
+
+    // Tampilkan loading saat proses delete
+    Swal.fire({
+      title: "Menghapus...",
+      text: "Mohon tunggu sebentar",
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
+    try {
+      const response = await api.delete(`/customers/${id}`);
+
+      // Tutup loading alert
+      Swal.close();
+
+      // Cek status response dari API
+      if (response.data.status === true) {
+        await Swal.fire({
+          icon: "success",
+          title: "Berhasil!",
+          text: response.data.message || "Customer berhasil dihapus",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+        // Refresh data
         fetchData(search);
-      } catch (err) {
-        Swal.fire("Error", "Gagal menghapus data", "error");
+      } else {
+        // Jika status false (seharusnya tidak terjadi untuk success case)
+        throw new Error(response.data.message || "Gagal menghapus customer");
+      }
+    } catch (error) {
+      // Tutup loading alert
+      Swal.close();
+
+      // Handle error 422 (Customer memiliki product)
+      if (error.response?.status === 422) {
+        await Swal.fire({
+          icon: "warning",
+          title: "Tidak Dapat Menghapus",
+          text:
+            error.response.data?.message ||
+            "Customer tidak dapat dihapus karena masih memiliki product",
+          confirmButtonText: "Mengerti",
+          confirmButtonColor: "#d33",
+        });
+      }
+      // Handle error 404 (Customer tidak ditemukan)
+      else if (error.response?.status === 404) {
+        await Swal.fire({
+          icon: "error",
+          title: "Tidak Ditemukan",
+          text: error.response.data?.message || "Customer tidak ditemukan",
+          confirmButtonText: "OK",
+        });
+        // Refresh data untuk menghapus customer yang tidak valid dari state
+        fetchData(search);
+      }
+      // Handle error lainnya (network error, server error, dll)
+      else {
+        console.error("Delete error details:", error);
+
+        let errorMessage = "Terjadi kesalahan saat menghapus data";
+        if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+
+        await Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: errorMessage,
+          confirmButtonText: "OK",
+        });
       }
     }
   };
@@ -353,11 +431,12 @@ const CustomerPage = ({ setNavbarContent }) => {
         const subtotal = safeParseFloat(detail.subtotal);
         const discount = safeParseFloat(detail.discount);
         const subtotalAsli = subtotal + discount;
-        
+
         // FIX: Gunakan detail.qty (bukan detail.quantity) sesuai struktur database
-        const quantity = detail.qty !== undefined && detail.qty !== null 
-          ? Number(detail.qty) 
-          : 1;
+        const quantity =
+          detail.qty !== undefined && detail.qty !== null
+            ? Number(detail.qty)
+            : 1;
 
         const totalBayar = Array.isArray(detail.pembayarans)
           ? detail.pembayarans.reduce(
@@ -615,13 +694,15 @@ const CustomerPage = ({ setNavbarContent }) => {
   return (
     <>
       {/* FIX: Removed inline searchbar fallback - searchbar ONLY in navbar now */}
-      
+
       <div className="space-y-4 sm:space-y-6 p-3 sm:p-4 md:p-6 max-w-7xl mx-auto w-full">
         {/* LOADING */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-500 text-sm sm:text-base">Memuat data customer...</p>
+            <p className="text-gray-500 text-sm sm:text-base">
+              Memuat data customer...
+            </p>
           </div>
         ) : filteredCustomers.length === 0 ? (
           /* EMPTY STATE */
@@ -630,8 +711,8 @@ const CustomerPage = ({ setNavbarContent }) => {
               <Search size={48} className="mx-auto" />
             </div>
             <p className="text-gray-500 text-sm sm:text-base">
-              {search 
-                ? `Tidak ada customer ditemukan untuk "${search}"` 
+              {search
+                ? `Tidak ada customer ditemukan untuk "${search}"`
                 : "Tidak ada customer yang ditemukan."}
             </p>
             {search && (
@@ -648,11 +729,16 @@ const CustomerPage = ({ setNavbarContent }) => {
             {/* Stats Info - Responsive */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-1">
               <p className="text-xs sm:text-sm text-gray-500">
-                Menampilkan <span className="font-medium">{paginatedCustomers.length}</span> dari <span className="font-medium">{filteredCustomers.length}</span> customer
+                Menampilkan{" "}
+                <span className="font-medium">{paginatedCustomers.length}</span>{" "}
+                dari{" "}
+                <span className="font-medium">{filteredCustomers.length}</span>{" "}
+                customer
               </p>
               {totalPages > 1 && (
                 <p className="text-xs sm:text-sm text-gray-400 text-center sm:text-right">
-                  Halaman <span className="font-medium">{currentPage}</span> dari <span className="font-medium">{totalPages}</span>
+                  Halaman <span className="font-medium">{currentPage}</span>{" "}
+                  dari <span className="font-medium">{totalPages}</span>
                 </p>
               )}
             </div>
@@ -660,8 +746,12 @@ const CustomerPage = ({ setNavbarContent }) => {
             {/* Grid Customers - Fully Responsive */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
               {paginatedCustomers.map((item) => {
-                const tagihanHarian = Number(item.tagihan_harian_belum_lunas || 0);
-                const tagihanPesanan = Number(item.tagihan_pesanan_belum_lunas || 0);
+                const tagihanHarian = Number(
+                  item.tagihan_harian_belum_lunas || 0,
+                );
+                const tagihanPesanan = Number(
+                  item.tagihan_pesanan_belum_lunas || 0,
+                );
                 const hasTagihan = tagihanHarian > 0 || tagihanPesanan > 0;
 
                 return (
@@ -670,23 +760,34 @@ const CustomerPage = ({ setNavbarContent }) => {
                     className="bg-white rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-md transition border border-gray-100 min-w-0 flex flex-col h-full"
                   >
                     {/* Customer Name */}
-                    <h3 className="text-sm font-bold text-gray-900 text-center truncate" title={item.name}>
+                    <h3
+                      className="text-sm font-bold text-gray-900 text-center truncate"
+                      title={item.name}
+                    >
                       {item.name}
                     </h3>
 
                     {/* Contact Info - Admin Only */}
                     {role === "admin" ? (
                       <>
-                        <p className="text-xs text-gray-500 mt-1 text-center truncate" title={item.phone || ""}>
+                        <p
+                          className="text-xs text-gray-500 mt-1 text-center truncate"
+                          title={item.phone || ""}
+                        >
                           📞 {item.phone || "-"}
                         </p>
-                        <p className="text-xs text-gray-500 text-center break-words" title={item.email || ""}>
+                        <p
+                          className="text-xs text-gray-500 text-center break-words"
+                          title={item.email || ""}
+                        >
                           ✉️ {item.email || "-"}
                         </p>
                       </>
                     ) : (
                       <div className="text-center mt-2">
-                        <p className="text-xs text-gray-400">(kontak hanya untuk admin)</p>
+                        <p className="text-xs text-gray-400">
+                          (kontak hanya untuk admin)
+                        </p>
                       </div>
                     )}
 
@@ -695,9 +796,14 @@ const CustomerPage = ({ setNavbarContent }) => {
                       {tagihanHarian > 0 && (
                         <div
                           className="flex justify-between pt-2 border-t border-gray-100 cursor-pointer hover:bg-orange-50 rounded p-1 gap-1"
-                          onClick={() => openCustomerModal(item.id, item.name, "daily")}
+                          onClick={() =>
+                            openCustomerModal(item.id, item.name, "daily")
+                          }
                         >
-                          <span className="text-orange-600 font-medium truncate" title="Tagihan Harian">
+                          <span
+                            className="text-orange-600 font-medium truncate"
+                            title="Tagihan Harian"
+                          >
                             Harian:
                           </span>
                           <span className="text-orange-600 font-bold shrink-0 whitespace-nowrap">
@@ -709,9 +815,14 @@ const CustomerPage = ({ setNavbarContent }) => {
                       {tagihanPesanan > 0 && (
                         <div
                           className="flex justify-between pt-1 cursor-pointer hover:bg-purple-50 rounded p-1 gap-1"
-                          onClick={() => openCustomerModal(item.id, item.name, "pesanan")}
+                          onClick={() =>
+                            openCustomerModal(item.id, item.name, "pesanan")
+                          }
                         >
-                          <span className="text-purple-600 font-medium truncate" title="Tagihan Pesanan">
+                          <span
+                            className="text-purple-600 font-medium truncate"
+                            title="Tagihan Pesanan"
+                          >
                             Pesanan:
                           </span>
                           <span className="text-purple-600 font-bold shrink-0 whitespace-nowrap">
@@ -722,7 +833,9 @@ const CustomerPage = ({ setNavbarContent }) => {
 
                       {tagihanHarian === 0 && tagihanPesanan === 0 && (
                         <div className="flex justify-between pt-2 border-t border-gray-100">
-                          <span className="text-green-600 font-medium">Tidak ada tagihan</span>
+                          <span className="text-green-600 font-medium">
+                            Tidak ada tagihan
+                          </span>
                           <span className="text-green-600">✅</span>
                         </div>
                       )}
@@ -853,7 +966,9 @@ const CustomerPage = ({ setNavbarContent }) => {
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-600">Nama Customer *</label>
+                <label className="text-sm font-medium text-gray-600">
+                  Nama Customer *
+                </label>
                 <input
                   type="text"
                   value={form.name}
@@ -865,7 +980,9 @@ const CustomerPage = ({ setNavbarContent }) => {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Nomor Telepon</label>
+                <label className="text-sm font-medium text-gray-600">
+                  Nomor Telepon
+                </label>
                 <input
                   type="tel"
                   value={form.phone}
@@ -876,7 +993,9 @@ const CustomerPage = ({ setNavbarContent }) => {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Email</label>
+                <label className="text-sm font-medium text-gray-600">
+                  Email
+                </label>
                 <input
                   type="email"
                   value={form.email}
@@ -906,9 +1025,25 @@ const CustomerPage = ({ setNavbarContent }) => {
                 >
                   {isSubmitting ? (
                     <>
-                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <svg
+                        className="animate-spin h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
                       </svg>
                       Menyimpan...
                     </>
@@ -925,22 +1060,39 @@ const CustomerPage = ({ setNavbarContent }) => {
       {/* Modal List Tagihan Customer - Responsive */}
       {customerModal &&
         (() => {
-          const customer = findCustomerById(customers, customerModal.customerId);
+          const customer = findCustomerById(
+            customers,
+            customerModal.customerId,
+          );
           if (!customer) return null;
 
           const STATUS_DIBATALKAN_ID = 6;
 
           const filteredDetails = (
-            Array.isArray(customer.transaksi_details) ? customer.transaksi_details : []
+            Array.isArray(customer.transaksi_details)
+              ? customer.transaksi_details
+              : []
           ).filter((detail) => {
             if (!detail || !detail.transaksi || !detail.product) return false;
-            if (detail.status_transaksi_id === STATUS_DIBATALKAN_ID) return false;
-            if (customerModal.jenisFilter === "daily" && detail.transaksi.jenis_transaksi !== "daily") return false;
-            if (customerModal.jenisFilter === "pesanan" && detail.transaksi.jenis_transaksi !== "pesanan") return false;
+            if (detail.status_transaksi_id === STATUS_DIBATALKAN_ID)
+              return false;
+            if (
+              customerModal.jenisFilter === "daily" &&
+              detail.transaksi.jenis_transaksi !== "daily"
+            )
+              return false;
+            if (
+              customerModal.jenisFilter === "pesanan" &&
+              detail.transaksi.jenis_transaksi !== "pesanan"
+            )
+              return false;
 
             const subtotal = safeParseFloat(detail.subtotal);
             const totalBayar = Array.isArray(detail.pembayarans)
-              ? detail.pembayarans.reduce((sum, p) => sum + safeParseFloat(p.jumlah_bayar), 0)
+              ? detail.pembayarans.reduce(
+                  (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+                  0,
+                )
               : 0;
             return subtotal - totalBayar > 0;
           });
@@ -987,36 +1139,66 @@ const CustomerPage = ({ setNavbarContent }) => {
                       {filteredDetails.map((detail) => {
                         const subtotal = safeParseFloat(detail.subtotal);
                         const totalBayar = Array.isArray(detail.pembayarans)
-                          ? detail.pembayarans.reduce((sum, p) => sum + safeParseFloat(p.jumlah_bayar), 0)
+                          ? detail.pembayarans.reduce(
+                              (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+                              0,
+                            )
                           : 0;
                         const sisaBayar = subtotal - totalBayar;
-                        const isHarian = detail.transaksi?.jenis_transaksi === "daily";
+                        const isHarian =
+                          detail.transaksi?.jenis_transaksi === "daily";
+
+                        // ✅ FIX #1: Format tanggal transaksi untuk card
+                        const tanggalTransaksi = detail.transaksi?.tanggal
+                          ? formatTanggal(detail.transaksi.tanggal)
+                          : "-";
 
                         return (
                           <div
                             key={detail.id}
                             className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md cursor-pointer transition active:scale-95"
-                            onClick={() => openDetailModal(detail.id, customerModal.customerName)}
+                            onClick={() =>
+                              openDetailModal(
+                                detail.id,
+                                customerModal.customerName,
+                              )
+                            }
                           >
                             <div className="flex justify-center items-center mb-2">
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium ${
-                                  isHarian ? "bg-orange-100 text-orange-800" : "bg-purple-100 text-purple-800"
+                                  isHarian
+                                    ? "bg-orange-100 text-orange-800"
+                                    : "bg-purple-100 text-purple-800"
                                 }`}
                               >
                                 {isHarian ? "Harian" : "Pesanan"}
                               </span>
                             </div>
 
-                            <p className="font-medium text-gray-800 text-xs sm:text-sm text-center truncate" title={detail.product?.kode}>
+                            <p
+                              className="font-medium text-gray-800 text-xs sm:text-sm text-center truncate"
+                              title={detail.product?.kode}
+                            >
                               {detail.product?.kode}
                             </p>
-                            <p className="text-[10px] sm:text-xs text-gray-600 mb-2 text-center line-clamp-2" title={formatProductName(detail.product)}>
+                            <p
+                              className="text-[10px] sm:text-xs text-gray-600 mb-1 text-center line-clamp-2"
+                              title={formatProductName(detail.product)}
+                            >
                               {formatProductName(detail.product)}
                             </p>
 
+                            {/* ✅ FIX #1: Tampilkan tanggal transaksi dengan icon Calendar */}
+                            <div className="flex items-center justify-center gap-1 mb-2 text-[10px] sm:text-xs text-gray-500">
+                              <Calendar size={12} className="flex-shrink-0" />
+                              <span>{tanggalTransaksi}</span>
+                            </div>
+
                             <div className="flex justify-between text-xs">
-                              <span className="text-gray-600">Sisa Tagihan:</span>
+                              <span className="text-gray-600">
+                                Sisa Tagihan:
+                              </span>
                               <span className="font-bold text-red-600 whitespace-nowrap">
                                 Rp {formatRupiah(sisaBayar)}
                               </span>
@@ -1035,70 +1217,114 @@ const CustomerPage = ({ setNavbarContent }) => {
       {/* Modal Detail Tagihan - Responsive */}
       {detailModal &&
         (() => {
-          const transaksiDetail = findTransaksiDetailById(customers, detailModal.id);
+          const transaksiDetail = findTransaksiDetailById(
+            customers,
+            detailModal.id,
+          );
           if (!transaksiDetail) return null;
 
           const subtotal = safeParseFloat(transaksiDetail.subtotal);
           const totalBayar = Array.isArray(transaksiDetail.pembayarans)
-            ? transaksiDetail.pembayarans.reduce((sum, p) => sum + safeParseFloat(p.jumlah_bayar), 0)
+            ? transaksiDetail.pembayarans.reduce(
+                (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+                0,
+              )
             : 0;
           const sisaTagihan = subtotal - totalBayar;
           const isLunas = sisaTagihan <= 0;
+
+          // ✅ FIX #2: Gunakan 'transaksiDetail' (bukan 'detail') untuk akses tanggal
+          const tanggalTransaksi = transaksiDetail.transaksi?.tanggal
+            ? formatTanggal(transaksiDetail.transaksi.tanggal)
+            : "-";
 
           return (
             <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-2 sm:p-4">
               <div className="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
                 <div className="p-4 sm:p-5 border-b border-gray-200 sticky top-0 bg-white z-10">
-                  <h2 className="text-lg font-bold text-gray-800 text-center">Detail Tagihan</h2>
-                  <p className="text-xs sm:text-sm text-gray-600 text-center mt-1 truncate">{detailModal.customerName}</p>
+                  <h2 className="text-lg font-bold text-gray-800 text-center">
+                    Detail Tagihan
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-600 text-center mt-1 truncate">
+                    {detailModal.customerName}
+                  </p>
                 </div>
 
                 <div className="p-4 sm:p-5 space-y-4">
                   {transaksiDetail.product && (
                     <div className="bg-gray-50 rounded-lg p-3 text-center">
-                      <p className="font-medium text-gray-800 text-sm truncate" title={transaksiDetail.product?.kode}>
+                      <p
+                        className="font-medium text-gray-800 text-sm truncate"
+                        title={transaksiDetail.product?.kode}
+                      >
                         {transaksiDetail.product?.kode}
                       </p>
-                      <p className="text-xs text-gray-600 line-clamp-2" title={formatProductName(transaksiDetail.product)}>
+                      <p
+                        className="text-xs text-gray-600 line-clamp-2"
+                        title={formatProductName(transaksiDetail.product)}
+                      >
                         {formatProductName(transaksiDetail.product)}
                       </p>
-                      <p className="text-[10px] text-gray-500 mt-2">
+
+                      {/* ✅ FIX #2: Tampilkan tanggal dengan icon Calendar */}
+                      <div className="flex items-center justify-center gap-1 my-2 text-[10px] sm:text-xs text-gray-500">
+                        <Calendar size={12} className="flex-shrink-0" />
+                        <span>{tanggalTransaksi}</span>
+                      </div>
+
+                      <p className="text-[10px] text-gray-500 mt-1">
                         Jenis:{" "}
-                        {transaksiDetail.transaksi?.jenis_transaksi === "daily" ? "Harian" : "Pesanan"}
+                        {transaksiDetail.transaksi?.jenis_transaksi === "daily"
+                          ? "Harian"
+                          : "Pesanan"}
                       </p>
                     </div>
                   )}
 
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Subtotal:</span>
-                    <span className="font-bold">Rp {formatRupiah(subtotal)}</span>
+                    <span className="font-bold">
+                      Rp {formatRupiah(subtotal)}
+                    </span>
                   </div>
 
-                  {Array.isArray(transaksiDetail.pembayarans) && transaksiDetail.pembayarans.length > 0 && (
-                    <div className="bg-blue-50 rounded-lg p-3">
-                      <p className="font-medium text-blue-800 flex items-center gap-1 justify-center text-sm">
-                        <Receipt size={14} /> Riwayat Pembayaran:
-                      </p>
-                      <ul className="mt-2 space-y-1 max-h-24 overflow-y-auto">
-                        {transaksiDetail.pembayarans.map((p) => (
-                          <li key={p.id} className="text-xs text-gray-700 flex justify-between">
-                            <span>Rp {formatRupiah(p.jumlah_bayar)}</span>
-                            <span className="text-gray-500">{formatTanggal(p.tanggal_bayar)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  {Array.isArray(transaksiDetail.pembayarans) &&
+                    transaksiDetail.pembayarans.length > 0 && (
+                      <div className="bg-blue-50 rounded-lg p-3">
+                        <p className="font-medium text-blue-800 flex items-center gap-1 justify-center text-sm">
+                          <Receipt size={14} /> Riwayat Pembayaran:
+                        </p>
+                        <ul className="mt-2 space-y-1 max-h-24 overflow-y-auto">
+                          {transaksiDetail.pembayarans.map((p) => (
+                            <li
+                              key={p.id}
+                              className="text-xs text-gray-700 flex justify-between"
+                            >
+                              <span>Rp {formatRupiah(p.jumlah_bayar)}</span>
+                              <span className="text-gray-500">
+                                {formatTanggal(p.tanggal_bayar)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
                   <div className="text-center py-2">
                     <p className="text-xs text-gray-600">
-                      Sudah dibayar: Rp {formatRupiah(totalBayar)} dari Rp {formatRupiah(subtotal)}
+                      Sudah dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
+                      {formatRupiah(subtotal)}
                     </p>
                   </div>
 
                   {!isLunas && (
                     <button
-                      onClick={() => openBayarModal(transaksiDetail, detailModal.customerName)}
+                      onClick={() =>
+                        openBayarModal(
+                          transaksiDetail,
+                          detailModal.customerName,
+                        )
+                      }
                       className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-4 py-2.5 rounded-lg transition active:scale-95 text-sm"
                     >
                       <Wallet size={16} /> Bayar Sekarang
@@ -1124,16 +1350,26 @@ const CustomerPage = ({ setNavbarContent }) => {
         <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-2 sm:p-4">
           <div className="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl">
             <div className="p-4 sm:p-5 border-b border-gray-200 sticky top-0 bg-white z-10">
-              <h2 className="text-lg font-bold text-gray-800 text-center">Pembayaran Tagihan</h2>
-              <p className="text-xs sm:text-sm text-gray-600 text-center mt-1 truncate">{bayarModal.customerName}</p>
+              <h2 className="text-lg font-bold text-gray-800 text-center">
+                Pembayaran Tagihan
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-600 text-center mt-1 truncate">
+                {bayarModal.customerName}
+              </p>
             </div>
 
             <form onSubmit={handleBayar} className="p-4 sm:p-5">
               <div className="bg-gray-50 rounded-lg p-3 mb-4 text-center">
-                <p className="font-medium text-gray-800 text-sm truncate" title={bayarModal.transaksiDetail.product?.kode}>
+                <p
+                  className="font-medium text-gray-800 text-sm truncate"
+                  title={bayarModal.transaksiDetail.product?.kode}
+                >
                   {bayarModal.transaksiDetail.product?.kode}
                 </p>
-                <p className="text-xs text-gray-600 line-clamp-2" title={formatProductName(bayarModal.transaksiDetail.product)}>
+                <p
+                  className="text-xs text-gray-600 line-clamp-2"
+                  title={formatProductName(bayarModal.transaksiDetail.product)}
+                >
                   {formatProductName(bayarModal.transaksiDetail.product)}
                 </p>
               </div>
@@ -1141,16 +1377,25 @@ const CustomerPage = ({ setNavbarContent }) => {
               <div className="space-y-2 mb-4 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal:</span>
-                  <span>Rp {formatRupiah(safeParseFloat(bayarModal.transaksiDetail.subtotal))}</span>
+                  <span>
+                    Rp{" "}
+                    {formatRupiah(
+                      safeParseFloat(bayarModal.transaksiDetail.subtotal),
+                    )}
+                  </span>
                 </div>
 
                 <div className="flex justify-between">
                   <span className="text-gray-600">Sudah Dibayar:</span>
                   <span>
-                    Rp {formatRupiah(
+                    Rp{" "}
+                    {formatRupiah(
                       Array.isArray(bayarModal.transaksiDetail.pembayarans)
-                        ? bayarModal.transaksiDetail.pembayarans.reduce((sum, p) => sum + safeParseFloat(p.jumlah_bayar), 0)
-                        : 0
+                        ? bayarModal.transaksiDetail.pembayarans.reduce(
+                            (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+                            0,
+                          )
+                        : 0,
                     )}
                   </span>
                 </div>
@@ -1158,18 +1403,24 @@ const CustomerPage = ({ setNavbarContent }) => {
                 <div className="flex justify-between font-bold pt-2 border-t border-gray-200">
                   <span className="text-red-600">Sisa Tagihan:</span>
                   <span className="text-red-600">
-                    Rp {formatRupiah(
+                    Rp{" "}
+                    {formatRupiah(
                       safeParseFloat(bayarModal.transaksiDetail.subtotal) -
                         (Array.isArray(bayarModal.transaksiDetail.pembayarans)
-                          ? bayarModal.transaksiDetail.pembayarans.reduce((sum, p) => sum + safeParseFloat(p.jumlah_bayar), 0)
-                          : 0)
+                          ? bayarModal.transaksiDetail.pembayarans.reduce(
+                              (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
+                              0,
+                            )
+                          : 0),
                     )}
                   </span>
                 </div>
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1 text-center">Jumlah Bayar (Rp)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-center">
+                  Jumlah Bayar (Rp)
+                </label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -1184,7 +1435,10 @@ const CustomerPage = ({ setNavbarContent }) => {
               <div className="flex justify-center gap-3">
                 <button
                   type="button"
-                  onClick={() => { setBayarModal(null); setJumlahBayar(""); }}
+                  onClick={() => {
+                    setBayarModal(null);
+                    setJumlahBayar("");
+                  }}
                   className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition"
                 >
                   Batal

@@ -11,6 +11,9 @@ import {
   Tag,
   Warehouse,
   Truck,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -140,6 +143,169 @@ const generateKode = (
   return distributorPrefix ? `${distributorPrefix}-${baseKode}` : baseKode;
 };
 
+// ===== COMPONENT: Searchable Distributor Dropdown dengan Create New =====
+const SearchableDistributorDropdown = ({
+  distributors,
+  selectedValue,
+  onSelect,
+  onCreateNew,
+  placeholder = "Pilih Distributor...",
+  searchPlaceholder = "Cari nama/phone...",
+  disabled = false,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const filteredDistributors = distributors.filter((d) => {
+    if (!search.trim()) return true;
+    const searchLower = search.toLowerCase();
+    return (
+      d.nama?.toLowerCase().includes(searchLower) ||
+      d.no_hp?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current && !disabled) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen, disabled]);
+
+  const handleSelect = (value) => {
+    onSelect(value);
+    setIsOpen(false);
+    setSearch("");
+  };
+
+  const selectedDistributor = distributors.find(
+    (d) => String(d.id) === String(selectedValue),
+  );
+
+  if (disabled) {
+    return (
+      <div className="w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+        {selectedDistributor
+          ? `${selectedDistributor.nama} - ${selectedDistributor.no_hp}`
+          : placeholder}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className="w-full flex items-center justify-between px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-left hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
+      >
+        <span className="truncate">
+          {selectedDistributor
+            ? `${selectedDistributor.nama} - ${selectedDistributor.no_hp}`
+            : placeholder}
+        </span>
+        {isOpen ? (
+          <ChevronUp size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        ) : (
+          <ChevronDown size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        )}
+      </button>
+
+      {isOpen && !disabled && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+          <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={searchPlaceholder}
+                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearch("");
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="overflow-y-auto flex-1 max-h-40">
+            {filteredDistributors.length === 0 ? (
+              <div className="p-3 text-sm text-gray-500 text-center">
+                Tidak ditemukan
+              </div>
+            ) : (
+              filteredDistributors.map((d) => {
+                const isSelected = String(d.id) === String(selectedValue);
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => handleSelect(d.id)}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 flex items-center justify-between ${
+                      isSelected ? "bg-indigo-100 text-indigo-800" : ""
+                    }`}
+                  >
+                    <span className="truncate">
+                      {d.nama}{" "}
+                      {d.no_hp && (
+                        <span className="text-gray-400">- {d.no_hp}</span>
+                      )}
+                    </span>
+                    {isSelected && (
+                      <CheckCircle size={14} className="text-indigo-600 ml-2" />
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* ✅ Tombol Buat Distributor Baru */}
+          {onCreateNew && (
+            <button
+              type="button"
+              onClick={() => {
+                onCreateNew();
+                setIsOpen(false);
+                setSearch("");
+              }}
+              className="p-2 border-t border-gray-100 text-sm text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-1 font-medium"
+            >
+              <Plus size={14} /> Tambah Distributor Baru
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+// ===== END Searchable Distributor Dropdown =====
+
 export const DistributorProductFilterBar = ({
   search,
   setSearch,
@@ -241,6 +407,15 @@ const DistributorProductPage = ({ setNavbarContent }) => {
   const [typeInputBaru, setTypeInputBaru] = useState("");
   const [bahanInputBaru, setBahanInputBaru] = useState("");
 
+  // ✅ State untuk form distributor baru
+  const [isCreatingNewDistributor, setIsCreatingNewDistributor] =
+    useState(false);
+  const [newDistributorForm, setNewDistributorForm] = useState({
+    nama: "",
+    no_hp: "",
+    alamat: "",
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
@@ -338,6 +513,56 @@ const DistributorProductPage = ({ setNavbarContent }) => {
     }
   }, [form.jenis_id, allTypes, isEdit]);
 
+  // ✅ Fungsi untuk membuat distributor baru
+  const handleCreateNewDistributor = async () => {
+    if (!newDistributorForm.nama.trim()) {
+      Swal.fire("Validasi", "Nama distributor wajib diisi", "warning");
+      return;
+    }
+
+    try {
+      Swal.fire({
+        title: "Menyimpan distributor...",
+        html: "Mohon tunggu",
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      const res = await api.post("/distributors", {
+        nama: newDistributorForm.nama.trim(),
+        no_hp: newDistributorForm.no_hp?.trim() || "",
+        alamat: newDistributorForm.alamat?.trim() || "",
+      });
+
+      Swal.close();
+
+      const newDistributor = res.data.distributor || res.data.data;
+
+      // Tambahkan ke list distributors
+      setDistributors((prev) => [...prev, newDistributor]);
+
+      // Set distributor yang baru dibuat sebagai selected
+      setForm({ ...form, distributor_id: String(newDistributor.id) });
+
+      // Reset form distributor baru
+      setIsCreatingNewDistributor(false);
+      setNewDistributorForm({ nama: "", no_hp: "", alamat: "" });
+
+      Swal.fire("Berhasil", "Distributor baru berhasil ditambahkan", "success");
+    } catch (error) {
+      Swal.close();
+      if (error.response?.status === 422) {
+        const msg = Object.values(error.response.data.errors || {})
+          .flat()
+          .join("<br>");
+        Swal.fire("Validasi Gagal", msg, "warning");
+      } else {
+        Swal.fire("Error", "Gagal membuat distributor baru", "error");
+      }
+    }
+  };
+
   const getKodePreview = () => {
     const jenisNama =
       form.jenis_id === "new"
@@ -357,7 +582,12 @@ const DistributorProductPage = ({ setNavbarContent }) => {
 
     let distributorNama = "";
     let distributorHp = "";
-    if (form.distributor_id === "new") {
+
+    // ✅ Handle distributor baru
+    if (isCreatingNewDistributor) {
+      distributorNama = newDistributorForm.nama;
+      distributorHp = newDistributorForm.no_hp;
+    } else if (form.distributor_id === "new") {
       distributorNama = "";
       distributorHp = "";
     } else if (form.distributor_id) {
@@ -395,6 +625,8 @@ const DistributorProductPage = ({ setNavbarContent }) => {
     setJenisInputBaru("");
     setTypeInputBaru("");
     setBahanInputBaru("");
+    setIsCreatingNewDistributor(false);
+    setNewDistributorForm({ nama: "", no_hp: "", alamat: "" });
     setIsEdit(false);
     setSelectedId(null);
     setIsModalOpen(true);
@@ -439,11 +671,20 @@ const DistributorProductPage = ({ setNavbarContent }) => {
     setBahanInputBaru("");
     setSelectedId(item.id);
     setIsEdit(true);
+    setIsCreatingNewDistributor(false);
+    setNewDistributorForm({ nama: "", no_hp: "", alamat: "" });
     setIsModalOpen(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // ✅ Jika membuat distributor baru, simpan dulu distributor-nya
+    if (isCreatingNewDistributor && !isEdit) {
+      await handleCreateNewDistributor();
+      // Setelah distributor berhasil dibuat, lanjutkan submit produk
+    }
+
     const kodeToSubmit = getKodePreview();
     if (!kodeToSubmit || !form.ukuran || !form.distributor_id) {
       Swal.fire(
@@ -500,7 +741,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
       <strong>Tipe:</strong> ${typeName || "-"}<br/>
       <strong>Bahan:</strong> ${bahanNama || "-"}<br/>
       <strong>Ukuran:</strong> ${form.ukuran}<br/>
-      <strong>Distributor:</strong> ${distributor?.nama || "-"}<br/>
+      <strong>Distributor:</strong> ${distributor?.nama || newDistributorForm.nama || "-"}<br/>
       <strong>Harga Beli:</strong> ${formatRupiah(hargaBeliNum)}<br/>
       <strong>Harga Jual:</strong> ${formatRupiah(hargaNum)}<br/>
       ${
@@ -567,7 +808,10 @@ const DistributorProductPage = ({ setNavbarContent }) => {
       if (fotoAtas instanceof File) formData.append("foto_atas", fotoAtas);
 
       if (isEdit) {
-        await api.post(`/product-distributors/${selectedId}?_method=PUT`, formData);
+        await api.post(
+          `/product-distributors/${selectedId}?_method=PUT`,
+          formData,
+        );
       } else {
         await api.post("/product-distributors", formData);
       }
@@ -615,7 +859,6 @@ const DistributorProductPage = ({ setNavbarContent }) => {
       try {
         await api.delete(`/product-distributors/${id}`);
         Swal.fire("Berhasil", "Product distributor dihapus", "success");
-        // ✅ FIX: Tetap di page saat ini setelah delete (jangan reset)
         fetchData({ search, jenis_id: filterJenis, type_id: filterType });
       } catch {
         Swal.fire("Error", "Gagal menghapus Product distributor", "error");
@@ -990,7 +1233,9 @@ const DistributorProductPage = ({ setNavbarContent }) => {
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="p-5 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800 text-center">
-                {isEdit ? "Edit Product Distributor" : "Tambah Product Distributor"}
+                {isEdit
+                  ? "Edit Product Distributor"
+                  : "Tambah Product Distributor"}
               </h2>
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-5">
@@ -1010,21 +1255,94 @@ const DistributorProductPage = ({ setNavbarContent }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Distributor <span className="text-red-500">*</span>
                 </label>
-                <select
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-                  value={form.distributor_id}
-                  onChange={(e) =>
-                    setForm({ ...form, distributor_id: e.target.value })
-                  }
-                  required
-                >
-                  <option value="">Pilih Distributor</option>
-                  {distributors.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.nama}
-                    </option>
-                  ))}
-                </select>
+
+                {/* ✅ SEARCHABLE DISTRIBUTOR DROPDOWN dengan Create New */}
+                <SearchableDistributorDropdown
+                  distributors={distributors}
+                  selectedValue={form.distributor_id}
+                  onSelect={(val) => {
+                    setIsCreatingNewDistributor(false);
+                    setForm({ ...form, distributor_id: val });
+                  }}
+                  onCreateNew={() => {
+                    setIsCreatingNewDistributor(true);
+                    setForm({ ...form, distributor_id: "" });
+                  }}
+                  placeholder="Pilih Distributor..."
+                  searchPlaceholder="Cari nama atau no_hp..."
+                  disabled={isEdit}
+                />
+
+                {/* ✅ Form Distributor Baru */}
+                {isCreatingNewDistributor && (
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200 space-y-3">
+                    <p className="text-xs font-medium text-blue-800 flex items-center gap-1">
+                      <Truck size={12} /> Buat Distributor Baru
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nama Distributor *"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                        value={newDistributorForm.nama}
+                        onChange={(e) =>
+                          setNewDistributorForm({
+                            ...newDistributorForm,
+                            nama: e.target.value,
+                          })
+                        }
+                        required
+                      />
+                      <input
+                        type="tel"
+                        placeholder="Nomor HP (opsional)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                        value={newDistributorForm.no_hp}
+                        onChange={(e) =>
+                          setNewDistributorForm({
+                            ...newDistributorForm,
+                            no_hp: e.target.value,
+                          })
+                        }
+                      />
+                      <textarea
+                        placeholder="Alamat (opsional)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                        rows={2}
+                        value={newDistributorForm.alamat}
+                        onChange={(e) =>
+                          setNewDistributorForm({
+                            ...newDistributorForm,
+                            alamat: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleCreateNewDistributor}
+                        className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-1"
+                      >
+                        <CheckCircle size={14} /> Simpan & Pilih
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCreatingNewDistributor(false);
+                          setNewDistributorForm({
+                            nama: "",
+                            no_hp: "",
+                            alamat: "",
+                          });
+                        }}
+                        className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition"
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1229,7 +1547,7 @@ const DistributorProductPage = ({ setNavbarContent }) => {
                   className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition disabled:opacity-70 disabled:cursor-not-allowed"
                   disabled={loading}
                 >
-                  Simpan
+                  {isEdit ? "Perbarui" : "Simpan"}
                 </button>
               </div>
             </form>

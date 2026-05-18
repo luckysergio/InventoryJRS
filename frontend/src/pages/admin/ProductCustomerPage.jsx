@@ -112,11 +112,12 @@ const generateKode = (
 };
 // ===== END KODE GENERATOR =====
 
-// ===== COMPONENT: Searchable Customer Dropdown =====
+// ===== COMPONENT: Searchable Customer Dropdown dengan Create New =====
 const SearchableCustomerDropdown = ({
   customers,
   selectedValue,
   onSelect,
+  onCreateNew,
   placeholder = "Pilih Customer...",
   searchPlaceholder = "Cari nama/phone...",
   disabled = false,
@@ -252,6 +253,21 @@ const SearchableCustomerDropdown = ({
               })
             )}
           </div>
+
+          {/* ✅ Tombol Buat Customer Baru */}
+          {onCreateNew && (
+            <button
+              type="button"
+              onClick={() => {
+                onCreateNew();
+                setIsOpen(false);
+                setSearch("");
+              }}
+              className="p-2 border-t border-gray-100 text-sm text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-1 font-medium"
+            >
+              <Plus size={14} /> Tambah Customer Baru
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -335,6 +351,15 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
   const [jenisInputBaru, setJenisInputBaru] = useState("");
   const [typeInputBaru, setTypeInputBaru] = useState("");
   const [bahanInputBaru, setBahanInputBaru] = useState("");
+  
+  // ✅ State untuk form customer baru
+  const [isCreatingNewCustomer, setIsCreatingNewCustomer] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+  });
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
@@ -448,7 +473,12 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
 
     let customerNama = "";
     let customerHp = "";
-    if (form.customer_id) {
+    
+    // ✅ Handle customer baru
+    if (isCreatingNewCustomer) {
+      customerNama = newCustomerForm.name;
+      customerHp = newCustomerForm.phone;
+    } else if (form.customer_id) {
       const cust = customers.find(
         (c) => String(c.id) === String(form.customer_id),
       );
@@ -469,6 +499,57 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
   const kodePreview = getKodePreview();
   // ===== END KODE PREVIEW =====
 
+  // ✅ Fungsi untuk membuat customer baru
+  const handleCreateNewCustomer = async () => {
+    if (!newCustomerForm.name.trim()) {
+      Swal.fire("Validasi", "Nama customer wajib diisi", "warning");
+      return;
+    }
+    
+    try {
+      Swal.fire({
+        title: "Menyimpan customer...",
+        html: "Mohon tunggu",
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+      });
+      
+      const res = await api.post("/customers", {
+        name: newCustomerForm.name.trim(),
+        phone: newCustomerForm.phone?.trim() || "",
+        email: newCustomerForm.email?.trim() || "",
+      });
+      
+      Swal.close();
+      
+      const newCustomer = res.data.data;
+      
+      // Tambahkan ke list customers
+      setCustomers((prev) => [...prev, newCustomer]);
+      
+      // Set customer yang baru dibuat sebagai selected
+      setForm({ ...form, customer_id: String(newCustomer.id) });
+      
+      // Reset form customer baru
+      setIsCreatingNewCustomer(false);
+      setNewCustomerForm({ name: "", phone: "", email: "" });
+      
+      Swal.fire("Berhasil", "Customer baru berhasil ditambahkan", "success");
+      
+    } catch (error) {
+      Swal.close();
+      if (error.response?.status === 422) {
+        const msg = Object.values(error.response.data.errors || {})
+          .flat()
+          .join("<br>");
+        Swal.fire("Validasi Gagal", msg, "warning");
+      } else {
+        Swal.fire("Error", "Gagal membuat customer baru", "error");
+      }
+    }
+  };
+
   const handleTambah = () => {
     setForm({
       customer_id: "",
@@ -485,6 +566,8 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
     setJenisInputBaru("");
     setTypeInputBaru("");
     setBahanInputBaru("");
+    setIsCreatingNewCustomer(false);
+    setNewCustomerForm({ name: "", phone: "", email: "" });
     setIsEdit(false);
     setSelectedId(null);
     setSelectedProduct(null);
@@ -530,6 +613,8 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
     setSelectedProduct(item);
     setSelectedId(item.id);
     setIsEdit(true);
+    setIsCreatingNewCustomer(false);
+    setNewCustomerForm({ name: "", phone: "", email: "" });
     setIsModalOpen(true);
   };
 
@@ -560,6 +645,13 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // ✅ Jika membuat customer baru, simpan dulu customer-nya
+    if (isCreatingNewCustomer && !isEdit) {
+      await handleCreateNewCustomer();
+      // Setelah customer berhasil dibuat, lanjutkan submit produk
+      // (handleCreateNewCustomer sudah set form.customer_id)
+    }
 
     if (!isEdit) {
       if (!form.customer_id) {
@@ -615,7 +707,7 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
       <div style="text-align: center; font-size: 14px; line-height: 1.5;">
         ${
           !isEdit
-            ? `<strong>Customer:</strong> ${customer?.name || "-"}<br/>`
+            ? `<strong>Customer:</strong> ${customer?.name || newCustomerForm.name || "-"}<br/>`
             : ""
         }
         <strong>Kode:</strong> ${
@@ -1099,17 +1191,75 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Customer <span className="text-red-500">*</span>
                   </label>
-                  {/* ✅ SEARCHABLE CUSTOMER DROPDOWN */}
+                  
+                  {/* ✅ SEARCHABLE CUSTOMER DROPDOWN dengan Create New */}
                   <SearchableCustomerDropdown
                     customers={customers}
                     selectedValue={form.customer_id}
-                    onSelect={(val) =>
-                      setForm({ ...form, customer_id: val })
-                    }
+                    onSelect={(val) => {
+                      setIsCreatingNewCustomer(false);
+                      setForm({ ...form, customer_id: val });
+                    }}
+                    onCreateNew={() => {
+                      setIsCreatingNewCustomer(true);
+                      setForm({ ...form, customer_id: "" });
+                    }}
                     placeholder="Pilih Customer..."
                     searchPlaceholder="Cari nama atau phone..."
                     disabled={isEdit}
                   />
+                  
+                  {/* ✅ Form Customer Baru */}
+                  {isCreatingNewCustomer && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200 space-y-3">
+                      <p className="text-xs font-medium text-blue-800 flex items-center gap-1">
+                        <User size={12} /> Buat Customer Baru
+                      </p>
+                      <div className="grid grid-cols-1 gap-2">
+                        <input
+                          type="text"
+                          placeholder="Nama Customer *"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                          value={newCustomerForm.name}
+                          onChange={(e) => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
+                          required
+                        />
+                        <input
+                          type="tel"
+                          placeholder="Nomor HP (opsional)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                          value={newCustomerForm.phone}
+                          onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+                        />
+                        <input
+                          type="email"
+                          placeholder="Email (opsional)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                          value={newCustomerForm.email}
+                          onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCreateNewCustomer}
+                          className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-1"
+                        >
+                          <CheckCircle size={14} /> Simpan & Pilih
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCreatingNewCustomer(false);
+                            setNewCustomerForm({ name: "", phone: "", email: "" });
+                          }}
+                          className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition"
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
