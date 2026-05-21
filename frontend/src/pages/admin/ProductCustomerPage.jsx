@@ -112,7 +112,161 @@ const generateKode = (
 };
 // ===== END KODE GENERATOR =====
 
-// ===== COMPONENT: Searchable Customer Dropdown dengan Create New =====
+// ===== COMPONENT: Searchable Customer Dropdown untuk Filter =====
+const SearchableCustomerFilterDropdown = ({
+  customers,
+  selectedValue,
+  onSelect,
+  placeholder = "Semua Customer",
+  searchPlaceholder = "Cari customer...",
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Urutkan customer secara alfabetis berdasarkan nama A-Z
+  const sortedCustomers = [...customers].sort((a, b) => 
+    (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase())
+  );
+
+  const filteredCustomers = sortedCustomers.filter((c) => {
+    if (!search.trim()) return true;
+    const searchLower = search.toLowerCase();
+    return (
+      c.name?.toLowerCase().includes(searchLower) ||
+      c.phone?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  const handleSelect = (value) => {
+    onSelect(value);
+    setIsOpen(false);
+    setSearch("");
+  };
+
+  const selectedCustomer = sortedCustomers.find(
+    (c) => String(c.id) === String(selectedValue),
+  );
+
+  return (
+    <div className="relative w-full" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-2 border border-gray-300 rounded-lg bg-white text-left hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 text-sm"
+      >
+        <span className="truncate">
+          {selectedCustomer
+            ? `${selectedCustomer.name} ${selectedCustomer.phone ? `- ${selectedCustomer.phone}` : ""}`
+            : placeholder}
+        </span>
+        {isOpen ? (
+          <ChevronUp size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        ) : (
+          <ChevronDown size={16} className="text-gray-400 ml-2 flex-shrink-0" />
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+          <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={searchPlaceholder}
+                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearch("");
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="overflow-y-auto flex-1 max-h-40">
+            <button
+              type="button"
+              onClick={() => handleSelect("")}
+              className={`w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 flex items-center justify-between ${
+                selectedValue === "" ? "bg-indigo-100 text-indigo-800" : ""
+              }`}
+            >
+              <span className="truncate">📋 Semua Customer</span>
+              {selectedValue === "" && (
+                <CheckCircle size={14} className="text-indigo-600 ml-2" />
+              )}
+            </button>
+            
+            {filteredCustomers.length === 0 ? (
+              <div className="p-3 text-sm text-gray-500 text-center">
+                Tidak ditemukan
+              </div>
+            ) : (
+              filteredCustomers.map((c) => {
+                const isSelected = String(c.id) === String(selectedValue);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => handleSelect(c.id)}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 flex items-center justify-between ${
+                      isSelected ? "bg-indigo-100 text-indigo-800" : ""
+                    }`}
+                  >
+                    <span className="truncate">
+                      <span className="font-medium">{c.name}</span>
+                      {c.phone && (
+                        <span className="text-gray-400 text-xs ml-1">
+                          📞 {c.phone}
+                        </span>
+                      )}
+                    </span>
+                    {isSelected && (
+                      <CheckCircle size={14} className="text-indigo-600 ml-2 flex-shrink-0" />
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ===== COMPONENT: Searchable Customer Dropdown untuk Form (dengan Create New) =====
 const SearchableCustomerDropdown = ({
   customers,
   selectedValue,
@@ -127,7 +281,12 @@ const SearchableCustomerDropdown = ({
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
 
-  const filteredCustomers = customers.filter((c) => {
+  // Urutkan customer secara alfabetis berdasarkan nama A-Z
+  const sortedCustomers = [...customers].sort((a, b) => 
+    (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase())
+  );
+
+  const filteredCustomers = sortedCustomers.filter((c) => {
     if (!search.trim()) return true;
     const searchLower = search.toLowerCase();
     return (
@@ -159,7 +318,7 @@ const SearchableCustomerDropdown = ({
     setSearch("");
   };
 
-  const selectedCustomer = customers.find(
+  const selectedCustomer = sortedCustomers.find(
     (c) => String(c.id) === String(selectedValue),
   );
 
@@ -174,7 +333,7 @@ const SearchableCustomerDropdown = ({
   }
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative w-full" ref={dropdownRef}>
       <button
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
@@ -183,7 +342,7 @@ const SearchableCustomerDropdown = ({
       >
         <span className="truncate">
           {selectedCustomer
-            ? `${selectedCustomer.name} - ${selectedCustomer.phone}`
+            ? `${selectedCustomer.name} ${selectedCustomer.phone ? `- ${selectedCustomer.phone}` : ""}`
             : placeholder}
         </span>
         {isOpen ? (
@@ -240,13 +399,15 @@ const SearchableCustomerDropdown = ({
                     }`}
                   >
                     <span className="truncate">
-                      {c.name}{" "}
+                      <span className="font-medium">{c.name}</span>
                       {c.phone && (
-                        <span className="text-gray-400">- {c.phone}</span>
+                        <span className="text-gray-400 text-xs ml-1">
+                          📞 {c.phone}
+                        </span>
                       )}
                     </span>
                     {isSelected && (
-                      <CheckCircle size={14} className="text-indigo-600 ml-2" />
+                      <CheckCircle size={14} className="text-indigo-600 ml-2 flex-shrink-0" />
                     )}
                   </button>
                 );
@@ -254,7 +415,7 @@ const SearchableCustomerDropdown = ({
             )}
           </div>
 
-          {/* ✅ Tombol Buat Customer Baru */}
+          {/* Tombol Buat Customer Baru */}
           {onCreateNew && (
             <button
               type="button"
@@ -273,51 +434,57 @@ const SearchableCustomerDropdown = ({
     </div>
   );
 };
-// ===== END Searchable Customer Dropdown =====
 
+// ===== COMPONENT: Filter Bar dengan Searchable Dropdown =====
 export const ProductCustomerFilterBar = ({
   search,
   setSearch,
   filterCustomer,
   setFilterCustomer,
   customers,
-}) => (
-  <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
-    <div className="relative flex-1 min-w-[150px]">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-      <input
-        type="text"
-        placeholder="Cari kode atau nama produk..."
-        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+}) => {
+  // Urutkan customer untuk ditampilkan di dropdown
+  const sortedCustomers = [...customers].sort((a, b) => 
+    (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase())
+  );
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
+      <div className="relative flex-1 min-w-[150px]">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Cari kode atau nama produk..."
+          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      
+      <div className="flex-1 min-w-[200px]">
+        <SearchableCustomerFilterDropdown
+          customers={sortedCustomers}
+          selectedValue={filterCustomer}
+          onSelect={setFilterCustomer}
+          placeholder="📋 Semua Customer"
+          searchPlaceholder="Cari nama atau nomor HP..."
+        />
+      </div>
+      
+      {(search || filterCustomer) && (
+        <button
+          onClick={() => {
+            setSearch("");
+            setFilterCustomer("");
+          }}
+          className="py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm whitespace-nowrap font-medium"
+        >
+          Reset Filter
+        </button>
+      )}
     </div>
-    <div className="flex-1 min-w-[200px]">
-      <select
-        className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:outline-none text-sm"
-        value={filterCustomer}
-        onChange={(e) => setFilterCustomer(e.target.value)}
-      >
-        <option value="">Semua Customer</option>
-        {customers.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name} ({c.phone})
-          </option>
-        ))}
-      </select>
-    </div>
-    <button
-      onClick={() => {
-        setSearch("");
-        setFilterCustomer("");
-      }}
-      className="py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm whitespace-nowrap font-medium"
-    >
-      Reset Filter
-    </button>
-  </div>
-);
+  );
+};
 
 const ProductCustomerPage = ({ setNavbarContent }) => {
   const [products, setProducts] = useState([]);
@@ -334,6 +501,9 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const role = user?.role;
+
+  // Ref untuk track component mount status (mencegah state update setelah unmount)
+  const isMountedRef = useRef(true);
 
   // Form state
   const [form, setForm] = useState({
@@ -352,7 +522,7 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
   const [typeInputBaru, setTypeInputBaru] = useState("");
   const [bahanInputBaru, setBahanInputBaru] = useState("");
   
-  // ✅ State untuk form customer baru
+  // State untuk form customer baru
   const [isCreatingNewCustomer, setIsCreatingNewCustomer] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState({
     name: "",
@@ -375,6 +545,13 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
   const fileInputSamping = useRef(null);
   const fileInputAtas = useRef(null);
 
+  // Cleanup: set mounted to false saat component unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Fetch master data
   const fetchMasterData = async () => {
     try {
@@ -384,20 +561,25 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
         api.get("/type"),
         api.get("/bahan"),
       ]);
-      setCustomers(cRes.data.data || []);
-      setJenis(jRes.data.data || []);
-      setAllTypes(tRes.data.data || []);
-      setBahan(bRes.data.data || []);
+      
+      if (isMountedRef.current) {
+        setCustomers(cRes.data.data || []);
+        setJenis(jRes.data.data || []);
+        setAllTypes(tRes.data.data || []);
+        setBahan(bRes.data.data || []);
+      }
     } catch (error) {
       console.error("Error fetching master data:", error);
-      Swal.fire("Error", "Gagal mengambil data master", "error");
+      if (isMountedRef.current) {
+        Swal.fire("Error", "Gagal mengambil data master", "error");
+      }
     }
   };
 
   // Fetch products
   const fetchData = async (params = {}) => {
     try {
-      setLoading(true);
+      if (isMountedRef.current) setLoading(true);
       const res = await api.get("/product-customers", {
         params: {
           ...params,
@@ -406,13 +588,18 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
           search: search || undefined,
         },
       });
-      setProducts(res.data.data || []);
-      setLastPage(res.data.meta?.last_page || 1);
+      
+      if (isMountedRef.current) {
+        setProducts(res.data.data || []);
+        setLastPage(res.data.meta?.last_page || 1);
+      }
     } catch (error) {
-      Swal.fire("Error", "Gagal mengambil data produk customer", "error");
       console.error("Fetch products error:", error);
+      if (isMountedRef.current) {
+        Swal.fire("Error", "Gagal mengambil data produk customer", "error");
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   };
 
@@ -474,10 +661,10 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
     let customerNama = "";
     let customerHp = "";
     
-    // ✅ Handle customer baru
-    if (isCreatingNewCustomer) {
-      customerNama = newCustomerForm.name;
-      customerHp = newCustomerForm.phone;
+    // Handle customer baru - prioritas ke newCustomerForm jika sedang membuat
+    if (isCreatingNewCustomer && newCustomerForm.name?.trim()) {
+      customerNama = newCustomerForm.name.trim();
+      customerHp = newCustomerForm.phone?.trim() || "";
     } else if (form.customer_id) {
       const cust = customers.find(
         (c) => String(c.id) === String(form.customer_id),
@@ -499,11 +686,11 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
   const kodePreview = getKodePreview();
   // ===== END KODE PREVIEW =====
 
-  // ✅ Fungsi untuk membuat customer baru
+  // Fungsi untuk membuat customer baru - RETURN ID untuk digunakan langsung
   const handleCreateNewCustomer = async () => {
-    if (!newCustomerForm.name.trim()) {
+    if (!newCustomerForm.name?.trim()) {
       Swal.fire("Validasi", "Nama customer wajib diisi", "warning");
-      return;
+      return null;
     }
     
     try {
@@ -523,30 +710,48 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
       
       Swal.close();
       
-      const newCustomer = res.data.data;
+      // Handle berbagai kemungkinan struktur response API
+      const newCustomer = res.data?.data || res.data?.customer || res.data;
       
-      // Tambahkan ke list customers
-      setCustomers((prev) => [...prev, newCustomer]);
+      if (!newCustomer || !newCustomer.id) {
+        throw new Error("Response API tidak valid");
+      }
       
-      // Set customer yang baru dibuat sebagai selected
-      setForm({ ...form, customer_id: String(newCustomer.id) });
+      // Gunakan functional update untuk menghindari stale closure
+      if (isMountedRef.current) {
+        setCustomers((prev) => {
+          // Cek duplicate sebelum menambah
+          if (prev.some((c) => String(c.id) === String(newCustomer.id))) {
+            return prev;
+          }
+          return [...prev, newCustomer];
+        });
+      }
       
       // Reset form customer baru
-      setIsCreatingNewCustomer(false);
-      setNewCustomerForm({ name: "", phone: "", email: "" });
+      if (isMountedRef.current) {
+        setIsCreatingNewCustomer(false);
+        setNewCustomerForm({ name: "", phone: "", email: "" });
+      }
       
       Swal.fire("Berhasil", "Customer baru berhasil ditambahkan", "success");
       
+      // RETURN ID agar bisa digunakan langsung di handleSubmit
+      return newCustomer.id;
+      
     } catch (error) {
       Swal.close();
+      console.error("Create customer error:", error);
+      
       if (error.response?.status === 422) {
         const msg = Object.values(error.response.data.errors || {})
           .flat()
           .join("<br>");
         Swal.fire("Validasi Gagal", msg, "warning");
       } else {
-        Swal.fire("Error", "Gagal membuat customer baru", "error");
+        Swal.fire("Error", error.message || "Gagal membuat customer baru", "error");
       }
+      return null;
     }
   };
 
@@ -646,15 +851,28 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ✅ Jika membuat customer baru, simpan dulu customer-nya
+    // Variabel lokal untuk customer_id (mengatasi async state update)
+    let customerId = form.customer_id;
+    
+    // Jika membuat customer baru, simpan dulu customer-nya
     if (isCreatingNewCustomer && !isEdit) {
-      await handleCreateNewCustomer();
-      // Setelah customer berhasil dibuat, lanjutkan submit produk
-      // (handleCreateNewCustomer sudah set form.customer_id)
+      const newCustomerId = await handleCreateNewCustomer();
+      if (!newCustomerId) {
+        // Customer creation failed, stop here
+        return;
+      }
+      // Gunakan ID yang baru saja dibuat (tidak menunggu state update)
+      customerId = String(newCustomerId);
+      
+      // Update form state untuk konsistensi UI (optional, untuk UX)
+      if (isMountedRef.current) {
+        setForm((prev) => ({ ...prev, customer_id: customerId }));
+      }
     }
 
+    // Validasi dengan customerId yang sudah benar
     if (!isEdit) {
-      if (!form.customer_id) {
+      if (!customerId) {
         Swal.fire("Validasi", "Customer wajib dipilih", "warning");
         return;
       }
@@ -677,9 +895,15 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
       if (!confirm.isConfirmed) return;
     }
 
-    const customer = customers.find(
-      (c) => String(c.id) === String(form.customer_id),
-    );
+    // Get customer name for preview (handle new customer case)
+    let customerDisplayName = "-";
+    if (isCreatingNewCustomer && newCustomerForm.name) {
+      customerDisplayName = newCustomerForm.name;
+    } else if (customerId) {
+      const cust = customers.find((c) => String(c.id) === String(customerId));
+      customerDisplayName = cust?.name || "-";
+    }
+
     const jenisNama =
       form.jenis_id === "new"
         ? jenisInputBaru
@@ -707,7 +931,7 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
       <div style="text-align: center; font-size: 14px; line-height: 1.5;">
         ${
           !isEdit
-            ? `<strong>Customer:</strong> ${customer?.name || newCustomerForm.name || "-"}<br/>`
+            ? `<strong>Customer:</strong> ${customerDisplayName}<br/>`
             : ""
         }
         <strong>Kode:</strong> ${
@@ -768,11 +992,12 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
 
       const formData = new FormData();
 
-      // ✅ Kirim kode yang sudah final
+      // Kirim kode yang sudah final
       formData.append("kode", finalKode);
 
       if (!isEdit) {
-        formData.append("customer_id", form.customer_id);
+        // Gunakan customerId yang sudah dipastikan valid
+        formData.append("customer_id", customerId);
       }
 
       if (form.jenis_id && form.jenis_id !== "new") {
@@ -820,30 +1045,34 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
         "success",
       );
 
-      setIsModalOpen(false);
+      if (isMountedRef.current) {
+        setIsModalOpen(false);
 
-      // ✅ FIX: Hanya reset ke page 1 saat tambah baru, bukan saat edit
-      if (!isEdit) {
-        setCurrentPage(1);
+        // Hanya reset ke page 1 saat tambah baru, bukan saat edit
+        if (!isEdit) {
+          setCurrentPage(1);
+        }
+
+        fetchData();
       }
-
-      fetchData();
     } catch (error) {
       Swal.close();
       console.error("Submit error:", error);
-      if (error.response?.status === 422) {
-        const msg = Object.values(error.response.data.errors || {})
-          .flat()
-          .join("<br>");
-        Swal.fire("Validasi Gagal", msg, "warning");
-      } else {
-        Swal.fire(
-          "Error",
-          error.response?.data?.message ||
-            error.message ||
-            "Terjadi kesalahan saat menyimpan data",
-          "error",
-        );
+      if (isMountedRef.current) {
+        if (error.response?.status === 422) {
+          const msg = Object.values(error.response.data.errors || {})
+            .flat()
+            .join("<br>");
+          Swal.fire("Validasi Gagal", msg, "warning");
+        } else {
+          Swal.fire(
+            "Error",
+            error.response?.data?.message ||
+              error.message ||
+              "Terjadi kesalahan saat menyimpan data",
+            "error",
+          );
+        }
       }
     }
   };
@@ -1165,7 +1394,7 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
               )}
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-5">
-              {/* ✅ KODE PREVIEW */}
+              {/* KODE PREVIEW */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Kode <span className="text-red-500">*</span>
@@ -1192,7 +1421,7 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
                     Customer <span className="text-red-500">*</span>
                   </label>
                   
-                  {/* ✅ SEARCHABLE CUSTOMER DROPDOWN dengan Create New */}
+                  {/* SEARCHABLE CUSTOMER DROPDOWN dengan Create New */}
                   <SearchableCustomerDropdown
                     customers={customers}
                     selectedValue={form.customer_id}
@@ -1209,7 +1438,7 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
                     disabled={isEdit}
                   />
                   
-                  {/* ✅ Form Customer Baru */}
+                  {/* Form Customer Baru */}
                   {isCreatingNewCustomer && (
                     <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200 space-y-3">
                       <p className="text-xs font-medium text-blue-800 flex items-center gap-1">

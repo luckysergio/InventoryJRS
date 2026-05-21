@@ -10,7 +10,7 @@ import {
   ArrowLeft,
   CheckCircle,
   X,
-  Calendar, // ✅ TAMBAHKAN: Icon Calendar untuk tanggal
+  Calendar,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -94,6 +94,7 @@ const CustomerPage = ({ setNavbarContent }) => {
   const [detailModal, setDetailModal] = useState(null);
   const [bayarModal, setBayarModal] = useState(null);
   const [jumlahBayar, setJumlahBayar] = useState("");
+  const [statusSelesaiId, setStatusSelesaiId] = useState(null);
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.role;
 
@@ -112,6 +113,22 @@ const CustomerPage = ({ setNavbarContent }) => {
   const ITEMS_PER_PAGE = 20;
 
   const [isNavbarSet, setIsNavbarSet] = useState(false);
+
+  // Fetch status transaksi untuk mendapatkan ID status "Selesai"
+  const fetchStatusTransaksi = useCallback(async () => {
+    try {
+      const res = await api.get("/status-transaksi");
+      const statuses = res.data.data || [];
+      const selesai = statuses.find((s) =>
+        s.nama.toLowerCase().includes("selesai")
+      );
+      if (selesai) {
+        setStatusSelesaiId(selesai.id.toString());
+      }
+    } catch (error) {
+      console.error("Gagal fetch status transaksi:", error);
+    }
+  }, []);
 
   const fetchData = useCallback(async (searchTerm = "") => {
     try {
@@ -152,8 +169,9 @@ const CustomerPage = ({ setNavbarContent }) => {
   }, []);
 
   useEffect(() => {
+    fetchStatusTransaksi();
     fetchData(search);
-  }, [search, fetchData]);
+  }, [search, fetchData, fetchStatusTransaksi]);
 
   // FIX: Set navbar content - ONLY in navbar, no inline fallback
   useEffect(() => {
@@ -231,7 +249,6 @@ const CustomerPage = ({ setNavbarContent }) => {
   };
 
   const handleDelete = async (id) => {
-    // Tampilkan konfirmasi sebelum menghapus
     const confirmResult = await Swal.fire({
       title: "Yakin ingin menghapus?",
       text: "Data customer akan dihapus secara permanen",
@@ -245,7 +262,6 @@ const CustomerPage = ({ setNavbarContent }) => {
 
     if (!confirmResult.isConfirmed) return;
 
-    // Tampilkan loading saat proses delete
     Swal.fire({
       title: "Menghapus...",
       text: "Mohon tunggu sebentar",
@@ -257,11 +273,8 @@ const CustomerPage = ({ setNavbarContent }) => {
 
     try {
       const response = await api.delete(`/customers/${id}`);
-
-      // Tutup loading alert
       Swal.close();
 
-      // Cek status response dari API
       if (response.data.status === true) {
         await Swal.fire({
           icon: "success",
@@ -270,17 +283,13 @@ const CustomerPage = ({ setNavbarContent }) => {
           timer: 2000,
           showConfirmButton: false,
         });
-        // Refresh data
         fetchData(search);
       } else {
-        // Jika status false (seharusnya tidak terjadi untuk success case)
         throw new Error(response.data.message || "Gagal menghapus customer");
       }
     } catch (error) {
-      // Tutup loading alert
       Swal.close();
 
-      // Handle error 422 (Customer memiliki product)
       if (error.response?.status === 422) {
         await Swal.fire({
           icon: "warning",
@@ -291,22 +300,16 @@ const CustomerPage = ({ setNavbarContent }) => {
           confirmButtonText: "Mengerti",
           confirmButtonColor: "#d33",
         });
-      }
-      // Handle error 404 (Customer tidak ditemukan)
-      else if (error.response?.status === 404) {
+      } else if (error.response?.status === 404) {
         await Swal.fire({
           icon: "error",
           title: "Tidak Ditemukan",
           text: error.response.data?.message || "Customer tidak ditemukan",
           confirmButtonText: "OK",
         });
-        // Refresh data untuk menghapus customer yang tidak valid dari state
         fetchData(search);
-      }
-      // Handle error lainnya (network error, server error, dll)
-      else {
+      } else {
         console.error("Delete error details:", error);
-
         let errorMessage = "Terjadi kesalahan saat menghapus data";
         if (error.response?.data?.message) {
           errorMessage = error.response.data.message;
@@ -350,19 +353,23 @@ const CustomerPage = ({ setNavbarContent }) => {
     setJumlahBayar(formatted);
   };
 
+  // ============ PERBAIKAN UTAMA: Handle Bayar dengan Auto Complete Status ============
   const handleBayar = async (e) => {
     e.preventDefault();
     if (!bayarModal) return;
 
     const jumlah = unformatRupiah(jumlahBayar);
-    const totalBayar = Array.isArray(bayarModal.transaksiDetail.pembayarans)
-      ? bayarModal.transaksiDetail.pembayarans.reduce(
+    const detail = bayarModal.transaksiDetail;
+    
+    const totalBayarSebelumnya = Array.isArray(detail.pembayarans)
+      ? detail.pembayarans.reduce(
           (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
           0,
         )
       : 0;
-    const sisaTagihan =
-      safeParseFloat(bayarModal.transaksiDetail.subtotal) - totalBayar;
+    
+    const subtotal = safeParseFloat(detail.subtotal);
+    const sisaTagihan = subtotal - totalBayarSebelumnya;
 
     if (!jumlah || jumlah <= 0) {
       Swal.fire("Error", "Jumlah bayar harus lebih dari 0", "warning");
@@ -381,29 +388,48 @@ const CustomerPage = ({ setNavbarContent }) => {
     }
 
     try {
+      // Simpan pembayaran
       await api.post("/pembayaran", {
-        transaksi_detail_id: bayarModal.transaksiDetail.id,
+        transaksi_detail_id: detail.id,
         jumlah_bayar: jumlah,
         tanggal_bayar: new Date().toISOString().split("T")[0],
       });
 
-      Swal.fire("Berhasil", "Pembayaran berhasil dicatat", "success");
+      // Hitung sisa setelah pembayaran
+      const newSisa = sisaTagihan - jumlah;
 
+      // ============ AUTO COMPLETE: Jika sisa <= 0, ubah status menjadi Selesai ============
+      if (newSisa <= 0 && statusSelesaiId) {
+        try {
+          await api.patch(`/transaksi-detail/${detail.id}/status`, {
+            status_transaksi_id: statusSelesaiId,
+          });
+          Swal.fire("Berhasil!", "Pembayaran lunas & tagihan diselesaikan", "success");
+        } catch (err) {
+          console.error("Gagal auto-complete status:", err);
+          Swal.fire("Berhasil!", "Pembayaran dicatat (gagal auto-selesai)", "success");
+        }
+      } else {
+        Swal.fire("Berhasil", "Pembayaran berhasil dicatat", "success");
+      }
+
+      // Tutup modal dan refresh data
       setBayarModal(null);
       setDetailModal(null);
       setCustomerModal(null);
       setJumlahBayar("");
       fetchData(search);
     } catch (error) {
+      console.error("Error bayar:", error);
       Swal.fire("Error", "Gagal menyimpan pembayaran", "error");
     }
   };
 
-  // FIX #3: Perbaikan qty pada print tagihan - gunakan detail.qty bukan detail.quantity
   const handlePrintTagihan = (customer) => {
     const transaksiDetails = Array.isArray(customer.transaksi_details)
       ? customer.transaksi_details.filter((detail) => {
           if (!detail || !detail.transaksi || !detail.product) return false;
+          // Skip status dibatalkan (ID 6)
           if (detail.status_transaksi_id === 6) return false;
           const subtotal = safeParseFloat(detail.subtotal);
           const totalBayar = Array.isArray(detail.pembayarans)
@@ -431,13 +457,7 @@ const CustomerPage = ({ setNavbarContent }) => {
         const subtotal = safeParseFloat(detail.subtotal);
         const discount = safeParseFloat(detail.discount);
         const subtotalAsli = subtotal + discount;
-
-        // FIX: Gunakan detail.qty (bukan detail.quantity) sesuai struktur database
-        const quantity =
-          detail.qty !== undefined && detail.qty !== null
-            ? Number(detail.qty)
-            : 1;
-
+        const quantity = detail.qty !== undefined && detail.qty !== null ? Number(detail.qty) : 1;
         const totalBayar = Array.isArray(detail.pembayarans)
           ? detail.pembayarans.reduce(
               (sum, p) => sum + safeParseFloat(p.jumlah_bayar),
@@ -693,8 +713,6 @@ const CustomerPage = ({ setNavbarContent }) => {
 
   return (
     <>
-      {/* FIX: Removed inline searchbar fallback - searchbar ONLY in navbar now */}
-
       <div className="space-y-4 sm:space-y-6 p-3 sm:p-4 md:p-6 max-w-7xl mx-auto w-full">
         {/* LOADING */}
         {loading ? (
@@ -1148,7 +1166,6 @@ const CustomerPage = ({ setNavbarContent }) => {
                         const isHarian =
                           detail.transaksi?.jenis_transaksi === "daily";
 
-                        // ✅ FIX #1: Format tanggal transaksi untuk card
                         const tanggalTransaksi = detail.transaksi?.tanggal
                           ? formatTanggal(detail.transaksi.tanggal)
                           : "-";
@@ -1189,7 +1206,6 @@ const CustomerPage = ({ setNavbarContent }) => {
                               {formatProductName(detail.product)}
                             </p>
 
-                            {/* ✅ FIX #1: Tampilkan tanggal transaksi dengan icon Calendar */}
                             <div className="flex items-center justify-center gap-1 mb-2 text-[10px] sm:text-xs text-gray-500">
                               <Calendar size={12} className="flex-shrink-0" />
                               <span>{tanggalTransaksi}</span>
@@ -1233,7 +1249,6 @@ const CustomerPage = ({ setNavbarContent }) => {
           const sisaTagihan = subtotal - totalBayar;
           const isLunas = sisaTagihan <= 0;
 
-          // ✅ FIX #2: Gunakan 'transaksiDetail' (bukan 'detail') untuk akses tanggal
           const tanggalTransaksi = transaksiDetail.transaksi?.tanggal
             ? formatTanggal(transaksiDetail.transaksi.tanggal)
             : "-";
@@ -1266,7 +1281,6 @@ const CustomerPage = ({ setNavbarContent }) => {
                         {formatProductName(transaksiDetail.product)}
                       </p>
 
-                      {/* ✅ FIX #2: Tampilkan tanggal dengan icon Calendar */}
                       <div className="flex items-center justify-center gap-1 my-2 text-[10px] sm:text-xs text-gray-500">
                         <Calendar size={12} className="flex-shrink-0" />
                         <span>{tanggalTransaksi}</span>
@@ -1315,6 +1329,11 @@ const CustomerPage = ({ setNavbarContent }) => {
                       Sudah dibayar: Rp {formatRupiah(totalBayar)} dari Rp{" "}
                       {formatRupiah(subtotal)}
                     </p>
+                    {!isLunas && (
+                      <p className="text-sm font-bold text-red-600 mt-1">
+                        Sisa: Rp {formatRupiah(sisaTagihan)}
+                      </p>
+                    )}
                   </div>
 
                   {!isLunas && (
