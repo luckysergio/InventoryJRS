@@ -204,18 +204,15 @@ class ProductController extends Controller
 
     private function makeUniqueKode(string $baseKode, ?int $ignoreId = null): string
     {
-        $kode = $baseKode;
-        $counter = 1;
-
-        while (
-            Product::where('kode', $kode)
+        $exists = Product::where('kode', $baseKode)
             ->when($ignoreId, fn($q) => $q->where('id', '!=', $ignoreId))
-            ->exists()
-        ) {
-            $kode = $baseKode . '-' . $counter++;
+            ->exists();
+
+        if ($exists) {
+            throw new \Exception('Produk dengan kombinasi jenis, type, bahan, dan ukuran sudah ada');
         }
 
-        return $kode;
+        return $baseKode;
     }
 
     private function buildProductKode(
