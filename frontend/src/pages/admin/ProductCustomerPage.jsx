@@ -1341,7 +1341,7 @@ const ProductCustomerPage = ({ setNavbarContent }) => {
                     </div>
                   )}
                   <div className="flex gap-2 pt-2 mt-auto">
-                    {(role === "admin" || role === "admin_toko") && (
+                    {role === "admin" && (
                       <button
                         onClick={() => handleEdit(item)}
                         className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 text-xs font-medium transition-colors duration-200"

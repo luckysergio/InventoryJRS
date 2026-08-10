@@ -455,7 +455,7 @@ const InventoryPage = ({ setNavbarContent }) => {
                       </p>
                     </div>
 
-                    {(role === "admin" || role === "admin_toko") && (
+                    {role === "admin" && (
                       <div className="flex gap-1">
                         <button
                           onClick={() => openModal("in", item.inv_toko)}

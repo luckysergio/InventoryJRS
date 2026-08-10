@@ -279,9 +279,9 @@ class ProductDistributorController extends Controller
             'harga_beli' => 'required|integer|min:0',
             'harga_umum' => 'required|integer|min:0',
             'keterangan' => 'nullable|string',
-            'foto_depan' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_atas' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+            'foto_depan' => 'nullable|image|mimes:jpg,jpeg,png',
+            'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png',
+            'foto_atas' => 'nullable|image|mimes:jpg,jpeg,png',
         ]);
     }
 

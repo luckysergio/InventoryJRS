@@ -270,9 +270,9 @@ class ProductController extends Controller
 
                 'harga_umum' => 'required|integer|min:0',
 
-                'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-                'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-                'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+                'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png',
+                'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png',
+                'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png',
             ],
             [
                 'jenis_nama.regex' => 'Nama jenis harus HURUF KAPITAL',
@@ -414,9 +414,9 @@ class ProductController extends Controller
 
             'harga_umum' => 'required|integer|min:0',
 
-            'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+            'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png',
+            'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png',
+            'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png',
         ], [
             'jenis_nama.regex' => 'Nama jenis harus HURUF KAPITAL',
             'type_nama.regex'  => 'Nama type harus HURUF KAPITAL',
@@ -713,9 +713,9 @@ class ProductController extends Controller
     public function uploadFoto(Request $request, Product $product)
     {
         $request->validate([
-            'foto_depan'   => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'foto_samping' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'foto_atas'    => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'foto_depan'   => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+            'foto_samping' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+            'foto_atas'    => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
 
         $manager = new ImageManager(new Driver());

@@ -635,14 +635,16 @@ const TransaksiPage = ({ setNavbarContent }) => {
     );
   };
 
+  // ✅ FIX 1: Type mismatch comparison (String vs Number)
   const calculateActiveTotal = (details, prosesId) => {
     return details
-      .filter((d) => d.status_transaksi_id === prosesId)
+      .filter((d) => String(d.status_transaksi_id) === String(prosesId))
       .reduce((sum, d) => sum + safeParseFloat(d.subtotal), 0);
   };
 
+  // ✅ FIX 2: Type mismatch comparison (String vs Number)
   const getActiveDetails = (details) => {
-    return details.filter((d) => d.status_transaksi_id === statusProsesId);
+    return details.filter((d) => String(d.status_transaksi_id) === String(statusProsesId));
   };
 
   // ============ API FUNCTIONS ============
@@ -799,8 +801,9 @@ const TransaksiPage = ({ setNavbarContent }) => {
         setIsCreatingNewCustomer(false);
       }
 
+      // ✅ FIX 3: Type mismatch comparison (String vs Number)
       const detailsData = (data.details || [])
-        .filter((d) => d.status_transaksi_id === statusProsesId)
+        .filter((d) => String(d.status_transaksi_id) === String(statusProsesId))
         .map((d) => ({
           id: d.id || "",
           product_id: d.product_id ? Number(d.product_id) : "",
@@ -1042,7 +1045,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
             tanggal_bayar: result.value.tanggal,
           })
           .then(async () => {
-            // FIX #2: Auto-complete when payment reaches 0
             const newSisa = sisa - result.value.jumlah;
             if (newSisa <= 0) {
               try {
@@ -1066,7 +1068,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
   };
 
   // ============ SET NAVBAR CONTENT ============
-  // FIX #1: Only send filter to navbar, remove inline fallback on mobile
   useEffect(() => {
     if (typeof setNavbarContent === "function") {
       const filterBar = <TransaksiFilterBar search={search} setSearch={setSearch} />;
@@ -1094,8 +1095,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
   return (
     <>
       <div className="space-y-4 sm:space-y-6 md:space-y-8 px-2 sm:px-4">
-        {/* FIX #1: Removed inline filter bar fallback - only show in navbar */}
-        
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
@@ -1125,7 +1124,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                 Menampilkan {transaksi.filter(item => getActiveDetails(item.details).length > 0).length} transaksi
               </p>
             </div>
-            {/* FIX #3: Improved responsive grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {transaksi
                 .map((item) => {
@@ -1165,7 +1163,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
 
                       <hr className="my-2 border-gray-200" />
 
-                      {/* FIX #3: Scrollable details container with better spacing */}
                       <div className="space-y-2 max-h-[300px] sm:max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
                         {activeDetails.map((d) => {
                           const sisaBayar = getSisaBayar(d);
@@ -1282,7 +1279,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
           </>
         )}
 
-        {/* FIX #3: FAB with better mobile positioning and size */}
         {(role === "admin" || role === "admin_toko") && (
           <button
             onClick={() => {
@@ -1299,7 +1295,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
           </button>
         )}
 
-        {/* MODAL - FIX #3: Full screen on mobile, better responsive styling */}
         {isModalOpen && isFormReady && (
           <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50">
             <div className="bg-white w-full sm:w-full sm:max-w-4xl p-4 sm:p-6 rounded-t-2xl sm:rounded-2xl overflow-y-auto max-h-[95vh] sm:max-h-[90vh]">
@@ -1320,10 +1315,8 @@ const TransaksiPage = ({ setNavbarContent }) => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-                {/* Customer & Tanggal */}
                 <div className="bg-gray-50 p-3 sm:p-4 rounded-xl">
                   <div className="grid grid-cols-1 gap-4">
-                    {/* Customer dengan Searchable Dropdown */}
                     <div>
                       <label className="font-semibold block mb-2 text-sm">
                         Customer
@@ -1377,7 +1370,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         showCreateNew
                       />
 
-                      {/* Form Customer Baru */}
                       {isCreatingNewCustomer && (
                         <div className="grid grid-cols-1 gap-2 mt-3">
                           <input
@@ -1430,7 +1422,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                       )}
                     </div>
 
-                    {/* Tanggal */}
                     <div>
                       <label className="font-semibold block mb-2 text-sm">
                         Tanggal Transaksi *
@@ -1448,7 +1439,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                   </div>
                 </div>
 
-                {/* Detail Transaksi */}
                 <div className="space-y-4">
                   <div className="flex justify-center items-center">
                     <h3 className="font-bold text-base sm:text-lg">Detail Transaksi</h3>
@@ -1459,7 +1449,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                       key={i}
                       className="p-3 sm:p-4 border border-gray-200 rounded-xl bg-gray-50 space-y-4"
                     >
-                      {/* Produk dengan Searchable Dropdown + Filter */}
                       <div className="space-y-2">
                         <label className="block mb-1 font-medium text-sm">
                           Produk *
@@ -1498,7 +1487,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         )}
                       </div>
 
-                      {/* Harga */}
                       {d.product_id && (
                         <div className="mt-3">
                           <label className="block mb-1 font-medium text-sm">
@@ -1593,7 +1581,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         </div>
                       )}
 
-                      {/* Qty, Diskon, Catatan - FIX #3: Better mobile layout */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <input
                           type="number"
@@ -1640,7 +1627,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                         />
                       </div>
 
-                      {/* Hapus Detail - FIX #3: Better mobile button */}
                       <button
                         type="button"
                         onClick={() => removeDetailRow(i)}
@@ -1652,7 +1638,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                   ))}
                 </div>
 
-                {/* Tambah Detail Button */}
                 <div className="flex justify-center items-center">
                   <button
                     type="button"
@@ -1663,7 +1648,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
                   </button>
                 </div>
 
-                {/* Submit Button */}
                 <div className="flex justify-center gap-3 pt-4 border-t">
                   <button
                     type="submit"
@@ -1678,7 +1662,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
         )}
       </div>
 
-      {/* Print Container */}
       <div
         style={{
           position: "absolute",
@@ -1692,7 +1675,6 @@ const TransaksiPage = ({ setNavbarContent }) => {
         <InvoiceSimplePrint ref={printRef} transaksi={printTransaksi} />
       </div>
       
-      {/* Custom scrollbar styles */}
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;

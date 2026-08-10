@@ -234,9 +234,9 @@ class ProductCustomerController extends Controller
             'keterangan' => 'nullable|string',
             'harga'      => 'required|integer|min:0',
 
-            'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+            'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png',
+            'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png',
+            'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png',
         ]);
 
         if ($validator->fails()) {
@@ -352,9 +352,9 @@ class ProductCustomerController extends Controller
             'keterangan' => 'nullable|string',
             'harga' => 'nullable|integer|min:0',
 
-            'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
-            'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png|max:5048',
+            'foto_depan'   => 'nullable|image|mimes:jpg,jpeg,png',
+            'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png',
+            'foto_atas'    => 'nullable|image|mimes:jpg,jpeg,png',
         ]);
 
         if ($validator->fails()) {
