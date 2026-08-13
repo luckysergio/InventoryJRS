@@ -2,28 +2,23 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Inventory extends Model
 {
-    protected $fillable = [
-        'product_id',
-        'place_id',
-        'qty'
-    ];
+    protected $fillable = ['product_id', 'place_id', 'qty'];
 
-    public function product()
+    protected function casts(): array
     {
-        return $this->belongsTo(Product::class);
+        return [
+            'qty' => 'integer',
+        ];
     }
 
-    public function place()
-    {
-        return $this->belongsTo(Place::class);
-    }
-
-    public function movements()
-    {
-        return $this->hasMany(ProductMovement::class);
-    }
+    public function product(): BelongsTo { return $this->belongsTo(Product::class); }
+    public function place(): BelongsTo { return $this->belongsTo(Place::class); }
+    public function movements(): HasMany { return $this->hasMany(ProductMovement::class); }
 }

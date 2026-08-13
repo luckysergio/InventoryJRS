@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -16,7 +17,6 @@ class Customer extends Model
         'email',
     ];
 
-    // RELASI BARU → customer punya banyak product
     public function products(): HasMany
     {
         return $this->hasMany(Product::class, 'customer_id');
@@ -49,10 +49,30 @@ class Customer extends Model
         return $this->hasManyThrough(
             TransaksiDetail::class,
             Transaksi::class,
-            'customer_id',   // FK di transaksis
-            'transaksi_id',  // FK di transaksi_details
-            'id',            // PK customers
-            'id'             // PK transaksis
+            'customer_id',
+            'transaksi_id',
+            'id',
+            'id'
         );
+    }
+
+    public function scopeSearch(Builder $query, ?string $search): Builder
+    {
+        return $query->when($search, function ($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%")
+              ->orWhere('phone', 'like', "%{$search}%")
+              ->orWhere('email', 'like', "%{$search}%");
+        });
+    }
+
+    public function scopeWithStats(Builder $query): Builder
+    {
+        return $query->withCount(['transaksi', 'transaksiHarian', 'transaksiPesanan'])
+            ->withSum('transaksi', 'total');
+    }
+
+    public function getTotalBelanjaAttribute(): float
+    {
+        return (float) $this->transaksi()->sum('total');
     }
 }

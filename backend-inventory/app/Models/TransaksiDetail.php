@@ -2,79 +2,65 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class TransaksiDetail extends Model
 {
     protected $fillable = [
-        'transaksi_id',
-        'product_id',
-        'status_transaksi_id',
-        'qty',
-        'harga',
-        'subtotal',
-        'catatan',
-        'discount',
+        'transaksi_id', 'product_id', 'status_transaksi_id', 'qty',
+        'harga', 'subtotal', 'discount', 'catatan',
     ];
 
     protected $appends = ['product_label'];
 
-
-    public function transaksi()
+    protected function casts(): array
     {
-        return $this->belongsTo(Transaksi::class);
+        return [
+            'qty' => 'integer',
+            'harga' => 'decimal:2',
+            'subtotal' => 'decimal:2',
+            'discount' => 'decimal:2',
+        ];
     }
 
-    public function product()
+    public function transaksi(): BelongsTo { return $this->belongsTo(Transaksi::class); }
+    public function product(): BelongsTo { return $this->belongsTo(Product::class); }
+    public function statusTransaksi(): BelongsTo { return $this->belongsTo(StatusTransaksi::class, 'status_transaksi_id'); }
+    public function pembayarans(): HasMany { return $this->hasMany(Pembayaran::class, 'transaksi_detail_id'); }
+    public function production(): HasOne { return $this->hasOne(Production::class, 'transaksi_detail_id'); }
+
+    protected function totalBayar(): Attribute
     {
-        return $this->belongsTo(Product::class);
+        return Attribute::make(
+            get: fn () => $this->attributes['pembayarans_sum_jumlah_bayar'] ?? $this->pembayarans->sum('jumlah_bayar'),
+        );
     }
 
-    public function statusTransaksi()
+    protected function sisaBayar(): Attribute
     {
-        return $this->belongsTo(StatusTransaksi::class, 'status_transaksi_id');
+        return Attribute::make(
+            get: fn () => $this->subtotal - $this->total_bayar,
+        );
     }
 
-    public function pembayarans()
+    protected function productLabel(): Attribute
     {
-        return $this->hasMany(Pembayaran::class, 'transaksi_detail_id');
+        return Attribute::make(
+            get: fn () => collect([
+                $this->product?->jenis?->nama,
+                $this->product?->type?->nama,
+                $this->product?->ukuran,
+            ])->filter()->implode(' | ') ?: '-',
+        );
     }
 
-
-    public function getTotalBayarAttribute()
+    public function isLunas(): bool
     {
-        return $this->pembayarans->sum('jumlah_bayar');
-    }
-
-    public function getSisaBayarAttribute()
-    {
-        return $this->subtotal - $this->total_bayar;
-    }
-
-    /**
-     * 👉 LABEL PRODUK
-     * Format: Jenis | Type | Ukuran
-     */
-    public function getProductLabelAttribute()
-    {
-        if (!$this->relationLoaded('product') || !$this->product) {
-            return '-';
-        }
-
-        return collect([
-            $this->product->jenis->nama ?? null,
-            $this->product->type->nama ?? null,
-            $this->product->ukuran ?? null,
-        ])->filter()->implode(' | ');
-    }
-
-    public function isLunas()
-    {
-        return ($this->subtotal - ($this->discount ?? 0)) <= $this->totalBayar;
-    }
-
-    public function production()
-    {
-        return $this->hasOne(Production::class);
+        return ($this->subtotal - ($this->discount ?? 0)) <= $this->total_bayar;
     }
 }

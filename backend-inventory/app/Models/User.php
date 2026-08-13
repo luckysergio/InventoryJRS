@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Notifications\ResetPasswordNotification;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
@@ -22,20 +23,27 @@ class User extends Authenticatable implements JWTSubject, CanResetPassword
 
     protected $hidden = [
         'password',
+        'remember_token',
     ];
 
-    // JWT
-    public function getJWTIdentifier()
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+
+    public function getJWTIdentifier(): mixed
     {
         return $this->getKey();
     }
 
-    public function getJWTCustomClaims()
+    public function getJWTCustomClaims(): array
     {
         return [];
     }
 
-    // Role helpers
     public function hasRole(string $role): bool
     {
         return $this->role === $role;
@@ -43,11 +51,49 @@ class User extends Authenticatable implements JWTSubject, CanResetPassword
 
     public function hasAnyRole(array $roles): bool
     {
-        return in_array($this->role, $roles);
+        return in_array($this->role, $roles, true);
     }
 
-    public function sendPasswordResetNotification($token)
-{
-    $this->notify(new ResetPasswordNotification($token));
-}
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('admin');
+    }
+
+    public function isAdminToko(): bool
+    {
+        return $this->hasRole('admin_toko');
+    }
+
+    public function isOperator(): bool
+    {
+        return $this->hasRole('operator');
+    }
+
+    public function scopeAdmins(Builder $query): Builder
+    {
+        return $query->where('role', 'admin');
+    }
+
+    public function scopeAdminToko(Builder $query): Builder
+    {
+        return $query->where('role', 'admin_toko');
+    }
+
+    public function scopeOperators(Builder $query): Builder
+    {
+        return $query->where('role', 'operator');
+    }
+
+    public function scopeSearch(Builder $query, ?string $search): Builder
+    {
+        return $query->when($search, function ($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%")
+              ->orWhere('email', 'like', "%{$search}%");
+        });
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
+    }
 }
