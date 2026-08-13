@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuthStore } from "../lib/zustand/authStore";
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const location = useLocation();
@@ -26,8 +27,9 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const [productionOpen, setProductionOpen] = useState(false);
   const [stokOpnameOpen, setStokOpnameOpen] = useState(false);
 
-  const storedUser = localStorage.getItem("user");
-  const userRole = storedUser ? JSON.parse(storedUser).role : null;
+  // ✅ Gunakan Zustand, bukan localStorage
+  const user = useAuthStore((state) => state.user);
+  const userRole = user?.role;
   const isAdmin = userRole === "admin";
   const isAllowedForTransaksi = userRole === "admin" || userRole === "admin_toko";
 
@@ -40,7 +42,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   useEffect(() => {
     const path = location.pathname;
 
-    const productionRoutes = ["/production", "/RiwayatProduction"];
+    const productionRoutes = ["/production", "/riwayat-production"];
     const isProductionRoute = productionRoutes.some(
       (route) => path === route || path.startsWith(route + "/"),
     );
@@ -61,12 +63,12 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       (route) => path === route || path.startsWith(route + "/"),
     );
 
-    const inventoryRoutes = ["/inventory", "/ProductMovement"];
+    const inventoryRoutes = ["/inventory", "/product-movement"];
     const isInventoryRoute = inventoryRoutes.some(
       (route) => path === route || path.startsWith(route + "/"),
     );
 
-    const stokOpnameRoutes = ["/StokOpname", "/Riwayat-StokOpname"];
+    const stokOpnameRoutes = ["/stok-opname", "/riwayat-stok-opname"];
     const isStokOpnameRoute = stokOpnameRoutes.some(
       (route) => path === route || path.startsWith(route + "/"),
     );
@@ -110,7 +112,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             ${isMinimized ? "justify-center px-3" : ""}
           `}
         >
-          {/* Active indicator */}
           {isActive && !isMinimized && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-white rounded-r-full" />
           )}
@@ -119,16 +120,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             <Icon
               className={`
                 w-5 h-5 transition-all duration-300
-                ${
-                  isActive
-                    ? "text-white"
-                    : "text-gray-500 group-hover:text-blue-500"
-                }
+                ${isActive ? "text-white" : "text-gray-500 group-hover:text-blue-500"}
                 ${isMinimized ? "group-hover:scale-110" : ""}
               `}
             />
 
-            {/* Active dot indicator for minimized state */}
             {isActive && isMinimized && (
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-300 rounded-full animate-pulse" />
             )}
@@ -141,7 +137,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           )}
         </Link>
 
-        {/* Tooltip for minimized state */}
         {isMinimized && (
           <div
             className="
@@ -160,7 +155,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     );
   };
 
-  // Dropdown untuk menu bertingkat
   const Dropdown = ({ title, open, setOpen, children, icon: Icon }) => (
     <div className="space-y-1">
       <button
@@ -181,16 +175,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             <Icon
               className={`
                 w-5 h-5 transition-all duration-300
-                ${
-                  open
-                    ? "text-blue-600"
-                    : "text-gray-500 group-hover:text-blue-500"
-                }
+                ${open ? "text-blue-600" : "text-gray-500 group-hover:text-blue-500"}
                 ${isMinimized ? "group-hover:scale-110" : ""}
               `}
             />
 
-            {/* Indicator for active dropdown in minimized state */}
             {open && isMinimized && (
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
             )}
@@ -226,7 +215,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
       )}
 
-      {/* Tooltip for dropdown in minimized state */}
       {isMinimized && (
         <div
           className="
@@ -244,7 +232,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     </div>
   );
 
-  // Submenu link
   const SubNavLink = ({ children, to }) => {
     const isActive = location.pathname === to;
 
@@ -274,7 +261,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           {children}
         </span>
 
-        {/* Hover indicator */}
         {!isActive && (
           <div
             className="
@@ -288,7 +274,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     );
   };
 
-  // Logo section
   const LogoSection = () => (
     <div className="flex items-center gap-3">
       <div
@@ -329,7 +314,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     </div>
   );
 
-  // Header sidebar
   const SidebarHeader = () => (
     <div
       className={`
@@ -369,7 +353,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         Home
       </NavLink>
 
-      {/* Master Data - Hanya untuk admin */}
       {isAdmin && (
         <div className="relative">
           <Dropdown
@@ -389,7 +372,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
       )}
 
-      {/* Customer & Distributor */}
       {isAllowedForTransaksi && (
         <NavLink to="/customer" icon={PersonStanding}>
           Customer
@@ -401,7 +383,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         </NavLink>
       )}
 
-      {/* Product */}
       <Dropdown
         title="Product"
         open={productOpen}
@@ -415,7 +396,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         <SubNavLink to="/harga-product">Harga Product</SubNavLink>
       </Dropdown>
 
-      {/* Transaksi - hanya untuk admin dan admin_toko */}
       {isAllowedForTransaksi && (
         <Dropdown
           title="Transaksi"
@@ -429,7 +409,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         </Dropdown>
       )}
 
-      {/* Inventory */}
       <Dropdown
         title="Inventory"
         open={inventoryOpen}
@@ -437,10 +416,9 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         icon={Warehouse}
       >
         <SubNavLink to="/inventory">Inventory</SubNavLink>
-        <SubNavLink to="/ProductMovement">Product Movement</SubNavLink>
+        <SubNavLink to="/product-movement">Product Movement</SubNavLink>
       </Dropdown>
 
-      {/* Production */}
       <Dropdown
         title="Production"
         open={productionOpen}
@@ -448,25 +426,23 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         icon={Factory}
       >
         <SubNavLink to="/production">Production</SubNavLink>
-        <SubNavLink to="/RiwayatProduction">Riwayat Production</SubNavLink>
+        <SubNavLink to="/riwayat-production">Riwayat Production</SubNavLink>
       </Dropdown>
 
-      {/* Stok Opname */}
       <Dropdown
         title="Stok Opname"
         open={stokOpnameOpen}
         setOpen={setStokOpnameOpen}
         icon={ClipboardCheck}
       >
-        <SubNavLink to="/StokOpname">Stok Opname</SubNavLink>
-        <SubNavLink to="/Riwayat-StokOpname">Riwayat SO</SubNavLink>
+        <SubNavLink to="/stok-opname">Stok Opname</SubNavLink>
+        <SubNavLink to="/riwayat-stok-opname">Riwayat SO</SubNavLink>
       </Dropdown>
     </div>
   );
 
   return (
     <>
-      {/* Desktop Sidebar */}
       <aside
         className={`
           hidden lg:flex bg-white/95 backdrop-blur-sm border-r border-gray-200/50
@@ -477,12 +453,10 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         <div className="flex flex-col h-full">
           <SidebarHeader />
 
-          {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <SidebarContent />
           </div>
 
-          {/* Minimized indicator */}
           {isMinimized && (
             <div className="px-4 py-3 border-t border-gray-200/50">
               <div className="text-center">
@@ -493,7 +467,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
       </aside>
 
-      {/* Mobile Overlay */}
       <div
         className={`
           fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden
@@ -503,7 +476,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         onClick={() => setSidebarOpen(false)}
       />
 
-      {/* Mobile Sidebar */}
       <aside
         className={`
           fixed top-0 left-0 z-50 h-full bg-white/95 backdrop-blur-sm

@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\api\PesananTransaksiController;
+
 use App\Http\Controllers\api\AuthController;
 use App\Http\Controllers\api\BahanProductController;
 use App\Http\Controllers\api\CustomerController;
@@ -14,13 +14,14 @@ use App\Http\Controllers\api\JabatanController;
 use App\Http\Controllers\api\JenisProductController;
 use App\Http\Controllers\api\KaryawanController;
 use App\Http\Controllers\api\PembayaranController;
+use App\Http\Controllers\api\PesananTransaksiController;
 use App\Http\Controllers\api\PlaceController;
 use App\Http\Controllers\api\ProductController;
 use App\Http\Controllers\api\ProductCustomerController;
 use App\Http\Controllers\api\ProductDistributorController;
 use App\Http\Controllers\api\ProductInternalController;
-use App\Http\Controllers\api\ProductionController;
 use App\Http\Controllers\api\ProductMovementController;
+use App\Http\Controllers\api\ProductionController;
 use App\Http\Controllers\api\PublicProductController;
 use App\Http\Controllers\api\ResetPasswordController;
 use App\Http\Controllers\api\StatusTransaksiController;
@@ -29,6 +30,7 @@ use App\Http\Controllers\api\TransaksiController;
 use App\Http\Controllers\api\TypeProductController;
 use App\Http\Controllers\api\UserController;
 
+// Public products
 Route::prefix('public')->group(function () {
     Route::get('/products', [PublicProductController::class, 'index']);
     Route::get('/products/available', [PublicProductController::class, 'available']);
@@ -36,58 +38,75 @@ Route::prefix('public')->group(function () {
     Route::get('/products/{id}', [PublicProductController::class, 'show']);
 });
 
-Route::get('/master/type-products', [TypeProductController::class, 'master']);
-Route::get('/master/jenis-products', [JenisProductController::class, 'master']);
-
-
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
-Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
-
-Route::middleware(['auth:api', 'role:admin,admin_toko,operator'])->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index']);
-    Route::get('/dashboard/stats', [DashboardController::class, 'dashboardStats']);
-    Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
+// Master data for dropdowns (public read-only)
+Route::prefix('master')->group(function () {
+    Route::get('/type-products', [TypeProductController::class, 'master']);
+    Route::get('/jenis-products', [JenisProductController::class, 'master']);
 });
 
-Route::group(['middleware' => ['jwt.auth']], function () {
-    Route::get('/profile', [AuthController::class, 'profile'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/logout', [AuthController::class, 'logout'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('role:admin,admin_toko,operator');
+Route::prefix('auth')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
+    Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
+});
 
-    Route::get('/users', [UserController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/users/{id}', [UserController::class, 'show'])->middleware('role:admin');
-    Route::post('/users', [UserController::class, 'store'])->middleware('role:admin');
-    Route::put('/users/{id}', [UserController::class, 'update'])->middleware('role:admin');
-    Route::delete('/users/{id}', [UserController::class, 'destroy'])->middleware('role:admin');
 
-    Route::get('/karyawans', [KaryawanController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/karyawans', [KaryawanController::class, 'store'])->middleware('role:admin');
-    Route::get('/karyawans/{karyawan}', [KaryawanController::class, 'show'])->middleware('role:admin');
-    Route::put('/karyawans/{karyawan}', [KaryawanController::class, 'update'])->middleware('role:admin');
-    Route::delete('/karyawans/{karyawan}', [KaryawanController::class, 'destroy'])->middleware('role:admin');
+Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
 
-    Route::get('/jabatans', [JabatanController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/jabatans', [JabatanController::class, 'store'])->middleware('role:admin');
-    Route::get('/jabatans/{jabatan}', [JabatanController::class, 'show'])->middleware('role:admin');
-    Route::put('/jabatans/{jabatan}', [JabatanController::class, 'update'])->middleware('role:admin');
-    Route::delete('/jabatans/{jabatan}', [JabatanController::class, 'destroy'])->middleware('role:admin');
+    Route::prefix('auth')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/profile', [AuthController::class, 'profile']);
+        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::post('/refresh', [AuthController::class, 'refresh']);
+    });
 
-    // Customers
-    Route::get('/customers', [CustomerController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/customers', [CustomerController::class, 'store'])->middleware('role:admin,admin_toko');
-    Route::get('/customers/{id}', [CustomerController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::put('/customers/{id}', [CustomerController::class, 'update'])->middleware('role:admin,admin_toko');
-    Route::delete('/customers/{id}', [CustomerController::class, 'destroy'])->middleware('role:admin');
+    Route::prefix('dashboard')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [DashboardController::class, 'index']);
+        Route::get('/stats', [DashboardController::class, 'dashboardStats']);
+        Route::get('/summary', [DashboardController::class, 'summary']);
+    });
 
-    Route::get('/distributors', [DistributorController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/distributors', [DistributorController::class, 'store'])->middleware('role:admin,admin_toko');
-    Route::get('/distributors/{id}', [DistributorController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::put('/distributors/{id}', [DistributorController::class, 'update'])->middleware('role:admin,admin_toko');
-    Route::delete('/distributors/{id}', [DistributorController::class, 'destroy'])->middleware('role:admin');
+    Route::prefix('users')->middleware('role:admin')->group(function () {
+        Route::get('/', [UserController::class, 'index']);
+        Route::get('/{id}', [UserController::class, 'show']);
+        Route::post('/', [UserController::class, 'store']);
+        Route::put('/{id}', [UserController::class, 'update']);
+        Route::delete('/{id}', [UserController::class, 'destroy']);
+    });
 
-    // Product Internal Routes (khusus produk internal, bukan milik distributor/customer)
-    Route::prefix('internal-products')->group(function () {
+    Route::prefix('karyawans')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [KaryawanController::class, 'index']);
+        Route::post('/', [KaryawanController::class, 'store'])->middleware('role:admin');
+        Route::get('/{karyawan}', [KaryawanController::class, 'show'])->middleware('role:admin');
+        Route::put('/{karyawan}', [KaryawanController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{karyawan}', [KaryawanController::class, 'destroy'])->middleware('role:admin');
+    });
+
+    Route::prefix('jabatans')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [JabatanController::class, 'index']);
+        Route::post('/', [JabatanController::class, 'store'])->middleware('role:admin');
+        Route::get('/{jabatan}', [JabatanController::class, 'show'])->middleware('role:admin');
+        Route::put('/{jabatan}', [JabatanController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{jabatan}', [JabatanController::class, 'destroy'])->middleware('role:admin');
+    });
+
+    Route::prefix('customers')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [CustomerController::class, 'index']);
+        Route::post('/', [CustomerController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::get('/{id}', [CustomerController::class, 'show']);
+        Route::put('/{id}', [CustomerController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{id}', [CustomerController::class, 'destroy'])->middleware('role:admin');
+    });
+
+    Route::prefix('distributors')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [DistributorController::class, 'index']);
+        Route::post('/', [DistributorController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::get('/{id}', [DistributorController::class, 'show']);
+        Route::put('/{id}', [DistributorController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{id}', [DistributorController::class, 'destroy'])->middleware('role:admin');
+    });
+
+    Route::prefix('internal-products')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [ProductInternalController::class, 'index']);
         Route::get('/summary', [ProductInternalController::class, 'summary']);
         Route::get('/low-stock', [ProductInternalController::class, 'lowStock']);
@@ -95,127 +114,144 @@ Route::group(['middleware' => ['jwt.auth']], function () {
         Route::get('/{id}', [ProductInternalController::class, 'show']);
     });
 
-    // Products
-    Route::get('/products/available', [ProductController::class, 'available'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/products/lowStok', [ProductController::class, 'lowStock'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/products/best-seller', [ProductController::class, 'bestSeller'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/products', [ProductController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/products', [ProductController::class, 'store'])->middleware('role:admin,admin_toko');
-    Route::get('/products/{id}', [ProductController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::put('/products/{id}', [ProductController::class, 'update'])->middleware('role:admin');
-    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->middleware('role:admin');
-    Route::post('/products/{product}/upload-foto', [ProductController::class, 'uploadFoto'])->middleware('role:admin,admin_toko,operator');
+    Route::prefix('products')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/available', [ProductController::class, 'available']);
+        Route::get('/lowStok', [ProductController::class, 'lowStock']);
+        Route::get('/best-seller', [ProductController::class, 'bestSeller']);
+        Route::get('/', [ProductController::class, 'index']);
+        Route::post('/', [ProductController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::get('/{id}', [ProductController::class, 'show']);
+        Route::put('/{id}', [ProductController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{id}', [ProductController::class, 'destroy'])->middleware('role:admin');
+        Route::post('/{product}/upload-foto', [ProductController::class, 'uploadFoto']);
+    });
 
-    Route::get('/product-distributors', [ProductDistributorController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/product-distributors', [ProductDistributorController::class, 'store'])->middleware('role:admin,admin_toko');
-    Route::get('/product-distributors/{id}', [ProductDistributorController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::put('/product-distributors/{id}', [ProductDistributorController::class, 'update'])->middleware('role:admin');
-    Route::delete('/product-distributors/{id}', [ProductDistributorController::class, 'destroy'])->middleware('role:admin');
+    Route::prefix('product-distributors')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [ProductDistributorController::class, 'index']);
+        Route::post('/', [ProductDistributorController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::get('/{id}', [ProductDistributorController::class, 'show']);
+        Route::put('/{id}', [ProductDistributorController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{id}', [ProductDistributorController::class, 'destroy'])->middleware('role:admin');
+    });
 
-    Route::get('/product-customers', [ProductCustomerController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/product-customers', [ProductCustomerController::class, 'store'])->middleware('role:admin,admin_toko');
-    Route::get('/product-customers/{id}', [ProductCustomerController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::put('/product-customers/{id}', [ProductCustomerController::class, 'update'])->middleware('role:admin');
-    Route::delete('/product-customers/{id}', [ProductCustomerController::class, 'destroy'])->middleware('role:admin');
+    Route::prefix('product-customers')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [ProductCustomerController::class, 'index']);
+        Route::post('/', [ProductCustomerController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::get('/{id}', [ProductCustomerController::class, 'show']);
+        Route::put('/{id}', [ProductCustomerController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{id}', [ProductCustomerController::class, 'destroy'])->middleware('role:admin');
+    });
 
-    // Jenis Product
-    Route::get('/jenis', [JenisProductController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/jenis', [JenisProductController::class, 'store'])->middleware('role:admin,admin_toko');
-    Route::get('/jenis/{id}', [JenisProductController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::put('/jenis/{jenisProduct}', [JenisProductController::class, 'update'])->middleware('role:admin,admin_toko');
-    Route::delete('/jenis/{jenisProduct}', [JenisProductController::class, 'destroy'])->middleware('role:admin');
+    Route::prefix('jenis')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [JenisProductController::class, 'index']);
+        Route::post('/', [JenisProductController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::get('/{id}', [JenisProductController::class, 'show']);
+        Route::put('/{jenisProduct}', [JenisProductController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{jenisProduct}', [JenisProductController::class, 'destroy'])->middleware('role:admin');
+    });
 
-    // Bahan Product
-    Route::get('/bahan', [BahanProductController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/bahan/{id}', [BahanProductController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/bahan', [BahanProductController::class, 'store'])->middleware('role:admin,admin_toko');
-    Route::put('/bahan/{id}', [BahanProductController::class, 'update'])->middleware('role:admin,admin_toko');
-    Route::delete('/bahan/{id}', [BahanProductController::class, 'destroy'])->middleware('role:admin');
+    Route::prefix('bahan')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [BahanProductController::class, 'index']);
+        Route::get('/{id}', [BahanProductController::class, 'show']);
+        Route::post('/', [BahanProductController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::put('/{id}', [BahanProductController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{id}', [BahanProductController::class, 'destroy'])->middleware('role:admin');
+    });
 
-    // Type Product
-    Route::get('/type', [TypeProductController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/type', [TypeProductController::class, 'store'])->middleware('role:admin,admin_toko');
-    Route::get('/type/by-jenis/{jenisId}', [TypeProductController::class, 'getByJenis'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/type/{id}', [TypeProductController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::put('/type/{id}', [TypeProductController::class, 'update'])->middleware('role:admin,admin_toko');
-    Route::delete('/type/{id}', [TypeProductController::class, 'destroy'])->middleware('role:admin');
+    Route::prefix('type')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [TypeProductController::class, 'index']);
+        Route::post('/', [TypeProductController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::get('/by-jenis/{jenisId}', [TypeProductController::class, 'getByJenis']);
+        Route::get('/{id}', [TypeProductController::class, 'show']);
+        Route::put('/{id}', [TypeProductController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{id}', [TypeProductController::class, 'destroy'])->middleware('role:admin');
+    });
 
-    // Harga Product
-    Route::get('/harga', [HargaProductController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/harga', [HargaProductController::class, 'store'])->middleware('role:admin,admin_toko');
-    Route::get('/harga/{id}', [HargaProductController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::put('/harga/{id}', [HargaProductController::class, 'update'])->middleware('role:admin,admin_toko');
-    Route::delete('/harga/{id}', [HargaProductController::class, 'destroy'])->middleware('role:admin');
-    Route::get('/harga/by-product/{id}', [HargaProductController::class, 'byProduct'])->middleware('role:admin,admin_toko,operator');
+    Route::prefix('harga')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [HargaProductController::class, 'index']);
+        Route::post('/', [HargaProductController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::get('/by-product/{id}', [HargaProductController::class, 'byProduct']);
+        Route::get('/{id}', [HargaProductController::class, 'show']);
+        Route::put('/{id}', [HargaProductController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{id}', [HargaProductController::class, 'destroy'])->middleware('role:admin');
+    });
 
-    // Status Transaksi
-    Route::get('/status-transaksi', [StatusTransaksiController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/status-transaksi', [StatusTransaksiController::class, 'store'])->middleware('role:admin');
-    Route::put('/status-transaksi/{id}', [StatusTransaksiController::class, 'update'])->middleware('role:admin');
-    Route::delete('/status-transaksi/{id}', [StatusTransaksiController::class, 'destroy'])->middleware('role:admin');
+    Route::prefix('status-transaksi')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [StatusTransaksiController::class, 'index']);
+        Route::post('/', [StatusTransaksiController::class, 'store'])->middleware('role:admin');
+        Route::put('/{id}', [StatusTransaksiController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{id}', [StatusTransaksiController::class, 'destroy'])->middleware('role:admin');
+    });
 
-    // Transaksi
-    Route::get('/transaksi', [TransaksiController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/transaksi/aktif', [TransaksiController::class, 'aktif'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/transaksi/riwayat/all', [TransaksiController::class, 'riwayatAll'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/transaksi/riwayat/customer/{customerId}', [TransaksiController::class, 'riwayatByCustomer'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/transaksi', [TransaksiController::class, 'store'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/transaksi/{id}', [TransaksiController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::delete('/transaksi/{id}', [TransaksiController::class, 'destroy'])->middleware('role:admin');
-    Route::patch('/transaksi-detail/{id}/status', [TransaksiController::class, 'updateStatus'])->middleware('role:admin,admin_toko');
-    Route::put('/transaksi/{id}', [TransaksiController::class, 'update'])->middleware('role:admin,admin_toko');
-    Route::post('/transaksi-detail/{detailId}/cancel', [TransaksiController::class, 'cancelDetail'])->middleware('role:admin');
+    Route::prefix('transaksi')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [TransaksiController::class, 'index']);
+        Route::get('/aktif', [TransaksiController::class, 'aktif']);
+        Route::get('/riwayat/all', [TransaksiController::class, 'riwayatAll']);
+        Route::get('/riwayat/customer/{customerId}', [TransaksiController::class, 'riwayatByCustomer']);
+        Route::post('/', [TransaksiController::class, 'store']);
+        Route::get('/{id}', [TransaksiController::class, 'show']);
+        Route::put('/{id}', [TransaksiController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{id}', [TransaksiController::class, 'destroy'])->middleware('role:admin');
+        Route::patch('/detail/{id}/status', [TransaksiController::class, 'updateStatus'])->middleware('role:admin,admin_toko');
+        Route::post('/detail/{detailId}/cancel', [TransaksiController::class, 'cancelDetail'])->middleware('role:admin');
+    });
 
-    // Transaksi Pesanan
-    Route::get('/pesanan', [PesananTransaksiController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/pesanan/aktif', [PesananTransaksiController::class, 'aktif'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/pesanan/{id}', [PesananTransaksiController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/pesanan', [PesananTransaksiController::class, 'store'])->middleware('role:admin,admin_toko');
-    Route::put('/pesanan/{id}', [PesananTransaksiController::class, 'update'])->middleware('role:admin,admin_toko');
-    Route::delete('/pesanan/{id}', [PesananTransaksiController::class, 'destroy'])->middleware('role:admin');
-    Route::post('/pesanan/{id}/cancel', [PesananTransaksiController::class, 'cancel'])->middleware('role:admin');
-    Route::patch('/pesanan/{id}/selesai', [PesananTransaksiController::class, 'selesai'])->middleware('role:admin,admin_toko');
-    Route::post('/pesanan/detail/{id}/status', [PesananTransaksiController::class, 'updateStatus'])->middleware('role:admin');
-    Route::get('/pesanan/{id}/print', [PesananTransaksiController::class, 'printNota'])->middleware('role:admin');
+    Route::prefix('pesanan')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [PesananTransaksiController::class, 'index']);
+        Route::get('/aktif', [PesananTransaksiController::class, 'aktif']);
+        Route::get('/{id}', [PesananTransaksiController::class, 'show']);
+        Route::post('/', [PesananTransaksiController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::put('/{id}', [PesananTransaksiController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{id}', [PesananTransaksiController::class, 'destroy'])->middleware('role:admin');
+        Route::post('/{id}/cancel', [PesananTransaksiController::class, 'cancel'])->middleware('role:admin');
+        Route::patch('/{id}/selesai', [PesananTransaksiController::class, 'selesai'])->middleware('role:admin,admin_toko');
+        Route::post('/detail/{id}/status', [PesananTransaksiController::class, 'updateStatus'])->middleware('role:admin');
+        Route::get('/{id}/print', [PesananTransaksiController::class, 'printNota'])->middleware('role:admin');
+    });
 
-    // Pembayaran
-    Route::get('/pembayaran', [PembayaranController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/pembayaran', [PembayaranController::class, 'store'])->middleware('role:admin,admin_toko');
-    Route::get('/pembayaran/{id}', [PembayaranController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::put('/pembayaran/{id}', [PembayaranController::class, 'update'])->middleware('role:admin');
-    Route::delete('/pembayaran/{id}', [PembayaranController::class, 'destroy'])->middleware('role:admin');
+    Route::prefix('pembayaran')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [PembayaranController::class, 'index']);
+        Route::post('/', [PembayaranController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::get('/{id}', [PembayaranController::class, 'show']);
+        Route::put('/{id}', [PembayaranController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{id}', [PembayaranController::class, 'destroy'])->middleware('role:admin');
+    });
 
-    // Place
-    Route::get('/places', [PlaceController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/places', [PlaceController::class, 'store'])->middleware('role:admin');
-    Route::get('/places/{id}', [PlaceController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::put('/places/{id}', [PlaceController::class, 'update'])->middleware('role:admin');
-    Route::delete('/places/{id}', [PlaceController::class, 'destroy'])->middleware('role:admin');
+    Route::prefix('places')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [PlaceController::class, 'index']);
+        Route::post('/', [PlaceController::class, 'store'])->middleware('role:admin');
+        Route::get('/{id}', [PlaceController::class, 'show']);
+        Route::put('/{id}', [PlaceController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{id}', [PlaceController::class, 'destroy'])->middleware('role:admin');
+    });
 
-    // Production
-    Route::get('/productions/pesanan', [ProductionController::class, 'pesananDipesan'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/productions', [ProductionController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/productions', [ProductionController::class, 'store'])->middleware('role:admin,operator');
-    Route::get('/productions/{id}', [ProductionController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-    Route::put('/productions/{id}', [ProductionController::class, 'update'])->middleware('role:admin,operator');
-    Route::delete('/productions/{id}', [ProductionController::class, 'destroy'])->middleware('role:admin');
+    Route::prefix('productions')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/pesanan', [ProductionController::class, 'pesananDipesan']);
+        Route::get('/', [ProductionController::class, 'index']);
+        Route::post('/', [ProductionController::class, 'store'])->middleware('role:admin,operator');
+        Route::get('/{id}', [ProductionController::class, 'show']);
+        Route::put('/{id}', [ProductionController::class, 'update'])->middleware('role:admin,operator');
+        Route::delete('/{id}', [ProductionController::class, 'destroy'])->middleware('role:admin');
+    });
 
-    // Product Movement
-    Route::get('/product-movements', [ProductMovementController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/product-movements', [ProductMovementController::class, 'store'])->middleware('role:admin,admin_toko,operator');
+    Route::prefix('product-movements')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [ProductMovementController::class, 'index']);
+        Route::post('/', [ProductMovementController::class, 'store']);
+    });
 
-    // Inventory
-    Route::get('/inventories', [InventoryController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/inventories/place/{placeId}', [InventoryController::class, 'byPlace'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/inventories/product/{productId}', [InventoryController::class, 'byProduct'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/inventories/product/{productId}/total', [InventoryController::class, 'totalProduct'])->middleware('role:admin,admin_toko,operator');
+    Route::prefix('inventories')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [InventoryController::class, 'index']);
+        Route::get('/place/{placeId}', [InventoryController::class, 'byPlace']);
+        Route::get('/product/{productId}', [InventoryController::class, 'byProduct']);
+        Route::get('/product/{productId}/total', [InventoryController::class, 'totalProduct']);
+    });
 
-    // Stok Opname
-    Route::get('/stok-opname', [StokOpnameController::class, 'index'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/stok-opname', [StokOpnameController::class, 'store'])->middleware('role:admin,admin_toko,operator');
-    Route::get('/stok-opname/{id}', [StokOpnameController::class, 'show'])->middleware('role:admin,admin_toko,operator');
-
-    Route::post('/stok-opname/{id}/detail', [StokOpnameController::class, 'storeDetail'])->middleware('role:admin,admin_toko,operator');
-    Route::post('/stok-opname/{id}/selesai', [StokOpnameController::class, 'selesai'])->middleware('role:admin');
-    Route::post('/stok-opname/{id}/batal', [StokOpnameController::class, 'batalkan'])->middleware('role:admin');
+    Route::prefix('stok-opname')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/', [StokOpnameController::class, 'index']);
+        Route::post('/', [StokOpnameController::class, 'store']);
+        Route::get('/{id}', [StokOpnameController::class, 'show']);
+        Route::post('/{id}/detail', [StokOpnameController::class, 'storeDetail']);
+        Route::post('/{id}/selesai', [StokOpnameController::class, 'selesai'])->middleware('role:admin');
+        Route::post('/{id}/batal', [StokOpnameController::class, 'batalkan'])->middleware('role:admin');
+    });
 });

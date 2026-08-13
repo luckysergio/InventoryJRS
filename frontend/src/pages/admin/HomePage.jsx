@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import Swal from "sweetalert2";
 import {
   Receipt,
@@ -10,22 +10,23 @@ import {
   Factory,
   Play,
   Clock,
-  RefreshCw,
   Calendar,
-  CheckSquare,
   AlertTriangle,
   TrendingUp,
   TrendingDown,
-  ChevronLeft,
-  ChevronRight,
   DollarSign,
   BarChart3,
   PieChart,
   Activity,
-  Target,
   Zap,
 } from "lucide-react";
-import api from "../../services/api";
+
+// ✅ FIX: Pakai axios dari lib (auto-attach JWT token)
+import api from "../../lib/api/axios";
+
+// ✅ FIX: Pakai Zustand, bukan localStorage langsung
+import { useAuthStore } from "../../lib/zustand/authStore";
+
 import {
   LineChart,
   Line,
@@ -43,7 +44,10 @@ import {
 } from "recharts";
 
 const HomePage = () => {
-  const navigate = useNavigate();
+  // ✅ Ambil user dari Zustand (reactive + auto-sync dengan localStorage)
+  const user = useAuthStore((state) => state.user);
+  const role = user?.role || "admin_toko";
+
   const [stats, setStats] = useState({
     transaksiHarian: 0,
     transaksiPesanan: 0,
@@ -79,9 +83,6 @@ const HomePage = () => {
   const [chartMonths, setChartMonths] = useState(6);
   const [chartData, setChartData] = useState([]);
   const [selectedChartType, setSelectedChartType] = useState("revenue");
-
-  const user = JSON.parse(localStorage.getItem("user"));
-  const role = user?.role || "admin_toko"; // default ke admin_toko jika tidak ada role
 
   const fetchData = useCallback(
     async (showLoading = true) => {
@@ -130,15 +131,22 @@ const HomePage = () => {
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
-        Swal.fire({
-          icon: "error",
-          title: "Gagal memuat data",
-          text: "Terjadi kesalahan saat mengambil data dashboard",
-          toast: true,
-          position: "top-end",
-          showConfirmButton: false,
-          timer: 3000,
-        });
+
+        // ✅ FIX: Jangan tampilkan SweetAlert untuk 401 (sudah di-handle interceptor)
+        // 401 = token invalid/expired, interceptor akan auto-refresh atau logout
+        if (error.response?.status !== 401) {
+          Swal.fire({
+            icon: "error",
+            title: "Gagal memuat data",
+            text:
+              error.response?.data?.message ||
+              "Terjadi kesalahan saat mengambil data dashboard",
+            toast: true,
+            position: "top-end",
+            showConfirmButton: false,
+            timer: 3000,
+          });
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -151,12 +159,7 @@ const HomePage = () => {
     fetchData();
   }, [fetchData]);
 
-  const handleRefresh = () => {
-    fetchData(false);
-  };
-
   const handleChartMonthChange = (months) => {
-    // Maksimal 12 bulan
     if (months > 12) months = 12;
     if (months < 1) months = 1;
     setChartMonths(months);
@@ -316,8 +319,8 @@ const HomePage = () => {
   const prepareSalesAnalyticsData = () => {
     return stats.salesAnalytics.map((item) => ({
       name: item.status,
-      value: Number(item.total), // ubah ke number
-      percentage: Number(item.percentage), // ubah ke number
+      value: Number(item.total),
+      percentage: Number(item.percentage),
     }));
   };
 
@@ -325,11 +328,8 @@ const HomePage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
-          {/* Header Skeleton */}
-
           {role === "admin" && (
             <>
-              {/* Revenue Cards Skeleton */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {[...Array(4)].map((_, i) => (
                   <div
@@ -343,14 +343,12 @@ const HomePage = () => {
                 ))}
               </div>
 
-              {/* Chart Skeleton */}
               <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 animate-pulse">
                 <div className="h-64 bg-gray-200 rounded"></div>
               </div>
             </>
           )}
 
-          {/* Main Cards Skeleton */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[...Array(cards.length || 4)].map((_, i) => (
               <div
@@ -385,7 +383,11 @@ const HomePage = () => {
                       {card.icon}
                     </div>
                     <div
-                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${card.trendUp ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                        card.trendUp
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
                     >
                       {card.trendUp ? (
                         <TrendingUp className="w-3 h-3" />
@@ -408,7 +410,7 @@ const HomePage = () => {
               ))}
             </div>
 
-            {/* Charts Section - Hanya untuk Admin */}
+            {/* Charts Section */}
             <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
@@ -422,9 +424,7 @@ const HomePage = () => {
                   </p>
                 </div>
 
-                {/* RIGHT CONTROL AREA */}
                 <div className="flex flex-col md:flex-row w-full md:w-auto gap-3">
-                  {/* Toggle Chart Type */}
                   <div className="flex w-full md:w-auto gap-2">
                     <button
                       onClick={() => setSelectedChartType("revenue")}
@@ -449,7 +449,6 @@ const HomePage = () => {
                     </button>
                   </div>
 
-                  {/* Month Filter - RESPONSIVE FIX */}
                   <div className="grid grid-cols-3 md:flex gap-2 w-full md:w-auto">
                     <button
                       onClick={() => handleChartMonthChange(3)}
@@ -564,7 +563,7 @@ const HomePage = () => {
               )}
             </div>
 
-            {/* Additional Analytics - Hanya untuk Admin */}
+            {/* Additional Analytics */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {/* Sales Analytics */}
               <div className="bg-white rounded-2xl shadow-lg p-6">
@@ -685,7 +684,11 @@ const HomePage = () => {
                     {card.icon}
                   </div>
                   <div
-                    className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${card.trendUp ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                      card.trendUp
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
                   >
                     {card.trendUp ? (
                       <TrendingUp className="w-3 h-3" />

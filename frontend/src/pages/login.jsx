@@ -10,106 +10,129 @@ import {
   Key,
   ArrowRight,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
-import api from "../services/api";
+import { useMutation } from "@tanstack/react-query";
+import { useAuth } from "../hooks/useAuth";
+import api from "../lib/api/axios";
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, isLoggingIn } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [mainCardHovered, setMainCardHovered] = useState(false);
 
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
   const [modalHovered, setModalHovered] = useState(false);
 
-  // ESC close modal
-  useEffect(() => {
-    const esc = (e) => e.key === "Escape" && setShowForgotPassword(false);
-    window.addEventListener("keydown", esc);
-    return () => window.removeEventListener("keydown", esc);
-  }, []);
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const res = await api.post("/login", { email, password });
-      const { token, user } = res.data;
-
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
-
-      await Swal.fire({
-        icon: "success",
-        title: "Login Berhasil",
-        text: "Selamat datang kembali!",
-        timer: 1500,
-        showConfirmButton: false,
-        background: "#1e293b",
-        color: "#f1f5f9",
-      });
-
-      navigate("/home");
-    } catch (err) {
+  /**
+   * TanStack Query Mutation untuk Forgot Password
+   */
+  const forgotPasswordMutation = useMutation({
+    mutationFn: (email) => api.post("/auth/forgot-password", { email }),
+    onSuccess: () => {
       Swal.fire({
-        icon: "error",
-        title: "Login Gagal",
-        text: err.response?.data?.message || "Email atau password salah",
-        background: "#1e293b",
-        color: "#f1f5f9",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleForgotPassword = async (e) => {
-    e.preventDefault();
-    setResetLoading(true);
-
-    try {
-      await api.post("/forgot-password", {
-        email: resetEmail,
-      });
-
-      await Swal.fire({
         icon: "success",
         title: "Permintaan Diproses",
         text: "Jika email terdaftar, link reset password akan dikirim. Silakan cek inbox atau folder spam.",
         background: "#1e293b",
         color: "#f1f5f9",
       });
-
       setShowForgotPassword(false);
       setResetEmail("");
-    } catch (err) {
-      // Hanya error sistem, BUKAN email tidak ditemukan
-      await Swal.fire({
+    },
+    onError: (error) => {
+      Swal.fire({
         icon: "error",
         title: "Terjadi Kesalahan",
         text:
-          err.response?.status === 429
+          error.response?.status === 429
             ? "Terlalu banyak percobaan. Silakan coba lagi beberapa menit."
-            : "Tidak dapat memproses permintaan saat ini. Silakan coba lagi.",
+            : error.response?.data?.message || "Tidak dapat memproses permintaan saat ini. Silakan coba lagi.",
         background: "#1e293b",
         color: "#f1f5f9",
       });
-    } finally {
-      setResetLoading(false);
+    },
+  });
+
+  // ESC close modal
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape") {
+        setShowForgotPassword(false);
+        setResetEmail("");
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
+
+  /**
+   * Handle Login
+   * Sekarang result dari login() adalah custom object: { success, message, user, token }
+   */
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    try {
+      const result = await login({ email, password });
+
+      if (result.success) {
+        await Swal.fire({
+          icon: "success",
+          title: "Login Berhasil",
+          text: result.message || "Selamat datang kembali!",
+          timer: 1500,
+          showConfirmButton: false,
+          background: "#1e293b",
+          color: "#f1f5f9",
+        });
+
+        // Redirect ke halaman yang dituju sebelumnya, atau default ke /home
+        const redirectTo = location.state?.from?.pathname || "/home";
+        navigate(redirectTo, { replace: true });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Login Gagal",
+          text: result.message || "Email atau password salah",
+          background: "#1e293b",
+          color: "#f1f5f9",
+        });
+      }
+    } catch (err) {
+      // Handle error dari server (401, 422, 429, dll)
+      const errorMessage = err.response?.data?.message 
+        || err.message 
+        || "Terjadi kesalahan saat login";
+        
+      Swal.fire({
+        icon: "error",
+        title: "Login Gagal",
+        text: errorMessage,
+        background: "#1e293b",
+        color: "#f1f5f9",
+      });
     }
+  };
+
+  const handleForgotPassword = (e) => {
+    e.preventDefault();
+    forgotPasswordMutation.mutate(resetEmail);
   };
 
   const handleCloseModal = () => {
     setShowForgotPassword(false);
     setResetEmail("");
   };
+
+  const isLoading = isLoggingIn;
+  const isResetLoading = forgotPasswordMutation.isPending;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 p-4 relative overflow-hidden">
@@ -301,6 +324,7 @@ const Login = () => {
                         required
                         autoComplete="email"
                         placeholder="employee@jayarubberseal.com"
+                        disabled={isLoading}
                       />
                       <div className="absolute left-3.5 top-1/2 -translate-y-1/2">
                         <Mail className="w-5 h-5 text-gray-500 group-hover:text-blue-400 transition-colors" />
@@ -320,6 +344,7 @@ const Login = () => {
                         required
                         autoComplete="current-password"
                         placeholder="••••••••"
+                        disabled={isLoading}
                       />
                       <div className="absolute left-3.5 top-1/2 -translate-y-1/2">
                         <Lock className="w-5 h-5 text-gray-500 group-hover:text-orange-400 transition-colors" />
@@ -329,6 +354,7 @@ const Login = () => {
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-orange-400 transition-colors p-1 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
                         tabIndex={-1}
+                        disabled={isLoading}
                       >
                         {showPassword ? (
                           <EyeOff className="w-5 h-5" />
@@ -345,6 +371,7 @@ const Login = () => {
                       type="button"
                       onClick={() => setShowForgotPassword(true)}
                       className="flex items-center text-sm text-gray-400 hover:text-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30 rounded group"
+                      disabled={isLoading}
                     >
                       <Key className="w-4 h-4 mr-2" />
                       <span>Lupa Password?</span>
@@ -355,9 +382,9 @@ const Login = () => {
                   {/* Login Button */}
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={isLoading}
                     className={`w-full relative overflow-hidden group mt-4 ${
-                      loading ? "opacity-80 cursor-not-allowed" : ""
+                      isLoading ? "opacity-80 cursor-not-allowed" : ""
                     }`}
                   >
                     {/* Button Metal Plate */}
@@ -368,7 +395,7 @@ const Login = () => {
 
                     {/* Indicator Light */}
                     <div
-                      className={`absolute top-3 left-3 w-2 h-2 rounded-full ${loading ? "bg-green-500 animate-pulse" : "bg-gray-500 group-hover:bg-blue-400"}`}
+                      className={`absolute top-3 left-3 w-2 h-2 rounded-full ${isLoading ? "bg-green-500 animate-pulse" : "bg-gray-500 group-hover:bg-blue-400"}`}
                     />
 
                     {/* Shine Effect */}
@@ -376,7 +403,7 @@ const Login = () => {
 
                     {/* Button Content */}
                     <div className="relative py-3.5 rounded-lg flex items-center justify-center">
-                      {loading ? (
+                      {isLoading ? (
                         <span className="flex items-center text-gray-300 font-semibold tracking-wider">
                           <svg
                             className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
@@ -509,6 +536,7 @@ const Login = () => {
                     onClick={handleCloseModal}
                     className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                     type="button"
+                    disabled={isResetLoading}
                   >
                     <svg
                       className="w-5 h-5 text-gray-400"
@@ -543,6 +571,7 @@ const Login = () => {
                         placeholder="employee@jayarubberseal.com"
                         autoComplete="email"
                         autoFocus
+                        disabled={isResetLoading}
                       />
                       <div className="absolute left-3.5 top-1/2 -translate-y-1/2">
                         <Mail className="w-5 h-5 text-gray-500 group-hover:text-blue-400 transition-colors" />
@@ -556,20 +585,20 @@ const Login = () => {
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    disabled={resetLoading}
+                    disabled={isResetLoading}
                     className={`w-full relative overflow-hidden group mt-6 ${
-                      resetLoading ? "opacity-80 cursor-not-allowed" : ""
+                      isResetLoading ? "opacity-80 cursor-not-allowed" : ""
                     }`}
                   >
                     <div className="absolute inset-0 bg-gradient-to-b from-gray-700 via-gray-800 to-gray-900 rounded-lg border-2 border-gray-600" />
                     <div className="absolute inset-0 bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     <div
-                      className={`absolute top-3 left-3 w-2 h-2 rounded-full ${resetLoading ? "bg-green-500 animate-pulse" : "bg-gray-500 group-hover:bg-blue-400"}`}
+                      className={`absolute top-3 left-3 w-2 h-2 rounded-full ${isResetLoading ? "bg-green-500 animate-pulse" : "bg-gray-500 group-hover:bg-blue-400"}`}
                     />
                     <div className="absolute top-0 left-0 w-8 h-full bg-white/10 skew-x-12 -translate-x-16 group-hover:translate-x-[200%] transition-transform duration-700" />
 
                     <div className="relative py-3.5 rounded-lg flex items-center justify-center">
-                      {resetLoading ? (
+                      {isResetLoading ? (
                         <span className="flex items-center text-gray-300 font-semibold tracking-wider">
                           <svg
                             className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
@@ -617,98 +646,46 @@ const Login = () => {
         </div>
       )}
 
-      {/* Global Animations */}
-      <style jsx global>{`
+      {/* Animations */}
+      <style>{`
         @keyframes spin-slow {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
 
         @keyframes spin-reverse {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(-360deg);
-          }
+          from { transform: rotate(0deg); }
+          to { transform: rotate(-360deg); }
         }
 
         @keyframes move-belt {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(100%);
-          }
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
 
         @keyframes float {
-          0% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 0;
-          }
-          10% {
-            opacity: 0.3;
-          }
-          90% {
-            opacity: 0.3;
-          }
-          100% {
-            transform: translateY(-100vh) rotate(180deg);
-            opacity: 0;
-          }
+          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+          10% { opacity: 0.3; }
+          90% { opacity: 0.3; }
+          100% { transform: translateY(-100vh) rotate(180deg); opacity: 0; }
         }
 
         @keyframes float-slow {
-          0%,
-          100% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 0.2;
-          }
-          50% {
-            transform: translateY(-20px) rotate(90deg);
-            opacity: 0.4;
-          }
+          0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.2; }
+          50% { transform: translateY(-20px) rotate(90deg); opacity: 0.4; }
         }
 
         @keyframes slideInIndustrial {
-          from {
-            opacity: 0;
-            transform: translateY(20px) scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+          from { opacity: 0; transform: translateY(20px) scale(0.95); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        .animate-spin-slow {
-          animation: spin-slow 20s linear infinite;
-        }
-
-        .animate-spin-reverse {
-          animation: spin-reverse 15s linear infinite;
-        }
-
-        .animate-move-belt {
-          animation: move-belt 3s linear infinite;
-        }
-
-        .animate-float {
-          animation: float 8s linear infinite;
-        }
-
-        .animate-float-slow {
-          animation: float-slow 15s ease-in-out infinite;
-        }
-
-        .animate-slideInIndustrial {
-          animation: slideInIndustrial 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
+        .animate-spin-slow { animation: spin-slow 20s linear infinite; }
+        .animate-spin-reverse { animation: spin-reverse 15s linear infinite; }
+        .animate-move-belt { animation: move-belt 3s linear infinite; }
+        .animate-float { animation: float 8s linear infinite; }
+        .animate-float-slow { animation: float-slow 15s ease-in-out infinite; }
+        .animate-slideInIndustrial { animation: slideInIndustrial 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
       `}</style>
     </div>
   );
