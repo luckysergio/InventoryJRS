@@ -1,510 +1,495 @@
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { cn } from "../lib/utils";
+import Swal from "sweetalert2";
 import {
-  X,
-  ChevronDown,
-  Home,
+  LayoutDashboard,
+  Users,
   Boxes,
   Receipt,
   Warehouse,
   Factory,
   ClipboardCheck,
+  Database,
   PersonStanding,
   Handshake,
-  ArrowLeft,
-  Database,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Settings,
+  Menu,
+  X,
+  Loader2,
+  Star,
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../lib/zustand/authStore";
+import { useAuth } from "../hooks/useAuth";
 
-const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
-  const location = useLocation();
-  const [isMinimized, setIsMinimized] = useState(false);
+/**
+ * Navigation item shape
+ * @typedef {Object} NavItem
+ * @property {string} title
+ * @property {string} href
+ * @property {React.ElementType} icon
+ * @property {string[]} [roles] - Allowed roles (optional)
+ * @property {string} [badge]
+ * @property {NavItem[]} [children]
+ */
 
-  const [masterDataOpen, setMasterDataOpen] = useState(false);
-  const [productOpen, setProductOpen] = useState(false);
-  const [transaksiOpen, setTransaksiOpen] = useState(false);
-  const [inventoryOpen, setInventoryOpen] = useState(false);
-  const [productionOpen, setProductionOpen] = useState(false);
-  const [stokOpnameOpen, setStokOpnameOpen] = useState(false);
-
-  // ✅ Gunakan Zustand, bukan localStorage
-  const user = useAuthStore((state) => state.user);
-  const userRole = user?.role;
+/**
+ * Build navigation items based on user role
+ */
+const buildNavItems = (userRole) => {
   const isAdmin = userRole === "admin";
-  const isAllowedForTransaksi = userRole === "admin" || userRole === "admin_toko";
+  const isAllowedForTransaksi =
+    userRole === "admin" || userRole === "admin_toko";
 
+  const items = [
+    {
+      title: "Dashboard",
+      href: "/home",
+      icon: LayoutDashboard,
+    },
+  ];
+
+  // Master Data - Admin only
+  if (isAdmin) {
+    items.push({
+      title: "Master Data",
+      href: "/master-data",
+      icon: Database,
+      children: [
+        { title: "User", href: "/user", icon: Users },
+        { title: "Karyawan", href: "/karyawan", icon: Users },
+        { title: "Jabatan", href: "/jabatan", icon: Settings },
+        { title: "Jenis Product", href: "/jenis", icon: Boxes },
+        { title: "Type Product", href: "/type", icon: Boxes },
+        { title: "Bahan Product", href: "/bahan", icon: Boxes },
+        { title: "Status Transaksi", href: "/status-transaksi", icon: Receipt },
+      ],
+    });
+  }
+
+  // Customer & Distributor
+  if (isAllowedForTransaksi) {
+    items.push({
+      title: "Customer",
+      href: "/customer",
+      icon: PersonStanding,
+    });
+    items.push({
+      title: "Distributor",
+      href: "/distributor",
+      icon: Handshake,
+    });
+  }
+
+  // Product
+  items.push({
+    title: "Product",
+    href: "/product",
+    icon: Boxes,
+    children: [
+      { title: "Semua Product", href: "/product", icon: Boxes },
+      {
+        title: "Product Customer",
+        href: "/product-customer",
+        icon: PersonStanding,
+      },
+      {
+        title: "Product Distributor",
+        href: "/product-distributor",
+        icon: Handshake,
+      },
+      { title: "Harga Product", href: "/harga-product", icon: Star },
+      { title: "Product Terlaris", href: "/product-terlaris", icon: Star },
+    ],
+  });
+
+  // Transaksi - admin & admin_toko only
+  if (isAllowedForTransaksi) {
+    items.push({
+      title: "Transaksi",
+      href: "/transaksi",
+      icon: Receipt,
+      children: [
+        { title: "Transaksi Daily", href: "/transaksi", icon: Receipt },
+        { title: "Transaksi Pesanan", href: "/pesanan", icon: Receipt },
+        {
+          title: "Riwayat Transaksi",
+          href: "/riwayat-transaksi",
+          icon: Receipt,
+        },
+      ],
+    });
+  }
+
+  // Inventory
+  items.push({
+    title: "Inventory",
+    href: "/inventory",
+    icon: Warehouse,
+    children: [
+      { title: "Inventory", href: "/inventory", icon: Warehouse },
+      { title: "Product Movement", href: "/product-movement", icon: Boxes },
+    ],
+  });
+
+  // Production
+  items.push({
+    title: "Production",
+    href: "/production",
+    icon: Factory,
+    children: [
+      { title: "Production", href: "/production", icon: Factory },
+      {
+        title: "Riwayat Production",
+        href: "/riwayat-production",
+        icon: Factory,
+      },
+    ],
+  });
+
+  // Stok Opname
+  items.push({
+    title: "Stok Opname",
+    href: "/stok-opname",
+    icon: ClipboardCheck,
+    children: [
+      { title: "Stok Opname", href: "/stok-opname", icon: ClipboardCheck },
+      {
+        title: "Riwayat SO",
+        href: "/riwayat-stok-opname",
+        icon: ClipboardCheck,
+      },
+    ],
+  });
+
+  return items;
+};
+
+export default function Sidebar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(true);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [expandedItems, setExpandedItems] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  // Auth state
+  const user = useAuthStore((state) => state.user);
+  const { logout, isLoggingOut } = useAuth();
+
+  // Build nav items based on user role
+  const navItems = buildNavItems(user?.role);
+
+  // Check window size for mobile
   useEffect(() => {
-    if ("scrollRestoration" in window.history) {
-      window.history.scrollRestoration = "manual";
-    }
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+      if (window.innerWidth >= 1024) {
+        setIsMobileOpen(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Close mobile on route change
   useEffect(() => {
-    const path = location.pathname;
-
-    const productionRoutes = ["/production", "/riwayat-production"];
-    const isProductionRoute = productionRoutes.some(
-      (route) => path === route || path.startsWith(route + "/"),
-    );
-
-    const productRoutes = [
-      "/product",
-      "/product-distributor",
-      "/product-customer",
-      "/harga-product",
-      "/product-terlaris",
-    ];
-    const isProductRoute = productRoutes.some(
-      (route) => path === route || path.startsWith(route + "/"),
-    );
-
-    const transaksiRoutes = ["/transaksi", "/pesanan", "/riwayat-transaksi"];
-    const isTransaksiRoute = transaksiRoutes.some(
-      (route) => path === route || path.startsWith(route + "/"),
-    );
-
-    const inventoryRoutes = ["/inventory", "/product-movement"];
-    const isInventoryRoute = inventoryRoutes.some(
-      (route) => path === route || path.startsWith(route + "/"),
-    );
-
-    const stokOpnameRoutes = ["/stok-opname", "/riwayat-stok-opname"];
-    const isStokOpnameRoute = stokOpnameRoutes.some(
-      (route) => path === route || path.startsWith(route + "/"),
-    );
-
-    const masterDataRoutes = [
-      "/user",
-      "/karyawan",
-      "/jenis",
-      "/type",
-      "/bahan",
-      "/status-transaksi",
-      "/jabatan",
-    ];
-    const isMasterDataRoute = masterDataRoutes.some(
-      (route) => path === route || path.startsWith(route + "/"),
-    );
-
-    setProductionOpen(isProductionRoute);
-    setProductOpen(isProductRoute);
-    setTransaksiOpen(isTransaksiRoute);
-    setInventoryOpen(isInventoryRoute);
-    setStokOpnameOpen(isStokOpnameRoute);
-    setMasterDataOpen(isMasterDataRoute);
+    setIsMobileOpen(false);
   }, [location.pathname]);
 
-  const NavLink = ({ children, to, icon: Icon }) => {
-    const isActive = location.pathname === to;
+  // Auto expand current path
+  useEffect(() => {
+    const currentPath = location.pathname;
+    navItems.forEach((item) => {
+      if (item.children) {
+        const hasActiveChild = item.children.some(
+          (child) =>
+            currentPath === child.href ||
+            currentPath.startsWith(child.href + "/"),
+        );
+        if (hasActiveChild && !expandedItems.includes(item.title)) {
+          setExpandedItems((prev) => [...prev, item.title]);
+        }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  const toggleSidebar = () => {
+    if (isMobile) {
+      setIsMobileOpen(!isMobileOpen);
+    } else {
+      setIsOpen(!isOpen);
+    }
+  };
+
+  const toggleExpand = (title) => {
+    setExpandedItems((prev) =>
+      prev.includes(title)
+        ? prev.filter((item) => item !== title)
+        : [...prev, title],
+    );
+  };
+
+  const isActive = (href) => {
+    return (
+      location.pathname === href || location.pathname.startsWith(href + "/")
+    );
+  };
+
+  // Handle logout with SweetAlert confirmation
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      title: "Logout?",
+      text: "Apakah Anda yakin ingin keluar dari sistem?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Ya, Keluar",
+      cancelButtonText: "Batal",
+      background: "#1e293b",
+      color: "#f1f5f9",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      await logout();
+      navigate("/jayarubberseallogin", { replace: true });
+    } catch (error) {
+      console.error("Logout error:", error);
+      navigate("/jayarubberseallogin", { replace: true });
+    }
+  };
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user?.name) return "U";
+    return user.name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const roleLabels = {
+    admin: "Administrator",
+    admin_toko: "Admin Toko",
+    operator: "Operator",
+  };
+
+  const renderNavItem = (item, depth = 0) => {
+    const hasChildren = item.children && item.children.length > 0;
+    const isExpanded = expandedItems.includes(item.title);
+    const isItemActive = !hasChildren && isActive(item.href);
+    const isParentActive =
+      hasChildren && item.children?.some((child) => isActive(child.href));
+    const isSidebarOpen = isMobile ? isMobileOpen : isOpen;
 
     return (
-      <div className="relative group">
+      <div key={item.title} className="w-full">
         <Link
-          to={to}
-          className={`
-            flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300
-            group-hover:scale-[1.02] group-hover:shadow-sm
-            ${
-              isActive
-                ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30"
-                : "text-gray-600 hover:bg-gray-50/90 hover:text-gray-900"
+          to={hasChildren ? "#" : item.href}
+          onClick={(e) => {
+            if (hasChildren) {
+              e.preventDefault();
+              toggleExpand(item.title);
+            } else if (isMobile) {
+              setIsMobileOpen(false);
             }
-            ${isMinimized ? "justify-center px-3" : ""}
-          `}
+          }}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
+            isItemActive
+              ? "bg-blue-50 text-blue-700"
+              : isParentActive
+                ? "bg-blue-50/50 text-blue-600"
+                : "text-gray-600 hover:bg-blue-50/50 hover:text-blue-600",
+            depth > 0 && "pl-10",
+            !isSidebarOpen && !isMobile && "justify-center px-2",
+          )}
         >
-          {isActive && !isMinimized && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-white rounded-r-full" />
+          <item.icon
+            className={cn(
+              "h-5 w-5 shrink-0 transition-colors",
+              isItemActive || isParentActive
+                ? "text-blue-600"
+                : "text-gray-400 group-hover:text-blue-500",
+            )}
+          />
+
+          {(isSidebarOpen || isMobile) && (
+            <span
+              className={cn(
+                "flex-1 text-sm font-medium truncate",
+                isItemActive || isParentActive
+                  ? "text-blue-700"
+                  : "text-gray-700",
+              )}
+            >
+              {item.title}
+            </span>
           )}
 
-          <div className="relative">
-            <Icon
-              className={`
-                w-5 h-5 transition-all duration-300
-                ${isActive ? "text-white" : "text-gray-500 group-hover:text-blue-500"}
-                ${isMinimized ? "group-hover:scale-110" : ""}
-              `}
-            />
-
-            {isActive && isMinimized && (
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-300 rounded-full animate-pulse" />
-            )}
-          </div>
-
-          {!isMinimized && (
-            <span className="font-medium text-sm whitespace-nowrap">
-              {children}
+          {(isSidebarOpen || isMobile) && item.badge && (
+            <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
+              {item.badge}
             </span>
+          )}
+
+          {(isSidebarOpen || isMobile) && hasChildren && (
+            <ChevronRight
+              className={cn(
+                "h-4 w-4 transition-transform duration-200 shrink-0",
+                isExpanded && "rotate-90",
+                isItemActive || isParentActive
+                  ? "text-blue-600"
+                  : "text-gray-400",
+              )}
+            />
           )}
         </Link>
 
-        {isMinimized && (
-          <div
-            className="
-            absolute left-full top-1/2 -translate-y-1/2 ml-2
-            px-3 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg
-            shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200
-            pointer-events-none whitespace-nowrap z-50
-            before:absolute before:right-full before:top-1/2 before:-translate-y-1/2
-            before:border-4 before:border-transparent before:border-r-gray-900
-          "
-          >
-            {children}
+        {(isSidebarOpen || isMobile) && hasChildren && isExpanded && (
+          <div className="mt-1 space-y-1">
+            {item.children?.map((child) => renderNavItem(child, depth + 1))}
           </div>
         )}
       </div>
     );
   };
 
-  const Dropdown = ({ title, open, setOpen, children, icon: Icon }) => (
-    <div className="space-y-1">
-      <button
-        onClick={() => setOpen(!open)}
-        className={`
-          flex items-center justify-between w-full px-4 py-3.5 rounded-xl
-          transition-all duration-300 group hover:scale-[1.02]
-          ${
-            open
-              ? "bg-gradient-to-r from-gray-50 to-gray-100/80 text-gray-900 border border-gray-200/50"
-              : "text-gray-600 hover:bg-gray-50/90 hover:text-gray-900"
-          }
-          ${isMinimized ? "justify-center px-3" : ""}
-        `}
+  const sidebarContent = (
+    <div className="flex flex-col h-full bg-white">
+      {/* Brand */}
+      <div
+        className={cn(
+          "flex items-center gap-3 px-4 py-5 border-b border-gray-100",
+          !isOpen && !isMobile && "justify-center px-2",
+        )}
       >
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Icon
-              className={`
-                w-5 h-5 transition-all duration-300
-                ${open ? "text-blue-600" : "text-gray-500 group-hover:text-blue-500"}
-                ${isMinimized ? "group-hover:scale-110" : ""}
-              `}
-            />
-
-            {open && isMinimized && (
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-            )}
+        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25 shrink-0">
+          <img
+            src="/Favicon/favJRS.webp"
+            alt="JRS"
+            className="w-7 h-7 object-contain"
+            onError={(e) => {
+              e.target.style.display = "none";
+              const fallback = document.createElement("span");
+              fallback.className = "text-white font-bold text-sm";
+              fallback.textContent = "JRS";
+              e.target.parentNode.appendChild(fallback);
+            }}
+          />
+        </div>
+        {(isOpen || isMobile) && (
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-gray-800 truncate">
+              Jaya<span className="text-blue-600"> Rubber</span>
+            </h1>
+            <p className="text-xs text-gray-500">Manufacturing System</p>
           </div>
+        )}
+      </div>
 
-          {!isMinimized && (
-            <span className="font-medium text-sm whitespace-nowrap">
-              {title}
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin scrollbar-thumb-gray-200">
+        <div className="space-y-1">
+          {navItems.map((item) => renderNavItem(item))}
+        </div>
+      </nav>
+
+      <div className="border-t border-gray-100 p-3 space-y-2">
+
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition-all duration-200 disabled:opacity-50",
+            !isOpen && !isMobile && "justify-center px-2",
+          )}
+        >
+          {isLoggingOut ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <LogOut className="h-5 w-5" />
+          )}
+          {(isOpen || isMobile) && (
+            <span className="text-sm font-medium">
+              {isLoggingOut ? "Logging out..." : "Logout"}
             </span>
           )}
-        </div>
-
-        {!isMinimized && (
-          <ChevronDown
-            className={`
-              w-4 h-4 text-gray-400 transition-transform duration-300 flex-shrink-0
-              ${open ? "rotate-180" : ""}
-            `}
-          />
-        )}
-      </button>
-
-      {!isMinimized && (
-        <div
-          className={`
-            overflow-hidden transition-all duration-300 ease-in-out
-            ${open ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0"}
-          `}
-        >
-          <div className="ml-5 pl-4 space-y-0.5 border-l-2 border-gray-200/60">
-            {children}
-          </div>
-        </div>
-      )}
-
-      {isMinimized && (
-        <div
-          className="
-          absolute left-full top-1/2 -translate-y-1/2 ml-2
-          px-3 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg
-          shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200
-          pointer-events-none whitespace-nowrap z-50
-          before:absolute before:right-full before:top-1/2 before:-translate-y-1/2
-          before:border-4 before:border-transparent before:border-r-gray-900
-        "
-        >
-          {title}
-        </div>
-      )}
-    </div>
-  );
-
-  const SubNavLink = ({ children, to }) => {
-    const isActive = location.pathname === to;
-
-    return (
-      <Link
-        to={to}
-        className={`
-          block px-4 py-2.5 text-sm rounded-lg transition-all duration-300
-          group relative
-          ${
-            isActive
-              ? "bg-blue-50/80 text-blue-700 font-medium shadow-sm"
-              : "text-gray-600 hover:bg-gray-50/70 hover:text-gray-900"
-          }
-        `}
-      >
-        {isActive && (
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-blue-600 rounded-r" />
-        )}
-
-        <span
-          className={`
-          ${isActive ? "ml-2" : ""}
-          transition-all duration-200 group-hover:translate-x-1
-        `}
-        >
-          {children}
-        </span>
-
-        {!isActive && (
-          <div
-            className="
-            absolute left-0 top-1/2 -translate-y-1/2 w-1 h-2
-            bg-gray-300 rounded-r opacity-0 group-hover:opacity-100
-            transition-all duration-300
-          "
-          />
-        )}
-      </Link>
-    );
-  };
-
-  const LogoSection = () => (
-    <div className="flex items-center gap-3">
-      <div
-        className={`
-        relative flex items-center justify-center
-        ${isMinimized ? "w-10 h-10" : "w-9 h-9"}
-        transition-all duration-300
-      `}
-      >
-        <img
-          src="/Favicon/favJRS.webp"
-          alt="JRS Logo"
-          className="w-full h-full object-contain"
-          onError={(e) => {
-            e.target.style.display = "none";
-            const fallback = document.createElement("div");
-            fallback.className = `
-              w-full h-full flex items-center justify-center rounded-xl
-              bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200/50
-            `;
-            fallback.innerHTML =
-              '<span class="text-xs font-bold text-blue-600">JRS</span>';
-            e.target.parentNode.appendChild(fallback);
-          }}
-        />
-      </div>
-
-      {!isMinimized && (
-        <div className="overflow-hidden">
-          <h1 className="text-base font-bold text-gray-800 whitespace-nowrap">
-            Jaya Rubber Seal
-          </h1>
-          <p className="text-[10px] text-gray-500 mt-0.5 font-medium">
-            Manufacturing System
-          </p>
-        </div>
-      )}
-    </div>
-  );
-
-  const SidebarHeader = () => (
-    <div
-      className={`
-      px-5 py-3.5 border-b border-gray-200/50 
-      bg-gradient-to-br from-white to-gray-50/50
-      backdrop-blur-sm
-    `}
-    >
-      <div className="flex items-center justify-between">
-        <LogoSection />
-
-        <button
-          onClick={() => setIsMinimized(!isMinimized)}
-          className={`
-            p-2 rounded-xl hover:bg-gray-100 transition-all duration-300
-            group border border-transparent hover:border-gray-200
-            ${isMinimized ? "mx-auto" : ""}
-            lg:flex hidden items-center justify-center
-          `}
-          title={isMinimized ? "Expand sidebar" : "Minimize sidebar"}
-        >
-          <ArrowLeft
-            className={`
-              w-4 h-4 text-gray-500 group-hover:text-gray-700
-              transition-transform duration-300
-              ${isMinimized ? "rotate-180" : ""}
-            `}
-          />
         </button>
       </div>
     </div>
   );
 
-  const SidebarContent = () => (
-    <div className="px-2.5 py-3 space-y-0.5">
-      <NavLink to="/home" icon={Home}>
-        Home
-      </NavLink>
-
-      {isAdmin && (
-        <div className="relative">
-          <Dropdown
-            title="Master Data"
-            open={masterDataOpen}
-            setOpen={setMasterDataOpen}
-            icon={Database}
-          >
-            <SubNavLink to="/user">User</SubNavLink>
-            <SubNavLink to="/karyawan">Karyawan</SubNavLink>
-            <SubNavLink to="/jabatan">Data Jabatan</SubNavLink>
-            <SubNavLink to="/jenis">Jenis Product</SubNavLink>
-            <SubNavLink to="/type">Type Product</SubNavLink>
-            <SubNavLink to="/bahan">Bahan Product</SubNavLink>
-            <SubNavLink to="/status-transaksi">Status Transaksi</SubNavLink>
-          </Dropdown>
-        </div>
-      )}
-
-      {isAllowedForTransaksi && (
-        <NavLink to="/customer" icon={PersonStanding}>
-          Customer
-        </NavLink>
-      )}
-      {isAllowedForTransaksi && (
-        <NavLink to="/distributor" icon={Handshake}>
-          Distributor
-        </NavLink>
-      )}
-
-      <Dropdown
-        title="Product"
-        open={productOpen}
-        setOpen={setProductOpen}
-        icon={Boxes}
-      >
-        <SubNavLink to="/product">Product</SubNavLink>
-        <SubNavLink to="/product-customer">Product Customer</SubNavLink>
-        <SubNavLink to="/product-distributor">Product Distributor</SubNavLink>
-        <SubNavLink to="/product-terlaris">Product Terlaris</SubNavLink>
-        <SubNavLink to="/harga-product">Harga Product</SubNavLink>
-      </Dropdown>
-
-      {isAllowedForTransaksi && (
-        <Dropdown
-          title="Transaksi"
-          open={transaksiOpen}
-          setOpen={setTransaksiOpen}
-          icon={Receipt}
+  // Mobile sidebar with overlay
+  if (isMobile) {
+    return (
+      <>
+        {/* Mobile Toggle Button */}
+        <button
+          onClick={() => setIsMobileOpen(true)}
+          className="fixed top-4 left-4 z-40 lg:hidden p-2 rounded-lg bg-white shadow-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200"
+          aria-label="Open menu"
         >
-          <SubNavLink to="/transaksi">Transaksi Daily</SubNavLink>
-          <SubNavLink to="/pesanan">Transaksi Pesanan</SubNavLink>
-          <SubNavLink to="/riwayat-transaksi">Riwayat Transaksi</SubNavLink>
-        </Dropdown>
-      )}
+          <Menu className="h-5 w-5 text-gray-600" />
+        </button>
 
-      <Dropdown
-        title="Inventory"
-        open={inventoryOpen}
-        setOpen={setInventoryOpen}
-        icon={Warehouse}
-      >
-        <SubNavLink to="/inventory">Inventory</SubNavLink>
-        <SubNavLink to="/product-movement">Product Movement</SubNavLink>
-      </Dropdown>
-
-      <Dropdown
-        title="Production"
-        open={productionOpen}
-        setOpen={setProductionOpen}
-        icon={Factory}
-      >
-        <SubNavLink to="/production">Production</SubNavLink>
-        <SubNavLink to="/riwayat-production">Riwayat Production</SubNavLink>
-      </Dropdown>
-
-      <Dropdown
-        title="Stok Opname"
-        open={stokOpnameOpen}
-        setOpen={setStokOpnameOpen}
-        icon={ClipboardCheck}
-      >
-        <SubNavLink to="/stok-opname">Stok Opname</SubNavLink>
-        <SubNavLink to="/riwayat-stok-opname">Riwayat SO</SubNavLink>
-      </Dropdown>
-    </div>
-  );
-
-  return (
-    <>
-      <aside
-        className={`
-          hidden lg:flex bg-white/95 backdrop-blur-sm border-r border-gray-200/50
-          flex-col overflow-hidden shadow-xl transition-all duration-300
-          ${isMinimized ? "w-[88px]" : "w-[280px]"}
-        `}
-      >
-        <div className="flex flex-col h-full">
-          <SidebarHeader />
-
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            <SidebarContent />
+        {/* Mobile Sidebar Overlay */}
+        {isMobileOpen && (
+          <div className="fixed inset-0 z-50 flex lg:hidden">
+            <div
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+              onClick={() => setIsMobileOpen(false)}
+            />
+            <div className="relative w-72 max-w-[85%] h-full bg-white shadow-2xl animate-in slide-in-from-left duration-300">
+              <div className="absolute top-4 right-4 z-10">
+                <button
+                  onClick={() => setIsMobileOpen(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  aria-label="Close menu"
+                >
+                  <X className="h-5 w-5 text-gray-600" />
+                </button>
+              </div>
+              {sidebarContent}
+            </div>
           </div>
-
-          {isMinimized && (
-            <div className="px-4 py-3 border-t border-gray-200/50">
-              <div className="text-center">
-                <div className="w-6 h-0.5 bg-gray-300 mx-auto rounded-full"></div>
-              </div>
-            </div>
-          )}
-        </div>
-      </aside>
-
-      <div
-        className={`
-          fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden
-          transition-all duration-300
-          ${sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"}
-        `}
-        onClick={() => setSidebarOpen(false)}
-      />
-
-      <aside
-        className={`
-          fixed top-0 left-0 z-50 h-full bg-white/95 backdrop-blur-sm
-          shadow-2xl transform transition-all duration-300 lg:hidden
-          ${sidebarOpen ? "w-80 translate-x-0" : "w-0 -translate-x-full"}
-        `}
-      >
-        {sidebarOpen && (
-          <>
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200/50">
-              <LogoSection />
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="p-2 rounded-xl hover:bg-gray-100 transition-all duration-200"
-              >
-                <X className="w-5 h-5 text-gray-600" />
-              </button>
-            </div>
-
-            <div className="flex flex-col h-full overflow-hidden">
-              <div className="flex-1 overflow-y-auto px-2.5 py-3">
-                <SidebarContent />
-              </div>
-            </div>
-          </>
         )}
-      </aside>
-    </>
-  );
-};
+      </>
+    );
+  }
 
-export default Sidebar;
+  // Desktop sidebar
+  return (
+    <aside
+      className={cn(
+        "hidden lg:block h-screen sticky top-0 bg-white border-r border-gray-100 transition-all duration-300 shrink-0",
+        isOpen ? "w-64" : "w-[72px]",
+      )}
+    >
+      {sidebarContent}
+
+      {/* Toggle Button for Desktop (Floating on sidebar edge) */}
+      <button
+        onClick={toggleSidebar}
+        aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+        className="absolute -right-3.5 top-1/2 -translate-y-1/2 z-40 flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-lg transition-all duration-200 hover:border-blue-300 hover:text-blue-600 hover:scale-110 active:scale-90"
+      >
+        {isOpen ? (
+          <ChevronLeft className="h-4 w-4" />
+        ) : (
+          <ChevronRight className="h-4 w-4" />
+        )}
+      </button>
+    </aside>
+  );
+}

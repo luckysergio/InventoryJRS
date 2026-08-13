@@ -1,9 +1,13 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 
 export const useUserStore = create(
     devtools(
         (set, get) => ({
+            // ============================================
+            // FILTER & SEARCH STATE
+            // ============================================
             filters: {
                 search: '',
                 role: '',
@@ -11,6 +15,9 @@ export const useUserStore = create(
             },
             currentPage: 1,
 
+            // ============================================
+            // UI / MODAL STATE
+            // ============================================
             modals: {
                 create: false,
                 edit: false,
@@ -19,6 +26,9 @@ export const useUserStore = create(
             },
             selectedUser: null,
 
+            // ============================================
+            // ACTION: FILTER & PAGINATION
+            // ============================================
             setSearch: (search) => set((state) => ({
                 filters: { ...state.filters, search },
                 currentPage: 1,
@@ -45,6 +55,9 @@ export const useUserStore = create(
                 currentPage: 1,
             }, false, 'resetFilters'),
 
+            // ============================================
+            // ACTION: MODAL MANAGEMENT
+            // ============================================
             openCreateModal: () => set((state) => ({
                 modals: { ...state.modals, create: true },
                 selectedUser: null,
@@ -77,11 +90,14 @@ export const useUserStore = create(
 
             closeModal: (modalName) => set((state) => ({
                 modals: { ...state.modals, [modalName]: false },
-                selectedUser: ['edit', 'delete', 'detail'].includes(modalName) 
-                    ? null 
+                selectedUser: ['edit', 'delete', 'detail'].includes(modalName)
+                    ? null
                     : state.selectedUser,
             }), false, 'closeModal'),
 
+            // ============================================
+            // GETTERS
+            // ============================================
             getQueryParams: () => {
                 const { filters, currentPage } = get();
                 return {
@@ -104,23 +120,43 @@ export const useUserStore = create(
     )
 );
 
-export const useUserFilters = () => useUserStore((state) => ({
-    filters: state.filters,
-    currentPage: state.currentPage,
-    setSearch: state.setSearch,
-    setRoleFilter: state.setRoleFilter,
-    setPerPage: state.setPerPage,
-    setCurrentPage: state.setCurrentPage,
-    resetFilters: state.resetFilters,
-}));
+// ============================================
+// ✅ SELECTORS DENGAN useShallow (FIX INFINITE LOOP)
+// ============================================
 
-export const useUserModals = () => useUserStore((state) => ({
-    modals: state.modals,
-    selectedUser: state.selectedUser,
-    openCreateModal: state.openCreateModal,
-    openEditModal: state.openEditModal,
-    openDeleteModal: state.openDeleteModal,
-    openDetailModal: state.openDetailModal,
-    closeAllModals: state.closeAllModals,
-    closeModal: state.closeModal,
-}));
+/**
+ * Selector untuk filter
+ * useShallow mencegah infinite loop dengan shallow comparison
+ */
+export const useUserFilters = () => {
+    return useUserStore(
+        useShallow((state) => ({
+            filters: state.filters,
+            currentPage: state.currentPage,
+            setSearch: state.setSearch,
+            setRoleFilter: state.setRoleFilter,
+            setPerPage: state.setPerPage,
+            setCurrentPage: state.setCurrentPage,
+            resetFilters: state.resetFilters,
+            hasActiveFilters: state.hasActiveFilters, // ✅ PENTING! Include ini
+        }))
+    );
+};
+
+/**
+ * Selector untuk modal
+ */
+export const useUserModals = () => {
+    return useUserStore(
+        useShallow((state) => ({
+            modals: state.modals,
+            selectedUser: state.selectedUser,
+            openCreateModal: state.openCreateModal,
+            openEditModal: state.openEditModal,
+            openDeleteModal: state.openDeleteModal,
+            openDetailModal: state.openDetailModal,
+            closeAllModals: state.closeAllModals,
+            closeModal: state.closeModal,
+        }))
+    );
+};

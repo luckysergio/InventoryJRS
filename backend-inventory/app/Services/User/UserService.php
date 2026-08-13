@@ -9,14 +9,17 @@ use Illuminate\Support\Facades\Hash;
 
 class UserService
 {
-    private const CACHE_TTL_LIST   = 300;  // 5 menit
-    private const CACHE_TTL_DETAIL = 900;  // 15 menit
+    private const CACHE_TTL_LIST   = 300;
+    private const CACHE_TTL_DETAIL = 900;
+    private const CACHE_INDEX_KEY  = 'users:cache:index';
 
     public function getList(?string $search = null, int $perPage = 10): LengthAwarePaginator
     {
         $cacheKey = $this->getListCacheKey($search, $perPage, request()->get('page', 1));
 
-        return Cache::remember($cacheKey, self::CACHE_TTL_LIST, function () use ($search, $perPage) {
+        return Cache::remember($cacheKey, self::CACHE_TTL_LIST, function () use ($search, $perPage, $cacheKey) {
+            $this->registerCacheKey($cacheKey);
+
             return User::select(['id', 'name', 'email', 'role', 'created_at'])
                 ->search($search)
                 ->orderByDesc('created_at')
@@ -28,7 +31,9 @@ class UserService
     {
         $cacheKey = $this->getDetailCacheKey($id);
 
-        return Cache::remember($cacheKey, self::CACHE_TTL_DETAIL, function () use ($id) {
+        return Cache::remember($cacheKey, self::CACHE_TTL_DETAIL, function () use ($id, $cacheKey) {
+            $this->registerCacheKey($cacheKey);
+
             return User::select(['id', 'name', 'email', 'role', 'created_at'])->find($id);
         });
     }
@@ -88,7 +93,6 @@ class UserService
     private function getListCacheKey(?string $search, int $perPage, int $page): string
     {
         $searchHash = $search ? md5($search) : 'all';
-
         return "users:list:search:{$searchHash}:per_page:{$perPage}:page:{$page}";
     }
 
@@ -97,24 +101,61 @@ class UserService
         return "users:detail:{$id}";
     }
 
-    private function clearListCache(): void
+    private function registerCacheKey(string $cacheKey): void
     {
-        Cache::forget('users:list:*');
+        $keys = Cache::get(self::CACHE_INDEX_KEY, []);
 
-        $indexKey = 'users:list:index';
-        $keys = Cache::get($indexKey, []);
+        if (!is_array($keys)) {
+            $keys = [];
+        }
 
-        if (is_array($keys)) {
+        if (!in_array($cacheKey, $keys, true)) {
+            $keys[] = $cacheKey;
+            Cache::put(self::CACHE_INDEX_KEY, $keys, 86400);
+        }
+    }
+
+    private function clearAllRegisteredCache(): void
+    {
+        $keys = Cache::get(self::CACHE_INDEX_KEY, []);
+
+        if (is_array($keys) && !empty($keys)) {
             foreach ($keys as $key) {
                 Cache::forget($key);
             }
         }
 
-        Cache::forget($indexKey);
+        Cache::forget(self::CACHE_INDEX_KEY);
+    }
+
+    private function clearListCache(): void
+    {
+        $keys = Cache::get(self::CACHE_INDEX_KEY, []);
+
+        if (is_array($keys)) {
+            $remainingKeys = [];
+
+            foreach ($keys as $key) {
+                if (str_starts_with($key, 'users:list:')) {
+                    Cache::forget($key);
+                } else {
+                    $remainingKeys[] = $key;
+                }
+            }
+
+            Cache::put(self::CACHE_INDEX_KEY, $remainingKeys, 86400);
+        }
     }
 
     private function clearDetailCache(int $id): void
     {
-        Cache::forget($this->getDetailCacheKey($id));
+        $cacheKey = $this->getDetailCacheKey($id);
+        Cache::forget($cacheKey);
+
+        $keys = Cache::get(self::CACHE_INDEX_KEY, []);
+        if (is_array($keys)) {
+            $keys = array_values(array_filter($keys, fn($k) => $k !== $cacheKey));
+            Cache::put(self::CACHE_INDEX_KEY, $keys, 86400);
+        }
     }
 }

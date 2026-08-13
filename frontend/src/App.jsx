@@ -1,68 +1,109 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Suspense, lazy, useEffect } from "react";
-import AOS from 'aos';
+import AOS from "aos";
 
+// Core Components
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// Public pages - eager load (kecil)
+// ============================================
+// PUBLIC PAGES (Eager Load - Small Size)
+// ============================================
 import Login from "./pages/login";
 import ResetPassword from "./pages/admin/ResetPassword";
 import CompanyProfile from "./pages/cuxtomer/CompanyProfile";
 
-// Admin pages - lazy load (code splitting)
+// ============================================
+// ADMIN PAGES (Lazy Load - Code Splitting)
+// ============================================
+
+// Dashboard
 const HomePage = lazy(() => import("./pages/admin/HomePage"));
-const AllProductsPage = lazy(() => import("./pages/admin/AllProductsPage"));
-const UserPage = lazy(() => import("./pages/admin/UserPage"));
+
+// User Management
+const UserPage = lazy(() => import("./pages/admin/users/UserPage"));
 const KaryawanPage = lazy(() => import("./pages/admin/KaryawanPage"));
 const JabatanPage = lazy(() => import("./pages/admin/JabatanPage"));
+
+// Customer & Distributor
 const DistributorPage = lazy(() => import("./pages/admin/DistributorPage"));
 const DistributorProductPage = lazy(() => import("./pages/admin/DistributorProductPage"));
 const ProductCustomerPage = lazy(() => import("./pages/admin/ProductCustomerPage"));
+const CustomerPage = lazy(() => import("./pages/admin/Customer"));
+
+// Product & Inventory
+const AllProductsPage = lazy(() => import("./pages/admin/AllProductsPage"));
 const ProductPage = lazy(() => import("./pages/admin/Product"));
-const ProductionPage = lazy(() => import("./pages/admin/ProductionPage"));
-const RiwayatProductionPage = lazy(() => import("./pages/admin/RiwayatProductionPage"));
 const HargaProductPage = lazy(() => import("./pages/admin/HargaProduct"));
 const InventoryPage = lazy(() => import("./pages/admin/InventoryPage"));
 const ProductMovementPage = lazy(() => import("./pages/admin/ProductMovementPage"));
-const StokOpnamePage = lazy(() => import("./pages/admin/StokOpnamePage"));
-const RiwayatSOPage = lazy(() => import("./pages/admin/RiwayatSOPage"));
 const BarangKeluarPage = lazy(() => import("./pages/admin/BarangKeluar"));
+
+// Master Data
 const JenisPage = lazy(() => import("./pages/admin/JenisProduct"));
 const TypePage = lazy(() => import("./pages/admin/TypeProduct"));
 const BahanProductPage = lazy(() => import("./pages/admin/BahanProduct"));
 const StatusTransaksiPage = lazy(() => import("./pages/admin/StatusTransaksiPage"));
 const PlacePage = lazy(() => import("./pages/admin/PlacePage"));
-const CustomerPage = lazy(() => import("./pages/admin/Customer"));
+
+// Production
+const ProductionPage = lazy(() => import("./pages/admin/ProductionPage"));
+const RiwayatProductionPage = lazy(() => import("./pages/admin/RiwayatProductionPage"));
+
+// Stok Opname
+const StokOpnamePage = lazy(() => import("./pages/admin/StokOpnamePage"));
+const RiwayatSOPage = lazy(() => import("./pages/admin/RiwayatSOPage"));
+
+// Transaksi
 const TransaksiPage = lazy(() => import("./pages/admin/DaftarTransaksi"));
 const PesananPage = lazy(() => import("./pages/admin/Pesanan"));
 const RiwayatTransaksi = lazy(() => import("./pages/admin/RiwayatTransaksi"));
 
-// Error pages - lazy load
+// ============================================
+// ERROR PAGES (Lazy Load)
+// ============================================
 const ForbiddenPage = lazy(() => import("./pages/ForbiddenPage"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
-// Loading component
+// ============================================
+// LOADING COMPONENT
+// ============================================
 const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-900">
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50/30">
     <div className="flex flex-col items-center gap-4">
-      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      <p className="text-gray-400 font-mono">Loading...</p>
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      <p className="text-slate-500 font-medium">Loading...</p>
     </div>
   </div>
 );
 
-// ✅ PERBAIKAN: default roles = [] (bukan null)
-// Helper untuk membuat protected route dengan Layout
+// ============================================
+// HELPER: PROTECTED LAYOUT WRAPPER
+// ============================================
 const ProtectedLayout = ({ children, roles = [] }) => (
   <ProtectedRoute roles={roles}>
-    <Layout>
-      {children}
-    </Layout>
+    <Layout>{children}</Layout>
   </ProtectedRoute>
 );
 
+// ============================================
+// HELPER: GUEST ROUTE (Redirect jika sudah login)
+// ============================================
+const GuestRoute = ({ children }) => {
+  const token = localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+
+  if (token && user) {
+    return <Navigate to="/home" replace />;
+  }
+
+  return children;
+};
+
+// ============================================
+// MAIN APP COMPONENT
+// ============================================
 function App() {
-  // Initialize AOS inside React lifecycle
   useEffect(() => {
     AOS.init({
       duration: 800,
@@ -78,8 +119,23 @@ function App() {
               PUBLIC ROUTES
           ======================================== */}
           <Route path="/" element={<CompanyProfile />} />
-          <Route path="/jayarubberseallogin" element={<Login />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+
+          <Route
+            path="/jayarubberseallogin"
+            element={
+              <GuestRoute>
+                <Login />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/reset-password"
+            element={
+              <GuestRoute>
+                <ResetPassword />
+              </GuestRoute>
+            }
+          />
 
           {/* ========================================
               ERROR PAGES
@@ -105,9 +161,7 @@ function App() {
             path="/user"
             element={
               <ProtectedLayout roles={["admin"]}>
-                {({ setNavbarContent }) => (
-                  <UserPage setNavbarContent={setNavbarContent} />
-                )}
+                <UserPage />
               </ProtectedLayout>
             }
           />
@@ -115,9 +169,7 @@ function App() {
             path="/karyawan"
             element={
               <ProtectedLayout roles={["admin"]}>
-                {({ setNavbarContent }) => (
-                  <KaryawanPage setNavbarContent={setNavbarContent} />
-                )}
+                <KaryawanPage />
               </ProtectedLayout>
             }
           />
@@ -125,9 +177,7 @@ function App() {
             path="/jabatan"
             element={
               <ProtectedLayout roles={["admin"]}>
-                {({ setNavbarContent }) => (
-                  <JabatanPage setNavbarContent={setNavbarContent} />
-                )}
+                <JabatanPage />
               </ProtectedLayout>
             }
           />
@@ -139,9 +189,7 @@ function App() {
             path="/distributor"
             element={
               <ProtectedLayout>
-                {({ setNavbarContent }) => (
-                  <DistributorPage setNavbarContent={setNavbarContent} />
-                )}
+                <DistributorPage />
               </ProtectedLayout>
             }
           />
@@ -149,9 +197,7 @@ function App() {
             path="/product-distributor"
             element={
               <ProtectedLayout>
-                {({ setNavbarContent }) => (
-                  <DistributorProductPage setNavbarContent={setNavbarContent} />
-                )}
+                <DistributorProductPage />
               </ProtectedLayout>
             }
           />
@@ -159,9 +205,7 @@ function App() {
             path="/product-customer"
             element={
               <ProtectedLayout>
-                {({ setNavbarContent }) => (
-                  <ProductCustomerPage setNavbarContent={setNavbarContent} />
-                )}
+                <ProductCustomerPage />
               </ProtectedLayout>
             }
           />
@@ -169,9 +213,7 @@ function App() {
             path="/customer"
             element={
               <ProtectedLayout roles={["admin", "admin_toko"]}>
-                {({ setNavbarContent }) => (
-                  <CustomerPage setNavbarContent={setNavbarContent} />
-                )}
+                <CustomerPage />
               </ProtectedLayout>
             }
           />
@@ -227,9 +269,7 @@ function App() {
             path="/allproduct"
             element={
               <ProtectedLayout>
-                {({ setNavbarContent }) => (
-                  <AllProductsPage setNavbarContent={setNavbarContent} />
-                )}
+                <AllProductsPage />
               </ProtectedLayout>
             }
           />
@@ -237,9 +277,7 @@ function App() {
             path="/product"
             element={
               <ProtectedLayout>
-                {({ setNavbarContent }) => (
-                  <ProductPage setNavbarContent={setNavbarContent} />
-                )}
+                <ProductPage />
               </ProtectedLayout>
             }
           />
@@ -247,9 +285,7 @@ function App() {
             path="/harga-product"
             element={
               <ProtectedLayout>
-                {({ setNavbarContent }) => (
-                  <HargaProductPage setNavbarContent={setNavbarContent} />
-                )}
+                <HargaProductPage />
               </ProtectedLayout>
             }
           />
@@ -257,9 +293,7 @@ function App() {
             path="/inventory"
             element={
               <ProtectedLayout>
-                {({ setNavbarContent }) => (
-                  <InventoryPage setNavbarContent={setNavbarContent} />
-                )}
+                <InventoryPage />
               </ProtectedLayout>
             }
           />
@@ -267,9 +301,7 @@ function App() {
             path="/product-movement"
             element={
               <ProtectedLayout>
-                {({ setNavbarContent }) => (
-                  <ProductMovementPage setNavbarContent={setNavbarContent} />
-                )}
+                <ProductMovementPage />
               </ProtectedLayout>
             }
           />
@@ -285,9 +317,7 @@ function App() {
             path="/riwayat-stok-opname"
             element={
               <ProtectedLayout>
-                {({ setNavbarContent }) => (
-                  <RiwayatSOPage setNavbarContent={setNavbarContent} />
-                )}
+                <RiwayatSOPage />
               </ProtectedLayout>
             }
           />
@@ -295,9 +325,7 @@ function App() {
             path="/product-terlaris"
             element={
               <ProtectedLayout>
-                {({ setNavbarContent }) => (
-                  <BarangKeluarPage setNavbarContent={setNavbarContent} />
-                )}
+                <BarangKeluarPage />
               </ProtectedLayout>
             }
           />
@@ -317,9 +345,7 @@ function App() {
             path="/riwayat-production"
             element={
               <ProtectedLayout>
-                {({ setNavbarContent }) => (
-                  <RiwayatProductionPage setNavbarContent={setNavbarContent} />
-                )}
+                <RiwayatProductionPage />
               </ProtectedLayout>
             }
           />
@@ -331,9 +357,7 @@ function App() {
             path="/transaksi"
             element={
               <ProtectedLayout roles={["admin", "admin_toko"]}>
-                {({ setNavbarContent }) => (
-                  <TransaksiPage setNavbarContent={setNavbarContent} />
-                )}
+                <TransaksiPage />
               </ProtectedLayout>
             }
           />
@@ -341,9 +365,7 @@ function App() {
             path="/pesanan"
             element={
               <ProtectedLayout roles={["admin", "admin_toko"]}>
-                {({ setNavbarContent }) => (
-                  <PesananPage setNavbarContent={setNavbarContent} />
-                )}
+                <PesananPage />
               </ProtectedLayout>
             }
           />
@@ -351,15 +373,13 @@ function App() {
             path="/riwayat-transaksi"
             element={
               <ProtectedLayout roles={["admin", "admin_toko"]}>
-                {({ setNavbarContent }) => (
-                  <RiwayatTransaksi setNavbarContent={setNavbarContent} />
-                )}
+                <RiwayatTransaksi />
               </ProtectedLayout>
             }
           />
 
           {/* ========================================
-              REDIRECTS (untuk backward compatibility)
+              REDIRECTS (Backward Compatibility)
           ======================================== */}
           <Route path="/stok-barang" element={<Navigate to="/inventory" replace />} />
           <Route path="/Place" element={<Navigate to="/place" replace />} />
@@ -369,9 +389,9 @@ function App() {
           <Route path="/Riwayat-StokOpname" element={<Navigate to="/riwayat-stok-opname" replace />} />
 
           {/* ========================================
-              404 - Redirect ke home
+              404 - NOT FOUND
           ======================================== */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
     </BrowserRouter>
