@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "../lib/utils";
-import Swal from "sweetalert2";
+import { useConfirmDialog } from "../hooks/useConfirmDialog";
 import {
   LayoutDashboard,
   Users,
@@ -26,23 +26,11 @@ import { useAuthStore } from "../lib/zustand/authStore";
 import { useAuth } from "../hooks/useAuth";
 
 /**
- * Navigation item shape
- * @typedef {Object} NavItem
- * @property {string} title
- * @property {string} href
- * @property {React.ElementType} icon
- * @property {string[]} [roles] - Allowed roles (optional)
- * @property {string} [badge]
- * @property {NavItem[]} [children]
- */
-
-/**
  * Build navigation items based on user role
  */
 const buildNavItems = (userRole) => {
   const isAdmin = userRole === "admin";
-  const isAllowedForTransaksi =
-    userRole === "admin" || userRole === "admin_toko";
+  const isAllowedForTransaksi = userRole === "admin" || userRole === "admin_toko";
 
   const items = [
     {
@@ -72,16 +60,8 @@ const buildNavItems = (userRole) => {
 
   // Customer & Distributor
   if (isAllowedForTransaksi) {
-    items.push({
-      title: "Customer",
-      href: "/customer",
-      icon: PersonStanding,
-    });
-    items.push({
-      title: "Distributor",
-      href: "/distributor",
-      icon: Handshake,
-    });
+    items.push({ title: "Customer", href: "/customer", icon: PersonStanding });
+    items.push({ title: "Distributor", href: "/distributor", icon: Handshake });
   }
 
   // Product
@@ -91,16 +71,8 @@ const buildNavItems = (userRole) => {
     icon: Boxes,
     children: [
       { title: "Semua Product", href: "/product", icon: Boxes },
-      {
-        title: "Product Customer",
-        href: "/product-customer",
-        icon: PersonStanding,
-      },
-      {
-        title: "Product Distributor",
-        href: "/product-distributor",
-        icon: Handshake,
-      },
+      { title: "Product Customer", href: "/product-customer", icon: PersonStanding },
+      { title: "Product Distributor", href: "/product-distributor", icon: Handshake },
       { title: "Harga Product", href: "/harga-product", icon: Star },
       { title: "Product Terlaris", href: "/product-terlaris", icon: Star },
     ],
@@ -115,11 +87,7 @@ const buildNavItems = (userRole) => {
       children: [
         { title: "Transaksi Daily", href: "/transaksi", icon: Receipt },
         { title: "Transaksi Pesanan", href: "/pesanan", icon: Receipt },
-        {
-          title: "Riwayat Transaksi",
-          href: "/riwayat-transaksi",
-          icon: Receipt,
-        },
+        { title: "Riwayat Transaksi", href: "/riwayat-transaksi", icon: Receipt },
       ],
     });
   }
@@ -142,11 +110,7 @@ const buildNavItems = (userRole) => {
     icon: Factory,
     children: [
       { title: "Production", href: "/production", icon: Factory },
-      {
-        title: "Riwayat Production",
-        href: "/riwayat-production",
-        icon: Factory,
-      },
+      { title: "Riwayat Production", href: "/riwayat-production", icon: Factory },
     ],
   });
 
@@ -157,11 +121,7 @@ const buildNavItems = (userRole) => {
     icon: ClipboardCheck,
     children: [
       { title: "Stok Opname", href: "/stok-opname", icon: ClipboardCheck },
-      {
-        title: "Riwayat SO",
-        href: "/riwayat-stok-opname",
-        icon: ClipboardCheck,
-      },
+      { title: "Riwayat SO", href: "/riwayat-stok-opname", icon: ClipboardCheck },
     ],
   });
 
@@ -179,9 +139,17 @@ export default function Sidebar() {
   // Auth state
   const user = useAuthStore((state) => state.user);
   const { logout, isLoggingOut } = useAuth();
+  const { warning } = useConfirmDialog();
 
   // Build nav items based on user role
   const navItems = buildNavItems(user?.role);
+
+  // Role labels mapping
+  const roleLabels = {
+    admin: "Administrator",
+    admin_toko: "Admin Toko",
+    operator: "Operator",
+  };
 
   // Check window size for mobile
   useEffect(() => {
@@ -206,9 +174,7 @@ export default function Sidebar() {
     navItems.forEach((item) => {
       if (item.children) {
         const hasActiveChild = item.children.some(
-          (child) =>
-            currentPath === child.href ||
-            currentPath.startsWith(child.href + "/"),
+          (child) => currentPath === child.href || currentPath.startsWith(child.href + "/")
         );
         if (hasActiveChild && !expandedItems.includes(item.title)) {
           setExpandedItems((prev) => [...prev, item.title]);
@@ -228,34 +194,22 @@ export default function Sidebar() {
 
   const toggleExpand = (title) => {
     setExpandedItems((prev) =>
-      prev.includes(title)
-        ? prev.filter((item) => item !== title)
-        : [...prev, title],
+      prev.includes(title) ? prev.filter((item) => item !== title) : [...prev, title]
     );
   };
 
   const isActive = (href) => {
-    return (
-      location.pathname === href || location.pathname.startsWith(href + "/")
-    );
+    return location.pathname === href || location.pathname.startsWith(href + "/");
   };
 
-  // Handle logout with SweetAlert confirmation
+  // Handle logout with ConfirmDialog
   const handleLogout = async () => {
-    const result = await Swal.fire({
-      title: "Logout?",
-      text: "Apakah Anda yakin ingin keluar dari sistem?",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#dc2626",
-      cancelButtonColor: "#64748b",
-      confirmButtonText: "Ya, Keluar",
-      cancelButtonText: "Batal",
-      background: "#1e293b",
-      color: "#f1f5f9",
-    });
+    const result = await warning(
+      "Logout?",
+      "Apakah Anda yakin ingin keluar dari sistem?"
+    );
 
-    if (!result.isConfirmed) return;
+    if (!result) return;
 
     try {
       await logout();
@@ -277,18 +231,11 @@ export default function Sidebar() {
       .slice(0, 2);
   };
 
-  const roleLabels = {
-    admin: "Administrator",
-    admin_toko: "Admin Toko",
-    operator: "Operator",
-  };
-
   const renderNavItem = (item, depth = 0) => {
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedItems.includes(item.title);
     const isItemActive = !hasChildren && isActive(item.href);
-    const isParentActive =
-      hasChildren && item.children?.some((child) => isActive(child.href));
+    const isParentActive = hasChildren && item.children?.some((child) => isActive(child.href));
     const isSidebarOpen = isMobile ? isMobileOpen : isOpen;
 
     return (
@@ -308,18 +255,16 @@ export default function Sidebar() {
             isItemActive
               ? "bg-blue-50 text-blue-700"
               : isParentActive
-                ? "bg-blue-50/50 text-blue-600"
-                : "text-gray-600 hover:bg-blue-50/50 hover:text-blue-600",
+              ? "bg-blue-50/50 text-blue-600"
+              : "text-gray-600 hover:bg-blue-50/50 hover:text-blue-600",
             depth > 0 && "pl-10",
-            !isSidebarOpen && !isMobile && "justify-center px-2",
+            !isSidebarOpen && !isMobile && "justify-center px-2"
           )}
         >
           <item.icon
             className={cn(
               "h-5 w-5 shrink-0 transition-colors",
-              isItemActive || isParentActive
-                ? "text-blue-600"
-                : "text-gray-400 group-hover:text-blue-500",
+              isItemActive || isParentActive ? "text-blue-600" : "text-gray-400 group-hover:text-blue-500"
             )}
           />
 
@@ -327,9 +272,7 @@ export default function Sidebar() {
             <span
               className={cn(
                 "flex-1 text-sm font-medium truncate",
-                isItemActive || isParentActive
-                  ? "text-blue-700"
-                  : "text-gray-700",
+                isItemActive || isParentActive ? "text-blue-700" : "text-gray-700"
               )}
             >
               {item.title}
@@ -347,9 +290,7 @@ export default function Sidebar() {
               className={cn(
                 "h-4 w-4 transition-transform duration-200 shrink-0",
                 isExpanded && "rotate-90",
-                isItemActive || isParentActive
-                  ? "text-blue-600"
-                  : "text-gray-400",
+                isItemActive || isParentActive ? "text-blue-600" : "text-gray-400"
               )}
             />
           )}
@@ -364,69 +305,64 @@ export default function Sidebar() {
     );
   };
 
+  // ✅ Sidebar Content dengan User Profile Header
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white">
-      {/* Brand */}
+      {/* User Profile Header (Menggantikan Branding Lama) */}
       <div
         className={cn(
           "flex items-center gap-3 px-4 py-5 border-b border-gray-100",
-          !isOpen && !isMobile && "justify-center px-2",
+          !isOpen && !isMobile && "justify-center px-2"
         )}
       >
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25 shrink-0">
-          <img
-            src="/Favicon/favJRS.webp"
-            alt="JRS"
-            className="w-7 h-7 object-contain"
-            onError={(e) => {
-              e.target.style.display = "none";
-              const fallback = document.createElement("span");
-              fallback.className = "text-white font-bold text-sm";
-              fallback.textContent = "JRS";
-              e.target.parentNode.appendChild(fallback);
-            }}
-          />
+        {/* Avatar dengan Inisial */}
+        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 shrink-0 font-semibold text-sm">
+          {getUserInitials()}
         </div>
+        
+        {/* Nama & Role User */}
         {(isOpen || isMobile) && (
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold text-gray-800 truncate">
-              Jaya<span className="text-blue-600"> Rubber</span>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-sm font-bold text-gray-900 truncate">
+              {user?.name || "Pengguna"}
             </h1>
-            <p className="text-xs text-gray-500">Manufacturing System</p>
+            <p className="text-xs text-gray-500 truncate">
+              {roleLabels[user?.role] || user?.role || "Role"}
+            </p>
           </div>
         )}
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin scrollbar-thumb-gray-200">
-        <div className="space-y-1">
+      {/* Navigation & Logout (Scrollable bersama) */}
+      <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin scrollbar-thumb-gray-200 flex flex-col">
+        {/* Menu Items */}
+        <div className="space-y-1 flex-1">
           {navItems.map((item) => renderNavItem(item))}
         </div>
+        
+        {/* Logout Button di bagian paling bawah area scroll */}
+        <div className="mt-6 pt-4 border-t border-gray-100">
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition-all duration-200 disabled:opacity-50",
+              !isOpen && !isMobile && "justify-center px-2"
+            )}
+          >
+            {isLoggingOut ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <LogOut className="h-5 w-5" />
+            )}
+            {(isOpen || isMobile) && (
+              <span className="text-sm font-medium">
+                {isLoggingOut ? "Logging out..." : "Logout"}
+              </span>
+            )}
+          </button>
+        </div>
       </nav>
-
-      <div className="border-t border-gray-100 p-3 space-y-2">
-
-        {/* Logout Button */}
-        <button
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition-all duration-200 disabled:opacity-50",
-            !isOpen && !isMobile && "justify-center px-2",
-          )}
-        >
-          {isLoggingOut ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <LogOut className="h-5 w-5" />
-          )}
-          {(isOpen || isMobile) && (
-            <span className="text-sm font-medium">
-              {isLoggingOut ? "Logging out..." : "Logout"}
-            </span>
-          )}
-        </button>
-      </div>
     </div>
   );
 
@@ -473,7 +409,7 @@ export default function Sidebar() {
     <aside
       className={cn(
         "hidden lg:block h-screen sticky top-0 bg-white border-r border-gray-100 transition-all duration-300 shrink-0",
-        isOpen ? "w-64" : "w-[72px]",
+        isOpen ? "w-64" : "w-[72px]"
       )}
     >
       {sidebarContent}

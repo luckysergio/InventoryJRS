@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api/axios'
 import { useConfirmDialog } from './useConfirmDialog'
-import { useJabatans } from './useJabatans' // Re-use hook jabatan yang sudah optimal
 
 export const useKaryawans = (search = '', jabatanId = null, page = 1, perPage = 10) => {
   return useQuery({
@@ -15,8 +14,16 @@ export const useKaryawans = (search = '', jabatanId = null, page = 1, perPage = 
   })
 }
 
-// Kita export juga useJabatans agar bisa dipakai di Form
-export { useJabatans }
+export const useJabatans = () => {
+  return useQuery({
+    queryKey: ['jabatans'],
+    queryFn: async () => {
+      const response = await api.get('/jabatans')
+      return response.data.data || []
+    },
+    staleTime: 1000 * 60 * 5, // 5 menit
+  })
+}
 
 export const useCreateKaryawan = () => {
   const queryClient = useQueryClient()
@@ -25,7 +32,12 @@ export const useCreateKaryawan = () => {
   return useMutation({
     mutationFn: (data) => api.post('/karyawans', data),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['karyawans'] })
+      // ✅ FIX: Invalidate KARYAWANS dan JABATANS secara bersamaan
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['karyawans'] }),
+        queryClient.invalidateQueries({ queryKey: ['jabatans'] })
+      ])
+      
       await success('Berhasil!', 'Karyawan berhasil ditambahkan')
     },
     onError: (error) => {
@@ -42,7 +54,11 @@ export const useUpdateKaryawan = () => {
   return useMutation({
     mutationFn: ({ id, data }) => api.put(`/karyawans/${id}`, data),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['karyawans'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['karyawans'] }),
+        queryClient.invalidateQueries({ queryKey: ['jabatans'] })
+      ])
+      
       await success('Berhasil!', 'Karyawan berhasil diperbarui')
     },
     onError: (error) => {

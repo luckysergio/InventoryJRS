@@ -7,9 +7,18 @@ const KaryawanForm = () => {
   const { isFormOpen, selectedKaryawan, closeModals } = useKaryawanStore();
   const createMutation = useCreateKaryawan();
   const updateMutation = useUpdateKaryawan();
-  const { data: jabatansData } = useJabatans(); // Ambil data jabatan dari hook yang sudah di-cache
+  
+  // Ambil data jabatan dari hook
+  const { data: jabatansData } = useJabatans(); 
 
-  const [form, setForm] = useState({ nama: "", no_hp: "", email: "", jabatan_id: "", jabatan_nama: "" });
+  const [form, setForm] = useState({ 
+    nama: "", 
+    no_hp: "", 
+    email: "", 
+    jabatan_id: "", 
+    jabatan_nama: "" 
+  });
+  
   const [isCreatingNewJabatan, setIsCreatingNewJabatan] = useState(false);
   const [errors, setErrors] = useState({});
 
@@ -71,12 +80,17 @@ const KaryawanForm = () => {
       }
       closeModals();
     } catch (err) {
-      // Error sudah di-handle di hook, tapi kita bisa log jika perlu
+      // Error sudah di-handle di hook (useConfirmDialog), jadi tidak perlu toast di sini
+      console.error("Submit error:", err);
     }
   };
 
   if (!isFormOpen) return null;
-  const jabatans = jabatansData?.data || [];
+
+  // ✅ FIX: Ambil data dengan aman, baik hook mengembalikan array langsung ATAU object { data: [] }
+  const jabatans = Array.isArray(jabatansData) 
+    ? jabatansData 
+    : (jabatansData?.data || []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
@@ -101,7 +115,15 @@ const KaryawanForm = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Nama Lengkap <span className="text-red-500">*</span></label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="text" value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Nama karyawan" disabled={isSubmitting} required />
+              <input 
+                type="text" 
+                value={form.nama} 
+                onChange={(e) => setForm({ ...form, nama: e.target.value })} 
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" 
+                placeholder="Nama karyawan" 
+                disabled={isSubmitting} 
+                required 
+              />
             </div>
           </div>
 
@@ -110,7 +132,15 @@ const KaryawanForm = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1.5">No HP <span className="text-red-500">*</span></label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="text" value={form.no_hp} onChange={(e) => setForm({ ...form, no_hp: e.target.value })} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="08xxxxxxxxxx" disabled={isSubmitting} required />
+              <input 
+                type="text" 
+                value={form.no_hp} 
+                onChange={(e) => setForm({ ...form, no_hp: e.target.value })} 
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" 
+                placeholder="08xxxxxxxxxx" 
+                disabled={isSubmitting} 
+                required 
+              />
             </div>
           </div>
 
@@ -119,7 +149,15 @@ const KaryawanForm = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Email <span className="text-red-500">*</span></label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="email@contoh.com" disabled={isSubmitting} required />
+              <input 
+                type="email" 
+                value={form.email} 
+                onChange={(e) => setForm({ ...form, email: e.target.value })} 
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" 
+                placeholder="email@contoh.com" 
+                disabled={isSubmitting} 
+                required 
+              />
             </div>
           </div>
 
@@ -136,6 +174,7 @@ const KaryawanForm = () => {
                 required
               >
                 <option value="">Pilih Jabatan</option>
+                {/* ✅ Mapping data jabatan yang sudah di-fix */}
                 {jabatans.map((j) => (
                   <option key={j.id} value={j.id}>{j.nama}</option>
                 ))}
@@ -163,9 +202,27 @@ const KaryawanForm = () => {
 
           {/* Actions */}
           <div className="flex gap-3 pt-4 border-t border-slate-100">
-            <button type="button" onClick={closeModals} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" disabled={isSubmitting}>Batal</button>
-            <button type="submit" disabled={isSubmitting} className={`flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all flex items-center justify-center gap-2 ${isEdit ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:opacity-50`}>
-              {isSubmitting ? (<><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Menyimpan...</>) : (isEdit ? "Perbarui" : "Simpan")}
+            <button 
+              type="button" 
+              onClick={closeModals} 
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" 
+              disabled={isSubmitting}
+            >
+              Batal
+            </button>
+            <button 
+              type="submit" 
+              disabled={isSubmitting} 
+              className={`flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all flex items-center justify-center gap-2 ${isEdit ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:opacity-50`}
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 
+                  Menyimpan...
+                </>
+              ) : (
+                isEdit ? "Perbarui" : "Simpan"
+              )}
             </button>
           </div>
         </form>

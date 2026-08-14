@@ -31,7 +31,11 @@ const KaryawanPage = () => {
 
   // ✅ Ambil data jabatan untuk opsi dropdown filter
   const { data: jabatansData } = useJabatans();
-  const jabatans = jabatansData?.data || [];
+  
+  // ✅ FIX: Ambil data dengan aman, baik hook mengembalikan array langsung ATAU object { data: [] }
+  const jabatans = Array.isArray(jabatansData) 
+    ? jabatansData 
+    : (jabatansData?.data || []);
 
   // ✅ Debounce Search (500ms)
   useEffect(() => {
@@ -129,6 +133,7 @@ const KaryawanPage = () => {
                 className="w-full pl-10 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm bg-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               >
                 <option value="">Semua Jabatan</option>
+                {/* ✅ Mapping data jabatan yang sudah di-fix */}
                 {jabatans.map((j) => (
                   <option key={j.id} value={j.id}>{j.nama}</option>
                 ))}
