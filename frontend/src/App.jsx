@@ -18,7 +18,7 @@ const KaryawanPage = lazy(() => import("./pages/admin/karyawan/KaryawanPage"));
 const JabatanPage = lazy(() => import("./pages/admin/jabatan/JabatanPage"));
 
 // Customer & Distributor
-const DistributorPage = lazy(() => import("./pages/admin/DistributorPage"));
+const DistributorPage = lazy(() => import("./pages/admin/distributor/DistributorPage"));
 const DistributorProductPage = lazy(() => import("./pages/admin/DistributorProductPage"));
 const ProductCustomerPage = lazy(() => import("./pages/admin/ProductCustomerPage"));
 const CustomerPage = lazy(() => import("./pages/admin/Customer"));

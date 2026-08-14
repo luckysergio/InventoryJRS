@@ -3,140 +3,83 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Distributor\StoreDistributorRequest;
+use App\Http\Requests\Distributor\UpdateDistributorRequest;
 use App\Models\Distributor;
-use App\Models\Product;
+use App\Services\Distributor\DistributorService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 class DistributorController extends Controller
 {
-    public function index(Request $request)
-    {
-        $search = $request->query('search');
+    public function __construct(
+        protected DistributorService $distributorService
+    ) {}
 
-        $distributors = Distributor::when($search, function ($query) use ($search) {
-            $query->whereRaw(
-                'LOWER(nama) LIKE ?',
-                ['%' . strtolower($search) . '%']
-            );
-        })
-            ->orderByRaw('LOWER(nama) ASC')
-            ->get();
+    public function index(Request $request): JsonResponse
+    {
+        // ✅ Batasi per_page maksimal 50 untuk mencegah abuse
+        $perPage = min((int) $request->input('per_page', 20), 50);
+        $page = max((int) $request->input('page', 1), 1);
+
+        $data = $this->distributorService->getList(
+            search: $request->input('search'),
+            perPage: $perPage,
+            page: $page
+        );
 
         return response()->json([
-            'success'     => true,
-            'distributors' => $distributors
+            'status' => true,
+            'data'   => $data,
         ]);
     }
 
-    public function store(Request $request)
+    public function show(Distributor $distributor): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'nama'  => 'required|string|max:255',
-            'no_hp' => 'required|string|max:20',
-            'email' => 'nullable|email|unique:distributors,email'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        $distributor = Distributor::create($request->only(
-            'nama',
-            'no_hp',
-            'email'
-        ));
+        $detail = $this->distributorService->getDetail($distributor->id);
 
         return response()->json([
-            'success' => true,
-            'message' => 'Distributor berhasil dibuat',
-            'data'    => $distributor
+            'status' => true,
+            'data'   => $detail,
+        ]);
+    }
+
+    public function store(StoreDistributorRequest $request): JsonResponse
+    {
+        $distributor = $this->distributorService->create($request->validated());
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Distributor berhasil dibuat.',
+            'data'    => $distributor,
         ], 201);
     }
 
-    public function show($id)
+    public function update(UpdateDistributorRequest $request, Distributor $distributor): JsonResponse
     {
-        $distributor = Distributor::find($id);
-
-        if (!$distributor) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Distributor tidak ditemukan'
-            ], 404);
-        }
+        $updatedDistributor = $this->distributorService->update($distributor, $request->validated());
 
         return response()->json([
-            'success' => true,
-            'data'    => $distributor
+            'status'  => true,
+            'message' => 'Distributor berhasil diperbarui.',
+            'data'    => $updatedDistributor,
         ]);
     }
 
-    public function update(Request $request, $id)
+    public function destroy(Distributor $distributor): JsonResponse
     {
-        $distributor = Distributor::find($id);
+        $result = $this->distributorService->delete($distributor);
 
-        if (!$distributor) {
+        if (!$result['success']) {
             return response()->json([
-                'success' => false,
-                'message' => 'Distributor tidak ditemukan'
-            ], 404);
+                'status'  => false,
+                'message' => $result['message'],
+            ], $result['code']);
         }
-
-        $validator = Validator::make($request->all(), [
-            'nama'  => 'required|string|max:255',
-            'no_hp' => 'required|string|max:20',
-            'email' => "nullable|email|unique:distributors,email,{$id}"
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        $distributor->update($request->only(
-            'nama',
-            'no_hp',
-            'email'
-        ));
 
         return response()->json([
-            'success' => true,
-            'message' => 'Distributor berhasil diperbarui',
-            'data'    => $distributor
-        ]);
-    }
-
-    public function destroy($id)
-    {
-        $distributor = Distributor::find($id);
-
-        if (!$distributor) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Distributor tidak ditemukan'
-            ], 404);
-        }
-
-        // Cek apakah distributor masih memiliki product
-        $hasProduct = Product::where('distributor_id', $distributor->id)->exists();
-
-        if ($hasProduct) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Distributor tidak dapat dihapus karena masih memiliki product'
-            ], 422);
-        }
-
-        $distributor->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Distributor berhasil dihapus'
+            'status'  => true,
+            'message' => $result['message'],
         ]);
     }
 }
