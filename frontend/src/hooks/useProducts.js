@@ -10,7 +10,7 @@ const extractArray = (response) => {
 }
 
 // ==========================================
-// 1. MASTER DATA: JENIS (QueryKey: ['jenis'])
+// 1. MASTER DATA: JENIS
 // ==========================================
 export const useJenis = () => useQuery({
   queryKey: ['jenis'],
@@ -73,7 +73,7 @@ export const useDeleteJenis = () => {
 }
 
 // ==========================================
-// 2. MASTER DATA: TYPE (QueryKey: ['types'])
+// 2. MASTER DATA: TYPE
 // ==========================================
 export const useTypes = () => useQuery({
   queryKey: ['types'],
@@ -136,7 +136,7 @@ export const useDeleteType = () => {
 }
 
 // ==========================================
-// 3. MASTER DATA: BAHAN (QueryKey: ['bahans'])
+// 3. MASTER DATA: BAHAN
 // ==========================================
 export const useBahans = () => useQuery({
   queryKey: ['bahans'],
@@ -175,8 +175,8 @@ export const useCreateProduct = () => {
       await queryClient.invalidateQueries({ queryKey: ['jenis'] })
       await queryClient.invalidateQueries({ queryKey: ['types'] })
       await queryClient.invalidateQueries({ queryKey: ['bahans'] })
+      await queryClient.invalidateQueries({ queryKey: ['harga_products'] }) // ✅ Sinkronisasi: Invalidate cache Harga
       
-      // ✅ PAKSA REFETCH agar dropdown di background langsung update
       await queryClient.refetchQueries({ queryKey: ['jenis'], type: 'all' })
       await queryClient.refetchQueries({ queryKey: ['types'], type: 'all' })
       await queryClient.refetchQueries({ queryKey: ['bahans'], type: 'all' })
@@ -201,6 +201,7 @@ export const useUpdateProduct = () => {
       await queryClient.invalidateQueries({ queryKey: ['jenis'] })
       await queryClient.invalidateQueries({ queryKey: ['types'] })
       await queryClient.invalidateQueries({ queryKey: ['bahans'] })
+      await queryClient.invalidateQueries({ queryKey: ['harga_products'] }) // ✅ Sinkronisasi: Invalidate cache Harga
       
       await queryClient.refetchQueries({ queryKey: ['jenis'], type: 'all' })
       await queryClient.refetchQueries({ queryKey: ['types'], type: 'all' })
@@ -223,6 +224,7 @@ export const useDeleteProduct = () => {
     mutationFn: (id) => api.delete(`/products/${id}`),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['products'] })
+      await queryClient.invalidateQueries({ queryKey: ['harga_products'] })
       await queryClient.refetchQueries({ queryKey: ['products'], type: 'all' })
       await success('Berhasil!', 'Product berhasil dihapus')
     },

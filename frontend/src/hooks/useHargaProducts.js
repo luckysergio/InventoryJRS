@@ -9,30 +9,35 @@ export const useHargaProducts = (search = '', productId = null, customerId = nul
       const response = await api.get('/harga', {
         params: { search, product_id: productId, customer_id: customerId, page, per_page: perPage }
       })
-      return response.data.data
+      return response.data.data // Mengembalikan objek paginator
     },
+    staleTime: 1000 * 60 * 5, // 5 menit
+    refetchOnWindowFocus: false,
   })
 }
 
-// Hook untuk dropdown Product (mengambil semua atau jumlah besar)
 export const useProducts = () => {
   return useQuery({
     queryKey: ['products_dropdown'],
     queryFn: async () => {
       const response = await api.get('/products', { params: { per_page: 1000 } })
-      return response.data.data || []
+      // ✅ Fallback aman: handle jika data ada di response.data.data atau response.data
+      return response.data.data || response.data || []
     },
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   })
 }
 
-// Hook untuk dropdown Customer
 export const useCustomers = () => {
   return useQuery({
     queryKey: ['customers_dropdown'],
     queryFn: async () => {
       const response = await api.get('/customers', { params: { per_page: 1000 } })
-      return response.data.data || []
+      return response.data.data || response.data || []
     },
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -44,6 +49,11 @@ export const useCreateHargaProduct = () => {
     mutationFn: (data) => api.post('/harga', data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['harga_products'] })
+      await queryClient.invalidateQueries({ queryKey: ['products'] })
+      
+      // ✅ Paksa refetch agar halaman Product langsung update tanpa delay
+      await queryClient.refetchQueries({ queryKey: ['products'], type: 'all' })
+      
       await success('Berhasil!', 'Harga product berhasil ditambahkan')
     },
     onError: (error) => {
@@ -61,6 +71,10 @@ export const useUpdateHargaProduct = () => {
     mutationFn: ({ id, data }) => api.put(`/harga/${id}`, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['harga_products'] })
+      await queryClient.invalidateQueries({ queryKey: ['products'] })
+      
+      await queryClient.refetchQueries({ queryKey: ['products'], type: 'all' })
+      
       await success('Berhasil!', 'Harga product berhasil diperbarui')
     },
     onError: (error) => {
@@ -78,6 +92,10 @@ export const useDeleteHargaProduct = () => {
     mutationFn: (id) => api.delete(`/harga/${id}`),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['harga_products'] })
+      await queryClient.invalidateQueries({ queryKey: ['products'] })
+      
+      await queryClient.refetchQueries({ queryKey: ['products'], type: 'all' })
+      
       await success('Berhasil!', 'Harga product berhasil dihapus')
     },
     onError: (error) => {
