@@ -3,180 +3,83 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\TypeProduct\StoreTypeProductRequest;
+use App\Http\Requests\TypeProduct\UpdateTypeProductRequest;
 use App\Models\TypeProduct;
+use App\Services\TypeProduct\TypeProductService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 class TypeProductController extends Controller
 {
-    public function master()
+    public function __construct(
+        protected TypeProductService $typeProductService
+    ) {}
+
+    public function index(Request $request): JsonResponse
     {
-        $data = TypeProduct::with('jenis')
-            ->get();
+        $perPage = min((int) $request->input('per_page', 20), 50);
+        $page = max((int) $request->input('page', 1), 1);
+
+        $data = $this->typeProductService->getList(
+            search: $request->input('search'),
+            jenisId: $request->input('jenis_id') ? (int) $request->input('jenis_id') : null,
+            perPage: $perPage,
+            page: $page
+        );
 
         return response()->json([
             'status' => true,
-            'data'   => $data
+            'data'   => $data,
         ]);
     }
 
-    public function index()
+    public function show(TypeProduct $typeProduct): JsonResponse
     {
-        $data = TypeProduct::with('jenis')
-            ->get();
+        $detail = $this->typeProductService->getDetail($typeProduct->id);
 
         return response()->json([
             'status' => true,
-            'data'   => $data
+            'data'   => $detail,
         ]);
     }
 
-    public function getByJenis($jenisId)
+    public function store(StoreTypeProductRequest $request): JsonResponse
     {
-        $data = TypeProduct::where('jenis_id', $jenisId)->get();
-        return response()->json([
-            'status' => true,
-            'data'   => $data
-        ]);
-    }
-
-    public function show($id)
-    {
-        $data = TypeProduct::with('jenis')->find($id);
-
-        if (!$data) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
-        }
-
-        return response()->json([
-            'status' => true,
-            'data'   => $data
-        ]);
-    }
-
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'nama' => [
-                'required',
-                'string',
-                'max:255',
-                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
-            ],
-            'jenis_id' => 'required|exists:jenis_products,id',
-        ], [
-            'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL dan boleh mengandung ANGKA'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        $namaInput = trim($request->nama);
-
-        $exists = TypeProduct::where('jenis_id', $request->jenis_id)
-            ->whereRaw('LOWER(nama) = ?', [strtolower($namaInput)])
-            ->exists();
-
-        if ($exists) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Type ini sudah ada pada jenis yang dipilih'
-            ], 422);
-        }
-
-        $data = TypeProduct::create([
-            'nama'     => strtoupper($namaInput),
-            'jenis_id' => $request->jenis_id,
-        ]);
+        $type = $this->typeProductService->create($request->validated());
 
         return response()->json([
             'status'  => true,
-            'message' => 'Data berhasil ditambahkan',
-            'data'    => $data->load('jenis')
+            'message' => 'Data berhasil ditambahkan.',
+            'data'    => $type,
         ], 201);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateTypeProductRequest $request, TypeProduct $typeProduct): JsonResponse
     {
-        $data = TypeProduct::find($id);
-
-        if (!$data) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'nama' => [
-                'required',
-                'string',
-                'max:255',
-                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
-            ],
-            'jenis_id' => 'required|exists:jenis_products,id',
-        ], [
-            'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL dan boleh mengandung ANGKA'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        $namaInput = trim($request->nama);
-
-        $exists = TypeProduct::where('jenis_id', $request->jenis_id)
-            ->whereRaw('LOWER(nama) = ?', [strtolower($namaInput)])
-            ->where('id', '!=', $id)
-            ->exists();
-
-        if ($exists) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Type ini sudah ada pada jenis yang dipilih'
-            ], 422);
-        }
-
-        $data->update([
-            'nama'     => strtoupper($namaInput),
-            'jenis_id' => $request->jenis_id,
-        ]);
+        $updatedType = $this->typeProductService->update($typeProduct, $request->validated());
 
         return response()->json([
             'status'  => true,
-            'message' => 'Data berhasil diperbarui',
-            'data'    => $data->load('jenis')
+            'message' => 'Data berhasil diperbarui.',
+            'data'    => $updatedType,
         ]);
     }
 
-    public function destroy($id)
+    public function destroy(TypeProduct $typeProduct): JsonResponse
     {
-        $data = TypeProduct::find($id);
+        $result = $this->typeProductService->delete($typeProduct);
 
-        if (!$data) {
+        if (!$result['success']) {
             return response()->json([
                 'status'  => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
+                'message' => $result['message'],
+            ], $result['code']);
         }
-
-        $data->delete();
 
         return response()->json([
             'status'  => true,
-            'message' => 'Data berhasil dihapus'
+            'message' => $result['message'],
         ]);
     }
 }

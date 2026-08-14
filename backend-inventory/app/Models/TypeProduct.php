@@ -9,7 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TypeProduct extends Model
 {
-    protected $fillable = ['nama', 'jenis_id'];
+    protected $table = 'type_products';
+    
+    protected $fillable = [
+        'nama',
+        'jenis_id',
+    ];
 
     public function products(): HasMany
     {
