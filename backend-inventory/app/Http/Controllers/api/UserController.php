@@ -18,9 +18,13 @@ class UserController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $perPage = min((int) $request->input('per_page', 10), 100);
+        $page = max((int) $request->input('page', 1), 1);
+
         $users = $this->userService->getList(
             search: $request->input('search'),
-            perPage: (int) $request->input('per_page', 10)
+            perPage: $perPage,
+            page: $page
         );
 
         return response()->json([
@@ -68,12 +72,12 @@ class UserController extends Controller
             ], 404);
         }
 
-        $user = $this->userService->update($user, $request->validated());
+        $updatedUser = $this->userService->update($user, $request->validated());
 
         return response()->json([
             'status'  => true,
             'message' => 'User berhasil diperbarui.',
-            'data'    => $user->only(['id', 'name', 'email', 'role']),
+            'data'    => $updatedUser->only(['id', 'name', 'email', 'role']),
         ]);
     }
 
@@ -89,7 +93,6 @@ class UserController extends Controller
         }
 
         $currentUser = $request->user();
-
         $result = $this->userService->delete($user, $currentUser);
 
         return response()->json([

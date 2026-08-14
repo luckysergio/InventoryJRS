@@ -2,31 +2,20 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Suspense, lazy, useEffect } from "react";
 import AOS from "aos";
 
-// Core Components
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// ✅ IMPORT ZUSTAND STORE (Single Source of Truth)
 import { useAuthStore } from "./lib/zustand/authStore";
 
-// ============================================
-// PUBLIC PAGES (Eager Load - Small Size)
-// ============================================
 import Login from "./pages/login";
 import ResetPassword from "./pages/admin/ResetPassword";
 import CompanyProfile from "./pages/cuxtomer/CompanyProfile";
 
-// ============================================
-// ADMIN PAGES (Lazy Load - Code Splitting)
-// ============================================
-
-// Dashboard
 const HomePage = lazy(() => import("./pages/admin/HomePage"));
 
-// User Management
 const UserPage = lazy(() => import("./pages/admin/users/UserPage"));
 const KaryawanPage = lazy(() => import("./pages/admin/KaryawanPage"));
-const JabatanPage = lazy(() => import("./pages/admin/JabatanPage"));
+const JabatanPage = lazy(() => import("./pages/admin/jabatan/JabatanPage"));
 
 // Customer & Distributor
 const DistributorPage = lazy(() => import("./pages/admin/DistributorPage"));
