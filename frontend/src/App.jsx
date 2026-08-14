@@ -14,7 +14,7 @@ import CompanyProfile from "./pages/cuxtomer/CompanyProfile";
 const HomePage = lazy(() => import("./pages/admin/HomePage"));
 
 const UserPage = lazy(() => import("./pages/admin/users/UserPage"));
-const KaryawanPage = lazy(() => import("./pages/admin/KaryawanPage"));
+const KaryawanPage = lazy(() => import("./pages/admin/karyawan/KaryawanPage"));
 const JabatanPage = lazy(() => import("./pages/admin/jabatan/JabatanPage"));
 
 // Customer & Distributor

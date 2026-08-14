@@ -3,114 +3,90 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Karyawan\StoreKaryawanRequest;
+use App\Http\Requests\Karyawan\UpdateKaryawanRequest;
 use App\Models\Karyawan;
 use App\Models\Jabatan;
+use App\Services\Karyawan\KaryawanService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class KaryawanController extends Controller
 {
-    public function index(Request $request)
-    {
-        $search = $request->query('search');
+    public function __construct(
+        protected KaryawanService $karyawanService
+    ) {}
 
-        $karyawans = Karyawan::with('jabatan')
-            ->when($search, function ($query) use ($search) {
-                $query->whereRaw(
-                    'LOWER(nama) LIKE ?',
-                    ['%' . strtolower($search) . '%']
-                );
-            })
-            ->orderByRaw('LOWER(nama) ASC')
-            ->paginate(10);
+    public function index(Request $request): JsonResponse
+    {
+        $perPage = min((int) $request->input('per_page', 10), 100);
+        $page = max((int) $request->input('page', 1), 1);
+
+        $karyawans = $this->karyawanService->getList(
+            search: $request->input('search'),
+            jabatanId: $request->input('jabatan_id'),
+            perPage: $perPage,
+            page: $page
+        );
+
+        // Catatan: Frontend sebaiknya menggunakan hook `useJabatans()` yang sudah kita buat
+        // untuk mengambil data ini, agar tidak perlu dikirim ulang di setiap response karyawan.
+        // Namun, ini dibiarkan agar tidak merusak frontend yang sudah ada.
+        $jabatans = Jabatan::select('id', 'nama')->orderBy('nama', 'asc')->get();
 
         return response()->json([
-            'success'   => true,
-            'karyawans' => $karyawans,
-            'jabatans' => Jabatan::select('id', 'nama')->get()
+            'status'   => true,
+            'data'     => $karyawans,
+            'jabatans' => $jabatans,
         ]);
     }
 
-    public function store(Request $request)
+    public function show(int $id): JsonResponse
     {
-        $request->validate([
-            'nama' => 'required|string|max:255',
-            'no_hp' => 'required|string|max:20',
-            'email' => 'required|email|unique:karyawans,email',
+        $karyawan = $this->karyawanService->getDetail($id);
 
-            'jabatan_id' => 'nullable|exists:jabatans,id',
-            'jabatan_nama' => [
-                'string',
-                'max:100',
-                'unique:jabatans,nama',
-                'regex:/^[A-Z\s]+$/'
-            ]
-        ]);
-
-        $jabatanId = $this->resolveJabatan($request);
-
-        $karyawan = Karyawan::create([
-            'nama' => $request->nama,
-            'no_hp' => $request->no_hp,
-            'email' => $request->email,
-            'jabatan_id' => $jabatanId
-        ]);
+        if (!$karyawan) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Karyawan tidak ditemukan.',
+            ], 404);
+        }
 
         return response()->json([
-            'success' => true,
-            'data' => $karyawan->load('jabatan')
+            'status' => true,
+            'data'   => $karyawan,
+        ]);
+    }
+
+    public function store(StoreKaryawanRequest $request): JsonResponse
+    {
+        $karyawan = $this->karyawanService->create($request->validated());
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Karyawan berhasil ditambahkan.',
+            'data'    => $karyawan,
         ], 201);
     }
 
-    public function update(Request $request, Karyawan $karyawan)
+    public function update(UpdateKaryawanRequest $request, Karyawan $karyawan): JsonResponse
     {
-        $request->validate([
-            'nama' => 'required|string|max:255',
-            'no_hp' => 'required|string|max:20',
-            'email' => "required|email|unique:karyawans,email,{$karyawan->id}",
-
-            // sama seperti store
-            'jabatan_id' => 'nullable|exists:jabatans,id',
-            'jabatan_nama' => 'nullable|string|max:255'
-        ]);
-
-        $jabatanId = $this->resolveJabatan($request);
-
-        $karyawan->update([
-            'nama' => $request->nama,
-            'no_hp' => $request->no_hp,
-            'email' => $request->email,
-            'jabatan_id' => $jabatanId
-        ]);
+        $updatedKaryawan = $this->karyawanService->update($karyawan, $request->validated());
 
         return response()->json([
-            'success' => true,
-            'data' => $karyawan->load('jabatan')
+            'status'  => true,
+            'message' => 'Karyawan berhasil diperbarui.',
+            'data'    => $updatedKaryawan,
         ]);
     }
 
-    public function destroy(Karyawan $karyawan)
+    public function destroy(Karyawan $karyawan): JsonResponse
     {
-        $karyawan->delete();
+        $result = $this->karyawanService->delete($karyawan);
 
         return response()->json([
-            'success' => true
-        ], 204);
-    }
-
-    private function resolveJabatan(Request $request): int
-    {
-        if ($request->filled('jabatan_id')) {
-            return $request->jabatan_id;
-        }
-
-        if ($request->filled('jabatan_nama')) {
-            $jabatan = Jabatan::firstOrCreate(
-                ['nama' => $request->jabatan_nama]
-            );
-
-            return $jabatan->id;
-        }
-
-        abort(422, 'jabatan_id atau jabatan_nama wajib diisi');
+            'status'  => $result['success'],
+            'message' => $result['message'],
+        ]);
     }
 }
