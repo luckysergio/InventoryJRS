@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Plus,
   Pencil,
@@ -30,9 +30,26 @@ const UserPage = () => {
   } = useUserFilters();
 
   const { openCreateModal, openEditModal, openDetailModal } = useUserModals();
+  const { danger, success, info } = useConfirmDialog();
 
-  // ✅ Gunakan useConfirmDialog
-  const { danger, toast } = useConfirmDialog();
+  const [searchInput, setSearchInput] = useState(filters.search);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (searchInput !== filters.search) {
+        setSearch(searchInput);
+        setCurrentPage(1);
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchInput, setSearch, filters.search, setCurrentPage]);
+
+  useEffect(() => {
+    setSearchInput(filters.search);
+  }, [filters.search]);
 
   const queryParams = {
     search: filters.search,
@@ -46,27 +63,21 @@ const UserPage = () => {
   const isFilterActive = Boolean(filters.search || filters.role);
 
   const handleDelete = async (user) => {
-    // ✅ Konfirmasi Hapus Modern
     const result = await danger(
       "Hapus User?",
-      `Apakah Anda yakin ingin menghapus "${user.name}"? Data tidak bisa dikembalikan!`
+      `Apakah Anda yakin ingin menghapus "${user.name}"? Data tidak bisa dikembalikan!`,
     );
 
     if (!result) return;
 
     try {
       await deleteUser.mutateAsync(user.id);
-      toast({
-        icon: "success",
-        title: "Berhasil!",
-        text: "User berhasil dihapus",
-      });
+      await success("Berhasil!", "User berhasil dihapus");
     } catch (err) {
-      toast({
-        icon: "error",
-        title: err.response?.status === 403 ? "Ditolak" : "Gagal",
-        text: err.response?.data?.message || "Gagal menghapus user",
-      });
+      await info(
+        err.response?.status === 403 ? "Ditolak" : "Gagal",
+        err.response?.data?.message || "Gagal menghapus user",
+      );
     }
   };
 
@@ -116,17 +127,19 @@ const UserPage = () => {
       <div className="sticky top-4 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-2 pb-3 bg-white/70 backdrop-blur-md border-b border-slate-200/60">
         <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200/60 p-3 shadow-sm">
           <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+            {/* Search Input dengan Debounce */}
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
-                value={filters.search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchInput} // ✅ Pakai local state
+                onChange={(e) => setSearchInput(e.target.value)} // ✅ Update local state (instant)
                 placeholder="Cari nama atau email..."
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all bg-white"
               />
             </div>
 
+            {/* Role Filter */}
             <div className="relative flex-shrink-0">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <select
@@ -141,6 +154,7 @@ const UserPage = () => {
               </select>
             </div>
 
+            {/* Reset + Refresh */}
             <div className="flex gap-2 flex-shrink-0">
               {isFilterActive && (
                 <button
@@ -157,7 +171,9 @@ const UserPage = () => {
                 className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors disabled:opacity-50"
                 title="Refresh data"
               >
-                <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`}
+                />
                 <span className="hidden sm:inline">Refresh</span>
               </button>
             </div>
@@ -177,10 +193,18 @@ const UserPage = () => {
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">User</th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Role</th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Dibuat</th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Aksi</th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    User
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Dibuat
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Aksi
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100">
@@ -193,10 +217,14 @@ const UserPage = () => {
                         </div>
                         <div>
                           <p className="text-slate-900 font-medium">
-                            {isFilterActive ? "Tidak ada user yang cocok" : "Belum ada user"}
+                            {isFilterActive
+                              ? "Tidak ada user yang cocok"
+                              : "Belum ada user"}
                           </p>
                           <p className="text-sm text-slate-500 mt-1">
-                            {isFilterActive ? "Coba ubah filter pencarian Anda" : "Klik tombol '+' untuk membuat user baru"}
+                            {isFilterActive
+                              ? "Coba ubah filter pencarian Anda"
+                              : "Klik tombol '+' untuk membuat user baru"}
                           </p>
                         </div>
                       </div>
@@ -204,28 +232,53 @@ const UserPage = () => {
                   </tr>
                 ) : (
                   users.map((user) => (
-                    <tr key={user.id} className="hover:bg-slate-50 transition-colors group">
+                    <tr
+                      key={user.id}
+                      className="hover:bg-slate-50 transition-colors group"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <div className="flex flex-col items-center gap-2">
                           <div className="min-w-0 max-w-[180px]">
-                            <p className="text-sm font-semibold text-slate-900 truncate">{user.name}</p>
-                            <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                            <p className="text-sm font-semibold text-slate-900 truncate">
+                              {user.name}
+                            </p>
+                            <p className="text-xs text-slate-500 truncate">
+                              {user.email}
+                            </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">{getRoleBadge(user.role)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {getRoleBadge(user.role)}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-center">
-                        {new Date(user.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                        {new Date(user.created_at).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <div className="flex justify-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openDetailModal(user)} className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Detail">
+                          <button
+                            onClick={() => openDetailModal(user)}
+                            className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Detail"
+                          >
                             <Eye size={16} />
                           </button>
-                          <button onClick={() => openEditModal(user)} className="p-2 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+                          <button
+                            onClick={() => openEditModal(user)}
+                            className="p-2 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                            title="Edit"
+                          >
                             <Pencil size={16} />
                           </button>
-                          <button onClick={() => handleDelete(user)} className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
+                          <button
+                            onClick={() => handleDelete(user)}
+                            className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Hapus"
+                          >
                             <Trash2 size={16} />
                           </button>
                         </div>
@@ -241,20 +294,33 @@ const UserPage = () => {
           {lastPage > 1 && (
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="text-sm text-slate-600 text-center sm:text-left">
-                Menampilkan <span className="font-semibold text-slate-900">{from}</span> -{" "}
+                Menampilkan{" "}
+                <span className="font-semibold text-slate-900">{from}</span> -{" "}
                 <span className="font-semibold text-slate-900">{to}</span> dari{" "}
-                <span className="font-semibold text-slate-900">{total}</span> user
+                <span className="font-semibold text-slate-900">{total}</span>{" "}
+                user
               </div>
 
               <div className="flex items-center gap-1">
-                <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1 || isFetching} className="p-2 text-slate-600 hover:bg-white hover:border-slate-200 border border-transparent rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                <button
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1 || isFetching}
+                  className="p-2 text-slate-600 hover:bg-white hover:border-slate-200 border border-transparent rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
                 {paginationNumbers[0] > 1 && (
                   <>
-                    <button onClick={() => setCurrentPage(1)} className="px-3 py-1.5 text-sm text-slate-700 hover:bg-white rounded-lg transition-colors">1</button>
-                    {paginationNumbers[0] > 2 && <span className="px-2 text-slate-400">...</span>}
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      className="px-3 py-1.5 text-sm text-slate-700 hover:bg-white rounded-lg transition-colors"
+                    >
+                      1
+                    </button>
+                    {paginationNumbers[0] > 2 && (
+                      <span className="px-2 text-slate-400">...</span>
+                    )}
                   </>
                 )}
 
@@ -271,14 +337,24 @@ const UserPage = () => {
 
                 {paginationNumbers[paginationNumbers.length - 1] < lastPage && (
                   <>
-                    {paginationNumbers[paginationNumbers.length - 1] < lastPage - 1 && <span className="px-2 text-slate-400">...</span>}
-                    <button onClick={() => setCurrentPage(lastPage)} className="px-3 py-1.5 text-sm text-slate-700 hover:bg-white rounded-lg transition-colors">
+                    {paginationNumbers[paginationNumbers.length - 1] <
+                      lastPage - 1 && (
+                      <span className="px-2 text-slate-400">...</span>
+                    )}
+                    <button
+                      onClick={() => setCurrentPage(lastPage)}
+                      className="px-3 py-1.5 text-sm text-slate-700 hover:bg-white rounded-lg transition-colors"
+                    >
                       {lastPage}
                     </button>
                   </>
                 )}
 
-                <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === lastPage || isFetching} className="p-2 text-slate-600 hover:bg-white hover:border-slate-200 border border-transparent rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                <button
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === lastPage || isFetching}
+                  className="p-2 text-slate-600 hover:bg-white hover:border-slate-200 border border-transparent rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -288,7 +364,12 @@ const UserPage = () => {
       )}
 
       {/* FLOATING ACTION BUTTON */}
-      <button onClick={openCreateModal} className="fixed bottom-6 right-6 z-40 group" title="Tambah User" aria-label="Tambah user baru">
+      <button
+        onClick={openCreateModal}
+        className="fixed bottom-6 right-6 z-40 group"
+        title="Tambah User"
+        aria-label="Tambah user baru"
+      >
         <span className="absolute inset-0 rounded-full bg-blue-600 animate-ping opacity-20 group-hover:opacity-0 transition-opacity duration-500"></span>
         <div className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all duration-300 active:scale-95 hover:scale-110">
           <Plus className="w-6 h-6" strokeWidth={2.5} />

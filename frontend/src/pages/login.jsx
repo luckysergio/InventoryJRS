@@ -20,7 +20,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isLoggingIn } = useAuth();
-  const { toast } = useConfirmDialog();
+  const { success, info } = useConfirmDialog();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,23 +34,21 @@ const Login = () => {
   const forgotPasswordMutation = useMutation({
     mutationFn: (email) => api.post("/auth/forgot-password", { email }),
     onSuccess: () => {
-      toast({
-        icon: "success",
-        title: "Permintaan Diproses",
-        text: "Jika email terdaftar, link reset password akan dikirim. Silakan cek inbox atau folder spam.",
-      });
+      success(
+        "Permintaan Diproses",
+        "Jika email terdaftar, link reset password akan dikirim. Silakan cek inbox atau folder spam.",
+      );
       setShowForgotPassword(false);
       setResetEmail("");
     },
     onError: (error) => {
-      toast({
-        icon: "error",
-        title: "Terjadi Kesalahan",
-        text:
-          error.response?.status === 429
-            ? "Terlalu banyak percobaan. Silakan coba lagi beberapa menit."
-            : error.response?.data?.message || "Tidak dapat memproses permintaan saat ini.",
-      });
+      info(
+        "Terjadi Kesalahan",
+        error.response?.status === 429
+          ? "Terlalu banyak percobaan. Silakan coba lagi beberapa menit."
+          : error.response?.data?.message ||
+              "Tidak dapat memproses permintaan saat ini.",
+      );
     },
   });
 
@@ -72,31 +70,26 @@ const Login = () => {
       const result = await login({ email, password });
 
       if (result.success) {
-        toast({
-          icon: "success",
-          title: "Login Berhasil",
-          text: result.message || "Selamat datang kembali!",
-          timer: 1500,
-        });
+        await success(
+          "Login Berhasil",
+          result.message || "Selamat datang kembali!",
+        );
 
         const redirectTo = location.state?.from?.pathname || "/home";
         navigate(redirectTo, { replace: true });
       } else {
-        toast({
-          icon: "error",
-          title: "Login Gagal",
-          text: result.message || "Email atau password salah",
-        });
+        await info(
+          "Login Gagal",
+          result.message || "Email atau password salah",
+        );
       }
     } catch (err) {
       const errorMessage =
-        err.response?.data?.message || err.message || "Terjadi kesalahan saat login";
+        err.response?.data?.message ||
+        err.message ||
+        "Terjadi kesalahan saat login";
 
-      toast({
-        icon: "error",
-        title: "Login Gagal",
-        text: errorMessage,
-      });
+      await info("Login Gagal", errorMessage);
     }
   };
 
@@ -235,7 +228,8 @@ const Login = () => {
                           onError={(e) => {
                             e.target.style.display = "none";
                             const fallback = document.createElement("div");
-                            fallback.className = "w-full h-full flex items-center justify-center text-white font-bold text-sm";
+                            fallback.className =
+                              "w-full h-full flex items-center justify-center text-white font-bold text-sm";
                             fallback.textContent = "JRS";
                             e.target.parentNode.appendChild(fallback);
                           }}
@@ -311,7 +305,11 @@ const Login = () => {
                         tabIndex={-1}
                         disabled={isLoading}
                       >
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        {showPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -336,25 +334,55 @@ const Login = () => {
                   >
                     <div className="absolute inset-0 bg-gradient-to-b from-gray-700 via-gray-800 to-gray-900 rounded-lg border-2 border-gray-600" />
                     <div className="absolute inset-0 bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    <div className={`absolute top-3 left-3 w-2 h-2 rounded-full ${isLoading ? "bg-green-500 animate-pulse" : "bg-gray-500 group-hover:bg-blue-400"}`} />
+                    <div
+                      className={`absolute top-3 left-3 w-2 h-2 rounded-full ${isLoading ? "bg-green-500 animate-pulse" : "bg-gray-500 group-hover:bg-blue-400"}`}
+                    />
                     <div className="absolute top-0 left-0 w-8 h-full bg-white/10 skew-x-12 -translate-x-16 group-hover:translate-x-[200%] transition-transform duration-700" />
 
                     <div className="relative py-3.5 rounded-lg flex items-center justify-center">
                       {isLoading ? (
                         <span className="flex items-center text-gray-300 font-semibold tracking-wider">
-                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          <svg
+                            className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
                           </svg>
                           SYSTEM ACCESS...
                         </span>
                       ) : (
                         <>
                           <Shield className="w-5 h-5 mr-3 text-gray-300 group-hover:text-white transition-colors" />
-                          <span className="text-gray-300 font-semibold tracking-wider group-hover:text-white transition-colors">AUTHORIZE ACCESS</span>
+                          <span className="text-gray-300 font-semibold tracking-wider group-hover:text-white transition-colors">
+                            AUTHORIZE ACCESS
+                          </span>
                           <div className="ml-3 w-6 h-6 rounded border border-gray-500 group-hover:border-blue-400 flex items-center justify-center transition-colors">
-                            <svg className="w-3 h-3 text-gray-400 group-hover:text-blue-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            <svg
+                              className="w-3 h-3 text-gray-400 group-hover:text-blue-300 transition-colors"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13 7l5 5m0 0l-5 5m5-5H6"
+                              />
                             </svg>
                           </div>
                         </>
@@ -376,7 +404,9 @@ const Login = () => {
             </div>
 
             <div className="px-8 pb-6 text-center">
-              <p className="text-xs text-gray-500 tracking-wider">© {new Date().getFullYear()} JAYA RUBBER SEAL</p>
+              <p className="text-xs text-gray-500 tracking-wider">
+                © {new Date().getFullYear()} JAYA RUBBER SEAL
+              </p>
             </div>
 
             <div className="absolute top-4 left-4 w-6 h-6 border-2 border-gray-600/50 rounded-sm rotate-45" />
@@ -400,7 +430,9 @@ const Login = () => {
             onMouseEnter={() => setModalHovered(true)}
             onMouseLeave={() => setModalHovered(false)}
           >
-            <div className={`absolute -inset-0.5 bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 rounded-2xl blur opacity-60 transition-all duration-500 ${modalHovered ? "opacity-80" : ""}`} />
+            <div
+              className={`absolute -inset-0.5 bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 rounded-2xl blur opacity-60 transition-all duration-500 ${modalHovered ? "opacity-80" : ""}`}
+            />
 
             <div className="absolute -top-2 -left-2 w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg" />
             <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg" />
@@ -422,7 +454,9 @@ const Login = () => {
                     <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
                       <Key className="w-6 h-6 text-white" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-200">Reset Password</h2>
+                    <h2 className="text-xl font-bold text-gray-200">
+                      Reset Password
+                    </h2>
                   </div>
                   <button
                     onClick={handleCloseModal}
@@ -430,15 +464,27 @@ const Login = () => {
                     type="button"
                     disabled={isResetLoading}
                   >
-                    <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-5 h-5 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
 
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div className="group">
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Masukkan email Anda</label>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Masukkan email Anda
+                    </label>
                     <div className="relative">
                       <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 rounded-lg blur opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       <input
@@ -456,7 +502,9 @@ const Login = () => {
                         <Mail className="w-5 h-5 text-gray-500 group-hover:text-blue-400 transition-colors" />
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-gray-500">Link reset password akan dikirim ke email ini</p>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Link reset password akan dikirim ke email ini
+                    </p>
                   </div>
 
                   <button
@@ -466,21 +514,41 @@ const Login = () => {
                   >
                     <div className="absolute inset-0 bg-gradient-to-b from-gray-700 via-gray-800 to-gray-900 rounded-lg border-2 border-gray-600" />
                     <div className="absolute inset-0 bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    <div className={`absolute top-3 left-3 w-2 h-2 rounded-full ${isResetLoading ? "bg-green-500 animate-pulse" : "bg-gray-500 group-hover:bg-blue-400"}`} />
+                    <div
+                      className={`absolute top-3 left-3 w-2 h-2 rounded-full ${isResetLoading ? "bg-green-500 animate-pulse" : "bg-gray-500 group-hover:bg-blue-400"}`}
+                    />
                     <div className="absolute top-0 left-0 w-8 h-full bg-white/10 skew-x-12 -translate-x-16 group-hover:translate-x-[200%] transition-transform duration-700" />
 
                     <div className="relative py-3.5 rounded-lg flex items-center justify-center">
                       {isResetLoading ? (
                         <span className="flex items-center text-gray-300 font-semibold tracking-wider">
-                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          <svg
+                            className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
                           </svg>
                           MENGIRIM EMAIL...
                         </span>
                       ) : (
                         <>
-                          <span className="text-gray-300 font-semibold tracking-wider group-hover:text-white transition-colors">KIRIM LINK RESET</span>
+                          <span className="text-gray-300 font-semibold tracking-wider group-hover:text-white transition-colors">
+                            KIRIM LINK RESET
+                          </span>
                           <ArrowRight className="w-5 h-5 ml-3 text-gray-400 group-hover:text-white transition-colors" />
                         </>
                       )}
@@ -489,7 +557,9 @@ const Login = () => {
                 </form>
 
                 <div className="mt-6 pt-6 border-t border-gray-700/50">
-                  <p className="text-xs text-gray-500 text-center">Pastikan email yang Anda masukkan benar</p>
+                  <p className="text-xs text-gray-500 text-center">
+                    Pastikan email yang Anda masukkan benar
+                  </p>
                 </div>
               </div>
             </div>

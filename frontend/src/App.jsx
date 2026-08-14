@@ -6,6 +6,9 @@ import AOS from "aos";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
+// ✅ IMPORT ZUSTAND STORE (Single Source of Truth)
+import { useAuthStore } from "./lib/zustand/authStore";
+
 // ============================================
 // PUBLIC PAGES (Eager Load - Small Size)
 // ============================================
@@ -90,10 +93,11 @@ const ProtectedLayout = ({ children, roles = [] }) => (
 // HELPER: GUEST ROUTE (Redirect jika sudah login)
 // ============================================
 const GuestRoute = ({ children }) => {
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  // ✅ PERBAIKAN: Gunakan Zustand sebagai single source of truth
+  // untuk menghindari infinite loop akibat desync dengan localStorage
+  const { token, isAuthenticated } = useAuthStore();
 
-  if (token && user) {
+  if (token || isAuthenticated) {
     return <Navigate to="/home" replace />;
   }
 
