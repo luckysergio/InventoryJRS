@@ -3,508 +3,100 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
-use App\Models\BahanProduct;
-use App\Models\Distributor;
-use App\Models\HargaProduct;
-use App\Models\Inventory;
-use App\Models\JenisProduct;
-use App\Models\Place;
+use App\Http\Requests\ProductDistributor\StoreProductDistributorRequest;
+use App\Http\Requests\ProductDistributor\UpdateProductDistributorRequest;
 use App\Models\Product;
-use App\Models\TypeProduct;
+use App\Services\ProductDistributor\ProductDistributorService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{DB, Validator};
-use Illuminate\Support\Str;
-use Intervention\Image\ImageManager;
-use Intervention\Image\Drivers\Gd\Driver;
 
 class ProductDistributorController extends Controller
 {
-    public function index(Request $request)
-{
-    $query = Product::with([
-        'jenis',
-        'type',
-        'bahan',
-        'distributor',
-        'hargaProducts' => function ($q) {
-            $q->whereNull('customer_id')
-                ->orderBy('tanggal_berlaku', 'desc')
-                ->limit(1);
-        },
-        'inventories.place' => function ($q) {
-            $q->whereIn('kode', ['TOKO', 'BENGKEL']);
-        }
-    ])
-    ->whereNotNull('distributor_id');
+    public function __construct(
+        protected ProductDistributorService $productDistributorService
+    ) {}
 
-    // 🔍 Perbaikan: Search multi-field (Kode + Nama Produk)
-    if ($request->filled('search')) {
-        $searchTerm = "%{$request->search}%";
-        
-        $query->where(function ($q) use ($searchTerm) {
-            // Cari di kode produk
-            $q->where('kode', 'like', $searchTerm)
-              
-              // Cari di nama jenis
-              ->orWhereHas('jenis', function ($q) use ($searchTerm) {
-                  $q->where('nama', 'like', $searchTerm);
-              })
-              
-              // Cari di nama tipe
-              ->orWhereHas('type', function ($q) use ($searchTerm) {
-                  $q->where('nama', 'like', $searchTerm);
-              })
-              
-              // Cari di nama bahan
-              ->orWhereHas('bahan', function ($q) use ($searchTerm) {
-                  $q->where('nama', 'like', $searchTerm);
-              })
-              
-              // Cari di ukuran
-              ->orWhere('ukuran', 'like', $searchTerm);
-        });
-    }
-
-    if ($request->filled('jenis_id')) {
-        $query->where('jenis_id', $request->jenis_id);
-    }
-
-    if ($request->filled('type_id')) {
-        $query->where('type_id', $request->type_id);
-    }
-
-    $products = $query->orderBy('kode', 'asc')->paginate(15);
-
-    $products->getCollection()->transform(function ($product) {
-        $hargaUmum = $product->hargaProducts->first();
-        $product->harga_umum = $hargaUmum ? $hargaUmum->harga : null;
-
-        $toko = $product->inventories->firstWhere('place.kode', 'TOKO');
-        $bengkel = $product->inventories->firstWhere('place.kode', 'BENGKEL');
-
-        $product->qty_toko = $toko ? $toko->qty : 0;
-        $product->qty_bengkel = $bengkel ? $bengkel->qty : 0;
-
-        unset($product->hargaProducts);
-        unset($product->inventories);
-
-        return $product;
-    });
-
-    return response()->json([
-        'status'  => true,
-        'message' => 'Berhasil mengambil data product distributor',
-        'data'    => $products->items(),
-        'meta'    => [
-            'current_page' => $products->currentPage(),
-            'last_page'    => $products->lastPage(),
-            'per_page'     => $products->perPage(),
-            'total'        => $products->total(),
-        ]
-    ]);
-}
-
-    public function store(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $validator = $this->validator($request);
+        $perPage = min((int) $request->input('per_page', 15), 50);
+        $page = max((int) $request->input('page', 1), 1);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        DB::beginTransaction();
-        try {
-            [$jenis, $type, $bahan] = $this->resolveMasterData($request);
-            $distributor = Distributor::findOrFail($request->distributor_id);
-
-            $kode = $this->generateKode(
-                $jenis,
-                $type,
-                $bahan,
-                $request->ukuran,
-                $distributor->nama,
-                $distributor->no_hp   // ⬅️ PENTING
-            );
-
-            $product = Product::create(array_merge([
-                'kode'           => $kode,
-                'jenis_id'       => $jenis->id,
-                'type_id'        => $type?->id,
-                'bahan_id'       => $bahan?->id,
-                'ukuran'         => $request->ukuran,
-                'keterangan'     => $request->keterangan,
-                'distributor_id' => $distributor->id,
-                'harga_beli'     => $request->harga_beli,
-            ], $this->uploadImages($request)));
-
-            $this->storeHarga($product, $request->harga_umum, 'Harga awal');
-            $this->initInventory($product);
-
-            DB::commit();
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Product distributor berhasil dibuat',
-                'data' => $product->load(['jenis', 'type', 'bahan', 'distributor'])
-            ], 201);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return response()->json([
-                'status' => false,
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function update(Request $request, $id)
-    {
-        $product = Product::findOrFail($id);
-        $validator = $this->validator($request, true);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        DB::beginTransaction();
-        try {
-            [$jenis, $type, $bahan] = $this->resolveMasterData($request);
-            $distributor = Distributor::findOrFail($request->distributor_id);
-
-            $kode = $this->generateKode(
-                $jenis,
-                $type,
-                $bahan,
-                $request->ukuran,
-                $distributor->nama,
-                $distributor->no_hp,
-                $product->id
-            );
-
-            $product->update(array_merge([
-                'kode'           => $kode,
-                'jenis_id'       => $jenis->id,
-                'type_id'        => $type?->id,
-                'bahan_id'       => $bahan?->id,
-                'ukuran'         => $request->ukuran,
-                'keterangan'     => $request->keterangan,
-                'distributor_id' => $distributor->id,
-                'harga_beli'     => $request->harga_beli,
-            ], $this->uploadImages($request, $product)));
-
-            $product->hargaProducts()->whereNull('customer_id')->delete();
-            HargaProduct::create([
-                'product_id' => $product->id,
-                'customer_id' => null,
-                'harga' => $request->harga_umum,
-                'tanggal_berlaku' => now(),
-                'keterangan' => 'Harga diperbarui'
-            ]);
-
-            DB::commit();
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Product distributor berhasil diperbarui',
-                'data' => $product->load(['jenis', 'type', 'bahan', 'distributor'])
-            ]);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return response()->json([
-                'status' => false,
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function destroy($id)
-    {
-        $product = Product::find($id);
-
-        if (!$product) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Product tidak ditemukan'
-            ], 404);
-        }
-
-        foreach (['foto_depan', 'foto_samping', 'foto_atas'] as $foto) {
-            if ($product->{$foto}) {
-                $path = storage_path('app/public/' . $product->{$foto});
-                if (file_exists($path)) {
-                    unlink($path);
-                }
-            }
-        }
-
-        $product->delete();
+        $products = $this->productDistributorService->getList(
+            search: $request->input('search'),
+            jenisId: $request->input('jenis_id') ? (int) $request->input('jenis_id') : null,
+            typeId: $request->input('type_id') ? (int) $request->input('type_id') : null,
+            perPage: $perPage,
+            page: $page
+        );
 
         return response()->json([
             'status'  => true,
-            'message' => 'Product berhasil dihapus'
+            'message' => 'Berhasil mengambil data product distributor',
+            'data'    => $products->items(),
+            'meta'    => [
+                'current_page' => $products->currentPage(),
+                'last_page'    => $products->lastPage(),
+                'per_page'     => $products->perPage(),
+                'total'        => $products->total(),
+            ]
         ]);
     }
 
-    private function validator(Request $request, bool $update = false)
+    // ✅ FIXED: Terima $id agar sinkron dengan route /{id}
+    public function show(string|int $id): JsonResponse
     {
-        return Validator::make($request->all(), [
-            'jenis_id' => 'required_without:jenis_nama|exists:jenis_products,id',
-            'jenis_nama' => [
-                'required_without:jenis_id',
-                'string',
-                'max:100',
-                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
-            ],
-            'type_id' => 'nullable|exists:type_products,id',
-            'type_nama' => [
-                'required_without:type_id',
-                'string',
-                'max:100',
-                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
-            ],
-            'bahan_id' => 'nullable|exists:bahan_products,id',
-            'bahan_nama' => [
-                'required_without:bahan_id',
-                'string',
-                'max:100',
-                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
-            ],
-            'ukuran' => 'required|string|max:20',
-            'distributor_id' => 'required|exists:distributors,id',
-            'harga_beli' => 'required|integer|min:0',
-            'harga_umum' => 'required|integer|min:0',
-            'keterangan' => 'nullable|string',
-            'foto_depan' => 'nullable|image|mimes:jpg,jpeg,png',
-            'foto_samping' => 'nullable|image|mimes:jpg,jpeg,png',
-            'foto_atas' => 'nullable|image|mimes:jpg,jpeg,png',
+        $product = Product::with(['jenis', 'type', 'bahan', 'distributor'])->find((int) $id);
+        
+        if (!$product) {
+            return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
+        }
+
+        return response()->json(['status' => true, 'data' => $product]);
+    }
+
+    public function store(StoreProductDistributorRequest $request): JsonResponse
+    {
+        $product = $this->productDistributorService->create($request->validated());
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Product distributor berhasil dibuat',
+            'data'    => $product->load(['jenis', 'type', 'bahan', 'distributor'])
+        ], 201);
+    }
+
+    // ✅ FIXED: Terima $id agar sinkron dengan route /{id}
+    public function update(UpdateProductDistributorRequest $request, string|int $id): JsonResponse
+    {
+        $product = Product::find((int) $id);
+
+        if (!$product) {
+            return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
+        }
+
+        $updatedProduct = $this->productDistributorService->update($product, $request->validated());
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Product distributor berhasil diperbarui',
+            'data'    => $updatedProduct
         ]);
     }
 
-    private function resolveMasterData(Request $request): array
+    // ✅ FIXED: Terima $id agar sinkron dengan route /{id}
+    public function destroy(string|int $id): JsonResponse
     {
-        $jenis = $request->filled('jenis_id')
-            ? JenisProduct::findOrFail($request->jenis_id)
-            : JenisProduct::firstOrCreate(['nama' => strtoupper(trim($request->jenis_nama))]);
+        $product = Product::find((int) $id);
 
-        $type = null;
-        if ($request->filled('type_nama')) {
-            $type = TypeProduct::firstOrCreate([
-                'nama' => strtoupper(trim($request->type_nama)),
-                'jenis_id' => $jenis->id
-            ]);
-        } elseif ($request->filled('type_id')) {
-            $type = TypeProduct::findOrFail($request->type_id);
+        if (!$product) {
+            return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
         }
 
-        $bahan = null;
-        if ($request->filled('bahan_nama')) {
-            $bahan = BahanProduct::firstOrCreate(['nama' => strtoupper(trim($request->bahan_nama))]);
-        } elseif ($request->filled('bahan_id')) {
-            $bahan = BahanProduct::findOrFail($request->bahan_id);
-        }
+        $result = $this->productDistributorService->delete($product);
 
-        return [$jenis, $type, $bahan];
-    }
-
-    private function generateBaseProductKode(
-        JenisProduct $jenis,
-        ?TypeProduct $type,
-        ?BahanProduct $bahan,
-        string $ukuran
-    ): string {
-        return strtoupper(
-            $this->jenisKode($jenis->nama) .
-                ($type ? $this->typeKode($type->nama) : '') .
-                ($bahan ? $this->bahanKode($bahan->nama) : '') .
-                $this->ukuranKode($ukuran)
-        );
-    }
-
-    private function generateKode(
-        JenisProduct $jenis,
-        ?TypeProduct $type,
-        ?BahanProduct $bahan,
-        string $ukuran,
-        string $distributorNama,
-        string $distributorHp,
-        ?int $ignoreId = null
-    ): string {
-        $baseKode = $this->generateBaseProductKode(
-            $jenis,
-            $type,
-            $bahan,
-            $ukuran
-        );
-
-        $prefix = $this->distributorPrefix(
-            $distributorNama,
-            $distributorHp
-        );
-
-        return $this->makeUniqueKode(
-            "{$prefix}-{$baseKode}",
-            $ignoreId
-        );
-    }
-
-
-    private function makeUniqueKode(string $kode, ?int $ignoreId = null): string
-    {
-        $final = $kode;
-        $i = 1;
-
-        while (
-            Product::where('kode', $final)
-            ->when($ignoreId, fn($q) => $q->where('id', '!=', $ignoreId))
-            ->exists()
-        ) {
-            $final = "{$kode}-{$i}";
-            $i++;
-        }
-
-        return $final;
-    }
-
-    private function distributorPrefix(string $nama, string $noHp): string
-    {
-        $initial = collect(preg_split('/\s+/', trim($nama)))
-            ->map(fn($w) => strtoupper(substr($w, 0, 1)))
-            ->implode('');
-
-        $hpAngka = preg_replace('/\D/', '', $noHp);
-        $last4   = substr($hpAngka, -4);
-
-        return $initial . $last4;
-    }
-
-    private function jenisKode(string $text): string
-    {
-        $text = trim($text);
-
-        if (strlen($text) < 2) {
-            return strtoupper($text);
-        }
-
-        return strtoupper(
-            substr($text, 0, 1) . substr($text, -1)
-        );
-    }
-
-    private function typeKode(string $text): string
-    {
-        $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
-
-        $words = collect(
-            preg_split('/\s+/', trim($clean))
-        )->filter(fn($w) => ctype_alpha(substr($w, 0, 1)));
-
-        if ($words->count() === 1) {
-            $huruf = substr($words->first(), 0, 2);
-        } else {
-            $huruf = $words
-                ->map(fn($w) => substr($w, 0, 1))
-                ->implode('');
-        }
-
-        preg_match_all('/\d+/', $text, $matches);
-
-        if (count($matches[0]) >= 2) {
-            $angka = $matches[0][0] . $matches[0][1];
-        } else {
-            $angka = $matches[0][0] ?? '';
-        }
-
-        return strtoupper($huruf . $angka);
-    }
-
-    private function bahanKode(string $text): string
-    {
-        $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
-
-        $words = collect(
-            preg_split('/\s+/', trim($clean))
-        )->filter(fn($w) => ctype_alpha(substr($w, 0, 1)));
-
-        if ($words->count() === 1) {
-            return substr($words->first(), 0, 2);
-        }
-
-        return $words
-            ->map(fn($w) => substr($w, 0, 1))
-            ->implode('');
-    }
-
-    private function ukuranKode(string $text): string
-    {
-        preg_match_all('/\d+[.,]?\d*/', $text, $matches);
-
-        return collect($matches[0])
-            ->map(fn($n) => str_replace([',', '.'], '', $n))
-            ->implode('');
-    }
-
-    private function uploadImages(Request $request, ?Product $product = null): array
-    {
-        $manager = new ImageManager(new Driver());
-        $data = [];
-        $folder = '/home/jaym3787/public_html/storage/products';
-
-        // Buat folder jika belum ada
-        if (!file_exists($folder)) {
-            mkdir($folder, 0755, true);
-        }
-
-        foreach (['foto_depan', 'foto_samping', 'foto_atas'] as $field) {
-            if ($request->hasFile($field)) {
-                // Hapus foto lama jika ada
-                if ($product && $product->{$field}) {
-                    $oldPath = $folder . '/' . basename($product->{$field});
-                    if (file_exists($oldPath)) {
-                        unlink($oldPath);
-                    }
-                }
-
-                $image = $manager->read($request->file($field));
-                if ($image->width() > 800) {
-                    $image->scale(width: 800);
-                }
-
-                $filename = 'products/' . Str::uuid() . '.jpg';
-                $path = $folder . '/' . basename($filename);
-
-                file_put_contents($path, (string) $image->toJpeg(85));
-                chmod($path, 0644);
-
-                $data[$field] = 'products/' . basename($filename);
-            }
-        }
-
-        return $data;
-    }
-
-    private function storeHarga(Product $product, int $harga, string $ket)
-    {
-        HargaProduct::create([
-            'product_id' => $product->id,
-            'customer_id' => null,
-            'harga' => $harga,
-            'tanggal_berlaku' => now(),
-            'keterangan' => $ket
+        return response()->json([
+            'status'  => $result['success'],
+            'message' => $result['message']
         ]);
-    }
-
-    private function initInventory(Product $product)
-    {
-        foreach (Place::where('kode', 'TOKO')->get() as $place) {
-            Inventory::firstOrCreate(
-                ['product_id' => $product->id, 'place_id' => $place->id],
-                ['qty' => 0]
-            );
-        }
     }
 }

@@ -25,8 +25,18 @@ class BahanProductController extends Controller
         ]);
     }
 
-    public function show(BahanProduct $bahanProduct): JsonResponse
+    // ✅ FIXED: Terima $id, cari manual agar sinkron dengan route /{id}
+    public function show(string|int $id): JsonResponse
     {
+        $bahanProduct = BahanProduct::find((int) $id);
+        
+        if (!$bahanProduct) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
         $detail = $this->bahanProductService->getDetail($bahanProduct->id);
 
         return response()->json([
@@ -46,8 +56,18 @@ class BahanProductController extends Controller
         ], 201);
     }
 
-    public function update(UpdateBahanProductRequest $request, BahanProduct $bahanProduct): JsonResponse
+    // ✅ FIXED: Terima $id, cari manual
+    public function update(UpdateBahanProductRequest $request, string|int $id): JsonResponse
     {
+        $bahanProduct = BahanProduct::find((int) $id);
+
+        if (!$bahanProduct) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
         $updatedBahan = $this->bahanProductService->update($bahanProduct, $request->validated());
 
         return response()->json([
@@ -57,8 +77,17 @@ class BahanProductController extends Controller
         ]);
     }
 
-    public function destroy(BahanProduct $bahanProduct): JsonResponse
+    public function destroy(string|int $id): JsonResponse
     {
+        $bahanProduct = BahanProduct::find((int) $id);
+
+        if (!$bahanProduct) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
         $result = $this->bahanProductService->delete($bahanProduct);
 
         if (!$result['success']) {

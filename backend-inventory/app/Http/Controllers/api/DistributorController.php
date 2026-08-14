@@ -18,7 +18,6 @@ class DistributorController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        // ✅ Batasi per_page maksimal 50 untuk mencegah abuse
         $perPage = min((int) $request->input('per_page', 20), 50);
         $page = max((int) $request->input('page', 1), 1);
 
@@ -30,12 +29,22 @@ class DistributorController extends Controller
 
         return response()->json([
             'status' => true,
-            'data'   => $data,
+            'data'   => $data, // Laravel otomatis men-serialize paginator object
         ]);
     }
 
-    public function show(Distributor $distributor): JsonResponse
+    // ✅ FIXED: Terima $id, lalu cari manual agar cocok dengan route /{id}
+    public function show(string|int $id): JsonResponse
     {
+        $distributor = Distributor::find((int) $id);
+        
+        if (!$distributor) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
         $detail = $this->distributorService->getDetail($distributor->id);
 
         return response()->json([
@@ -55,8 +64,18 @@ class DistributorController extends Controller
         ], 201);
     }
 
-    public function update(UpdateDistributorRequest $request, Distributor $distributor): JsonResponse
+    // ✅ FIXED: Terima $id, lalu cari manual
+    public function update(UpdateDistributorRequest $request, string|int $id): JsonResponse
     {
+        $distributor = Distributor::find((int) $id);
+
+        if (!$distributor) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
         $updatedDistributor = $this->distributorService->update($distributor, $request->validated());
 
         return response()->json([
@@ -66,8 +85,18 @@ class DistributorController extends Controller
         ]);
     }
 
-    public function destroy(Distributor $distributor): JsonResponse
+    // ✅ FIXED: Terima $id, lalu cari manual
+    public function destroy(string|int $id): JsonResponse
     {
+        $distributor = Distributor::find((int) $id);
+
+        if (!$distributor) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
         $result = $this->distributorService->delete($distributor);
 
         if (!$result['success']) {
