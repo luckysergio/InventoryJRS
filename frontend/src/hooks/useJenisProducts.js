@@ -58,7 +58,6 @@ export const useDeleteJenisProduct = () => {
       await success('Berhasil!', 'Jenis product berhasil dihapus')
     },
     onError: (error) => {
-      // Menampilkan pesan error 422 dari backend jika masih dipakai Product/Type
       info('Gagal', error.response?.data?.message || 'Gagal menghapus jenis product')
     },
   })
