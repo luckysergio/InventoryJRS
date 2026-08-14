@@ -3,152 +3,74 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BahanProduct\StoreBahanProductRequest;
+use App\Http\Requests\BahanProduct\UpdateBahanProductRequest;
 use App\Models\BahanProduct;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use App\Services\BahanProduct\BahanProductService;
+use Illuminate\Http\JsonResponse;
 
 class BahanProductController extends Controller
 {
-    public function index()
+    public function __construct(
+        protected BahanProductService $bahanProductService
+    ) {}
+
+    public function index(): JsonResponse
     {
-        $data = BahanProduct::orderByRaw('LOWER(nama) ASC')->get();
+        $data = $this->bahanProductService->getList(withCount: true);
 
         return response()->json([
             'status' => true,
-            'data'   => $data
+            'data'   => $data,
         ]);
     }
 
-    public function show($id)
+    public function show(BahanProduct $bahanProduct): JsonResponse
     {
-        $data = BahanProduct::find($id);
-
-        if (!$data) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
-        }
+        $detail = $this->bahanProductService->getDetail($bahanProduct->id);
 
         return response()->json([
             'status' => true,
-            'data'   => $data
+            'data'   => $detail,
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreBahanProductRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'nama' => [
-                'required',
-                'string',
-                'max:255',
-                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
-            ]
-        ], [
-            'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL semua'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        $namaInput = trim($request->nama);
-
-        $exists = BahanProduct::whereRaw('LOWER(nama) = ?', [strtolower($namaInput)])->exists();
-
-        if ($exists) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Bahan ini sudah ada'
-            ], 422);
-        }
-
-        $data = BahanProduct::create([
-            'nama' => strtoupper($namaInput)
-        ]);
+        $bahan = $this->bahanProductService->create($request->validated());
 
         return response()->json([
             'status'  => true,
-            'message' => 'Data berhasil ditambahkan',
-            'data'    => $data
+            'message' => 'Data berhasil ditambahkan.',
+            'data'    => $bahan,
         ], 201);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateBahanProductRequest $request, BahanProduct $bahanProduct): JsonResponse
     {
-        $data = BahanProduct::find($id);
-
-        if (!$data) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'nama' => [
-                'required',
-                'string',
-                'max:255',
-                'regex:/^[A-Z0-9\s\-\(\)#]+$/'
-            ]
-        ], [
-            'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL semua'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        $namaInput = trim($request->nama);
-
-        $exists = BahanProduct::whereRaw('LOWER(nama) = ?', [strtolower($namaInput)])
-            ->where('id', '!=', $id)
-            ->exists();
-
-        if ($exists) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Bahan ini sudah ada'
-            ], 422);
-        }
-
-        $data->update([
-            'nama' => strtoupper($namaInput)
-        ]);
+        $updatedBahan = $this->bahanProductService->update($bahanProduct, $request->validated());
 
         return response()->json([
             'status'  => true,
-            'message' => 'Data berhasil diperbarui',
-            'data'    => $data
+            'message' => 'Data berhasil diperbarui.',
+            'data'    => $updatedBahan,
         ]);
     }
 
-    public function destroy($id)
+    public function destroy(BahanProduct $bahanProduct): JsonResponse
     {
-        $data = BahanProduct::find($id);
+        $result = $this->bahanProductService->delete($bahanProduct);
 
-        if (!$data) {
+        if (!$result['success']) {
             return response()->json([
                 'status'  => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
+                'message' => $result['message'],
+            ], $result['code']);
         }
-
-        $data->delete();
 
         return response()->json([
             'status'  => true,
-            'message' => 'Data berhasil dihapus'
+            'message' => $result['message'],
         ]);
     }
 }

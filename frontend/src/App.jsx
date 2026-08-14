@@ -34,7 +34,7 @@ const BarangKeluarPage = lazy(() => import("./pages/admin/BarangKeluar"));
 // Master Data
 const JenisPage = lazy(() => import("./pages/admin/jenisproduct/JenisProduct"));
 const TypePage = lazy(() => import("./pages/admin/typeproduct/TypeProduct"));
-const BahanProductPage = lazy(() => import("./pages/admin/BahanProduct"));
+const BahanProductPage = lazy(() => import("./pages/admin/bahanproduct/BahanProduct"));
 const StatusTransaksiPage = lazy(() => import("./pages/admin/StatusTransaksiPage"));
 const PlacePage = lazy(() => import("./pages/admin/PlacePage"));
 
