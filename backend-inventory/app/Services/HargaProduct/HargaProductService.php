@@ -11,32 +11,40 @@ class HargaProductService
 {
     private const CACHE_LIST_PREFIX = 'harga_products:list:';
     private const CACHE_DETAIL_PREFIX = 'harga_products:detail:';
-    private const CACHE_CURRENT_PREFIX = 'harga_products:current:';
     private const CACHE_INDEX_KEY = 'harga_products:cache:index';
     
-    private const CACHE_TTL_LIST = 300;
-    private const CACHE_TTL_DETAIL = 900;
-    private const CACHE_TTL_CURRENT = 600;
-    private const CACHE_TTL_INDEX = 86400;
+    private const CACHE_TTL_LIST = 300;       // 5 Menit
+    private const CACHE_TTL_DETAIL = 900;     // 15 Menit
+    private const CACHE_TTL_INDEX = 86400;    // 24 Jam
 
-    public function getList(
-        ?string $search = null,
-        ?int $productId = null,
-        ?int $customerId = null,
-        int $perPage = 20,
-        int $page = 1
-    ): LengthAwarePaginator {
+    public function getList(?string $search = null, ?int $productId = null, ?int $customerId = null, int $perPage = 20, int $page = 1): LengthAwarePaginator
+    {
         $cacheKey = $this->buildListCacheKey($search, $productId, $customerId, $perPage, $page);
 
         return Cache::remember($cacheKey, self::CACHE_TTL_LIST, function () use ($search, $productId, $customerId, $perPage, $page, $cacheKey) {
             $this->trackCacheKey($cacheKey);
 
-            return HargaProduct::with(['product:id,nama', 'customer:id,nama'])
-                ->search($search)
-                ->when($productId, fn($q) => $q->where('product_id', $productId))
-                ->when($customerId, fn($q) => $q->where('customer_id', $customerId))
-                ->orderByDesc('tanggal_berlaku')
-                ->paginate($perPage, ['*'], 'page', $page);
+            $query = HargaProduct::with([
+                'product' => fn($q) => $q->with(['jenis', 'type', 'bahan']),
+                'customer'
+            ]);
+
+            if ($search) {
+                $query->whereHas('product', function ($q) use ($search) {
+                    $q->where('kode', 'like', "%{$search}%");
+                });
+            }
+
+            if ($productId) {
+                $query->where('product_id', $productId);
+            }
+
+            if ($customerId) {
+                $query->where('customer_id', $customerId);
+            }
+
+            return $query->orderByDesc('tanggal_berlaku')
+                         ->paginate($perPage, ['*'], 'page', $page);
         });
     }
 
@@ -47,27 +55,10 @@ class HargaProductService
         return Cache::remember($cacheKey, self::CACHE_TTL_DETAIL, function () use ($id, $cacheKey) {
             $this->trackCacheKey($cacheKey);
 
-            return HargaProduct::with(['product', 'customer'])->find($id);
-        });
-    }
-
-    public function getCurrentPrice(int $productId, ?int $customerId = null): ?HargaProduct
-    {
-        $customerIdStr = $customerId ?? 'null';
-        $cacheKey = self::CACHE_CURRENT_PREFIX . "{$productId}:{$customerIdStr}";
-
-        return Cache::remember($cacheKey, self::CACHE_TTL_CURRENT, function () use ($productId, $customerId, $cacheKey) {
-            $this->trackCacheKey($cacheKey);
-
-            return HargaProduct::with(['product:id,nama', 'customer:id,nama'])
-                ->where('product_id', $productId)
-                ->where(function ($q) use ($customerId) {
-                    $q->whereNull('customer_id')
-                      ->orWhere('customer_id', $customerId);
-                })
-                ->where('tanggal_berlaku', '<=', now())
-                ->orderByDesc('tanggal_berlaku')
-                ->first();
+            return HargaProduct::with([
+                'product' => fn($q) => $q->with(['jenis', 'type', 'bahan']),
+                'customer'
+            ])->find($id);
         });
     }
 
@@ -77,13 +68,9 @@ class HargaProductService
 
         $this->invalidateAllCache();
 
-        Log::info('Harga Product created', [
-            'id' => $harga->id,
-            'product_id' => $harga->product_id,
-            'customer_id' => $harga->customer_id,
-        ]);
+        Log::info('Harga Product created', ['id' => $harga->id, 'product_id' => $harga->product_id]);
 
-        return $harga->load(['product:id,nama', 'customer:id,nama']);
+        return $harga->load(['product', 'customer']);
     }
 
     public function update(HargaProduct $harga, array $data): HargaProduct
@@ -98,7 +85,7 @@ class HargaProductService
 
         Log::info('Harga Product updated', ['id' => $harga->id]);
 
-        return $harga->fresh()->load(['product:id,nama', 'customer:id,nama']);
+        return $harga->fresh()->load(['product', 'customer']);
     }
 
     public function delete(HargaProduct $harga): array
@@ -128,11 +115,8 @@ class HargaProductService
     private function trackCacheKey(string $cacheKey): void
     {
         $keys = Cache::get(self::CACHE_INDEX_KEY, []);
-
-        if (!is_array($keys)) {
-            $keys = [];
-        }
-
+        if (!is_array($keys)) $keys = [];
+        
         if (!in_array($cacheKey, $keys, true)) {
             $keys[] = $cacheKey;
             Cache::put(self::CACHE_INDEX_KEY, $keys, self::CACHE_TTL_INDEX);
@@ -142,26 +126,19 @@ class HargaProductService
     private function invalidateAllCache(?int $hargaId = null): void
     {
         $keys = Cache::get(self::CACHE_INDEX_KEY, []);
-
-        if (!is_array($keys) || empty($keys)) {
-            return;
-        }
+        if (!is_array($keys) || empty($keys)) return;
 
         $remainingKeys = [];
-        $detailCacheKey = $hargaId ? self::CACHE_DETAIL_PREFIX . $hargaId : null;
+        $detailKey = $hargaId ? self::CACHE_DETAIL_PREFIX . $hargaId : null;
 
         foreach ($keys as $key) {
-            $isListCache = str_starts_with($key, self::CACHE_LIST_PREFIX);
-            $isDetailCache = $detailCacheKey && $key === $detailCacheKey;
-            $isCurrentCache = str_starts_with($key, self::CACHE_CURRENT_PREFIX);
-
-            if ($isListCache || $isDetailCache || $isCurrentCache) {
+            if (str_starts_with($key, self::CACHE_LIST_PREFIX) || 
+                ($detailKey && $key === $detailKey)) {
                 Cache::forget($key);
             } else {
                 $remainingKeys[] = $key;
             }
         }
-
         Cache::put(self::CACHE_INDEX_KEY, $remainingKeys, self::CACHE_TTL_INDEX);
     }
 }

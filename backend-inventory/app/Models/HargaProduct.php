@@ -11,11 +11,7 @@ class HargaProduct extends Model
     protected $table = 'harga_products';
 
     protected $fillable = [
-        'product_id',
-        'customer_id',
-        'harga',
-        'tanggal_berlaku',
-        'keterangan',
+        'product_id', 'customer_id', 'harga', 'tanggal_berlaku', 'keterangan',
     ];
 
     protected function casts(): array
@@ -26,14 +22,14 @@ class HargaProduct extends Model
         ];
     }
 
-    public function product(): BelongsTo
-    {
-        return $this->belongsTo(Product::class);
+    public function product(): BelongsTo 
+    { 
+        return $this->belongsTo(Product::class); 
     }
 
-    public function customer(): BelongsTo
-    {
-        return $this->belongsTo(Customer::class);
+    public function customer(): BelongsTo 
+    { 
+        return $this->belongsTo(Customer::class); 
     }
 
     public function scopeActive(Builder $query, ?string $date = null): Builder
@@ -46,9 +42,7 @@ class HargaProduct extends Model
     {
         return $query->when($search, function ($q) use ($search) {
             $q->whereHas('product', function ($q2) use ($search) {
-                $q2->where('nama', 'like', "%{$search}%");
-            })->orWhereHas('customer', function ($q2) use ($search) {
-                $q2->where('nama', 'like', "%{$search}%");
+                $q2->where('kode', 'like', "%{$search}%");
             });
         });
     }

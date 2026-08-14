@@ -31,24 +31,22 @@ class HargaProductController extends Controller
 
         return response()->json([
             'status' => true,
-            'data'   => $data,
+            'data'   => $data, // Laravel otomatis men-serialize paginator object
         ]);
     }
 
-    public function currentPrice(int $productId, Request $request): JsonResponse
+    // ✅ FIXED: Tambahkan type hint string|int
+    public function show(string|int $id): JsonResponse
     {
-        $customerId = $request->query('customer_id') ? (int) $request->query('customer_id') : null;
+        $hargaProduct = HargaProduct::find((int) $id);
         
-        $harga = $this->hargaProductService->getCurrentPrice($productId, $customerId);
+        if (!$hargaProduct) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
 
-        return response()->json([
-            'status' => true,
-            'data'   => $harga,
-        ]);
-    }
-
-    public function show(HargaProduct $hargaProduct): JsonResponse
-    {
         $detail = $this->hargaProductService->getDetail($hargaProduct->id);
 
         return response()->json([
@@ -63,24 +61,44 @@ class HargaProductController extends Controller
 
         return response()->json([
             'status'  => true,
-            'message' => 'Harga berhasil ditambahkan.',
+            'message' => 'Data berhasil ditambahkan.',
             'data'    => $harga,
         ], 201);
     }
 
-    public function update(UpdateHargaProductRequest $request, HargaProduct $hargaProduct): JsonResponse
+    // ✅ FIXED: Tambahkan type hint string|int
+    public function update(UpdateHargaProductRequest $request, string|int $id): JsonResponse
     {
+        $hargaProduct = HargaProduct::find((int) $id);
+
+        if (!$hargaProduct) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
         $updatedHarga = $this->hargaProductService->update($hargaProduct, $request->validated());
 
         return response()->json([
             'status'  => true,
-            'message' => 'Harga berhasil diperbarui.',
+            'message' => 'Data berhasil diperbarui.',
             'data'    => $updatedHarga,
         ]);
     }
 
-    public function destroy(HargaProduct $hargaProduct): JsonResponse
+    // ✅ FIXED: Tambahkan type hint string|int
+    public function destroy(string|int $id): JsonResponse
     {
+        $hargaProduct = HargaProduct::find((int) $id);
+
+        if (!$hargaProduct) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
         $result = $this->hargaProductService->delete($hargaProduct);
 
         return response()->json([
