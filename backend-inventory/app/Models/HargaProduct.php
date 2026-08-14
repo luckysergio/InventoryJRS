@@ -11,23 +11,45 @@ class HargaProduct extends Model
     protected $table = 'harga_products';
 
     protected $fillable = [
-        'product_id', 'customer_id', 'harga', 'tanggal_berlaku', 'keterangan',
+        'product_id',
+        'customer_id',
+        'harga',
+        'tanggal_berlaku',
+        'keterangan',
     ];
 
     protected function casts(): array
     {
         return [
             'tanggal_berlaku' => 'date',
-            'harga' => 'integer',
+            'harga'           => 'integer',
         ];
     }
 
-    public function product(): BelongsTo { return $this->belongsTo(Product::class); }
-    public function customer(): BelongsTo { return $this->belongsTo(Customer::class); }
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
 
     public function scopeActive(Builder $query, ?string $date = null): Builder
     {
         return $query->where('tanggal_berlaku', '<=', $date ?? now())
                      ->orderByDesc('tanggal_berlaku');
+    }
+
+    public function scopeSearch(Builder $query, ?string $search): Builder
+    {
+        return $query->when($search, function ($q) use ($search) {
+            $q->whereHas('product', function ($q2) use ($search) {
+                $q2->where('nama', 'like', "%{$search}%");
+            })->orWhereHas('customer', function ($q2) use ($search) {
+                $q2->where('nama', 'like', "%{$search}%");
+            });
+        });
     }
 }

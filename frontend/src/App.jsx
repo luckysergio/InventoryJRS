@@ -26,7 +26,7 @@ const CustomerPage = lazy(() => import("./pages/admin/Customer"));
 // Product & Inventory
 const AllProductsPage = lazy(() => import("./pages/admin/AllProductsPage"));
 const ProductPage = lazy(() => import("./pages/admin/Product"));
-const HargaProductPage = lazy(() => import("./pages/admin/HargaProduct"));
+const HargaProductPage = lazy(() => import("./pages/admin/hargaproduct/HargaProduct"));
 const InventoryPage = lazy(() => import("./pages/admin/InventoryPage"));
 const ProductMovementPage = lazy(() => import("./pages/admin/ProductMovementPage"));
 const BarangKeluarPage = lazy(() => import("./pages/admin/BarangKeluar"));
