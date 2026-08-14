@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class JenisProduct extends Model
 {
+    protected $table = 'jenis_products';
+    
     protected $fillable = ['nama'];
 
     public function products(): HasMany

@@ -3,150 +3,75 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\JenisProduct\StoreJenisProductRequest;
+use App\Http\Requests\JenisProduct\UpdateJenisProductRequest;
 use App\Models\JenisProduct;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use App\Services\JenisProduct\JenisProductService;
+use Illuminate\Http\JsonResponse;
 
 class JenisProductController extends Controller
 {
-    public function master()
+    public function __construct(
+        protected JenisProductService $jenisProductService
+    ) {}
+
+    public function index(): JsonResponse
     {
-        $data = JenisProduct::all();
+        // Mengembalikan list dengan counts (menggantikan fungsi master() yang redundan)
+        $data = $this->jenisProductService->getList(withCounts: true);
 
         return response()->json([
             'status' => true,
-            'data'   => $data
-        ]);
-    }    
-
-public function index()
-    {
-        $data = JenisProduct::orderByRaw('LOWER(nama) ASC')->get();
-
-        return response()->json([
-            'status' => true,
-            'data'   => $data
+            'data'   => $data,
         ]);
     }
 
-    public function show($id)
+    public function show(JenisProduct $jenisProduct): JsonResponse
     {
-        $data = JenisProduct::find($id);
-
-        if (!$data) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
-        }
+        $detail = $this->jenisProductService->getDetail($jenisProduct->id);
 
         return response()->json([
             'status' => true,
-            'data'   => $data
+            'data'   => $detail,
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreJenisProductRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'nama' => [
-                'required',
-                'string',
-                'max:255',
-                'regex:/^[A-Z0-9\s]+$/'
-            ]
-        ], [
-            'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL dan boleh mengandung ANGKA'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        $namaInput = trim($request->nama);
-
-        $exists = JenisProduct::whereRaw(
-            'LOWER(nama) = ?',
-            [strtolower($namaInput)]
-        )->exists();
-
-        if ($exists) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Jenis ini sudah ada'
-            ], 422);
-        }
-
-        $data = JenisProduct::create([
-            'nama' => strtoupper($namaInput)
-        ]);
+        $jenis = $this->jenisProductService->create($request->validated());
 
         return response()->json([
             'status'  => true,
-            'message' => 'Data berhasil ditambahkan',
-            'data'    => $data
+            'message' => 'Data berhasil ditambahkan.',
+            'data'    => $jenis,
         ], 201);
     }
 
-    public function update(Request $request, JenisProduct $jenisProduct)
+    public function update(UpdateJenisProductRequest $request, JenisProduct $jenisProduct): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'nama' => [
-                'required',
-                'string',
-                'max:255',
-                'regex:/^[A-Z0-9\s]+$/'
-            ]
-        ], [
-            'nama.regex' => 'Nama harus menggunakan HURUF KAPITAL dan boleh mengandung ANGKA'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        $namaInput = trim($request->nama);
-
-        $exists = JenisProduct::whereRaw(
-            'LOWER(nama) = ?',
-            [strtolower($namaInput)]
-        )
-            ->where('id', '!=', $jenisProduct->id)
-            ->exists();
-
-        if ($exists) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Jenis ini sudah ada'
-            ], 422);
-        }
-
-        $jenisProduct->update([
-            'nama' => strtoupper($namaInput)
-        ]);
+        $updatedJenis = $this->jenisProductService->update($jenisProduct, $request->validated());
 
         return response()->json([
             'status'  => true,
-            'message' => 'Data berhasil diperbarui',
-            'data'    => $jenisProduct
+            'message' => 'Data berhasil diperbarui.',
+            'data'    => $updatedJenis,
         ]);
     }
 
-    public function destroy(JenisProduct $jenisProduct)
+    public function destroy(JenisProduct $jenisProduct): JsonResponse
     {
-        $jenisProduct->delete();
+        $result = $this->jenisProductService->delete($jenisProduct);
+
+        if (!$result['success']) {
+            return response()->json([
+                'status'  => false,
+                'message' => $result['message'],
+            ], $result['code']);
+        }
 
         return response()->json([
             'status'  => true,
-            'message' => 'Data berhasil dihapus'
+            'message' => $result['message'],
         ]);
     }
 }
