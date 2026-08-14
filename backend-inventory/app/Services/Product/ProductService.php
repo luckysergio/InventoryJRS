@@ -199,31 +199,17 @@ class ProductService
     {
         DB::beginTransaction();
         try {
-            // ✅ ROBUST: Gunakan getKey() yang lebih reliable, fallback ke id
             $productId = $product->getKey() ?? $product->id;
             
-            // ✅ VALIDASI: Pastikan product valid dan exists di database
             if (!$productId || !$product->exists) {
-                Log::error('Product update failed - Invalid product', [
-                    'product_exists' => $product->exists,
-                    'product_key' => $product->getKey(),
-                    'product_id' => $product->id,
-                    'product_attributes' => $product->getAttributes(),
-                ]);
                 throw new \Exception("Product tidak valid atau tidak ditemukan di database");
             }
             
             $productId = (int) $productId;
 
-            // ✅ VALIDASI: Pastikan data required ada
-            if (empty($data['jenis_id'])) {
-                throw new \Exception("Jenis ID wajib diisi");
-            }
-            if (empty($data['ukuran'])) {
-                throw new \Exception("Ukuran wajib diisi");
-            }
+            if (empty($data['jenis_id'])) throw new \Exception("Jenis ID wajib diisi");
+            if (empty($data['ukuran'])) throw new \Exception("Ukuran wajib diisi");
 
-            // ✅ Resolve final type_id
             $newTypeId = null;
             if (!empty($data['type_nama'])) {
                 $type = TypeProduct::firstOrCreate([
@@ -235,7 +221,6 @@ class ProductService
                 $newTypeId = (int) $data['type_id'];
             }
 
-            // ✅ Resolve final bahan_id
             $newBahanId = null;
             if (!empty($data['bahan_nama'])) {
                 $bahan = BahanProduct::firstOrCreate([
@@ -246,9 +231,6 @@ class ProductService
                 $newBahanId = (int) $data['bahan_id'];
             }
 
-            // ========================================
-            // ✅ SMART UPDATE: Cek apakah kombinasi berubah
-            // ========================================
             $isKombinationChanged = $this->isCombinationChanged(
                 $product, 
                 (int) $data['jenis_id'], 
@@ -258,24 +240,8 @@ class ProductService
             );
 
             if ($isKombinationChanged) {
-                Log::info('Product combination changed, generating new code', [
-                    'product_id' => $productId,
-                    'old_kode' => $product->kode
-                ]);
-                
-                $kode = $this->buildProductKode(
-                    (int) $data['jenis_id'], 
-                    $newTypeId, 
-                    $newBahanId, 
-                    (string) $data['ukuran'], 
-                    $productId
-                );
+                $kode = $this->buildProductKode((int) $data['jenis_id'], $newTypeId, $newBahanId, (string) $data['ukuran'], $productId);
             } else {
-                Log::info('Product combination unchanged, using existing code', [
-                    'product_id' => $productId,
-                    'kode' => $product->kode
-                ]);
-                
                 $kode = $product->kode;
             }
             
@@ -293,7 +259,6 @@ class ProductService
 
             $product->update($updateData);
 
-            // Update harga umum
             $product->hargaProducts()->whereNull('customer_id')->delete();
             HargaProduct::create([
                 'product_id' => $productId,
@@ -308,48 +273,23 @@ class ProductService
             return Product::with(['jenis', 'type', 'bahan'])->findOrFail($productId);
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Update product failed', [
-                'product_id' => $product->getKey() ?? $product->id ?? 'unknown',
-                'error' => $e->getMessage(),
-                'data_keys' => array_keys($data),
-            ]);
             throw new \Exception("Gagal memperbarui produk: " . $e->getMessage());
         }
     }
 
-    /**
-     * ✅ Cek apakah kombinasi (jenis, type, bahan, ukuran) berubah
-     */
-    private function isCombinationChanged(
-        Product $product, 
-        int $newJenisId, 
-        ?int $newTypeId, 
-        ?int $newBahanId, 
-        string $newUkuran
-    ): bool {
-        // Cek jenis_id
+    private function isCombinationChanged(Product $product, int $newJenisId, ?int $newTypeId, ?int $newBahanId, string $newUkuran): bool
+    {
         $oldJenisId = $product->jenis_id ? (int) $product->jenis_id : 0;
-        if ($oldJenisId !== $newJenisId) {
-            return true;
-        }
+        if ($oldJenisId !== $newJenisId) return true;
         
-        // Cek type_id
         $oldTypeId = $product->type_id ? (int) $product->type_id : null;
-        if ($oldTypeId !== $newTypeId) {
-            return true;
-        }
+        if ($oldTypeId !== $newTypeId) return true;
         
-        // Cek bahan_id
         $oldBahanId = $product->bahan_id ? (int) $product->bahan_id : null;
-        if ($oldBahanId !== $newBahanId) {
-            return true;
-        }
+        if ($oldBahanId !== $newBahanId) return true;
         
-        // Cek ukuran
         $oldUkuran = $product->ukuran ? trim((string) $product->ukuran) : '';
-        if ($oldUkuran !== trim($newUkuran)) {
-            return true;
-        }
+        if ($oldUkuran !== trim($newUkuran)) return true;
         
         return false;
     }
@@ -360,6 +300,7 @@ class ProductService
         try {
             $this->deleteOldImages($product, ['foto_depan', 'foto_samping', 'foto_atas']);
             $productId = $product->getKey() ?? $product->id;
+            
             $product->delete();
             
             DB::commit();
@@ -375,9 +316,7 @@ class ProductService
     {
         $manager = new ImageManager(new Driver());
         $uploaded = [];
-
         $basePath = public_path('storage/products');
-        // $basePath = '/home/jaym3787/public_html/storage/products';
 
         if (!file_exists($basePath)) {
             mkdir($basePath, 0755, true);
@@ -390,7 +329,6 @@ class ProductService
                 }
 
                 $image = $manager->read($data[$field]);
-                
                 if ($image->width() > 800) {
                     $image->scale(width: 800);
                 }
@@ -410,7 +348,6 @@ class ProductService
     private function deleteOldImages(Product $product, array $fields): void
     {
         $basePath = public_path('storage/products');
-
         foreach ($fields as $field) {
             if ($product->{$field}) {
                 $this->deleteSingleImage($product->{$field}, $basePath);
@@ -429,19 +366,16 @@ class ProductService
     private function jenisKode(string $text): string
     {
         $text = trim($text);
-        if (strlen($text) < 2) return strtoupper($text);
-        return strtoupper(substr($text, 0, 1) . substr($text, -1));
+        return strlen($text) < 2 ? strtoupper($text) : strtoupper(substr($text, 0, 1) . substr($text, -1));
     }
 
     private function typeKode(string $text): string
     {
         $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
         $words = collect(preg_split('/\s+/', trim($clean)))->filter(fn($w) => ctype_alpha(substr($w, 0, 1)));
-
         $huruf = $words->count() === 1 ? substr($words->first(), 0, 2) : $words->map(fn($w) => substr($w, 0, 1))->implode('');
         preg_match_all('/\d+/', $text, $matches);
         $angka = count($matches[0]) >= 2 ? $matches[0][0] . $matches[0][1] : ($matches[0][0] ?? '');
-
         return strtoupper($huruf . $angka);
     }
 
@@ -449,7 +383,6 @@ class ProductService
     {
         $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
         $words = collect(preg_split('/\s+/', trim($clean)))->filter(fn($w) => ctype_alpha(substr($w, 0, 1)));
-
         return $words->count() === 1 ? substr($words->first(), 0, 2) : $words->map(fn($w) => substr($w, 0, 1))->implode('');
     }
 
@@ -473,16 +406,10 @@ class ProductService
     private function makeUniqueKode(string $baseKode, ?int $ignoreId = null): string
     {
         $existingProduct = Product::where('kode', $baseKode)->first();
+        if (!$existingProduct) return $baseKode;
+        if ($ignoreId && (int) $existingProduct->id === $ignoreId) return $baseKode;
         
-        if (!$existingProduct) {
-            return $baseKode;
-        }
-        
-        if ($ignoreId && (int) $existingProduct->id === $ignoreId) {
-            return $baseKode;
-        }
-        
-        throw new \Exception("Kode produk '{$baseKode}' sudah digunakan oleh produk lain (ID: {$existingProduct->id}). Silakan ubah kombinasi jenis, tipe, bahan, atau ukuran.");
+        throw new \Exception("Kode produk '{$baseKode}' sudah digunakan oleh produk lain (ID: {$existingProduct->id}).");
     }
 
     private function buildProductKode(int $jenis_id, ?int $type_id, ?int $bahan_id, string $ukuran, ?int $ignoreProductId = null): string
@@ -492,7 +419,6 @@ class ProductService
         $bahanNama = $bahan_id ? BahanProduct::find($bahan_id)?->nama : null;
 
         $baseKode = $this->generateProductKode($jenisNama, $typeNama, $bahanNama, $ukuran);
-        
         return $this->makeUniqueKode($baseKode, $ignoreProductId);
     }
 
@@ -505,7 +431,6 @@ class ProductService
     {
         $keys = Cache::get(self::CACHE_INDEX_KEY, []);
         if (!is_array($keys)) $keys = [];
-        
         if (!in_array($cacheKey, $keys, true)) {
             $keys[] = $cacheKey;
             Cache::put(self::CACHE_INDEX_KEY, $keys, self::CACHE_TTL_INDEX);

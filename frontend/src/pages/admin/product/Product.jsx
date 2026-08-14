@@ -15,7 +15,6 @@ const formatProductName = (p) => {
   return parts.length > 0 ? parts.join(" ") : p.kode;
 };
 
-// ✅ Helper: Load filter dari localStorage dengan aman
 const loadSavedFilters = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -28,7 +27,7 @@ const loadSavedFilters = () => {
       };
     }
   } catch (err) {
-    console.warn("Failed to load filters from localStorage:", err);
+    // Silent fail
   }
   return { search: "", jenisFilter: "", typeFilter: "" };
 };
@@ -37,10 +36,7 @@ const ProductPage = () => {
   const { openCreateModal, openEditModal, openDetailModal } = useProductStore();
   const { danger } = useConfirmDialog();
 
-  // ✅ Ref untuk auto-focus input setelah reload
   const searchInputRef = useRef(null);
-
-  // ✅ Initialize state dari localStorage (persist saat reload)
   const savedFilters = useMemo(() => loadSavedFilters(), []);
   
   const [searchInput, setSearchInput] = useState(savedFilters.search);
@@ -50,10 +46,10 @@ const ProductPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 15;
 
+  // ✅ Menggunakan useJenis dan useTypes yang SAMA persis dengan halaman JenisProduct
   const { data: jenisData } = useJenis();
   const { data: typesData } = useTypes();
   
-  // ✅ SAFEGUARD: Pastikan data selalu berupa array
   const safeJenis = Array.isArray(jenisData) ? jenisData : [];
   const safeTypes = Array.isArray(typesData) ? typesData : [];
 
@@ -62,7 +58,6 @@ const ProductPage = () => {
   );
   const deleteMutation = useDeleteProduct();
 
-  // ✅ Debounce Search (500ms)
   useEffect(() => {
     const handler = setTimeout(() => {
       setSearchQuery(searchInput);
@@ -71,12 +66,10 @@ const ProductPage = () => {
     return () => clearTimeout(handler);
   }, [searchInput]);
 
-  // ✅ Reset page saat filter berubah
   useEffect(() => { 
     setCurrentPage(1); 
   }, [searchQuery, jenisFilter, typeFilter]);
 
-  // ✅ PERSIST: Simpan filter ke localStorage setiap kali berubah
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       search: searchQuery,
@@ -85,14 +78,13 @@ const ProductPage = () => {
     }));
   }, [searchQuery, jenisFilter, typeFilter]);
 
-  // ✅ AUTO-FOCUS: Set focus ke search input setelah mount, cursor di akhir
   useEffect(() => {
     if (searchInputRef.current && savedFilters.search) {
       searchInputRef.current.focus();
       const len = savedFilters.search.length;
       searchInputRef.current.setSelectionRange(len, len);
     }
-  }, []); // Hanya jalankan sekali saat mount
+  }, []);
 
   const products = data?.data || [];
   const lastPage = data?.meta?.last_page || 1;
@@ -115,13 +107,11 @@ const ProductPage = () => {
 
   const isFilterActive = Boolean(searchQuery || jenisFilter || typeFilter);
 
-  // ✅ FIXED: Filter types dengan perbandingan Number yang robust
   const filteredTypesForFilter = useMemo(() => {
     if (!jenisFilter) return [];
     return safeTypes.filter((t) => Number(t.jenis_id) === Number(jenisFilter));
   }, [jenisFilter, safeTypes]);
 
-  // ✅ Auto-reset typeFilter saat jenisFilter berubah (jika type tidak valid lagi)
   useEffect(() => {
     if (jenisFilter && typeFilter) {
       const isTypeValid = filteredTypesForFilter.some((t) => Number(t.id) === Number(typeFilter));
@@ -162,13 +152,9 @@ const ProductPage = () => {
 
   return (
     <div className="space-y-4 pb-20">
-      {/* ============================================
-          STICKY SEARCH & FILTER BAR
-      ============================================ */}
       <div className="sticky top-4 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-2 pb-3 bg-white/70 backdrop-blur-md border-b border-slate-200/60">
         <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200/60 p-3 shadow-sm">
           <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
-            {/* ✅ Search dengan ref untuk auto-focus */}
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
@@ -181,7 +167,6 @@ const ProductPage = () => {
               />
             </div>
             
-            {/* ✅ Filter Jenis */}
             <div className="relative flex-shrink-0 min-w-[160px]">
               <select 
                 value={jenisFilter} 
@@ -196,7 +181,6 @@ const ProductPage = () => {
               </select>
             </div>
 
-            {/* ✅ Filter Type (FIXED) */}
             <div className="relative flex-shrink-0 min-w-[160px]">
               <select 
                 value={typeFilter} 
@@ -230,9 +214,6 @@ const ProductPage = () => {
         </div>
       </div>
       
-      {/* ============================================
-          CONTENT GRID
-      ============================================ */}
       {products.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200/60 p-12 text-center shadow-sm">
           <div className="flex flex-col items-center gap-3">
@@ -293,9 +274,6 @@ const ProductPage = () => {
         </div>
       )}
 
-      {/* ============================================
-          PAGINATION
-      ============================================ */}
       {lastPage > 1 && (
         <div className="px-6 py-4 bg-white border border-slate-200/60 rounded-xl shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-sm text-slate-600 text-center sm:text-left">Menampilkan <span className="font-semibold text-slate-900">{from}</span> - <span className="font-semibold text-slate-900">{to}</span> dari <span className="font-semibold text-slate-900">{total}</span> product</div>
@@ -309,9 +287,6 @@ const ProductPage = () => {
         </div>
       )}
 
-      {/* ============================================
-          FLOATING ACTION BUTTON (FAB)
-      ============================================ */}
       <button onClick={openCreateModal} className="fixed bottom-6 right-6 z-40 group" title="Tambah Product" aria-label="Tambah product baru">
         <span className="absolute inset-0 rounded-full bg-blue-600 animate-ping opacity-20 group-hover:opacity-0 transition-opacity duration-500"></span>
         <div className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all duration-300 active:scale-95 hover:scale-110">

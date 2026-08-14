@@ -43,9 +43,11 @@ class ProductController extends Controller
         ]);
     }
 
-    public function show(Product $product): JsonResponse
+    public function show(string|int $id): JsonResponse
     {
+        $product = Product::findOrFail((int) $id);
         $detail = $this->productService->getDetail($product->id);
+        
         return response()->json(['status' => true, 'data' => $detail]);
     }
 
@@ -60,8 +62,9 @@ class ProductController extends Controller
         ], 201);
     }
 
-    public function update(UpdateProductRequest $request, Product $product): JsonResponse
+    public function update(UpdateProductRequest $request, string|int $id): JsonResponse
     {
+        $product = Product::findOrFail((int) $id);
         $updatedProduct = $this->productService->update($product, $request->validated());
 
         return response()->json([
@@ -71,13 +74,18 @@ class ProductController extends Controller
         ]);
     }
 
-    // ✅ PERBAIKAN DI SINI: Logging & Error Handling yang Eksplisit
-    public function destroy(Product $product): JsonResponse
+    public function destroy(string|int $id): JsonResponse
     {
-        Log::info('Delete request received for Product', [
-            'id' => $product->id,
-            'kode' => $product->kode
-        ]);
+        Log::info('Delete request received for Product', ['id' => $id]);
+
+        $product = Product::find((int) $id);
+
+        if (!$product) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Product tidak ditemukan di database.'
+            ], 404);
+        }
 
         try {
             $result = $this->productService->delete($product);
@@ -87,10 +95,8 @@ class ProductController extends Controller
                 'message' => $result['message']
             ]);
         } catch (\Throwable $e) {
-            // ✅ Jika gagal (misal: foreign key constraint), kirim status 500
-            // agar frontend masuk ke blok `onError` di useDeleteProduct
             Log::error('Failed to delete product', [
-                'id' => $product->id,
+                'id' => $id,
                 'error' => $e->getMessage()
             ]);
 

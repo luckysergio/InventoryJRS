@@ -7,7 +7,6 @@ export const useJenisProducts = () => {
     queryKey: ['jenis_products'],
     queryFn: async () => {
       const response = await api.get('/jenis')
-      // Backend mengembalikan { status: true, data: [...] }
       return response.data.data || []
     },
   })
