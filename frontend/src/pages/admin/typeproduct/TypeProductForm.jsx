@@ -55,7 +55,7 @@ const TypeProductForm = () => {
       }
       closeModals();
     } catch (err) {
-      console.error(err);
+      // Error sudah dihandle di mutation hook
     }
   };
 
@@ -64,7 +64,6 @@ const TypeProductForm = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5">
-        {/* Header */}
         <div className={`px-6 py-4 border-b border-slate-200 flex items-center justify-between ${isEdit ? 'bg-gradient-to-r from-amber-50 to-white' : 'bg-gradient-to-r from-blue-50 to-white'}`}>
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${isEdit ? 'bg-amber-100' : 'bg-blue-100'}`}>
@@ -79,9 +78,7 @@ const TypeProductForm = () => {
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Jenis Product */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Jenis Product <span className="text-red-500">*</span></label>
             <div className="relative">
@@ -104,7 +101,6 @@ const TypeProductForm = () => {
             </div>
           </div>
 
-          {/* Nama Type */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Nama Type <span className="text-red-500">*</span></label>
             <div className="relative">
@@ -131,7 +127,6 @@ const TypeProductForm = () => {
             )}
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 pt-4 border-t border-slate-100">
             <button type="button" onClick={closeModals} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" disabled={isSubmitting}>Batal</button>
             <button type="submit" disabled={isSubmitting} className={`flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all flex items-center justify-center gap-2 ${isEdit ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:opacity-50`}>

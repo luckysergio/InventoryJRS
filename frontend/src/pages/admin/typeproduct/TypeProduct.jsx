@@ -8,13 +8,13 @@ import TypeProductDetail from "./TypeProductDetail";
 
 const TypeProductPage = () => {
   const { openCreateModal, openEditModal, openDetailModal } = useTypeProductStore();
-  const { danger, info } = useConfirmDialog();
+  const { danger } = useConfirmDialog();
 
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [jenisFilter, setJenisFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const perPage = 20; // ✅ Pagination 20 item per halaman
+  const perPage = 20;
 
   const { data: jenisData = [] } = useJenisProducts();
   const { data, isLoading, isError, refetch, isFetching } = useTypeProducts(
@@ -25,18 +25,16 @@ const TypeProductPage = () => {
   );
   const deleteMutation = useDeleteTypeProduct();
 
-  // ✅ Debounce Search (500ms)
   useEffect(() => {
     const handler = setTimeout(() => setSearchQuery(searchInput), 500);
     return () => clearTimeout(handler);
   }, [searchInput]);
 
-  // ✅ Reset ke halaman 1 saat search atau filter jenis berubah
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, jenisFilter]);
 
-  // ✅ Extract data dari paginator Laravel
+  // ✅ Ekstraksi data dari objek paginator dengan aman
   const typeData = data?.data || [];
   const lastPage = data?.last_page || 1;
   const total = data?.total || 0;
@@ -61,7 +59,6 @@ const TypeProductPage = () => {
 
   const isFilterActive = Boolean(searchQuery || jenisFilter);
 
-  // ✅ Logic untuk nomor pagination
   const paginationNumbers = useMemo(() => {
     const maxVisible = 5;
     const pages = [];
@@ -93,9 +90,6 @@ const TypeProductPage = () => {
 
   return (
     <div className="space-y-4 pb-20">
-      {/* ============================================
-          STICKY SEARCH & FILTER BAR
-      ============================================ */}
       <div className="sticky top-4 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-2 pb-3 bg-white/70 backdrop-blur-md border-b border-slate-200/60">
         <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200/60 p-3 shadow-sm">
           <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
@@ -188,7 +182,6 @@ const TypeProductPage = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <button onClick={() => openDetailModal(item)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Detail">
                   <Search size={14} />
@@ -205,9 +198,6 @@ const TypeProductPage = () => {
         </div>
       )}
 
-      {/* ============================================
-          PAGINATION UI
-      ============================================ */}
       {lastPage > 1 && (
         <div className="px-6 py-4 bg-white border border-slate-200/60 rounded-xl shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-sm text-slate-600 text-center sm:text-left">
@@ -246,9 +236,6 @@ const TypeProductPage = () => {
         </div>
       )}
 
-      {/* ============================================
-          FLOATING ACTION BUTTON (FAB)
-      ============================================ */}
       <button onClick={openCreateModal} className="fixed bottom-6 right-6 z-40 group" title="Tambah Type Product" aria-label="Tambah type product baru">
         <span className="absolute inset-0 rounded-full bg-blue-600 animate-ping opacity-20 group-hover:opacity-0 transition-opacity duration-500"></span>
         <div className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all duration-300 active:scale-95 hover:scale-110">
@@ -260,7 +247,6 @@ const TypeProductPage = () => {
         </div>
       </button>
 
-      {/* Modals */}
       <TypeProductForm />
       <TypeProductDetail />
     </div>

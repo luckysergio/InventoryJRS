@@ -34,8 +34,17 @@ class TypeProductController extends Controller
         ]);
     }
 
-    public function show(TypeProduct $typeProduct): JsonResponse
+    public function show(string|int $id): JsonResponse
     {
+        $typeProduct = TypeProduct::find((int) $id);
+        
+        if (!$typeProduct) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
         $detail = $this->typeProductService->getDetail($typeProduct->id);
 
         return response()->json([
@@ -55,8 +64,17 @@ class TypeProductController extends Controller
         ], 201);
     }
 
-    public function update(UpdateTypeProductRequest $request, TypeProduct $typeProduct): JsonResponse
+    public function update(UpdateTypeProductRequest $request, string|int $id): JsonResponse
     {
+        $typeProduct = TypeProduct::find((int) $id);
+
+        if (!$typeProduct) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
         $updatedType = $this->typeProductService->update($typeProduct, $request->validated());
 
         return response()->json([
@@ -66,8 +84,17 @@ class TypeProductController extends Controller
         ]);
     }
 
-    public function destroy(TypeProduct $typeProduct): JsonResponse
+    public function destroy(string|int $id): JsonResponse
     {
+        $typeProduct = TypeProduct::find((int) $id);
+
+        if (!$typeProduct) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
         $result = $this->typeProductService->delete($typeProduct);
 
         if (!$result['success']) {
