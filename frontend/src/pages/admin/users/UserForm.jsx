@@ -1,5 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
-import { X, User, Mail, Lock, Shield, Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+    X,
+    User,
+    Mail,
+    Lock,
+    Shield,
+    Eye,
+    EyeOff,
+    CheckCircle2,
+    AlertCircle,
+    Loader2,  // ✅ TAMBAHKAN INI
+} from "lucide-react";
 import { useCreateUser, useUpdateUser } from "../../../hooks/useUsers";
 import { useUserModals } from "../../../lib/zustand/userStore";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
@@ -54,14 +65,13 @@ const UserForm = () => {
             setShowPassword(false);
             setShowConfirmPassword(false);
         }
-    }, [isEdit, isCreate, selectedUser]);
+    }, [isEdit, isCreate, selectedUser, modals.edit, modals.create]);
 
     // Password strength calculator
     const passwordStrength = useMemo(() => {
         const pwd = form.password;
-        if (!pwd) return { score: 0, label: "", color: "" };
+        if (!pwd) return { score: 0, label: "", color: "", checks: {} };
 
-        let score = 0;
         const checks = {
             length: pwd.length >= 8,
             letter: /[a-zA-Z]/.test(pwd),
@@ -69,7 +79,7 @@ const UserForm = () => {
             special: /[!_@#$%^&*]/.test(pwd),
         };
 
-        score = Object.values(checks).filter(Boolean).length;
+        const score = Object.values(checks).filter(Boolean).length;
 
         const labels = {
             0: { label: "", color: "" },
@@ -85,19 +95,21 @@ const UserForm = () => {
     const validate = () => {
         const newErrors = {};
 
+        // Name validation
         if (!form.name.trim()) {
             newErrors.name = "Nama wajib diisi";
         } else if (!/^[\p{L}\s\-.]+$/u.test(form.name.trim())) {
             newErrors.name = "Nama hanya boleh huruf, spasi, strip, titik";
         }
 
+        // Email validation
         if (!form.email.trim()) {
             newErrors.email = "Email wajib diisi";
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
             newErrors.email = "Format email tidak valid";
         }
 
-        // Password validation - MATCH dengan backend (8 char, huruf, angka, special)
+        // Password validation - MATCH dengan backend
         if (isCreate || form.password) {
             if (!form.password) {
                 newErrors.password = "Password wajib diisi";
@@ -111,6 +123,7 @@ const UserForm = () => {
                 newErrors.password = "Password wajib mengandung karakter spesial";
             }
 
+            // Password confirmation
             if (form.password !== form.password_confirmation) {
                 newErrors.password_confirmation = "Password tidak cocok";
             }
@@ -136,15 +149,19 @@ const UserForm = () => {
             }
 
             if (isEdit) {
-                await updateUser.mutateAsync({ id: selectedUser.id, data: payload });
+                await updateUser.mutateAsync({
+                    id: selectedUser.id,
+                    data: payload,
+                });
+                closeAllModals();
                 await success("Berhasil!", "User berhasil diperbarui");
             } else {
                 await createUser.mutateAsync(payload);
+                closeAllModals();
                 await success("Berhasil!", "User berhasil ditambahkan");
             }
-
-            closeAllModals();
         } catch (error) {
+            // Handle validation errors dari backend
             if (error.response?.status === 422 && error.response?.data?.errors) {
                 const serverErrors = {};
                 Object.keys(error.response.data.errors).forEach((key) => {
@@ -189,7 +206,9 @@ const UserForm = () => {
                 <div
                     className={cn(
                         "px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0",
-                        isEdit ? "bg-gradient-to-r from-amber-50 to-white" : "bg-gradient-to-r from-blue-50 to-white"
+                        isEdit
+                            ? "bg-gradient-to-r from-amber-50 to-white"
+                            : "bg-gradient-to-r from-blue-50 to-white"
                     )}
                 >
                     <div className="flex items-center gap-3">
@@ -220,13 +239,12 @@ const UserForm = () => {
                 </div>
 
                 {/* Form - Scrollable */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+                <form
+                    onSubmit={handleSubmit}
+                    className="p-6 space-y-4 overflow-y-auto flex-1"
+                >
                     {/* Name */}
-                    <FormField
-                        label="Nama Lengkap"
-                        required
-                        error={errors.name}
-                    >
+                    <FormField label="Nama Lengkap" required error={errors.name}>
                         <div className="relative">
                             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
@@ -242,16 +260,13 @@ const UserForm = () => {
                                         : "border-gray-200 focus:ring-blue-500"
                                 )}
                                 disabled={isSubmitting}
+                                autoFocus
                             />
                         </div>
                     </FormField>
 
                     {/* Email */}
-                    <FormField
-                        label="Email"
-                        required
-                        error={errors.email}
-                    >
+                    <FormField label="Email" required error={errors.email}>
                         <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
@@ -326,7 +341,9 @@ const UserForm = () => {
                                 </div>
                                 <p className="text-xs text-gray-600">
                                     Kekuatan:{" "}
-                                    <span className="font-medium">{passwordStrength.label}</span>
+                                    <span className="font-medium">
+                                        {passwordStrength.label}
+                                    </span>
                                 </p>
 
                                 {/* Password Requirements Checklist */}
@@ -362,7 +379,9 @@ const UserForm = () => {
                             <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                 <input
-                                    type={showConfirmPassword ? "text" : "password"}
+                                    type={
+                                        showConfirmPassword ? "text" : "password"
+                                    }
                                     name="password_confirmation"
                                     value={form.password_confirmation}
                                     onChange={handleChange}
@@ -377,7 +396,9 @@ const UserForm = () => {
                                 />
                                 <button
                                     type="button"
-                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    onClick={() =>
+                                        setShowConfirmPassword(!showConfirmPassword)
+                                    }
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                                     tabIndex={-1}
                                 >
@@ -456,7 +477,9 @@ const FormField = ({ label, required, error, hint, children }) => (
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
             {label} {required && <span className="text-red-500">*</span>}
             {hint && (
-                <span className="text-xs text-gray-500 font-normal ml-1">{hint}</span>
+                <span className="text-xs text-gray-500 font-normal ml-1">
+                    {hint}
+                </span>
             )}
         </label>
         {children}
@@ -469,9 +492,6 @@ const FormField = ({ label, required, error, hint, children }) => (
     </div>
 );
 
-// ============================================
-// PASSWORD REQUIREMENT CHECK
-// ============================================
 const RequirementCheck = ({ met, label }) => (
     <div className="flex items-center gap-1.5">
         <CheckCircle2
@@ -480,7 +500,9 @@ const RequirementCheck = ({ met, label }) => (
                 met ? "text-emerald-500" : "text-gray-300"
             )}
         />
-        <span className={cn(met ? "text-emerald-700" : "text-gray-500")}>{label}</span>
+        <span className={cn(met ? "text-emerald-700" : "text-gray-500")}>
+            {label}
+        </span>
     </div>
 );
 

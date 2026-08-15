@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Jabatan;
 
+use App\Models\Jabatan;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,7 +15,6 @@ class UpdateJabatanRequest extends FormRequest
 
     public function rules(): array
     {
-        // ✅ Ambil ID dengan fallback agar aman baik parameter bernama 'jabatan' atau 'id'
         $jabatanId = $this->route('jabatan')?->id ?? (int) $this->route('id');
 
         return [
@@ -22,8 +22,9 @@ class UpdateJabatanRequest extends FormRequest
                 'required',
                 'string',
                 'max:100',
+                'min:2',
                 Rule::unique('jabatans', 'nama')->ignore($jabatanId),
-                'regex:/^[A-Z\s]+$/',
+                'regex:/^[\p{L}\s]+$/u',
             ],
         ];
     }
@@ -31,8 +32,12 @@ class UpdateJabatanRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'nama.regex'  => 'Nama jabatan harus menggunakan HURUF KAPITAL semua.',
+            'nama.required' => 'Nama jabatan wajib diisi.',
+            'nama.string' => 'Nama jabatan harus berupa teks.',
+            'nama.max' => 'Nama jabatan maksimal 100 karakter.',
+            'nama.min' => 'Nama jabatan minimal 2 karakter.',
             'nama.unique' => 'Nama jabatan sudah terdaftar.',
+            'nama.regex' => 'Nama jabatan hanya boleh mengandung huruf dan spasi.',
         ];
     }
 
@@ -40,7 +45,7 @@ class UpdateJabatanRequest extends FormRequest
     {
         if ($this->has('nama')) {
             $this->merge([
-                'nama' => strtoupper(trim($this->input('nama'))),
+                'nama' => strtoupper(trim($this->input('nama', ''))),
             ]);
         }
     }

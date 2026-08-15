@@ -102,15 +102,15 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [KaryawanController::class, 'destroy'])->middleware('role:admin');
     });
 
-    // -----------------------------------------------
     // Jabatan Management
-    // -----------------------------------------------
     Route::prefix('jabatans')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [JabatanController::class, 'index']);
+        Route::get('/dropdown', [JabatanController::class, 'dropdown']);
+        Route::get('/statistics', [JabatanController::class, 'statistics'])->middleware('role:admin');
+        Route::get('/{jabatan}', [JabatanController::class, 'show'])->middleware('role:admin');
         Route::post('/', [JabatanController::class, 'store'])->middleware('role:admin');
-        Route::get('/{id}', [JabatanController::class, 'show'])->middleware('role:admin');
-        Route::put('/{id}', [JabatanController::class, 'update'])->middleware('role:admin');
-        Route::delete('/{id}', [JabatanController::class, 'destroy'])->middleware('role:admin');
+        Route::put('/{jabatan}', [JabatanController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{jabatan}', [JabatanController::class, 'destroy'])->middleware('role:admin');
     });
 
     // -----------------------------------------------

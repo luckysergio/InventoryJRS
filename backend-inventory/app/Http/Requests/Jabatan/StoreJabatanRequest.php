@@ -18,8 +18,9 @@ class StoreJabatanRequest extends FormRequest
                 'required',
                 'string',
                 'max:100',
+                'min:2',
                 'unique:jabatans,nama',
-                'regex:/^[A-Z\s]+$/', // Hanya huruf kapital dan spasi
+                'regex:/^[\p{L}\s]+$/u',
             ],
         ];
     }
@@ -27,8 +28,12 @@ class StoreJabatanRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'nama.regex'  => 'Nama jabatan harus menggunakan HURUF KAPITAL semua.',
+            'nama.required' => 'Nama jabatan wajib diisi.',
+            'nama.string' => 'Nama jabatan harus berupa teks.',
+            'nama.max' => 'Nama jabatan maksimal 100 karakter.',
+            'nama.min' => 'Nama jabatan minimal 2 karakter.',
             'nama.unique' => 'Nama jabatan sudah terdaftar.',
+            'nama.regex' => 'Nama jabatan hanya boleh mengandung huruf dan spasi.',
         ];
     }
 
@@ -36,7 +41,7 @@ class StoreJabatanRequest extends FormRequest
     {
         if ($this->has('nama')) {
             $this->merge([
-                'nama' => strtoupper(trim($this->input('nama'))),
+                'nama' => strtoupper(trim($this->input('nama', ''))),
             ]);
         }
     }
