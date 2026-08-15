@@ -5,92 +5,290 @@ namespace App\Services\JenisProduct;
 use App\Models\JenisProduct;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class JenisProductService
 {
-    private const CACHE_LIST_KEY = 'jenis_products:list:all';
-    private const CACHE_DETAIL_PREFIX = 'jenis_products:detail:';
-    private const CACHE_TTL = 3600; // 1 Jam (Data master jarang berubah)
+    private const CACHE_LIST_PREFIX = 'jenis_products:list:v';
+    private const CACHE_DETAIL_PREFIX = 'jenis_products:detail:v';
+    private const CACHE_DROPDOWN_KEY = 'jenis_products:dropdown:v';
+    private const CACHE_STATISTICS_KEY = 'jenis_products:statistics:v';
 
-    public function getList(bool $withCounts = true): Collection
-    {
-        return Cache::remember(self::CACHE_LIST_KEY, self::CACHE_TTL, function () use ($withCounts) {
-            $query = JenisProduct::query();
+    private const CACHE_VERSION_KEY = 'jenis_products:cache:version';
+    private const CACHE_VERSION_LOCK = 'jenis_products:cache:version:lock';
 
-            if ($withCounts) {
-                $query->withCounts();
+    private const CACHE_TTL_LIST = 3600;       // 1 jam
+    private const CACHE_TTL_DETAIL = 3600;     // 1 jam
+    private const CACHE_TTL_DROPDOWN = 7200;   // 2 jam
+    private const CACHE_TTL_STATISTICS = 1800; // 30 menit
+
+    /**
+     * Get list jenis products dengan search & pagination support.
+     *
+     * @return array{data: Collection|array, meta: array}
+     */
+    public function getList(
+        ?string $search = null,
+        bool $withCount = true,
+        ?int $perPage = null,
+        int $page = 1
+    ): array {
+        $version = $this->getCacheVersion();
+
+        if ($perPage === null) {
+            $cacheKey = $this->buildListCacheKey($version, $search, $withCount, 'all', 1);
+
+            $data = Cache::remember($cacheKey, self::CACHE_TTL_LIST, function () use ($search, $withCount) {
+                $query = JenisProduct::select(['id', 'nama', 'created_at', 'updated_at']);
+
+                if ($withCount) {
+                    $query->withCount(['products', 'types']);
+                }
+
+                if ($search) {
+                    $query->where('nama', 'like', "%{$search}%");
+                }
+
+                return $query->orderBy('nama', 'asc')->get();
+            });
+
+            return [
+                'data' => $data,
+                'meta' => [
+                    'total' => $data->count(),
+                    'with_count' => $withCount,
+                    'paginated' => false,
+                ],
+            ];
+        }
+
+        $cacheKey = $this->buildListCacheKey($version, $search, $withCount, $perPage, $page);
+
+        $paginator = Cache::remember($cacheKey, self::CACHE_TTL_LIST, function () use ($search, $withCount, $perPage, $page) {
+            $query = JenisProduct::select(['id', 'nama', 'created_at', 'updated_at']);
+
+            if ($withCount) {
+                $query->withCount(['products', 'types']);
             }
 
-            return $query->orderBy('nama', 'asc')->get();
+            if ($search) {
+                $query->where('nama', 'like', "%{$search}%");
+            }
+
+            return $query->orderBy('nama', 'asc')->paginate($perPage, ['*'], 'page', $page);
         });
+
+        return [
+            'data' => $paginator->items(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'from' => $paginator->firstItem(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'to' => $paginator->lastItem(),
+                'total' => $paginator->total(),
+                'with_count' => $withCount,
+                'paginated' => true,
+            ],
+        ];
     }
 
     public function getDetail(int $id): ?JenisProduct
     {
-        $cacheKey = self::CACHE_DETAIL_PREFIX . $id;
+        $version = $this->getCacheVersion();
+        $cacheKey = self::CACHE_DETAIL_PREFIX . $version . ':' . $id;
 
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($id) {
-            return JenisProduct::withCounts()->find($id);
+        return Cache::remember($cacheKey, self::CACHE_TTL_DETAIL, function () use ($id) {
+            return JenisProduct::select(['id', 'nama', 'created_at', 'updated_at'])
+                ->withCount(['products', 'types'])
+                ->find($id);
+        });
+    }
+
+    public function getForDropdown(): Collection
+    {
+        $version = $this->getCacheVersion();
+        $cacheKey = self::CACHE_DROPDOWN_KEY . $version;
+
+        return Cache::remember($cacheKey, self::CACHE_TTL_DROPDOWN, function () {
+            return JenisProduct::select(['id', 'nama'])
+                ->orderBy('nama', 'asc')
+                ->get();
+        });
+    }
+
+    public function getStatistics(): array
+    {
+        $version = $this->getCacheVersion();
+        $cacheKey = self::CACHE_STATISTICS_KEY . $version;
+
+        return Cache::remember($cacheKey, self::CACHE_TTL_STATISTICS, function () {
+            $stats = JenisProduct::select(['id', 'nama'])
+                ->withCount(['products', 'types'])
+                ->orderByDesc('products_count')
+                ->get();
+
+            return [
+                'total_jenis' => $stats->count(),
+                'total_products' => $stats->sum('products_count'),
+                'total_types' => $stats->sum('types_count'),
+                'by_jenis' => $stats->map(fn($j) => [
+                    'id' => $j->id,
+                    'nama' => $j->nama,
+                    'products_count' => $j->products_count,
+                    'types_count' => $j->types_count,
+                ])->toArray(),
+            ];
         });
     }
 
     public function create(array $data): JenisProduct
     {
-        $jenis = JenisProduct::create($data);
+        return DB::transaction(function () use ($data) {
+            $jenis = JenisProduct::create([
+                'nama' => $data['nama'],
+            ]);
 
-        $this->invalidateCache();
+            $this->invalidateCache();
 
-        Log::info('Jenis Product created', ['id' => $jenis->id, 'nama' => $jenis->nama]);
+            Log::info('JenisProduct created', [
+                'id' => $jenis->id,
+                'nama' => $jenis->nama,
+            ]);
 
-        return $jenis;
+            return $jenis->loadCount(['products', 'types']);
+        });
     }
 
-    public function update(JenisProduct $jenis, array $data): JenisProduct
+    public function update(JenisProduct $jenisProduct, array $data): JenisProduct
     {
-        if (!$jenis->exists) {
-            throw new \Exception("Gagal update: Data tidak valid.");
-        }
+        return DB::transaction(function () use ($jenisProduct, $data) {
+            if (!$jenisProduct->exists) {
+                throw new \Exception("Gagal update: Data jenis product tidak valid.");
+            }
 
-        $jenis->update($data);
+            $jenisProduct->update([
+                'nama' => $data['nama'],
+            ]);
 
-        $this->invalidateCache($jenis->id);
+            $this->invalidateCache();
 
-        Log::info('Jenis Product updated', ['id' => $jenis->id]);
+            Log::info('JenisProduct updated', [
+                'id' => $jenisProduct->id,
+                'nama' => $jenisProduct->nama,
+            ]);
 
-        return $jenis->refresh();
+            return $jenisProduct->fresh()->loadCount(['products', 'types']);
+        });
     }
 
-    public function delete(JenisProduct $jenis): array
+    /**
+     * Delete jenis product dengan proteksi relasi.
+     *
+     * @return array{success: bool, code?: int, message: string}
+     */
+    public function delete(JenisProduct $jenisProduct): array
     {
-        // ✅ PROTEKSI DATA: Cek apakah masih digunakan oleh Product atau Type
-        if ($jenis->products()->exists() || $jenis->types()->exists()) {
+        $id = $jenisProduct->id;
+        $nama = $jenisProduct->nama;
+
+        if (!$id || !$nama) {
+            Log::error('JenisProduct delete: Invalid model state', [
+                'exists' => $jenisProduct->exists,
+                'id' => $id,
+                'nama' => $nama,
+            ]);
+
             return [
                 'success' => false,
-                'code'    => 422,
-                'message' => 'Jenis product tidak dapat dihapus karena masih digunakan oleh data Product atau Type.',
+                'code' => 400,
+                'message' => 'Data jenis product tidak valid.',
             ];
         }
 
-        $jenisId = $jenis->id;
-        $jenis->delete();
+        if (!isset($jenisProduct->products_count) || !isset($jenisProduct->types_count)) {
+            $jenisProduct->loadCount(['products', 'types']);
+        }
 
-        $this->invalidateCache($jenisId);
+        if ($jenisProduct->products_count > 0) {
+            return [
+                'success' => false,
+                'code' => 422,
+                'message' => "Jenis produk '{$nama}' tidak dapat dihapus karena masih digunakan oleh {$jenisProduct->products_count} produk.",
+            ];
+        }
 
-        Log::info('Jenis Product deleted', ['id' => $jenisId]);
+        if ($jenisProduct->types_count > 0) {
+            return [
+                'success' => false,
+                'code' => 422,
+                'message' => "Jenis produk '{$nama}' tidak dapat dihapus karena masih memiliki {$jenisProduct->types_count} tipe produk.",
+            ];
+        }
 
-        return [
-            'success' => true,
-            'message' => 'Jenis product berhasil dihapus.',
-        ];
+        return DB::transaction(function () use ($jenisProduct, $id, $nama) {
+            $jenisProduct->delete();
+
+            $this->invalidateCache();
+
+            Log::info('JenisProduct deleted', [
+                'id' => $id,
+                'nama' => $nama,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => "Jenis produk '{$nama}' berhasil dihapus.",
+            ];
+        });
     }
 
-    private function invalidateCache(?int $jenisId = null): void
+    private function getCacheVersion(): int
     {
-        Cache::forget(self::CACHE_LIST_KEY);
+        return (int) Cache::get(self::CACHE_VERSION_KEY, 1);
+    }
 
-        if ($jenisId) {
-            Cache::forget(self::CACHE_DETAIL_PREFIX . $jenisId);
+    private function invalidateCache(): void
+    {
+        $lock = Cache::lock(self::CACHE_VERSION_LOCK, 10);
+
+        try {
+            $lock->block(5, function (): void {
+                $current = (int) Cache::get(self::CACHE_VERSION_KEY, 1);
+                $newVersion = $current + 1;
+
+                Cache::forever(self::CACHE_VERSION_KEY, $newVersion);
+
+                Log::info('JenisProduct cache invalidated', [
+                    'old_version' => $current,
+                    'new_version' => $newVersion,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            $current = (int) Cache::get(self::CACHE_VERSION_KEY, 1);
+            $newVersion = $current + 1;
+            Cache::forever(self::CACHE_VERSION_KEY, $newVersion);
+
+            Log::warning('JenisProduct cache invalidation fallback used', [
+                'error' => $e->getMessage(),
+                'old_version' => $current,
+                'new_version' => $newVersion,
+            ]);
         }
+    }
+
+    private function buildListCacheKey(
+        int $version,
+        ?string $search,
+        bool $withCount,
+        int|string $perPage,
+        int $page
+    ): string {
+        $searchKey = $search ? md5($search) : 'all';
+        $countKey = $withCount ? 'with_count' : 'no_count';
+        $perPageKey = $perPage === null ? 'all' : $perPage;
+
+        return self::CACHE_LIST_PREFIX . "{$version}:{$searchKey}:{$countKey}:{$perPageKey}:{$page}";
     }
 }

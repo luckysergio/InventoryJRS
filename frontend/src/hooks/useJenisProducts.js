@@ -1,63 +1,146 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../lib/api/axios'
-import { useConfirmDialog } from './useConfirmDialog'
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import api from '../lib/api/axios';
 
-export const useJenisProducts = () => {
+export const jenisProductKeys = {
+  all: ['jenis_products'],
+  lists: () => [...jenisProductKeys.all, 'list'],
+  list: (filters) => [...jenisProductKeys.lists(), filters],
+  details: () => [...jenisProductKeys.all, 'detail'],
+  detail: (id) => [...jenisProductKeys.details(), id],
+  dropdown: () => [...jenisProductKeys.all, 'dropdown'],
+  statistics: () => [...jenisProductKeys.all, 'statistics'],
+};
+
+export const useJenisProducts = (params = {}) => {
+  const { search = '', with_count = true, perPage = 12, page = 1 } = params;
+
   return useQuery({
-    queryKey: ['jenis_products'],
+    queryKey: jenisProductKeys.list({ search, with_count, perPage, page }),
     queryFn: async () => {
-      const response = await api.get('/jenis')
-      return response.data.data || []
+      const response = await api.get('/jenis', {
+        params: {
+          search: search || undefined,
+          with_count,
+          per_page: perPage,
+          page,
+        },
+      });
+
+      return {
+        jenisProducts: response.data.data || [],
+        meta: response.data.meta || {},
+      };
     },
-  })
-}
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useJenisProductsDropdown = () => {
+  return useQuery({
+    queryKey: jenisProductKeys.dropdown(),
+    queryFn: async () => {
+      const response = await api.get('/jenis/dropdown');
+      return response.data.data || [];
+    },
+    staleTime: 15 * 60 * 1000,
+  });
+};
+
+export const useJenisProductStatistics = () => {
+  return useQuery({
+    queryKey: jenisProductKeys.statistics(),
+    queryFn: async () => {
+      const response = await api.get('/jenis/statistics');
+      return response.data.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+const forceInvalidateJenisProductCache = async (queryClient) => {
+  await queryClient.cancelQueries({
+    queryKey: jenisProductKeys.all,
+    exact: false,
+  });
+
+  queryClient.removeQueries({
+    queryKey: jenisProductKeys.all,
+    exact: false,
+  });
+
+  await queryClient.invalidateQueries({
+    queryKey: jenisProductKeys.all,
+    exact: false,
+    refetchType: 'all',
+  });
+};
 
 export const useCreateJenisProduct = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (data) => api.post('/jenis', data),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['jenis_products'] })
-      await success('Berhasil!', 'Jenis product berhasil ditambahkan')
+      await forceInvalidateJenisProductCache(queryClient);
     },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || error.response?.data?.message || 'Gagal menambahkan jenis product'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
+  });
+};
 
 export const useUpdateJenisProduct = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ id, data }) => api.put(`/jenis/${id}`, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['jenis_products'] })
-      await success('Berhasil!', 'Jenis product berhasil diperbarui')
+    onSuccess: async (response, variables) => {
+      queryClient.setQueryData(
+        jenisProductKeys.detail(variables.id),
+        response.data.data
+      );
+      await forceInvalidateJenisProductCache(queryClient);
     },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || error.response?.data?.message || 'Gagal memperbarui jenis product'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
+  });
+};
 
 export const useDeleteJenisProduct = () => {
-  const queryClient = useQueryClient()
-  const { danger, success, info } = useConfirmDialog()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id) => api.delete(`/jenis/${id}`),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['jenis_products'] })
-      await success('Berhasil!', 'Jenis product berhasil dihapus')
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({
+        queryKey: jenisProductKeys.lists(),
+        exact: false,
+      });
+
+      const previousQueries = queryClient.getQueriesData({
+        queryKey: jenisProductKeys.lists(),
+      });
+
+      queryClient.setQueriesData(
+        { queryKey: jenisProductKeys.lists() },
+        (old) => {
+          if (!old?.jenisProducts) return old;
+          return {
+            ...old,
+            jenisProducts: old.jenisProducts.filter((j) => j.id !== id),
+            meta: {
+              ...old.meta,
+              total: (old.meta.total || 0) - 1,
+            },
+          };
+        }
+      );
+
+      return { previousQueries };
     },
-    onError: (error) => {
-      info('Gagal', error.response?.data?.message || 'Gagal menghapus jenis product')
+    onError: (err, id, context) => {
+      context?.previousQueries?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
     },
-  })
-}
+    onSettled: async () => {
+      await forceInvalidateJenisProductCache(queryClient);
+    },
+  });
+};

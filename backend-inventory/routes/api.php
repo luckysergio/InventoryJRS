@@ -167,10 +167,13 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
 
     Route::prefix('jenis')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [JenisProductController::class, 'index']);
+        Route::get('/dropdown', [JenisProductController::class, 'dropdown']);
+        Route::get('/statistics', [JenisProductController::class, 'statistics'])->middleware('role:admin');
+
         Route::post('/', [JenisProductController::class, 'store'])->middleware('role:admin,admin_toko');
-        Route::get('/{id}', [JenisProductController::class, 'show']);
-        Route::put('/{id}', [JenisProductController::class, 'update'])->middleware('role:admin,admin_toko');
-        Route::delete('/{id}', [JenisProductController::class, 'destroy'])->middleware('role:admin');
+        Route::get('/{jenisProduct}', [JenisProductController::class, 'show']);
+        Route::put('/{jenisProduct}', [JenisProductController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{jenisProduct}', [JenisProductController::class, 'destroy'])->middleware('role:admin');
     });
 
     Route::prefix('bahan')->middleware('role:admin,admin_toko,operator')->group(function () {

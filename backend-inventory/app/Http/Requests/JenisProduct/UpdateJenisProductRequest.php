@@ -14,15 +14,16 @@ class UpdateJenisProductRequest extends FormRequest
 
     public function rules(): array
     {
-        $jenisId = $this->route('jenis_product')?->id ?? (int) $this->route('id');
+        $jenisId = $this->route('jenisProduct')?->id ?? (int) $this->route('id');
 
         return [
             'nama' => [
                 'required',
                 'string',
-                'max:255',
+                'max:100',
+                'min:2',
                 Rule::unique('jenis_products', 'nama')->ignore($jenisId),
-                'regex:/^[A-Z0-9\s]+$/',
+                'regex:/^[A-Z0-9\s\-]+$/',
             ],
         ];
     }
@@ -30,8 +31,12 @@ class UpdateJenisProductRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'nama.regex'  => 'Nama harus menggunakan HURUF KAPITAL dan boleh mengandung ANGKA.',
-            'nama.unique' => 'Jenis product ini sudah terdaftar.',
+            'nama.required' => 'Nama jenis produk wajib diisi.',
+            'nama.string' => 'Nama harus berupa teks.',
+            'nama.max' => 'Nama maksimal 100 karakter.',
+            'nama.min' => 'Nama minimal 2 karakter.',
+            'nama.unique' => 'Jenis produk ini sudah terdaftar.',
+            'nama.regex' => 'Nama harus HURUF KAPITAL, boleh mengandung angka, spasi, dan strip.',
         ];
     }
 
@@ -39,7 +44,7 @@ class UpdateJenisProductRequest extends FormRequest
     {
         if ($this->has('nama')) {
             $this->merge([
-                'nama' => strtoupper(trim($this->input('nama'))),
+                'nama' => strtoupper(trim($this->input('nama', ''))),
             ]);
         }
     }
