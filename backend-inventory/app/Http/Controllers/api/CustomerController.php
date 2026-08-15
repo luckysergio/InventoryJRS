@@ -3,224 +3,82 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Requests\Customer\StoreCustomerRequest;
+use App\Http\Requests\Customer\UpdateCustomerRequest;
 use App\Models\Customer;
-use App\Models\Product;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Database\QueryException;
+use App\Services\Customer\CustomerService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class CustomerController extends Controller
 {
-    public function index(Request $request)
+    public function __construct(
+        protected CustomerService $customerService
+    ) {}
+
+    public function index(Request $request): JsonResponse
     {
-        $statusDibatalkan = DB::table('status_transaksis')
-            ->where('nama', 'Dibatalkan')
-            ->value('id');
-
-        $pembayaranSubquery = DB::table('pembayarans')
-            ->select('transaksi_detail_id', DB::raw('SUM(jumlah_bayar) as total_bayar'))
-            ->groupBy('transaksi_detail_id');
-
-        $tagihanHarian = DB::table('transaksi_details as td')
-            ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-            ->leftJoinSub($pembayaranSubquery, 'p', function ($join) {
-                $join->on('td.id', '=', 'p.transaksi_detail_id');
-            })
-            ->where('t.jenis_transaksi', 'daily')
-            ->whereRaw('t.customer_id = customers.id')
-            ->when($statusDibatalkan, fn($q) => $q->where('td.status_transaksi_id', '!=', $statusDibatalkan))
-            ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal')
-            ->selectRaw('COALESCE(SUM(td.subtotal - COALESCE(p.total_bayar, 0)), 0)');
-
-        $tagihanPesanan = DB::table('transaksi_details as td')
-            ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-            ->leftJoinSub($pembayaranSubquery, 'p', function ($join) {
-                $join->on('td.id', '=', 'p.transaksi_detail_id');
-            })
-            ->where('t.jenis_transaksi', 'pesanan')
-            ->whereRaw('t.customer_id = customers.id')
-            ->when($statusDibatalkan, fn($q) => $q->where('td.status_transaksi_id', '!=', $statusDibatalkan))
-            ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal')
-            ->selectRaw('COALESCE(SUM(td.subtotal - COALESCE(p.total_bayar, 0)), 0)');
-
-        $customersQuery = Customer::with([
-            'transaksi_details.transaksi',
-            'transaksi_details.product.jenis',
-            'transaksi_details.product.type',
-            'transaksi_details.pembayarans',
-        ])->addSelect([
-            'tagihan_harian_belum_lunas' => $tagihanHarian,
-            'tagihan_pesanan_belum_lunas' => $tagihanPesanan,
-        ]);
-
-        if ($search = $request->query('search')) {
-            $customersQuery->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%");
-            });
-        }
-
-        $customers = $customersQuery->get();
-
-        $customers->each(function ($customer) {
-            $customer->tagihan_harian_belum_lunas = (int) max(0, $customer->tagihan_harian_belum_lunas);
-            $customer->tagihan_pesanan_belum_lunas = (int) max(0, $customer->tagihan_pesanan_belum_lunas);
-        });
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Berhasil mengambil data customer',
-            'data' => $customers,
-        ]);
-    }
-
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'name'  => 'required|string|max:100',
-            'phone' => 'nullable|string|max:20|unique:customers,phone',
-            'email' => 'nullable|string|max:100',
-        ], [
-            'phone.unique' => 'Nomor telepon sudah digunakan customer lain',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        try {
-            $customer = Customer::create([
-                'name'  => $request->name,
-                'phone' => $request->phone,
-                'email' => $request->email,
-            ]);
-
-            return response()->json([
-                'status'   => true,
-                'message'  => 'Customer berhasil dibuat',
-                'customer' => $customer
-            ], 201);
-        } catch (QueryException $e) {
-            // handle duplicate dari DB (fallback safety)
-            if ($e->getCode() == 23000) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Nomor telepon sudah digunakan customer lain'
-                ], 422);
-            }
-
-            return response()->json([
-                'status' => false,
-                'message' => 'Terjadi kesalahan pada server'
-            ], 500);
-        }
-    }
-
-    public function show($id)
-    {
-        $customer = Customer::find($id);
-
-        if (!$customer) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Customer tidak ditemukan'
-            ], 404);
-        }
-
-        return response()->json([
-            'status'   => true,
-            'customer' => $customer
-        ]);
-    }
-
-    public function update(Request $request, $id)
-    {
-        $customer = Customer::find($id);
-
-        if (!$customer) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Customer tidak ditemukan'
-            ], 404);
-        }
-
-        $data = $request->all();
-
-        $validator = Validator::make($data, [
-            'name'  => 'required|string|max:100',
-            'phone' => 'nullable|string|max:20|unique:customers,phone,' . $id,
-            'email' => 'nullable|string|max:100',
-        ], [
-            'phone.unique' => 'Nomor telepon sudah digunakan customer lain',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        try {
-            $customer->update([
-                'name'  => $data['name'],
-                'phone' => $data['phone'] ?? null,
-                'email' => $data['email'] ?? null,
-            ]);
-
-            return response()->json([
-                'status'   => true,
-                'message'  => 'Customer berhasil diupdate',
-                'customer' => $customer
-            ]);
-        } catch (QueryException $e) {
-            if ($e->getCode() == 23000) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Nomor telepon sudah digunakan customer lain'
-                ], 422);
-            }
-
-            return response()->json([
-                'status' => false,
-                'message' => 'Terjadi kesalahan pada server'
-            ], 500);
-        }
-    }
-
-    public function destroy($id)
-    {
-        $customer = Customer::find($id);
-
-        if (!$customer) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Customer tidak ditemukan'
-            ], 404);
-        }
-
-        // Cek apakah customer memiliki product
-        $hasProduct = Product::where('customer_id', $customer->id)->exists();
-
-        if ($hasProduct) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Customer tidak dapat dihapus karena masih memiliki product'
-            ], 422);
-        }
-
-        $customer->delete();
+        $customers = $this->customerService->getList($request->query('search'));
 
         return response()->json([
             'status'  => true,
-            'message' => 'Customer berhasil dihapus'
+            'message' => 'Berhasil mengambil data customer',
+            'data'    => $customers,
         ]);
+    }
+
+    public function store(StoreCustomerRequest $request): JsonResponse
+    {
+        $customer = $this->customerService->create($request->validated());
+
+        return response()->json([
+            'status'   => true,
+            'message'  => 'Customer berhasil dibuat',
+            'customer' => $customer,
+        ], 201);
+    }
+
+    public function show(string|int $id): JsonResponse
+    {
+        $customer = Customer::find((int) $id);
+
+        if (!$customer) {
+            return response()->json(['status' => false, 'message' => 'Customer tidak ditemukan'], 404);
+        }
+
+        return response()->json(['status' => true, 'customer' => $customer]);
+    }
+
+    public function update(UpdateCustomerRequest $request, string|int $id): JsonResponse
+    {
+        $customer = Customer::find((int) $id);
+
+        if (!$customer) {
+            return response()->json(['status' => false, 'message' => 'Customer tidak ditemukan'], 404);
+        }
+
+        $updatedCustomer = $this->customerService->update($customer, $request->validated());
+
+        return response()->json([
+            'status'   => true,
+            'message'  => 'Customer berhasil diupdate',
+            'customer' => $updatedCustomer,
+        ]);
+    }
+
+    public function destroy(string|int $id): JsonResponse
+    {
+        $customer = Customer::find((int) $id);
+
+        if (!$customer) {
+            return response()->json(['status' => false, 'message' => 'Customer tidak ditemukan'], 404);
+        }
+
+        try {
+            $result = $this->customerService->delete($customer);
+            return response()->json(['status' => true, 'message' => $result['message']]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => $e->getMessage()], 422);
+        }
     }
 }
