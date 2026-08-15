@@ -1,70 +1,193 @@
-import { X, User, Phone, Mail, Briefcase, Pencil } from "lucide-react";
-import { useKaryawanStore } from "../../../lib/zustand/karyawanStore";
+import { useEffect, useCallback } from "react";
+import { X, User, Phone, Mail, Briefcase, Pencil, Calendar } from "lucide-react";
+import { useKaryawanModals } from "../../../lib/zustand/karyawanStore";
+import { cn } from "../../../lib/utils";
 
 const KaryawanDetail = () => {
-  const { isDetailOpen, selectedKaryawan, closeModals, openEditModal } = useKaryawanStore();
+  const { modals, selectedKaryawan, closeAllModals, openEditModal } =
+    useKaryawanModals();
 
-  if (!isDetailOpen || !selectedKaryawan) return null;
+  const isOpen = modals.detail;
 
   const handleEdit = () => {
-    closeModals();
+    closeAllModals();
     setTimeout(() => openEditModal(selectedKaryawan), 150);
   };
 
+  const handleEscKey = useCallback(
+    (e) => {
+      if (e.key === "Escape" && isOpen) {
+        closeAllModals();
+      }
+    },
+    [isOpen, closeAllModals]
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener("keydown", handleEscKey);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handleEscKey);
+      document.body.style.overflow = "";
+    };
+  }, [isOpen, handleEscKey]);
+
+  if (!isOpen || !selectedKaryawan) return null;
+
+  const getInitials = (name) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      closeAllModals();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+      onClick={handleBackdropClick}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <User className="w-5 h-5 text-blue-600" />
+        <div className="sticky top-0 z-10 px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-sm flex-shrink-0">
+              <User className="w-4 h-4 text-white" />
             </div>
-            <h2 className="text-lg font-semibold text-slate-900">Detail Karyawan</h2>
+            <h2 className="text-base font-semibold text-slate-900 truncate">
+              Detail Karyawan
+            </h2>
           </div>
-          <button onClick={closeModals} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-            <X className="w-5 h-5 text-slate-500" />
+          <button
+            onClick={closeAllModals}
+            className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors flex-shrink-0 group"
+            aria-label="Close modal"
+          >
+            <X className="w-4 h-4 text-slate-500 group-hover:text-slate-700 group-hover:rotate-90 transition-all duration-200" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-4">
-          <div className="flex flex-col items-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg ring-4 ring-white">
-              {selectedKaryawan.nama.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-            </div>
-            <h3 className="mt-3 text-lg font-semibold text-slate-900 text-center">{selectedKaryawan.nama}</h3>
-            <p className="text-sm text-slate-500">{selectedKaryawan.jabatan?.nama || "Belum ada jabatan"}</p>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-              <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0"><Mail className="w-4 h-4 text-blue-600" /></div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-500">Email</p>
-                <p className="text-sm font-medium text-slate-900 break-all">{selectedKaryawan.email}</p>
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {/* Profile Header */}
+          <div className="px-5 pt-5 pb-4 text-center bg-gradient-to-b from-slate-50 to-white">
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg ring-4 ring-white">
+                {getInitials(selectedKaryawan.nama)}
               </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-              <div className="p-2 bg-emerald-100 rounded-lg flex-shrink-0"><Phone className="w-4 h-4 text-emerald-600" /></div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-500">No HP</p>
-                <p className="text-sm font-medium text-slate-900">{selectedKaryawan.no_hp}</p>
-              </div>
+              <h3 className="mt-3 text-base font-semibold text-slate-900">
+                {selectedKaryawan.nama}
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {selectedKaryawan.jabatan?.nama || "Belum ada jabatan"}
+              </p>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t border-slate-100">
-            <button onClick={closeModals} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Tutup</button>
-            <button onClick={handleEdit} className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-2">
-              <Pencil className="w-4 h-4" /> Edit
-            </button>
+          {/* Info Grid */}
+          <div className="px-5 py-4 space-y-2">
+            <InfoItem
+              icon={Mail}
+              iconBg="bg-blue-100"
+              iconColor="text-blue-600"
+              label="Email"
+              value={selectedKaryawan.email}
+              breakAll
+            />
+            <InfoItem
+              icon={Phone}
+              iconBg="bg-emerald-100"
+              iconColor="text-emerald-600"
+              label="No HP"
+              value={selectedKaryawan.no_hp}
+            />
+            <InfoItem
+              icon={Briefcase}
+              iconBg="bg-purple-100"
+              iconColor="text-purple-600"
+              label="Jabatan"
+              value={selectedKaryawan.jabatan?.nama || "Belum ada jabatan"}
+            />
+            <InfoItem
+              icon={Calendar}
+              iconBg="bg-amber-100"
+              iconColor="text-amber-600"
+              label="Terdaftar Sejak"
+              value={formatDate(selectedKaryawan.created_at)}
+            />
           </div>
+        </div>
+
+        {/* Sticky Actions */}
+        <div className="sticky bottom-0 px-5 py-3.5 border-t border-slate-200 bg-white flex gap-2 flex-shrink-0">
+          <button
+            onClick={closeAllModals}
+            className="flex-1 px-3 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors active:scale-95"
+          >
+            Tutup
+          </button>
+          <button
+            onClick={handleEdit}
+            className="flex-1 px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95 flex items-center justify-center gap-1.5"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            Edit
+          </button>
         </div>
       </div>
     </div>
   );
 };
+
+// ============================================
+// INFO ITEM COMPONENT
+// ============================================
+const InfoItem = ({ icon: Icon, iconBg, iconColor, label, value, breakAll }) => (
+  <div className="flex items-center gap-3 p-2.5 bg-slate-50 hover:bg-slate-100/70 rounded-lg transition-colors group">
+    <div
+      className={cn(
+        "p-1.5 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform",
+        iconBg
+      )}
+    >
+      <Icon className={cn("w-3.5 h-3.5", iconColor)} />
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">
+        {label}
+      </p>
+      <p
+        className={cn(
+          "text-sm font-medium text-slate-900",
+          breakAll ? "break-all" : "truncate"
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  </div>
+);
 
 export default KaryawanDetail;

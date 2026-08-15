@@ -1,85 +1,160 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../lib/api/axios'
-import { useConfirmDialog } from './useConfirmDialog'
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import api from '../lib/api/axios';
 
-export const useKaryawans = (search = '', jabatanId = null, page = 1, perPage = 10) => {
+export const karyawanKeys = {
+  all: ['karyawans'],
+  lists: () => [...karyawanKeys.all, 'list'],
+  list: (filters) => [...karyawanKeys.lists(), filters],
+  details: () => [...karyawanKeys.all, 'detail'],
+  detail: (id) => [...karyawanKeys.details(), id],
+  dropdown: () => [...karyawanKeys.all, 'dropdown'],
+  statistics: () => [...karyawanKeys.all, 'statistics'],
+};
+
+export const useKaryawans = (params = {}) => {
+  const { search = '', jabatanId = '', perPage = 10, page = 1 } = params;
+
   return useQuery({
-    queryKey: ['karyawans', search, jabatanId, page, perPage],
+    queryKey: karyawanKeys.list({ search, jabatanId, perPage, page }),
     queryFn: async () => {
       const response = await api.get('/karyawans', {
-        params: { search, jabatan_id: jabatanId, page, per_page: perPage }
-      })
-      return response.data
-    },
-  })
-}
+        params: {
+          search: search || undefined,
+          jabatan_id: jabatanId || undefined,
+          per_page: perPage,
+          page,
+        },
+      });
 
-export const useJabatans = () => {
-  return useQuery({
-    queryKey: ['jabatans'],
-    queryFn: async () => {
-      const response = await api.get('/jabatans')
-      return response.data.data || []
+      return {
+        karyawans: response.data.data || [],
+        meta: response.data.meta || {},
+      };
     },
-    staleTime: 1000 * 60 * 5, // 5 menit
-  })
-}
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+};
+
+export const useKaryawansDropdown = () => {
+  return useQuery({
+    queryKey: karyawanKeys.dropdown(),
+    queryFn: async () => {
+      const response = await api.get('/karyawans/dropdown');
+      return response.data.data || [];
+    },
+    staleTime: 15 * 60 * 1000,
+  });
+};
+
+export const useKaryawanStatistics = () => {
+  return useQuery({
+    queryKey: karyawanKeys.statistics(),
+    queryFn: async () => {
+      const response = await api.get('/karyawans/statistics');
+      return response.data.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+const forceInvalidateKaryawanCache = async (queryClient) => {
+  await queryClient.cancelQueries({ 
+    queryKey: karyawanKeys.all,
+    exact: false,
+  });
+
+  queryClient.removeQueries({ 
+    queryKey: karyawanKeys.all,
+    exact: false,
+  });
+
+  await queryClient.resetQueries({
+    queryKey: karyawanKeys.all,
+    exact: false,
+  });
+
+  await queryClient.invalidateQueries({
+    queryKey: karyawanKeys.all,
+    exact: false,
+    refetchType: 'all',
+  });
+
+  await queryClient.invalidateQueries({ 
+    queryKey: ['jabatans'],
+    exact: false,
+    refetchType: 'all',
+  });
+};
 
 export const useCreateKaryawan = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (data) => api.post('/karyawans', data),
     onSuccess: async () => {
-      // ✅ FIX: Invalidate KARYAWANS dan JABATANS secara bersamaan
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['karyawans'] }),
-        queryClient.invalidateQueries({ queryKey: ['jabatans'] })
-      ])
-      
-      await success('Berhasil!', 'Karyawan berhasil ditambahkan')
+      await forceInvalidateKaryawanCache(queryClient);
     },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || 'Gagal menambahkan karyawan'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
+  });
+};
 
 export const useUpdateKaryawan = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ id, data }) => api.put(`/karyawans/${id}`, data),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['karyawans'] }),
-        queryClient.invalidateQueries({ queryKey: ['jabatans'] })
-      ])
-      
-      await success('Berhasil!', 'Karyawan berhasil diperbarui')
+    onSuccess: async (response, variables) => {
+      queryClient.setQueryData(
+        karyawanKeys.detail(variables.id),
+        response.data.data
+      );
+
+      await forceInvalidateKaryawanCache(queryClient);
     },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || 'Gagal memperbarui karyawan'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
+  });
+};
 
 export const useDeleteKaryawan = () => {
-  const queryClient = useQueryClient()
-  const { danger, success, info } = useConfirmDialog()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id) => api.delete(`/karyawans/${id}`),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['karyawans'] })
-      await success('Berhasil!', 'Karyawan berhasil dihapus')
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ 
+        queryKey: karyawanKeys.lists(),
+        exact: false,
+      });
+
+      const previousQueries = queryClient.getQueriesData({
+        queryKey: karyawanKeys.lists(),
+      });
+
+      queryClient.setQueriesData(
+        { queryKey: karyawanKeys.lists() },
+        (old) => {
+          if (!old?.karyawans) return old;
+          return {
+            ...old,
+            karyawans: old.karyawans.filter((k) => k.id !== id),
+            meta: {
+              ...old.meta,
+              total: (old.meta.total || 0) - 1,
+            },
+          };
+        }
+      );
+
+      return { previousQueries };
     },
-    onError: (error) => {
-      info('Gagal', error.response?.data?.message || 'Gagal menghapus karyawan')
+    onError: (err, id, context) => {
+      // Rollback jika error
+      context?.previousQueries?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
     },
-  })
-}
+    onSettled: async () => {
+      await forceInvalidateKaryawanCache(queryClient);
+    },
+  });
+};

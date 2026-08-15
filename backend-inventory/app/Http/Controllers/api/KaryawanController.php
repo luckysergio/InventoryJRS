@@ -5,8 +5,8 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Karyawan\StoreKaryawanRequest;
 use App\Http\Requests\Karyawan\UpdateKaryawanRequest;
+use App\Http\Resources\KaryawanResource;
 use App\Models\Karyawan;
-use App\Models\Jabatan;
 use App\Services\Karyawan\KaryawanService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,78 +15,155 @@ class KaryawanController extends Controller
 {
     public function __construct(
         protected KaryawanService $karyawanService
-    ) {}
+    ) {
+    }
 
     public function index(Request $request): JsonResponse
     {
-        $perPage = min((int) $request->input('per_page', 10), 100);
-        $page = max((int) $request->input('page', 1), 1);
+        try {
+            $perPage = min((int) $request->input('per_page', 10), 100);
+            $page = max((int) $request->input('page', 1), 1);
+            $search = $request->input('search');
+            $jabatanId = $request->input('jabatan_id')
+                ? (int) $request->input('jabatan_id')
+                : null;
 
-        $karyawans = $this->karyawanService->getList(
-            search: $request->input('search'),
-            jabatanId: $request->input('jabatan_id'),
-            perPage: $perPage,
-            page: $page
-        );
+            $result = $this->karyawanService->getList(
+                search: $search,
+                jabatanId: $jabatanId,
+                perPage: $perPage,
+                page: $page
+            );
 
-        // Catatan: Frontend sebaiknya menggunakan hook `useJabatans()` yang sudah kita buat
-        // untuk mengambil data ini, agar tidak perlu dikirim ulang di setiap response karyawan.
-        // Namun, ini dibiarkan agar tidak merusak frontend yang sudah ada.
-        $jabatans = Jabatan::select('id', 'nama')->orderBy('nama', 'asc')->get();
-
-        return response()->json([
-            'status'   => true,
-            'data'     => $karyawans,
-            'jabatans' => $jabatans,
-        ]);
+            return response()->json([
+                'status' => true,
+                'data' => KaryawanResource::collection($result['data']),
+                'meta' => $result['meta'],
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat data karyawan.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
-    public function show(int $id): JsonResponse
+    public function dropdown(): JsonResponse
     {
-        $karyawan = $this->karyawanService->getDetail($id);
+        try {
+            $karyawans = $this->karyawanService->getForDropdown();
 
-        if (!$karyawan) {
             return response()->json([
-                'status'  => false,
-                'message' => 'Karyawan tidak ditemukan.',
-            ], 404);
+                'status' => true,
+                'data' => $karyawans->map(fn($k) => [
+                    'value' => $k->id,
+                    'label' => $k->nama . ($k->no_hp ? " ({$k->no_hp})" : ''),
+                ]),
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat data dropdown.',
+            ], 500);
         }
+    }
 
-        return response()->json([
-            'status' => true,
-            'data'   => $karyawan,
-        ]);
+    public function statistics(): JsonResponse
+    {
+        try {
+            $stats = $this->karyawanService->getStatistics();
+
+            return response()->json([
+                'status' => true,
+                'data' => $stats,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat statistik.',
+            ], 500);
+        }
+    }
+
+    public function show(Karyawan $karyawan): JsonResponse
+    {
+        try {
+            $detail = $this->karyawanService->getDetail($karyawan->id);
+
+            if (!$detail) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Karyawan tidak ditemukan.',
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => true,
+                'data' => new KaryawanResource($detail),
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat detail karyawan.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
     public function store(StoreKaryawanRequest $request): JsonResponse
     {
-        $karyawan = $this->karyawanService->create($request->validated());
+        try {
+            $karyawan = $this->karyawanService->create($request->validated());
 
-        return response()->json([
-            'status'  => true,
-            'message' => 'Karyawan berhasil ditambahkan.',
-            'data'    => $karyawan,
-        ], 201);
+            return response()->json([
+                'status' => true,
+                'message' => 'Karyawan berhasil ditambahkan.',
+                'data' => new KaryawanResource($karyawan),
+            ], 201);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menambahkan karyawan.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
     public function update(UpdateKaryawanRequest $request, Karyawan $karyawan): JsonResponse
     {
-        $updatedKaryawan = $this->karyawanService->update($karyawan, $request->validated());
+        try {
+            $updatedKaryawan = $this->karyawanService->update($karyawan, $request->validated());
 
-        return response()->json([
-            'status'  => true,
-            'message' => 'Karyawan berhasil diperbarui.',
-            'data'    => $updatedKaryawan,
-        ]);
+            return response()->json([
+                'status' => true,
+                'message' => 'Karyawan berhasil diperbarui.',
+                'data' => new KaryawanResource($updatedKaryawan),
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memperbarui karyawan.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
     public function destroy(Karyawan $karyawan): JsonResponse
     {
-        $result = $this->karyawanService->delete($karyawan);
+        try {
+            $result = $this->karyawanService->delete($karyawan);
 
-        return response()->json([
-            'status'  => $result['success'],
-            'message' => $result['message'],
-        ]);
+            return response()->json([
+                'status' => $result['success'],
+                'message' => $result['message'],
+            ], $result['success'] ? 200 : ($result['code'] ?? 400));
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus karyawan.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 }
