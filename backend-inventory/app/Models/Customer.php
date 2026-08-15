@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Support\Facades\Cache;
 
 class Customer extends Model
 {
@@ -44,7 +45,7 @@ class Customer extends Model
         return $this->hasMany(HargaProduct::class, 'customer_id');
     }
 
-    public function transaksi_details(): HasManyThrough
+    public function transaksiDetails(): HasManyThrough
     {
         return $this->hasManyThrough(
             TransaksiDetail::class,
@@ -56,12 +57,33 @@ class Customer extends Model
         );
     }
 
+    public function getTotalBelanjaAttribute(): float
+    {
+        $cacheKey = "customer:{$this->id}:total_belanja";
+        
+        return Cache::remember($cacheKey, 300, function () {
+            return (float) $this->transaksi()->sum('total');
+        });
+    }
+
     public function scopeSearch(Builder $query, ?string $search): Builder
     {
         return $query->when($search, function ($q) use ($search) {
-            $q->where('name', 'like', "%{$search}%")
-              ->orWhere('phone', 'like', "%{$search}%")
-              ->orWhere('email', 'like', "%{$search}%");
+            $driver = config('database.connections.' . config('database.default') . '.driver');
+            
+            if ($driver === 'mysql') {
+                $q->whereRaw(
+                    "MATCH(name, email) AGAINST(? IN BOOLEAN MODE)",
+                    [$search . '*']
+                );
+            } else {
+                $likeValue = "%{$search}%";
+                $q->where(function ($sub) use ($likeValue) {
+                    $sub->where('name', 'like', $likeValue)
+                        ->orWhere('phone', 'like', $likeValue)
+                        ->orWhere('email', 'like', $likeValue);
+                });
+            }
         });
     }
 
@@ -71,8 +93,22 @@ class Customer extends Model
             ->withSum('transaksi', 'total');
     }
 
-    public function getTotalBelanjaAttribute(): float
+    public function scopeWithProducts(Builder $query): Builder
     {
-        return (float) $this->transaksi()->sum('total');
+        return $query->with(['products' => fn($q) => $q->select(['id', 'kode', 'ukuran', 'customer_id'])]);
+    }
+
+    public function scopeWithRecentTransaksi(Builder $query, int $limit = 5): Builder
+    {
+        return $query->with(['transaksi' => fn($q) => 
+            $q->select(['id', 'customer_id', 'tanggal', 'total', 'jenis_transaksi'])
+                ->latest('tanggal')
+                ->limit($limit)
+        ]);
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereHas('transaksi');
     }
 }

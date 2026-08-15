@@ -44,6 +44,11 @@ class User extends Authenticatable implements JWTSubject, CanResetPassword
         return [];
     }
 
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
+    }
+
     public function hasRole(string $role): bool
     {
         return $this->role === $role;
@@ -54,19 +59,19 @@ class User extends Authenticatable implements JWTSubject, CanResetPassword
         return in_array($this->role, $roles, true);
     }
 
-    public function isAdmin(): bool
-    {
-        return $this->hasRole('admin');
+    public function isAdmin(): bool 
+    { 
+        return $this->hasRole('admin'); 
     }
 
-    public function isAdminToko(): bool
-    {
-        return $this->hasRole('admin_toko');
+    public function isAdminToko(): bool 
+    { 
+        return $this->hasRole('admin_toko'); 
     }
 
-    public function isOperator(): bool
-    {
-        return $this->hasRole('operator');
+    public function isOperator(): bool 
+    { 
+        return $this->hasRole('operator'); 
     }
 
     public function scopeAdmins(Builder $query): Builder
@@ -87,13 +92,25 @@ class User extends Authenticatable implements JWTSubject, CanResetPassword
     public function scopeSearch(Builder $query, ?string $search): Builder
     {
         return $query->when($search, function ($q) use ($search) {
-            $q->where('name', 'like', "%{$search}%")
-              ->orWhere('email', 'like', "%{$search}%");
+            $driver = config('database.connections.' . config('database.default') . '.driver');
+            
+            if ($driver === 'mysql') {
+                $q->whereRaw(
+                    "MATCH(name, email) AGAINST(? IN BOOLEAN MODE)",
+                    [$search . '*']
+                );
+            } else {
+                $likeValue = "%{$search}%";
+                $q->where(function ($sub) use ($likeValue) {
+                    $sub->where('name', 'like', $likeValue)
+                        ->orWhere('email', 'like', $likeValue);
+                });
+            }
         });
     }
 
-    public function sendPasswordResetNotification($token): void
+    public function scopeActive(Builder $query): Builder
     {
-        $this->notify(new ResetPasswordNotification($token));
+        return $query->whereNotNull('email_verified_at');
     }
 }

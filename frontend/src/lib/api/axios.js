@@ -51,7 +51,13 @@ api.interceptors.response.use(
 
         if (error.response?.status === 401 && !originalRequest._retry) {
             const skipRetryUrls = ['/auth/login', '/auth/logout', '/auth/refresh'];
-            if (skipRetryUrls.some((url) => originalRequest.url.includes(url))) {
+            if (skipRetryUrls.some((url) => originalRequest.url?.includes(url))) {
+                return Promise.reject(error);
+            }
+
+            if (error.response?.data?.requires_relogin) {
+                useAuthStore.getState().logout();
+                window.dispatchEvent(new CustomEvent('auth:logout'));
                 return Promise.reject(error);
             }
 
@@ -80,11 +86,8 @@ api.interceptors.response.use(
                 return api(originalRequest);
             } catch (refreshError) {
                 processQueue(refreshError, null);
-                
                 useAuthStore.getState().logout();
-                
                 window.dispatchEvent(new CustomEvent('auth:logout'));
-                
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;

@@ -1,10 +1,10 @@
 <?php
 
+use App\Http\Middleware\AutoRefreshToken;
+use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Middleware\HandleCors;
-use App\Http\Middleware\RoleMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -13,19 +13,14 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->append(HandleCors::class);
-
+    ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'role'          => RoleMiddleware::class,
-            'auto.refresh'  => \App\Http\Middleware\AutoRefreshToken::class,
-            
-            'jwt.auth'      => \PHPOpenSourceSaver\JWTAuth\Http\Middleware\Authenticate::class,
-            'jwt.refresh'   => \PHPOpenSourceSaver\JWTAuth\Http\Middleware\RefreshToken::class,
-            'jwt.check'     => \PHPOpenSourceSaver\JWTAuth\Http\Middleware\Check::class,
+            'role' => RoleMiddleware::class,
+            'auto.refresh' => AutoRefreshToken::class,
         ]);
+        
+        $middleware->append(AutoRefreshToken::class);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
+    ->withExceptions(function (Exceptions $exceptions) {
         //
-    })
-    ->create();
+    })->create();

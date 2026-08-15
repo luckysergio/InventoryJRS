@@ -31,4 +31,9 @@ class JenisProduct extends Model
     {
         return $query->withCount(['products', 'types']);
     }
+
+    public function scopeWithTypes(Builder $query): Builder
+    {
+        return $query->with(['types' => fn($q) => $q->select(['id', 'nama', 'jenis_id'])]);
+    }
 }

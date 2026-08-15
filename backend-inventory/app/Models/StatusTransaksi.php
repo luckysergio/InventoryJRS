@@ -19,4 +19,9 @@ class StatusTransaksi extends Model
     {
         return $query->when($search, fn($q) => $q->where('nama', 'like', "%{$search}%"));
     }
+
+    public function scopeWithCount(Builder $query): Builder
+    {
+        return $query->withCount('transaksiDetails');
+    }
 }

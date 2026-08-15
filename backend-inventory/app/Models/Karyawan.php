@@ -36,14 +36,34 @@ class Karyawan extends Model
     public function scopeSearch(Builder $query, ?string $search): Builder
     {
         return $query->when($search, function ($q) use ($search) {
-            $q->where('nama', 'like', "%{$search}%")
-              ->orWhere('no_hp', 'like', "%{$search}%")
-              ->orWhere('email', 'like', "%{$search}%");
+            $likeValue = "%{$search}%";
+            $q->where(function ($sub) use ($likeValue) {
+                $sub->where('nama', 'like', $likeValue)
+                    ->orWhere('no_hp', 'like', $likeValue)
+                    ->orWhere('email', 'like', $likeValue);
+            });
         });
     }
 
     public function scopeByJabatan(Builder $query, ?int $jabatanId): Builder
     {
         return $query->when($jabatanId, fn($q) => $q->where('jabatan_id', $jabatanId));
+    }
+
+    public function scopeWithJabatan(Builder $query): Builder
+    {
+        return $query->with(['jabatan' => fn($q) => $q->select(['id', 'nama'])]);
+    }
+
+    public function scopeWithProductionCount(Builder $query): Builder
+    {
+        return $query->withCount('productions');
+    }
+
+    public function scopeWithActiveProductions(Builder $query): Builder
+    {
+        return $query->withCount(['productions as active_productions_count' => fn($q) => 
+            $q->whereIn('status', ['antri', 'produksi'])
+        ]);
     }
 }

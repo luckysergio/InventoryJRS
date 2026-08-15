@@ -30,7 +30,9 @@ use App\Http\Controllers\api\TransaksiController;
 use App\Http\Controllers\api\TypeProductController;
 use App\Http\Controllers\api\UserController;
 
-// Public products
+// ========================================
+// PUBLIC ROUTES (Tanpa Auth)
+// ========================================
 Route::prefix('public')->group(function () {
     Route::get('/products', [PublicProductController::class, 'index']);
     Route::get('/products/available', [PublicProductController::class, 'available']);
@@ -44,6 +46,9 @@ Route::prefix('master')->group(function () {
     Route::get('/jenis-products', [JenisProductController::class, 'master']);
 });
 
+// ========================================
+// AUTH ROUTES (Public Authentication)
+// ========================================
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
@@ -51,45 +56,66 @@ Route::prefix('auth')->group(function () {
     Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
 });
 
-
+// ========================================
+// PROTECTED ROUTES (Wajib Auth + Auto Refresh Token)
+// ========================================
 Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
 
+    // -----------------------------------------------
+    // Auth Management (Semua role terautentikasi)
+    // -----------------------------------------------
     Route::prefix('auth')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/profile', [AuthController::class, 'profile']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/refresh', [AuthController::class, 'refresh']);
     });
 
+    // -----------------------------------------------
+    // Dashboard
+    // -----------------------------------------------
     Route::prefix('dashboard')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [DashboardController::class, 'index']);
         Route::get('/stats', [DashboardController::class, 'dashboardStats']);
         Route::get('/summary', [DashboardController::class, 'summary']);
     });
 
+    // -----------------------------------------------
+    // User Management (Admin only)
+    // -----------------------------------------------
     Route::prefix('users')->middleware('role:admin')->group(function () {
         Route::get('/', [UserController::class, 'index']);
+        Route::get('/statistics', [UserController::class, 'statistics']);
         Route::get('/{id}', [UserController::class, 'show']);
         Route::post('/', [UserController::class, 'store']);
         Route::put('/{id}', [UserController::class, 'update']);
         Route::delete('/{id}', [UserController::class, 'destroy']);
     });
 
+    // -----------------------------------------------
+    // Karyawan Management
+    // -----------------------------------------------
     Route::prefix('karyawans')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [KaryawanController::class, 'index']);
         Route::post('/', [KaryawanController::class, 'store'])->middleware('role:admin');
-        Route::get('/{karyawan}', [KaryawanController::class, 'show'])->middleware('role:admin');
-        Route::put('/{karyawan}', [KaryawanController::class, 'update'])->middleware('role:admin');
-        Route::delete('/{karyawan}', [KaryawanController::class, 'destroy'])->middleware('role:admin');
+        Route::get('/{id}', [KaryawanController::class, 'show'])->middleware('role:admin');
+        Route::put('/{id}', [KaryawanController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{id}', [KaryawanController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Jabatan Management
+    // -----------------------------------------------
     Route::prefix('jabatans')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [JabatanController::class, 'index']);
         Route::post('/', [JabatanController::class, 'store'])->middleware('role:admin');
-        Route::get('/{jabatan}', [JabatanController::class, 'show'])->middleware('role:admin');
-        Route::put('/{jabatan}', [JabatanController::class, 'update'])->middleware('role:admin');
-        Route::delete('/{jabatan}', [JabatanController::class, 'destroy'])->middleware('role:admin');
+        Route::get('/{id}', [JabatanController::class, 'show'])->middleware('role:admin');
+        Route::put('/{id}', [JabatanController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{id}', [JabatanController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Customer Management
+    // -----------------------------------------------
     Route::prefix('customers')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [CustomerController::class, 'index']);
         Route::post('/', [CustomerController::class, 'store'])->middleware('role:admin,admin_toko');
@@ -98,6 +124,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [CustomerController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Distributor Management
+    // -----------------------------------------------
     Route::prefix('distributors')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [DistributorController::class, 'index']);
         Route::post('/', [DistributorController::class, 'store'])->middleware('role:admin,admin_toko');
@@ -106,6 +135,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [DistributorController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Internal Products (Read-only untuk operator)
+    // -----------------------------------------------
     Route::prefix('internal-products')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [ProductInternalController::class, 'index']);
         Route::get('/summary', [ProductInternalController::class, 'summary']);
@@ -114,6 +146,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::get('/{id}', [ProductInternalController::class, 'show']);
     });
 
+    // -----------------------------------------------
+    // Products Management
+    // -----------------------------------------------
     Route::prefix('products')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/available', [ProductController::class, 'available']);
         Route::get('/lowStok', [ProductController::class, 'lowStock']);
@@ -123,9 +158,12 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::get('/{id}', [ProductController::class, 'show']);
         Route::put('/{id}', [ProductController::class, 'update'])->middleware('role:admin');
         Route::delete('/{id}', [ProductController::class, 'destroy'])->middleware('role:admin');
-        Route::post('/{product}/upload-foto', [ProductController::class, 'uploadFoto']);
+        Route::post('/{id}/upload-foto', [ProductController::class, 'uploadFoto']);
     });
 
+    // -----------------------------------------------
+    // Product Distributors
+    // -----------------------------------------------
     Route::prefix('product-distributors')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [ProductDistributorController::class, 'index']);
         Route::post('/', [ProductDistributorController::class, 'store'])->middleware('role:admin,admin_toko');
@@ -134,6 +172,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [ProductDistributorController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Product Customers
+    // -----------------------------------------------
     Route::prefix('product-customers')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [ProductCustomerController::class, 'index']);
         Route::post('/', [ProductCustomerController::class, 'store'])->middleware('role:admin,admin_toko');
@@ -142,14 +183,20 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [ProductCustomerController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Jenis Products
+    // -----------------------------------------------
     Route::prefix('jenis')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [JenisProductController::class, 'index']);
         Route::post('/', [JenisProductController::class, 'store'])->middleware('role:admin,admin_toko');
         Route::get('/{id}', [JenisProductController::class, 'show']);
-        Route::put('/{jenisProduct}', [JenisProductController::class, 'update'])->middleware('role:admin,admin_toko');
-        Route::delete('/{jenisProduct}', [JenisProductController::class, 'destroy'])->middleware('role:admin');
+        Route::put('/{id}', [JenisProductController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{id}', [JenisProductController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Bahan Products
+    // -----------------------------------------------
     Route::prefix('bahan')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [BahanProductController::class, 'index']);
         Route::get('/{id}', [BahanProductController::class, 'show']);
@@ -158,6 +205,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [BahanProductController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Type Products
+    // -----------------------------------------------
     Route::prefix('type')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [TypeProductController::class, 'index']);
         Route::post('/', [TypeProductController::class, 'store'])->middleware('role:admin,admin_toko');
@@ -167,6 +217,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [TypeProductController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Harga Products
+    // -----------------------------------------------
     Route::prefix('harga')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [HargaProductController::class, 'index']);
         Route::post('/', [HargaProductController::class, 'store'])->middleware('role:admin,admin_toko');
@@ -176,6 +229,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [HargaProductController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Status Transaksi (Admin only untuk CUD)
+    // -----------------------------------------------
     Route::prefix('status-transaksi')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [StatusTransaksiController::class, 'index']);
         Route::post('/', [StatusTransaksiController::class, 'store'])->middleware('role:admin');
@@ -183,6 +239,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [StatusTransaksiController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Transaksi Management
+    // -----------------------------------------------
     Route::prefix('transaksi')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [TransaksiController::class, 'index']);
         Route::get('/aktif', [TransaksiController::class, 'aktif']);
@@ -196,6 +255,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::post('/detail/{detailId}/cancel', [TransaksiController::class, 'cancelDetail'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Pesanan Transaksi
+    // -----------------------------------------------
     Route::prefix('pesanan')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [PesananTransaksiController::class, 'index']);
         Route::get('/aktif', [PesananTransaksiController::class, 'aktif']);
@@ -209,6 +271,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::get('/{id}/print', [PesananTransaksiController::class, 'printNota'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Pembayaran
+    // -----------------------------------------------
     Route::prefix('pembayaran')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [PembayaranController::class, 'index']);
         Route::post('/', [PembayaranController::class, 'store'])->middleware('role:admin,admin_toko');
@@ -217,6 +282,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [PembayaranController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Places (Admin only untuk CUD)
+    // -----------------------------------------------
     Route::prefix('places')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [PlaceController::class, 'index']);
         Route::post('/', [PlaceController::class, 'store'])->middleware('role:admin');
@@ -225,6 +293,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [PlaceController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Productions
+    // -----------------------------------------------
     Route::prefix('productions')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/pesanan', [ProductionController::class, 'pesananDipesan']);
         Route::get('/', [ProductionController::class, 'index']);
@@ -234,11 +305,17 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [ProductionController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // -----------------------------------------------
+    // Product Movements
+    // -----------------------------------------------
     Route::prefix('product-movements')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [ProductMovementController::class, 'index']);
         Route::post('/', [ProductMovementController::class, 'store']);
     });
 
+    // -----------------------------------------------
+    // Inventories (Read-only)
+    // -----------------------------------------------
     Route::prefix('inventories')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [InventoryController::class, 'index']);
         Route::get('/place/{placeId}', [InventoryController::class, 'byPlace']);
@@ -246,6 +323,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::get('/product/{productId}/total', [InventoryController::class, 'totalProduct']);
     });
 
+    // -----------------------------------------------
+    // Stok Opname
+    // -----------------------------------------------
     Route::prefix('stok-opname')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [StokOpnameController::class, 'index']);
         Route::post('/', [StokOpnameController::class, 'store']);

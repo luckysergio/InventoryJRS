@@ -24,14 +24,22 @@ class Distributor extends Model
     public function scopeSearch(Builder $query, ?string $search): Builder
     {
         return $query->when($search, function ($q) use ($search) {
-            $q->where('nama', 'like', "%{$search}%")
-              ->orWhere('no_hp', 'like', "%{$search}%")
-              ->orWhere('email', 'like', "%{$search}%");
+            $likeValue = "%{$search}%";
+            $q->where(function ($sub) use ($likeValue) {
+                $sub->where('nama', 'like', $likeValue)
+                    ->orWhere('no_hp', 'like', $likeValue)
+                    ->orWhere('email', 'like', $likeValue);
+            });
         });
     }
 
     public function scopeWithProductCount(Builder $query): Builder
     {
         return $query->withCount('products');
+    }
+
+    public function scopeWithProducts(Builder $query): Builder
+    {
+        return $query->with(['products' => fn($q) => $q->select(['id', 'kode', 'ukuran', 'distributor_id'])]);
     }
 }

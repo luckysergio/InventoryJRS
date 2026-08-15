@@ -5,9 +5,6 @@ import { useShallow } from 'zustand/react/shallow';
 export const useUserStore = create(
     devtools(
         (set, get) => ({
-            // ============================================
-            // FILTER & SEARCH STATE
-            // ============================================
             filters: {
                 search: '',
                 role: '',
@@ -15,9 +12,6 @@ export const useUserStore = create(
             },
             currentPage: 1,
 
-            // ============================================
-            // UI / MODAL STATE
-            // ============================================
             modals: {
                 create: false,
                 edit: false,
@@ -26,9 +20,6 @@ export const useUserStore = create(
             },
             selectedUser: null,
 
-            // ============================================
-            // ACTION: FILTER & PAGINATION
-            // ============================================
             setSearch: (search) => set((state) => ({
                 filters: { ...state.filters, search },
                 currentPage: 1,
@@ -55,9 +46,6 @@ export const useUserStore = create(
                 currentPage: 1,
             }, false, 'resetFilters'),
 
-            // ============================================
-            // ACTION: MODAL MANAGEMENT
-            // ============================================
             openCreateModal: () => set((state) => ({
                 modals: { ...state.modals, create: true },
                 selectedUser: null,
@@ -95,14 +83,11 @@ export const useUserStore = create(
                     : state.selectedUser,
             }), false, 'closeModal'),
 
-            // ============================================
-            // GETTERS
-            // ============================================
             getQueryParams: () => {
                 const { filters, currentPage } = get();
                 return {
-                    search: filters.search,
-                    role: filters.role,
+                    search: filters.search || undefined,
+                    role: filters.role || undefined,
                     page: currentPage,
                     perPage: filters.perPage,
                 };
@@ -120,14 +105,6 @@ export const useUserStore = create(
     )
 );
 
-// ============================================
-// ✅ SELECTORS DENGAN useShallow (FIX INFINITE LOOP)
-// ============================================
-
-/**
- * Selector untuk filter
- * useShallow mencegah infinite loop dengan shallow comparison
- */
 export const useUserFilters = () => {
     return useUserStore(
         useShallow((state) => ({
@@ -138,14 +115,12 @@ export const useUserFilters = () => {
             setPerPage: state.setPerPage,
             setCurrentPage: state.setCurrentPage,
             resetFilters: state.resetFilters,
-            hasActiveFilters: state.hasActiveFilters, // ✅ PENTING! Include ini
+            hasActiveFilters: state.hasActiveFilters,
+            getQueryParams: state.getQueryParams,
         }))
     );
 };
 
-/**
- * Selector untuk modal
- */
 export const useUserModals = () => {
     return useUserStore(
         useShallow((state) => ({

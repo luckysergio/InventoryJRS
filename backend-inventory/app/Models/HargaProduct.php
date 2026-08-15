@@ -11,14 +11,18 @@ class HargaProduct extends Model
     protected $table = 'harga_products';
 
     protected $fillable = [
-        'product_id', 'customer_id', 'harga', 'tanggal_berlaku', 'keterangan',
+        'product_id',
+        'customer_id',
+        'harga',
+        'tanggal_berlaku',
+        'keterangan',
     ];
 
     protected function casts(): array
     {
         return [
             'tanggal_berlaku' => 'date',
-            'harga'           => 'integer',
+            'harga' => 'integer',
         ];
     }
 
@@ -38,6 +42,16 @@ class HargaProduct extends Model
                      ->orderByDesc('tanggal_berlaku');
     }
 
+    public function scopeByProduct(Builder $query, int $productId): Builder
+    {
+        return $query->where('product_id', $productId);
+    }
+
+    public function scopeByCustomer(Builder $query, ?int $customerId): Builder
+    {
+        return $query->when($customerId, fn($q) => $q->where('customer_id', $customerId));
+    }
+
     public function scopeSearch(Builder $query, ?string $search): Builder
     {
         return $query->when($search, function ($q) use ($search) {
@@ -45,5 +59,21 @@ class HargaProduct extends Model
                 $q2->where('kode', 'like', "%{$search}%");
             });
         });
+    }
+
+    public function scopeDateRange(Builder $query, ?string $start = null, ?string $end = null): Builder
+    {
+        return $query->when($start, fn($q) => $q->whereDate('tanggal_berlaku', '>=', $start))
+                     ->when($end, fn($q) => $q->whereDate('tanggal_berlaku', '<=', $end));
+    }
+
+    public function scopeWithProduct(Builder $query): Builder
+    {
+        return $query->with(['product' => fn($q) => $q->select(['id', 'kode', 'ukuran'])]);
+    }
+
+    public function scopeWithCustomer(Builder $query): Builder
+    {
+        return $query->with(['customer' => fn($q) => $q->select(['id', 'name'])]);
     }
 }

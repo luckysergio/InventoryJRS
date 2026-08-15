@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Jabatan extends Model
 {
@@ -24,5 +23,10 @@ class Jabatan extends Model
     public function scopeWithKaryawanCount(Builder $query): Builder
     {
         return $query->withCount('karyawans');
+    }
+
+    public function scopeWithKaryawans(Builder $query): Builder
+    {
+        return $query->with(['karyawans' => fn($q) => $q->select(['id', 'nama', 'no_hp', 'email', 'jabatan_id'])]);
     }
 }

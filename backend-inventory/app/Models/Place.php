@@ -11,7 +11,10 @@ class Place extends Model
 {
     protected $fillable = ['nama', 'kode', 'keterangan'];
 
-    public function inventories(): HasMany { return $this->hasMany(Inventory::class); }
+    public function inventories(): HasMany 
+    { 
+        return $this->hasMany(Inventory::class); 
+    }
     
     public function products(): BelongsToMany
     {
@@ -22,6 +25,30 @@ class Place extends Model
 
     public function scopeSearch(Builder $query, ?string $search): Builder
     {
-        return $query->when($search, fn($q) => $q->where('nama', 'like', "%{$search}%")->orWhere('kode', 'like', "%{$search}%"));
+        return $query->when($search, function ($q) use ($search) {
+            $likeValue = "%{$search}%";
+            $q->where(function ($sub) use ($likeValue) {
+                $sub->where('nama', 'like', $likeValue)
+                    ->orWhere('kode', 'like', $likeValue);
+            });
+        });
+    }
+
+    public function scopeWithInventories(Builder $query): Builder
+    {
+        return $query->with(['inventories' => fn($q) => 
+            $q->select(['id', 'product_id', 'place_id', 'qty'])
+                ->with(['product' => fn($p) => $p->select(['id', 'kode', 'ukuran'])])
+        ]);
+    }
+
+    public function scopeWithProductCount(Builder $query): Builder
+    {
+        return $query->withCount('inventories');
+    }
+
+    public function scopeWithTotalStok(Builder $query): Builder
+    {
+        return $query->withSum('inventories', 'qty');
     }
 }
