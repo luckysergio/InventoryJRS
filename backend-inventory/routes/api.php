@@ -186,11 +186,14 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
 
     Route::prefix('type')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [TypeProductController::class, 'index']);
-        Route::post('/', [TypeProductController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::get('/dropdown', [TypeProductController::class, 'dropdown']);
         Route::get('/by-jenis/{jenisId}', [TypeProductController::class, 'getByJenis']);
-        Route::get('/{id}', [TypeProductController::class, 'show']);
-        Route::put('/{id}', [TypeProductController::class, 'update'])->middleware('role:admin,admin_toko');
-        Route::delete('/{id}', [TypeProductController::class, 'destroy'])->middleware('role:admin');
+        Route::get('/statistics', [TypeProductController::class, 'statistics'])->middleware('role:admin');
+
+        Route::post('/', [TypeProductController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::get('/{typeProduct}', [TypeProductController::class, 'show']);
+        Route::put('/{typeProduct}', [TypeProductController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{typeProduct}', [TypeProductController::class, 'destroy'])->middleware('role:admin');
     });
 
     Route::prefix('harga')->middleware('role:admin,admin_toko,operator')->group(function () {

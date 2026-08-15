@@ -1,92 +1,163 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../lib/api/axios'
-import { useConfirmDialog } from './useConfirmDialog'
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import api from '../lib/api/axios';
 
-export const useTypeProducts = (search = '', jenisId = null, page = 1, perPage = 20) => {
+export const typeProductKeys = {
+  all: ['type_products'],
+  lists: () => [...typeProductKeys.all, 'list'],
+  list: (filters) => [...typeProductKeys.lists(), filters],
+  details: () => [...typeProductKeys.all, 'detail'],
+  detail: (id) => [...typeProductKeys.details(), id],
+  dropdown: (jenisId = 'all') => [...typeProductKeys.all, 'dropdown', jenisId],
+  byJenis: (jenisId) => [...typeProductKeys.all, 'by_jenis', jenisId],
+  statistics: () => [...typeProductKeys.all, 'statistics'],
+};
+
+export const useTypeProducts = (params = {}) => {
+  const { search = '', jenisId = '', perPage = 20, page = 1 } = params;
+
   return useQuery({
-    queryKey: ['types', search, jenisId, page, perPage], 
+    queryKey: typeProductKeys.list({ search, jenisId, perPage, page }),
     queryFn: async () => {
       const response = await api.get('/type', {
-        params: { search, jenis_id: jenisId, page, per_page: perPage }
-      })
-      // ✅ Kembalikan objek paginator langsung agar komponen bisa membaca .data, .last_page, dll
-      return response.data.data 
-    },
-    staleTime: 1000 * 60 * 5, // 5 menit
-    refetchOnWindowFocus: false,
-  })
-}
+        params: {
+          search: search || undefined,
+          jenis_id: jenisId || undefined,
+          per_page: perPage,
+          page,
+        },
+      });
 
-export const useJenisProducts = () => {
-  return useQuery({
-    queryKey: ['jenis'], 
-    queryFn: async () => {
-      const response = await api.get('/jenis', { params: { per_page: 1000 } })
-      return response.data.data || []
+      return {
+        typeProducts: response.data.data || [],
+        meta: response.data.meta || {},
+      };
     },
-    staleTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: false,
-  })
-}
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useTypeProductsDropdown = (jenisId = null) => {
+  return useQuery({
+    queryKey: typeProductKeys.dropdown(jenisId || 'all'),
+    queryFn: async () => {
+      const response = await api.get('/type/dropdown', {
+        params: {
+          jenis_id: jenisId || undefined,
+        },
+      });
+      return response.data.data || [];
+    },
+    staleTime: 15 * 60 * 1000,
+  });
+};
+
+export const useTypeProductsByJenis = (jenisId) => {
+  return useQuery({
+    queryKey: typeProductKeys.byJenis(jenisId),
+    queryFn: async () => {
+      const response = await api.get(`/type/by-jenis/${jenisId}`);
+      return response.data.data || [];
+    },
+    enabled: !!jenisId,
+    staleTime: 15 * 60 * 1000,
+  });
+};
+
+export const useTypeProductStatistics = () => {
+  return useQuery({
+    queryKey: typeProductKeys.statistics(),
+    queryFn: async () => {
+      const response = await api.get('/type/statistics');
+      return response.data.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+const forceInvalidateTypeProductCache = async (queryClient) => {
+  await queryClient.cancelQueries({
+    queryKey: typeProductKeys.all,
+    exact: false,
+  });
+
+  queryClient.removeQueries({
+    queryKey: typeProductKeys.all,
+    exact: false,
+  });
+
+  await queryClient.invalidateQueries({
+    queryKey: typeProductKeys.all,
+    exact: false,
+    refetchType: 'all',
+  });
+};
 
 export const useCreateTypeProduct = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (data) => api.post('/type', data),
     onSuccess: async () => {
-      // ✅ Invalidate & Refetch unified keys agar ProductPage langsung update
-      await queryClient.invalidateQueries({ queryKey: ['types'] })
-      await queryClient.refetchQueries({ queryKey: ['types'], type: 'all' })
-      
-      // Juga invalidate key spesifik halaman TypeProduct jika ada
-      await queryClient.invalidateQueries({ queryKey: ['type_products'] })
-      
-      await success('Berhasil!', 'Type product berhasil ditambahkan')
+      await forceInvalidateTypeProductCache(queryClient);
     },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || error.response?.data?.message || 'Gagal menambahkan type product'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
+  });
+};
 
 export const useUpdateTypeProduct = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ id, data }) => api.put(`/type/${id}`, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['types'] })
-      await queryClient.refetchQueries({ queryKey: ['types'], type: 'all' })
-      await queryClient.invalidateQueries({ queryKey: ['type_products'] })
-      
-      await success('Berhasil!', 'Type product berhasil diperbarui')
+    onSuccess: async (response, variables) => {
+      queryClient.setQueryData(
+        typeProductKeys.detail(variables.id),
+        response.data.data
+      );
+      await forceInvalidateTypeProductCache(queryClient);
     },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || error.response?.data?.message || 'Gagal memperbarui type product'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
+  });
+};
 
 export const useDeleteTypeProduct = () => {
-  const queryClient = useQueryClient()
-  const { danger, success, info } = useConfirmDialog()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id) => api.delete(`/type/${id}`),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['types'] })
-      await queryClient.refetchQueries({ queryKey: ['types'], type: 'all' })
-      await queryClient.invalidateQueries({ queryKey: ['type_products'] })
-      
-      await success('Berhasil!', 'Type product berhasil dihapus')
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({
+        queryKey: typeProductKeys.lists(),
+        exact: false,
+      });
+
+      const previousQueries = queryClient.getQueriesData({
+        queryKey: typeProductKeys.lists(),
+      });
+
+      queryClient.setQueriesData(
+        { queryKey: typeProductKeys.lists() },
+        (old) => {
+          if (!old?.typeProducts) return old;
+          return {
+            ...old,
+            typeProducts: old.typeProducts.filter((t) => t.id !== id),
+            meta: {
+              ...old.meta,
+              total: (old.meta.total || 0) - 1,
+            },
+          };
+        }
+      );
+
+      return { previousQueries };
     },
-    onError: (error) => {
-      info('Gagal', error.response?.data?.message || 'Gagal menghapus type product')
+    onError: (err, id, context) => {
+      context?.previousQueries?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
     },
-  })
-}
+    onSettled: async () => {
+      await forceInvalidateTypeProductCache(queryClient);
+    },
+  });
+};
