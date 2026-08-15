@@ -2,26 +2,25 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api/axios'
 import { useConfirmDialog } from './useConfirmDialog'
 
-export const useHargaProducts = (search = '', productId = null, customerId = null, page = 1, perPage = 20) => {
+export const useHargaProducts = (search = '', productId = null, page = 1, perPage = 20) => {
   return useQuery({
-    queryKey: ['harga_products', search, productId, customerId, page, perPage],
+    queryKey: ['harga_products', search, productId, page, perPage],
     queryFn: async () => {
       const response = await api.get('/harga', {
-        params: { search, product_id: productId, customer_id: customerId, page, per_page: perPage }
+        params: { search, product_id: productId, page, per_page: perPage }
       })
-      return response.data.data // Mengembalikan objek paginator
+      return response.data.data
     },
-    staleTime: 1000 * 60 * 5, // 5 menit
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   })
 }
 
-export const useProducts = () => {
+export const useProductsDropdown = () => {
   return useQuery({
     queryKey: ['products_dropdown'],
     queryFn: async () => {
       const response = await api.get('/products', { params: { per_page: 1000 } })
-      // ✅ Fallback aman: handle jika data ada di response.data.data atau response.data
       return response.data.data || response.data || []
     },
     staleTime: 1000 * 60 * 5,
@@ -29,6 +28,7 @@ export const useProducts = () => {
   })
 }
 
+// ✅ Tetap dipertahankan karena dibutuhkan oleh HargaProductForm
 export const useCustomers = () => {
   return useQuery({
     queryKey: ['customers_dropdown'],
@@ -41,6 +41,9 @@ export const useCustomers = () => {
   })
 }
 
+// ==========================================
+// MUTATIONS DENGAN SINKRONISASI PENUH
+// ==========================================
 export const useCreateHargaProduct = () => {
   const queryClient = useQueryClient()
   const { success, info } = useConfirmDialog()
@@ -50,9 +53,10 @@ export const useCreateHargaProduct = () => {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['harga_products'] })
       await queryClient.invalidateQueries({ queryKey: ['products'] })
+      await queryClient.invalidateQueries({ queryKey: ['distributor_products'] })
       
-      // ✅ Paksa refetch agar halaman Product langsung update tanpa delay
-      await queryClient.refetchQueries({ queryKey: ['products'], type: 'all' })
+      await queryClient.refetchQueries({ queryKey: ['products'], type: 'active' })
+      await queryClient.refetchQueries({ queryKey: ['distributor_products'], type: 'active' })
       
       await success('Berhasil!', 'Harga product berhasil ditambahkan')
     },
@@ -72,8 +76,10 @@ export const useUpdateHargaProduct = () => {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['harga_products'] })
       await queryClient.invalidateQueries({ queryKey: ['products'] })
+      await queryClient.invalidateQueries({ queryKey: ['distributor_products'] })
       
-      await queryClient.refetchQueries({ queryKey: ['products'], type: 'all' })
+      await queryClient.refetchQueries({ queryKey: ['products'], type: 'active' })
+      await queryClient.refetchQueries({ queryKey: ['distributor_products'], type: 'active' })
       
       await success('Berhasil!', 'Harga product berhasil diperbarui')
     },
@@ -93,8 +99,10 @@ export const useDeleteHargaProduct = () => {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['harga_products'] })
       await queryClient.invalidateQueries({ queryKey: ['products'] })
+      await queryClient.invalidateQueries({ queryKey: ['distributor_products'] })
       
-      await queryClient.refetchQueries({ queryKey: ['products'], type: 'all' })
+      await queryClient.refetchQueries({ queryKey: ['products'], type: 'active' })
+      await queryClient.refetchQueries({ queryKey: ['distributor_products'], type: 'active' })
       
       await success('Berhasil!', 'Harga product berhasil dihapus')
     },

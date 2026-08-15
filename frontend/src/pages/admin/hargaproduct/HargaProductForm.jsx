@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { X, Tag, User, Globe, Calendar, FileText } from "lucide-react";
 import { useHargaProductStore } from "../../../lib/zustand/hargaProductStore";
-import { useCreateHargaProduct, useUpdateHargaProduct, useProducts, useCustomers } from "../../../hooks/useHargaProducts";
+// ✅ FIXED: Ganti useProducts menjadi useProductsDropdown
+import { useCreateHargaProduct, useUpdateHargaProduct, useProductsDropdown, useCustomers } from "../../../hooks/useHargaProducts";
 
 const formatRupiah = (value) => {
   if (!value) return "";
@@ -23,7 +24,9 @@ const HargaProductForm = () => {
   const { isFormOpen, selectedHarga, closeModals } = useHargaProductStore();
   const createMutation = useCreateHargaProduct();
   const updateMutation = useUpdateHargaProduct();
-  const { data: products = [] } = useProducts();
+  
+  // ✅ FIXED: Gunakan useProductsDropdown
+  const { data: products = [] } = useProductsDropdown();
   const { data: customers = [] } = useCustomers();
 
   const [form, setForm] = useState({ product_id: "", customer_id: "", harga: "", tanggal_berlaku: "", keterangan: "" });
@@ -78,7 +81,7 @@ const HargaProductForm = () => {
       }
       closeModals();
     } catch (err) {
-      console.error(err);
+      // Error sudah dihandle di mutation hook
     }
   };
 
@@ -87,7 +90,6 @@ const HargaProductForm = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className={`px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10 ${isEdit ? 'bg-gradient-to-r from-amber-50 to-white' : 'bg-gradient-to-r from-blue-50 to-white'}`}>
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${isEdit ? 'bg-amber-100' : 'bg-blue-100'}`}>
@@ -100,9 +102,7 @@ const HargaProductForm = () => {
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Product */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Product <span className="text-red-500">*</span></label>
             <div className="relative">
@@ -122,7 +122,6 @@ const HargaProductForm = () => {
             </div>
           </div>
 
-          {/* Customer */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer <span className="text-slate-400 font-normal">(Kosongkan untuk Harga Umum)</span></label>
             <div className="relative">
@@ -141,7 +140,6 @@ const HargaProductForm = () => {
             </div>
           </div>
 
-          {/* Harga */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Harga (Rp) <span className="text-red-500">*</span></label>
             <div className="relative">
@@ -164,7 +162,6 @@ const HargaProductForm = () => {
             {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
           </div>
 
-          {/* Tanggal Berlaku */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Tanggal Berlaku</label>
             <div className="relative">
@@ -179,7 +176,6 @@ const HargaProductForm = () => {
             </div>
           </div>
 
-          {/* Keterangan */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Keterangan</label>
             <div className="relative">
@@ -195,7 +191,6 @@ const HargaProductForm = () => {
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 pt-4 border-t border-slate-100 sticky bottom-0 bg-white pb-2">
             <button type="button" onClick={closeModals} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" disabled={isSubmitting}>Batal</button>
             <button type="submit" disabled={isSubmitting} className={`flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all flex items-center justify-center gap-2 ${isEdit ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:opacity-50`}>

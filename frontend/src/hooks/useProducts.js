@@ -10,146 +10,31 @@ const extractArray = (response) => {
 }
 
 // ==========================================
-// 1. MASTER DATA: JENIS
+// 1. MASTER DATA
 // ==========================================
 export const useJenis = () => useQuery({
   queryKey: ['jenis'],
-  queryFn: async () => {
-    const response = await api.get('/jenis', { params: { per_page: 1000 } })
-    return extractArray(response)
-  },
+  queryFn: async () => extractArray(await api.get('/jenis', { params: { per_page: 1000 } })),
   staleTime: 1000 * 60 * 5,
   refetchOnWindowFocus: false,
 })
 
-export const useCreateJenis = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
-  return useMutation({
-    mutationFn: (data) => api.post('/jenis', data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['jenis'] })
-      await queryClient.refetchQueries({ queryKey: ['jenis'], type: 'all' })
-      await success('Berhasil!', 'Jenis product berhasil ditambahkan')
-    },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || 'Gagal menambahkan jenis product'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
-
-export const useUpdateJenis = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
-  return useMutation({
-    mutationFn: ({ id, data }) => api.put(`/jenis/${id}`, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['jenis'] })
-      await queryClient.refetchQueries({ queryKey: ['jenis'], type: 'all' })
-      await success('Berhasil!', 'Jenis product berhasil diperbarui')
-    },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || 'Gagal memperbarui jenis product'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
-
-export const useDeleteJenis = () => {
-  const queryClient = useQueryClient()
-  const { danger, success, info } = useConfirmDialog()
-  return useMutation({
-    mutationFn: (id) => api.delete(`/jenis/${id}`),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['jenis'] })
-      await queryClient.refetchQueries({ queryKey: ['jenis'], type: 'all' })
-      await success('Berhasil!', 'Jenis product berhasil dihapus')
-    },
-    onError: (error) => {
-      info('Gagal', error.response?.data?.message || 'Gagal menghapus jenis product')
-    },
-  })
-}
-
-// ==========================================
-// 2. MASTER DATA: TYPE
-// ==========================================
 export const useTypes = () => useQuery({
   queryKey: ['types'],
-  queryFn: async () => {
-    const response = await api.get('/type', { params: { per_page: 1000 } })
-    return extractArray(response)
-  },
+  queryFn: async () => extractArray(await api.get('/type', { params: { per_page: 1000 } })),
   staleTime: 1000 * 60 * 5,
   refetchOnWindowFocus: false,
 })
 
-export const useCreateType = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
-  return useMutation({
-    mutationFn: (data) => api.post('/type', data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['types'] })
-      await queryClient.refetchQueries({ queryKey: ['types'], type: 'all' })
-      await success('Berhasil!', 'Type product berhasil ditambahkan')
-    },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || 'Gagal menambahkan type product'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
-
-export const useUpdateType = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
-  return useMutation({
-    mutationFn: ({ id, data }) => api.put(`/type/${id}`, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['types'] })
-      await queryClient.refetchQueries({ queryKey: ['types'], type: 'all' })
-      await success('Berhasil!', 'Type product berhasil diperbarui')
-    },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || 'Gagal memperbarui type product'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
-
-export const useDeleteType = () => {
-  const queryClient = useQueryClient()
-  const { danger, success, info } = useConfirmDialog()
-  return useMutation({
-    mutationFn: (id) => api.delete(`/type/${id}`),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['types'] })
-      await queryClient.refetchQueries({ queryKey: ['types'], type: 'all' })
-      await success('Berhasil!', 'Type product berhasil dihapus')
-    },
-    onError: (error) => {
-      info('Gagal', error.response?.data?.message || 'Gagal menghapus type product')
-    },
-  })
-}
-
-// ==========================================
-// 3. MASTER DATA: BAHAN
-// ==========================================
 export const useBahans = () => useQuery({
   queryKey: ['bahans'],
-  queryFn: async () => {
-    const response = await api.get('/bahan', { params: { per_page: 1000 } })
-    return extractArray(response)
-  },
+  queryFn: async () => extractArray(await api.get('/bahan', { params: { per_page: 1000 } })),
   staleTime: 1000 * 60 * 5,
   refetchOnWindowFocus: false,
 })
 
 // ==========================================
-// 4. PRODUCTS
+// 2. PRODUCTS LIST
 // ==========================================
 export const useProducts = (search = '', jenisId = null, typeId = null, page = 1, perPage = 15) => {
   return useQuery({
@@ -164,6 +49,9 @@ export const useProducts = (search = '', jenisId = null, typeId = null, page = 1
   })
 }
 
+// ==========================================
+// 3. MUTATIONS (✅ FIXED: Segitiga Sinkronisasi)
+// ==========================================
 export const useCreateProduct = () => {
   const queryClient = useQueryClient()
   const { success, info } = useConfirmDialog()
@@ -172,14 +60,15 @@ export const useCreateProduct = () => {
     mutationFn: (formData) => api.post('/products', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['products'] })
+      await queryClient.invalidateQueries({ queryKey: ['distributor_products'] }) // ✅ Sinkron ke Distributor
+      await queryClient.invalidateQueries({ queryKey: ['harga_products'] }) // ✅ Sinkron ke Harga
       await queryClient.invalidateQueries({ queryKey: ['jenis'] })
       await queryClient.invalidateQueries({ queryKey: ['types'] })
       await queryClient.invalidateQueries({ queryKey: ['bahans'] })
-      await queryClient.invalidateQueries({ queryKey: ['harga_products'] }) // ✅ Sinkronisasi: Invalidate cache Harga
       
-      await queryClient.refetchQueries({ queryKey: ['jenis'], type: 'all' })
-      await queryClient.refetchQueries({ queryKey: ['types'], type: 'all' })
-      await queryClient.refetchQueries({ queryKey: ['bahans'], type: 'all' })
+      await queryClient.refetchQueries({ queryKey: ['products'], type: 'active' })
+      await queryClient.refetchQueries({ queryKey: ['distributor_products'], type: 'active' })
+      await queryClient.refetchQueries({ queryKey: ['harga_products'], type: 'active' })
       
       await success('Berhasil!', 'Product berhasil ditambahkan')
     },
@@ -198,14 +87,15 @@ export const useUpdateProduct = () => {
     mutationFn: ({ id, formData }) => api.post(`/products/${id}?_method=PUT`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['products'] })
+      await queryClient.invalidateQueries({ queryKey: ['distributor_products'] }) // ✅ Sinkron ke Distributor
+      await queryClient.invalidateQueries({ queryKey: ['harga_products'] }) // ✅ Sinkron ke Harga
       await queryClient.invalidateQueries({ queryKey: ['jenis'] })
       await queryClient.invalidateQueries({ queryKey: ['types'] })
       await queryClient.invalidateQueries({ queryKey: ['bahans'] })
-      await queryClient.invalidateQueries({ queryKey: ['harga_products'] }) // ✅ Sinkronisasi: Invalidate cache Harga
       
-      await queryClient.refetchQueries({ queryKey: ['jenis'], type: 'all' })
-      await queryClient.refetchQueries({ queryKey: ['types'], type: 'all' })
-      await queryClient.refetchQueries({ queryKey: ['bahans'], type: 'all' })
+      await queryClient.refetchQueries({ queryKey: ['products'], type: 'active' })
+      await queryClient.refetchQueries({ queryKey: ['distributor_products'], type: 'active' })
+      await queryClient.refetchQueries({ queryKey: ['harga_products'], type: 'active' })
       
       await success('Berhasil!', 'Product berhasil diperbarui')
     },
@@ -224,8 +114,13 @@ export const useDeleteProduct = () => {
     mutationFn: (id) => api.delete(`/products/${id}`),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['products'] })
-      await queryClient.invalidateQueries({ queryKey: ['harga_products'] })
-      await queryClient.refetchQueries({ queryKey: ['products'], type: 'all' })
+      await queryClient.invalidateQueries({ queryKey: ['distributor_products'] }) // ✅ Sinkron ke Distributor
+      await queryClient.invalidateQueries({ queryKey: ['harga_products'] }) // ✅ Sinkron ke Harga
+      
+      await queryClient.refetchQueries({ queryKey: ['products'], type: 'active' })
+      await queryClient.refetchQueries({ queryKey: ['distributor_products'], type: 'active' })
+      await queryClient.refetchQueries({ queryKey: ['harga_products'], type: 'active' })
+      
       await success('Berhasil!', 'Product berhasil dihapus')
     },
     onError: (error) => {

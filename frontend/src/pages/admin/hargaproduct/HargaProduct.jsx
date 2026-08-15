@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Tag, Pencil, Trash2, Plus, Search, X, RefreshCw, ChevronLeft, ChevronRight, User, Globe, Calendar } from "lucide-react";
-import { useHargaProducts, useDeleteHargaProduct, useProducts, useCustomers } from "../../../hooks/useHargaProducts";
+import { useHargaProducts, useDeleteHargaProduct, useProductsDropdown } from "../../../hooks/useHargaProducts";
 import { useHargaProductStore } from "../../../lib/zustand/hargaProductStore";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import HargaProductForm from "./HargaProductForm";
@@ -20,17 +20,15 @@ const HargaProductPage = () => {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [productFilter, setProductFilter] = useState("");
-  const [customerFilter, setCustomerFilter] = useState(""); // ✅ State sudah ada, sekarang UI-nya juga
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 20;
 
-  const { data: products = [] } = useProducts();
-  const { data: customers = [] } = useCustomers();
+  // ✅ Hanya ambil products untuk dropdown filter
+  const { data: products = [] } = useProductsDropdown();
 
   const { data, isLoading, isError, refetch, isFetching } = useHargaProducts(
     searchQuery,
     productFilter || null,
-    customerFilter || null,
     currentPage,
     perPage
   );
@@ -43,7 +41,7 @@ const HargaProductPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, productFilter, customerFilter]);
+  }, [searchQuery, productFilter]);
 
   const hargaList = data?.data || [];
   const lastPage = data?.last_page || 1;
@@ -65,10 +63,9 @@ const HargaProductPage = () => {
     setSearchInput("");
     setSearchQuery("");
     setProductFilter("");
-    setCustomerFilter("");
   };
 
-  const isFilterActive = Boolean(searchQuery || productFilter || customerFilter);
+  const isFilterActive = Boolean(searchQuery || productFilter);
 
   const paginationNumbers = useMemo(() => {
     const maxVisible = 5;
@@ -134,21 +131,6 @@ const HargaProductPage = () => {
               </select>
             </div>
 
-            {/* ✅ Filter Customer (Ditambahkan agar lengkap) */}
-            <div className="relative flex-shrink-0 min-w-[200px]">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              <select
-                value={customerFilter}
-                onChange={(e) => setCustomerFilter(e.target.value)}
-                className="w-full pl-10 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm bg-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              >
-                <option value="">Semua Customer</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-
             {/* Actions */}
             <div className="flex gap-2 flex-shrink-0">
               {isFilterActive && (
@@ -165,6 +147,9 @@ const HargaProductPage = () => {
         </div>
       </div>
 
+      {/* ============================================
+          CONTENT GRID
+      ============================================ */}
       {hargaList.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200/60 p-12 text-center shadow-sm">
           <div className="flex flex-col items-center gap-3">
@@ -218,6 +203,7 @@ const HargaProductPage = () => {
                 </div>
               </div>
 
+              {/* Action Buttons */}
               <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <button onClick={() => openDetailModal(item)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Detail">
                   <Search size={14} />
@@ -234,6 +220,9 @@ const HargaProductPage = () => {
         </div>
       )}
 
+      {/* ============================================
+          PAGINATION
+      ============================================ */}
       {lastPage > 1 && (
         <div className="px-6 py-4 bg-white border border-slate-200/60 rounded-xl shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-sm text-slate-600 text-center sm:text-left">
@@ -255,6 +244,9 @@ const HargaProductPage = () => {
         </div>
       )}
 
+      {/* ============================================
+          FLOATING ACTION BUTTON (FAB)
+      ============================================ */}
       <button onClick={openCreateModal} className="fixed bottom-6 right-6 z-40 group" title="Tambah Harga" aria-label="Tambah harga baru">
         <span className="absolute inset-0 rounded-full bg-blue-600 animate-ping opacity-20 group-hover:opacity-0 transition-opacity duration-500"></span>
         <div className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all duration-300 active:scale-95 hover:scale-110">
