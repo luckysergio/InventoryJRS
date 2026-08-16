@@ -200,13 +200,16 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{typeProduct}', [TypeProductController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // Harga Products
     Route::prefix('harga')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [HargaProductController::class, 'index']);
+        Route::get('/by-product/{productId}', [HargaProductController::class, 'byProduct']);
+        Route::get('/active/{productId}', [HargaProductController::class, 'activePrice']);
+
         Route::post('/', [HargaProductController::class, 'store'])->middleware('role:admin,admin_toko');
-        Route::get('/by-product/{id}', [HargaProductController::class, 'byProduct']);
-        Route::get('/{id}', [HargaProductController::class, 'show']);
-        Route::put('/{id}', [HargaProductController::class, 'update'])->middleware('role:admin,admin_toko');
-        Route::delete('/{id}', [HargaProductController::class, 'destroy'])->middleware('role:admin');
+        Route::get('/{hargaProduct}', [HargaProductController::class, 'show']);
+        Route::put('/{hargaProduct}', [HargaProductController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{hargaProduct}', [HargaProductController::class, 'destroy'])->middleware('role:admin');
     });
 
     Route::prefix('status-transaksi')->middleware('role:admin,admin_toko,operator')->group(function () {

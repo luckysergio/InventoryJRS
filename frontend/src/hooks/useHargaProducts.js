@@ -1,113 +1,112 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../lib/api/axios'
-import { useConfirmDialog } from './useConfirmDialog'
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import api from '../lib/api/axios';
 
-export const useHargaProducts = (search = '', productId = null, page = 1, perPage = 20) => {
+export const hargaProductKeys = {
+  all: ['harga_products'],
+  lists: () => [...hargaProductKeys.all, 'list'],
+  list: (filters) => [...hargaProductKeys.lists(), filters],
+  details: () => [...hargaProductKeys.all, 'detail'],
+  detail: (id) => [...hargaProductKeys.details(), id],
+  byProduct: (productId) => [...hargaProductKeys.all, 'by_product', productId],
+  productsDropdown: () => ['products_dropdown'],
+  customersDropdown: () => ['customers_dropdown'],
+};
+
+export const useHargaProducts = (params = {}) => {
+  const { search = '', productId = '', perPage = 20, page = 1 } = params;
+
   return useQuery({
-    queryKey: ['harga_products', search, productId, page, perPage],
+    queryKey: hargaProductKeys.list({ search, productId, perPage, page }),
     queryFn: async () => {
       const response = await api.get('/harga', {
-        params: { search, product_id: productId, page, per_page: perPage }
-      })
-      return response.data.data
+        params: {
+          search: search || undefined,
+          product_id: productId || undefined,
+          per_page: perPage,
+          page,
+        },
+      });
+      return {
+        hargaProducts: response.data.data || [],
+        meta: response.data.meta || {},
+      };
     },
-    staleTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: false,
-  })
-}
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60 * 1000,
+  });
+};
 
 export const useProductsDropdown = () => {
   return useQuery({
-    queryKey: ['products_dropdown'],
+    queryKey: hargaProductKeys.productsDropdown(),
     queryFn: async () => {
-      const response = await api.get('/products', { params: { per_page: 1000 } })
-      return response.data.data || response.data || []
+      const response = await api.get('/products/dropdown');
+      return response.data.data || [];
     },
-    staleTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: false,
-  })
-}
+    staleTime: 15 * 60 * 1000,
+  });
+};
 
-// ✅ Tetap dipertahankan karena dibutuhkan oleh HargaProductForm
-export const useCustomers = () => {
+export const useCustomersDropdown = () => {
   return useQuery({
-    queryKey: ['customers_dropdown'],
+    queryKey: hargaProductKeys.customersDropdown(),
     queryFn: async () => {
-      const response = await api.get('/customers', { params: { per_page: 1000 } })
-      return response.data.data || response.data || []
+      const response = await api.get('/customers/dropdown');
+      return response.data.data || [];
     },
-    staleTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: false,
-  })
-}
+    staleTime: 15 * 60 * 1000,
+  });
+};
 
-// ==========================================
-// MUTATIONS DENGAN SINKRONISASI PENUH
-// ==========================================
+const forceInvalidateHargaCache = async (queryClient) => {
+  await queryClient.cancelQueries({ queryKey: hargaProductKeys.all, exact: false });
+  queryClient.removeQueries({ queryKey: hargaProductKeys.all, exact: false });
+  await queryClient.invalidateQueries({ queryKey: hargaProductKeys.all, exact: false, refetchType: 'all' });
+};
+
 export const useCreateHargaProduct = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
-
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data) => api.post('/harga', data),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['harga_products'] })
-      await queryClient.invalidateQueries({ queryKey: ['products'] })
-      await queryClient.invalidateQueries({ queryKey: ['distributor_products'] })
-      
-      await queryClient.refetchQueries({ queryKey: ['products'], type: 'active' })
-      await queryClient.refetchQueries({ queryKey: ['distributor_products'], type: 'active' })
-      
-      await success('Berhasil!', 'Harga product berhasil ditambahkan')
+      await forceInvalidateHargaCache(queryClient);
     },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || error.response?.data?.message || 'Gagal menambahkan harga'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
+  });
+};
 
 export const useUpdateHargaProduct = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
-
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }) => api.put(`/harga/${id}`, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['harga_products'] })
-      await queryClient.invalidateQueries({ queryKey: ['products'] })
-      await queryClient.invalidateQueries({ queryKey: ['distributor_products'] })
-      
-      await queryClient.refetchQueries({ queryKey: ['products'], type: 'active' })
-      await queryClient.refetchQueries({ queryKey: ['distributor_products'], type: 'active' })
-      
-      await success('Berhasil!', 'Harga product berhasil diperbarui')
+    onSuccess: async (response, variables) => {
+      queryClient.setQueryData(hargaProductKeys.detail(variables.id), response.data.data);
+      await forceInvalidateHargaCache(queryClient);
     },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || error.response?.data?.message || 'Gagal memperbarui harga'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
+  });
+};
 
 export const useDeleteHargaProduct = () => {
-  const queryClient = useQueryClient()
-  const { danger, success, info } = useConfirmDialog()
-
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id) => api.delete(`/harga/${id}`),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['harga_products'] })
-      await queryClient.invalidateQueries({ queryKey: ['products'] })
-      await queryClient.invalidateQueries({ queryKey: ['distributor_products'] })
-      
-      await queryClient.refetchQueries({ queryKey: ['products'], type: 'active' })
-      await queryClient.refetchQueries({ queryKey: ['distributor_products'], type: 'active' })
-      
-      await success('Berhasil!', 'Harga product berhasil dihapus')
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: hargaProductKeys.lists(), exact: false });
+      const previousQueries = queryClient.getQueriesData({ queryKey: hargaProductKeys.lists() });
+      queryClient.setQueriesData({ queryKey: hargaProductKeys.lists() }, (old) => {
+        if (!old?.hargaProducts) return old;
+        return {
+          ...old,
+          hargaProducts: old.hargaProducts.filter((h) => h.id !== id),
+          meta: { ...old.meta, total: (old.meta.total || 0) - 1 },
+        };
+      });
+      return { previousQueries };
     },
-    onError: (error) => {
-      info('Gagal', error.response?.data?.message || 'Gagal menghapus harga')
+    onError: (err, id, context) => {
+      context?.previousQueries?.forEach(([key, data]) => queryClient.setQueryData(key, data));
     },
-  })
-}
+    onSettled: async () => {
+      await forceInvalidateHargaCache(queryClient);
+    },
+  });
+};
