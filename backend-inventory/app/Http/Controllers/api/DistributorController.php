@@ -5,10 +5,12 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Distributor\StoreDistributorRequest;
 use App\Http\Requests\Distributor\UpdateDistributorRequest;
+use App\Http\Resources\DistributorResource;
 use App\Models\Distributor;
 use App\Services\Distributor\DistributorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class DistributorController extends Controller
 {
@@ -18,97 +20,145 @@ class DistributorController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $perPage = min((int) $request->input('per_page', 20), 50);
-        $page = max((int) $request->input('page', 1), 1);
+        try {
+            $perPage = min((int) $request->input('per_page', 20), 50);
+            $page = max((int) $request->input('page', 1), 1);
 
-        $data = $this->distributorService->getList(
-            search: $request->input('search'),
-            perPage: $perPage,
-            page: $page
-        );
+            $result = $this->distributorService->getList(
+                search: $request->input('search'),
+                perPage: $perPage,
+                page: $page
+            );
 
-        return response()->json([
-            'status' => true,
-            'data'   => $data, // Laravel otomatis men-serialize paginator object
-        ]);
-    }
-
-    // ✅ FIXED: Terima $id, lalu cari manual agar cocok dengan route /{id}
-    public function show(string|int $id): JsonResponse
-    {
-        $distributor = Distributor::find((int) $id);
-        
-        if (!$distributor) {
+            return response()->json([
+                'status' => true,
+                'data' => DistributorResource::collection($result['data']),
+                'meta' => $result['meta'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Distributor index error', ['error' => $e->getMessage()]);
             return response()->json([
                 'status' => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
+                'message' => 'Gagal memuat data distributor.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
+    }
 
-        $detail = $this->distributorService->getDetail($distributor->id);
+    public function dropdown(): JsonResponse
+    {
+        try {
+            return response()->json([
+                'status' => true,
+                'data' => $this->distributorService->getForDropdown(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Distributor dropdown error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat data dropdown distributor.',
+            ], 500);
+        }
+    }
 
-        return response()->json([
-            'status' => true,
-            'data'   => $detail,
-        ]);
+    public function show(Distributor $distributor): JsonResponse
+    {
+        try {
+            $detail = $this->distributorService->getDetail($distributor->id);
+
+            if (!$detail) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Distributor tidak ditemukan.',
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => true,
+                'data' => new DistributorResource($distributor),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Distributor show error', ['id' => $distributor->id, 'error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat detail distributor.',
+            ], 500);
+        }
     }
 
     public function store(StoreDistributorRequest $request): JsonResponse
     {
-        $distributor = $this->distributorService->create($request->validated());
+        try {
+            $distributor = $this->distributorService->create($request->validated());
 
-        return response()->json([
-            'status'  => true,
-            'message' => 'Distributor berhasil dibuat.',
-            'data'    => $distributor,
-        ], 201);
-    }
+            $this->distributorService->invalidateCache();
 
-    // ✅ FIXED: Terima $id, lalu cari manual
-    public function update(UpdateDistributorRequest $request, string|int $id): JsonResponse
-    {
-        $distributor = Distributor::find((int) $id);
-
-        if (!$distributor) {
+            return response()->json([
+                'status' => true,
+                'message' => 'Distributor berhasil dibuat.',
+                'data' => new DistributorResource($distributor),
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('Distributor store error', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
             return response()->json([
                 'status' => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
+                'message' => 'Gagal membuat distributor.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        $updatedDistributor = $this->distributorService->update($distributor, $request->validated());
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Distributor berhasil diperbarui.',
-            'data'    => $updatedDistributor,
-        ]);
     }
 
-    // ✅ FIXED: Terima $id, lalu cari manual
-    public function destroy(string|int $id): JsonResponse
+    public function update(UpdateDistributorRequest $request, Distributor $distributor): JsonResponse
     {
-        $distributor = Distributor::find((int) $id);
+        try {
+            $updated = $this->distributorService->update($distributor, $request->validated());
 
-        if (!$distributor) {
+            $this->distributorService->invalidateCache();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Distributor berhasil diperbarui.',
+                'data' => new DistributorResource($updated),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Distributor update error', [
+                'id' => $distributor->id,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'status' => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
+                'message' => 'Gagal memperbarui distributor.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
+    }
 
-        $result = $this->distributorService->delete($distributor);
+    public function destroy(Distributor $distributor): JsonResponse
+    {
+        try {
+            $result = $this->distributorService->delete($distributor);
 
-        if (!$result['success']) {
+            if ($result['success']) {
+                $this->distributorService->invalidateCache();
+            }
+
             return response()->json([
-                'status'  => false,
+                'status' => $result['success'],
                 'message' => $result['message'],
-            ], $result['code']);
+            ], $result['success'] ? 200 : ($result['code'] ?? 400));
+        } catch (\Throwable $e) {
+            Log::error('Distributor destroy error', [
+                'id' => $distributor->id,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus distributor.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        return response()->json([
-            'status'  => true,
-            'message' => $result['message'],
-        ]);
     }
 }

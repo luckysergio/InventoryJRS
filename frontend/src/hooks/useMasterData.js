@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api/axios';
 
+// ✅ FIX: Key distributor TIDAK duplikat, semua sub-key ada dalam satu definisi
 export const masterKeys = {
   jenis: {
     all: ['jenis_products'],
@@ -30,6 +31,15 @@ export const masterKeys = {
     statistics: () => [...masterKeys.bahan.all, 'statistics'],
   },
 
+  // ✅ FIX: Satu definisi distributor yang LENGKAP (tidak duplikat)
+  distributor: {
+    all: ['distributors'],
+    lists: () => [...masterKeys.distributor.all, 'list'],
+    list: (filters) => [...masterKeys.distributor.lists(), filters],
+    detail: (id) => [...masterKeys.distributor.all, 'detail', id],
+    dropdown: () => [...masterKeys.distributor.all, 'dropdown'],
+  },
+
   product: {
     all: ['products'],
     lists: () => [...masterKeys.product.all, 'list'],
@@ -53,12 +63,11 @@ export const masterKeys = {
     all: ['customers'],
     dropdown: () => [...masterKeys.customer.all, 'dropdown'],
   },
-
-  distributor: {
-    all: ['distributors'],
-    dropdown: () => [...masterKeys.distributor.all, 'dropdown'],
-  },
 };
+
+// ==========================================
+// DROPDOWN HOOKS
+// ==========================================
 
 export const useJenisDropdown = () => {
   return useQuery({
@@ -117,6 +126,22 @@ export const useCustomersDropdown = () => {
   });
 };
 
+// ✅ FIX: Tambahkan export useDistributorsDropdown
+export const useDistributorsDropdown = () => {
+  return useQuery({
+    queryKey: masterKeys.distributor.dropdown(),
+    queryFn: async () => {
+      const response = await api.get('/distributors/dropdown');
+      return response.data.data || [];
+    },
+    staleTime: 15 * 60 * 1000,
+  });
+};
+
+// ==========================================
+// CROSS-INVALIDATION HELPER
+// ==========================================
+
 export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
   const entityMap = {
     jenis: masterKeys.jenis.all,
@@ -131,11 +156,12 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
   const keysToInvalidate = [entityMap[changedEntity]];
 
   const crossInvalidation = {
-    jenis: [masterKeys.type.all, masterKeys.product.all],     // Jenis berubah → Type & Product terpengaruh
-    type: [masterKeys.product.all],                           // Type berubah → Product terpengaruh
-    bahan: [masterKeys.product.all],                          // Bahan berubah → Product terpengaruh
-    product: [masterKeys.harga.all],                          // Product berubah → Harga terpengaruh
-    customer: [masterKeys.harga.all],                         // Customer berubah → Harga terpengaruh
+    jenis: [masterKeys.type.all, masterKeys.product.all],
+    type: [masterKeys.product.all],
+    bahan: [masterKeys.product.all],
+    product: [masterKeys.harga.all],
+    customer: [masterKeys.harga.all],
+    distributor: [masterKeys.product.all],
   };
 
   if (crossInvalidation[changedEntity]) {

@@ -122,11 +122,13 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
     });
 
     Route::prefix('distributors')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/dropdown', [DistributorController::class, 'dropdown']);
+
         Route::get('/', [DistributorController::class, 'index']);
         Route::post('/', [DistributorController::class, 'store'])->middleware('role:admin,admin_toko');
-        Route::get('/{id}', [DistributorController::class, 'show']);
-        Route::put('/{id}', [DistributorController::class, 'update'])->middleware('role:admin,admin_toko');
-        Route::delete('/{id}', [DistributorController::class, 'destroy'])->middleware('role:admin');
+        Route::get('/{distributor}', [DistributorController::class, 'show']);
+        Route::put('/{distributor}', [DistributorController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{distributor}', [DistributorController::class, 'destroy'])->middleware('role:admin');
     });
 
     Route::prefix('internal-products')->middleware('role:admin,admin_toko,operator')->group(function () {

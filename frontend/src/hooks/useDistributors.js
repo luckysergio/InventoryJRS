@@ -1,105 +1,75 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../lib/api/axios'
-import { useConfirmDialog } from './useConfirmDialog'
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import api from '../lib/api/axios';
+import { masterKeys, invalidateRelatedCaches } from './useMasterData';
 
-// ==========================================
-// 1. QUERIES
-// ==========================================
+export const useDistributors = (params = {}) => {
+  const { search = '', perPage = 20, page = 1 } = params;
 
-// Untuk Halaman List Distributor (dengan pagination & search)
-export const useDistributors = (search = '', page = 1, perPage = 20) => {
   return useQuery({
-    queryKey: ['distributors', search, page, perPage],
+    queryKey: masterKeys.distributor.list({ search, perPage, page }),
     queryFn: async () => {
       const response = await api.get('/distributors', {
-        params: { search, page, per_page: perPage }
-      })
-      return response.data.data
+        params: {
+          search: search || undefined,
+          per_page: perPage,
+          page,
+        },
+      });
+      return {
+        distributors: response.data.data || [],
+        meta: response.data.meta || {},
+      };
     },
-    staleTime: 1000 * 60 * 5, // 5 menit
-    refetchOnWindowFocus: false,
-  })
-}
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60 * 1000,
+  });
+};
 
-// Khusus untuk Dropdown (mengambil semua data tanpa pagination)
-export const useDistributorsDropdown = () => {
-  return useQuery({
-    queryKey: ['distributors_dropdown'],
-    queryFn: async () => {
-      const response = await api.get('/distributors', { params: { per_page: 1000 } })
-      return response.data.data || response.data.distributors || []
-    },
-    staleTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: false,
-  })
-}
-
-// ==========================================
-// 2. MUTATIONS (Dengan Cross-Invalidation)
-// ==========================================
+export { useDistributorsDropdown } from './useMasterData';
 
 export const useCreateDistributor = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
-
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data) => api.post('/distributors', data),
-    onSuccess: async (response) => {
-      // ✅ Sinkronisasi: Update list halaman DAN dropdown form
-      await queryClient.invalidateQueries({ queryKey: ['distributors'] })
-      await queryClient.invalidateQueries({ queryKey: ['distributors_dropdown'] })
-      
-      await queryClient.refetchQueries({ queryKey: ['distributors_dropdown'], type: 'all' })
-      
-      await success('Berhasil!', 'Distributor berhasil ditambahkan')
-      return response.data.data || response.data.distributor
+    onSuccess: async () => {
+      await invalidateRelatedCaches(queryClient, 'distributor');
     },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || 'Gagal menambahkan distributor'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
+  });
+};
 
 export const useUpdateDistributor = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
-
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }) => api.put(`/distributors/${id}`, data),
-    onSuccess: async () => {
-      // ✅ Sinkronisasi: Update list halaman DAN dropdown form
-      await queryClient.invalidateQueries({ queryKey: ['distributors'] })
-      await queryClient.invalidateQueries({ queryKey: ['distributors_dropdown'] })
-      
-      await queryClient.refetchQueries({ queryKey: ['distributors_dropdown'], type: 'all' })
-      
-      await success('Berhasil!', 'Distributor berhasil diperbarui')
+    onSuccess: async (response, variables) => {
+      queryClient.setQueryData(masterKeys.distributor.detail(variables.id), response.data.data);
+      await invalidateRelatedCaches(queryClient, 'distributor');
     },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || 'Gagal memperbarui distributor'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
+  });
+};
 
 export const useDeleteDistributor = () => {
-  const queryClient = useQueryClient()
-  const { danger, success, info } = useConfirmDialog()
-
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id) => api.delete(`/distributors/${id}`),
-    onSuccess: async () => {
-      // ✅ Sinkronisasi: Update list halaman DAN dropdown form
-      await queryClient.invalidateQueries({ queryKey: ['distributors'] })
-      await queryClient.invalidateQueries({ queryKey: ['distributors_dropdown'] })
-      
-      await queryClient.refetchQueries({ queryKey: ['distributors_dropdown'], type: 'all' })
-      
-      await success('Berhasil!', 'Distributor berhasil dihapus')
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: masterKeys.distributor.lists(), exact: false });
+      const previousQueries = queryClient.getQueriesData({ queryKey: masterKeys.distributor.lists() });
+      queryClient.setQueriesData({ queryKey: masterKeys.distributor.lists() }, (old) => {
+        if (!old?.distributors) return old;
+        return {
+          ...old,
+          distributors: old.distributors.filter((d) => d.id !== id),
+          meta: { ...old.meta, total: (old.meta.total || 0) - 1 },
+        };
+      });
+      return { previousQueries };
     },
-    onError: (error) => {
-      info('Gagal', error.response?.data?.message || 'Gagal menghapus distributor')
+    onError: (err, id, context) => {
+      context?.previousQueries?.forEach(([key, data]) => queryClient.setQueryData(key, data));
     },
-  })
-}
+    onSettled: async () => {
+      await invalidateRelatedCaches(queryClient, 'distributor');
+    },
+  });
+};

@@ -14,16 +14,40 @@ class StoreDistributorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nama'  => ['required', 'string', 'max:255'],
-            'no_hp' => ['required', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'max:255', 'unique:distributors,email'],
+            'nama'  => ['required', 'string', 'max:255', 'min:2'],
+            'no_hp' => ['required', 'string', 'max:20', 'min:8'],
+            'email' => ['nullable', 'email:rfc,dns', 'max:255', 'unique:distributors,email'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'email.unique' => 'Email distributor ini sudah terdaftar.',
+            'nama.required'  => 'Nama distributor wajib diisi.',
+            'nama.min'       => 'Nama minimal 2 karakter.',
+            'no_hp.required' => 'No HP wajib diisi.',
+            'no_hp.min'      => 'No HP minimal 8 karakter.',
+            'email.email'    => 'Format email tidak valid.',
+            'email.unique'   => 'Email distributor ini sudah terdaftar.',
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $data = [];
+
+        if ($this->has('nama')) {
+            $data['nama'] = trim($this->input('nama', ''));
+        }
+        if ($this->has('email') && $this->input('email')) {
+            $data['email'] = strtolower(trim($this->input('email')));
+        }
+        if ($this->has('no_hp')) {
+            $data['no_hp'] = trim($this->input('no_hp', ''));
+        }
+
+        if (!empty($data)) {
+            $this->merge($data);
+        }
     }
 }
