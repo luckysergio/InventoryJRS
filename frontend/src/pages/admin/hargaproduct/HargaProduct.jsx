@@ -3,7 +3,9 @@ import {
   Tag, Pencil, Trash2, Plus, Search, X, RefreshCw,
   ChevronLeft, ChevronRight, User, Globe, Calendar, Eye, Filter
 } from "lucide-react";
-import { useHargaProducts, useDeleteHargaProduct, useProductsDropdown } from "../../../hooks/useHargaProducts";
+// ✅ FIX: Import dropdown dari useMasterData, list/delete dari useHargaProducts
+import { useProductsDropdown } from "../../../hooks/useMasterData";
+import { useHargaProducts, useDeleteHargaProduct } from "../../../hooks/useHargaProducts";
 import { useHargaProductFilters, useHargaProductModals } from "../../../lib/zustand/hargaProductStore";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import { cn } from "../../../lib/utils";
@@ -18,6 +20,8 @@ const HargaProductPage = () => {
   const { danger, success, info } = useConfirmDialog();
 
   const [searchInput, setSearchInput] = useState(filters.search);
+
+  // ✅ FIX: Import dari useMasterData
   const { data: productsOptions = [] } = useProductsDropdown();
 
   // Debounced search
@@ -39,7 +43,7 @@ const HargaProductPage = () => {
   const handleDelete = async (harga) => {
     const productName = harga.product?.kode || "produk ini";
     const target = harga.customer_id ? `untuk ${harga.customer?.name}` : "umum";
-    
+
     const confirmed = await danger(
       "Hapus Harga?",
       `Apakah Anda yakin ingin menghapus harga ${target} untuk "${productName}" senilai Rp ${formatRupiah(harga.harga)}?`
@@ -145,13 +149,13 @@ const HargaProductPage = () => {
                     Menampilkan <span className="font-semibold text-slate-900">{from}</span> - <span className="font-semibold text-slate-900">{to}</span> dari <span className="font-semibold text-slate-900">{total}</span> harga
                   </div>
                   <div className="flex items-center gap-1 order-1 sm:order-2">
-                    <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1 || isFetching} className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg disabled:opacity-50 transition-all"><ChevronLeft className="w-4 h-4" /></button>
+                    <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1 || isFetching} className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"><ChevronLeft className="w-4 h-4" /></button>
                     {paginationNumbers[0] > 1 && <><button onClick={() => setCurrentPage(1)} disabled={isFetching} className="px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">1</button>{paginationNumbers[0] > 2 && <span className="px-2 text-slate-400">...</span>}</>}
                     {paginationNumbers.map((page) => (
                       <button key={page} onClick={() => setCurrentPage(page)} disabled={isFetching} className={cn("px-3 py-1.5 text-sm rounded-lg transition-all", currentPage === page ? "bg-blue-600 text-white shadow-sm" : "text-slate-700 hover:bg-slate-50")}>{page}</button>
                     ))}
                     {paginationNumbers[paginationNumbers.length - 1] < lastPage && <>{paginationNumbers[paginationNumbers.length - 1] < lastPage - 1 && <span className="px-2 text-slate-400">...</span>}<button onClick={() => setCurrentPage(lastPage)} disabled={isFetching} className="px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">{lastPage}</button></>}
-                    <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === lastPage || isFetching} className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg disabled:opacity-50 transition-all"><ChevronRight className="w-4 h-4" /></button>
+                    <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === lastPage || isFetching} className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"><ChevronRight className="w-4 h-4" /></button>
                   </div>
                 </div>
               )}
@@ -179,13 +183,12 @@ const HargaProductPage = () => {
 };
 
 // ============================================
-// HARGA CARD COMPONENT (Redesigned for clarity)
+// HARGA CARD COMPONENT
 // ============================================
 const HargaCard = ({ item, onDetail, onEdit, onDelete }) => {
   const isCustomerSpecific = !!item.customer_id;
   const product = item.product;
-  
-  // Format product display
+
   const productParts = [product?.jenis?.nama, product?.type?.nama, product?.ukuran].filter(Boolean);
   const productLabel = productParts.length > 0 ? productParts.join(" • ") : product?.kode || "-";
 
@@ -214,18 +217,16 @@ const HargaCard = ({ item, onDetail, onEdit, onDelete }) => {
         </div>
 
         <div className="flex flex-col items-end gap-1">
-          {/* Customer Badge */}
           <span className={cn(
             "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold",
-            isCustomerSpecific 
-              ? "bg-purple-50 text-purple-700 border border-purple-200" 
+            isCustomerSpecific
+              ? "bg-purple-50 text-purple-700 border border-purple-200"
               : "bg-slate-100 text-slate-600 border border-slate-200"
           )}>
             {isCustomerSpecific ? <User className="w-3 h-3" /> : <Globe className="w-3 h-3" />}
             {isCustomerSpecific ? item.customer?.name || "Customer" : "Umum"}
           </span>
 
-          {/* Date */}
           {item.tanggal_berlaku && (
             <span className="inline-flex items-center gap-1 text-[10px] text-slate-400">
               <Calendar className="w-3 h-3" />

@@ -1,22 +1,12 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import api from '../lib/api/axios';
-
-export const typeProductKeys = {
-  all: ['type_products'],
-  lists: () => [...typeProductKeys.all, 'list'],
-  list: (filters) => [...typeProductKeys.lists(), filters],
-  details: () => [...typeProductKeys.all, 'detail'],
-  detail: (id) => [...typeProductKeys.details(), id],
-  dropdown: (jenisId = 'all') => [...typeProductKeys.all, 'dropdown', jenisId],
-  byJenis: (jenisId) => [...typeProductKeys.all, 'by_jenis', jenisId],
-  statistics: () => [...typeProductKeys.all, 'statistics'],
-};
+import { masterKeys, invalidateRelatedCaches } from './useMasterData';
 
 export const useTypeProducts = (params = {}) => {
   const { search = '', jenisId = '', perPage = 20, page = 1 } = params;
 
   return useQuery({
-    queryKey: typeProductKeys.list({ search, jenisId, perPage, page }),
+    queryKey: masterKeys.type.list({ search, jenisId, perPage, page }),
     queryFn: async () => {
       const response = await api.get('/type', {
         params: {
@@ -26,7 +16,6 @@ export const useTypeProducts = (params = {}) => {
           page,
         },
       });
-
       return {
         typeProducts: response.data.data || [],
         meta: response.data.meta || {},
@@ -37,24 +26,9 @@ export const useTypeProducts = (params = {}) => {
   });
 };
 
-export const useTypeProductsDropdown = (jenisId = null) => {
-  return useQuery({
-    queryKey: typeProductKeys.dropdown(jenisId || 'all'),
-    queryFn: async () => {
-      const response = await api.get('/type/dropdown', {
-        params: {
-          jenis_id: jenisId || undefined,
-        },
-      });
-      return response.data.data || [];
-    },
-    staleTime: 15 * 60 * 1000,
-  });
-};
-
 export const useTypeProductsByJenis = (jenisId) => {
   return useQuery({
-    queryKey: typeProductKeys.byJenis(jenisId),
+    queryKey: masterKeys.type.byJenis(jenisId),
     queryFn: async () => {
       const response = await api.get(`/type/by-jenis/${jenisId}`);
       return response.data.data || [];
@@ -66,7 +40,7 @@ export const useTypeProductsByJenis = (jenisId) => {
 
 export const useTypeProductStatistics = () => {
   return useQuery({
-    queryKey: typeProductKeys.statistics(),
+    queryKey: masterKeys.type.statistics(),
     queryFn: async () => {
       const response = await api.get('/type/statistics');
       return response.data.data;
@@ -75,89 +49,49 @@ export const useTypeProductStatistics = () => {
   });
 };
 
-const forceInvalidateTypeProductCache = async (queryClient) => {
-  await queryClient.cancelQueries({
-    queryKey: typeProductKeys.all,
-    exact: false,
-  });
-
-  queryClient.removeQueries({
-    queryKey: typeProductKeys.all,
-    exact: false,
-  });
-
-  await queryClient.invalidateQueries({
-    queryKey: typeProductKeys.all,
-    exact: false,
-    refetchType: 'all',
-  });
-};
-
 export const useCreateTypeProduct = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (data) => api.post('/type', data),
     onSuccess: async () => {
-      await forceInvalidateTypeProductCache(queryClient);
+      await invalidateRelatedCaches(queryClient, 'type');
     },
   });
 };
 
 export const useUpdateTypeProduct = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({ id, data }) => api.put(`/type/${id}`, data),
     onSuccess: async (response, variables) => {
-      queryClient.setQueryData(
-        typeProductKeys.detail(variables.id),
-        response.data.data
-      );
-      await forceInvalidateTypeProductCache(queryClient);
+      queryClient.setQueryData(masterKeys.type.detail(variables.id), response.data.data);
+      await invalidateRelatedCaches(queryClient, 'type');
     },
   });
 };
 
 export const useDeleteTypeProduct = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (id) => api.delete(`/type/${id}`),
     onMutate: async (id) => {
-      await queryClient.cancelQueries({
-        queryKey: typeProductKeys.lists(),
-        exact: false,
+      await queryClient.cancelQueries({ queryKey: masterKeys.type.lists(), exact: false });
+      const previousQueries = queryClient.getQueriesData({ queryKey: masterKeys.type.lists() });
+      queryClient.setQueriesData({ queryKey: masterKeys.type.lists() }, (old) => {
+        if (!old?.typeProducts) return old;
+        return {
+          ...old,
+          typeProducts: old.typeProducts.filter((t) => t.id !== id),
+          meta: { ...old.meta, total: (old.meta.total || 0) - 1 },
+        };
       });
-
-      const previousQueries = queryClient.getQueriesData({
-        queryKey: typeProductKeys.lists(),
-      });
-
-      queryClient.setQueriesData(
-        { queryKey: typeProductKeys.lists() },
-        (old) => {
-          if (!old?.typeProducts) return old;
-          return {
-            ...old,
-            typeProducts: old.typeProducts.filter((t) => t.id !== id),
-            meta: {
-              ...old.meta,
-              total: (old.meta.total || 0) - 1,
-            },
-          };
-        }
-      );
-
       return { previousQueries };
     },
     onError: (err, id, context) => {
-      context?.previousQueries?.forEach(([key, data]) => {
-        queryClient.setQueryData(key, data);
-      });
+      context?.previousQueries?.forEach(([key, data]) => queryClient.setQueryData(key, data));
     },
     onSettled: async () => {
-      await forceInvalidateTypeProductCache(queryClient);
+      await invalidateRelatedCaches(queryClient, 'type');
     },
   });
 };

@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { X, Tag, User, Globe, Calendar, FileText, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useHargaProductModals } from "../../../lib/zustand/hargaProductStore";
-import { useCreateHargaProduct, useUpdateHargaProduct, useProductsDropdown, useCustomersDropdown } from "../../../hooks/useHargaProducts";
+import { useCreateHargaProduct, useUpdateHargaProduct } from "../../../hooks/useHargaProducts";
+// ✅ FIX: Import dropdown dari useMasterData
+import { useProductsDropdown, useCustomersDropdown } from "../../../hooks/useMasterData";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import { cn } from "../../../lib/utils";
 
@@ -21,8 +23,9 @@ const HargaProductForm = () => {
   const updateMutation = useUpdateHargaProduct();
   const { success, info } = useConfirmDialog();
 
-  const { data: products = [] } = useProductsDropdown();
-  const { data: customers = [] } = useCustomersDropdown();
+  // ✅ FIX: Import dari useMasterData
+  const { data: products = [], isLoading: loadingProducts } = useProductsDropdown();
+  const { data: customers = [], isLoading: loadingCustomers } = useCustomersDropdown();
 
   const [form, setForm] = useState({ product_id: "", customer_id: "", harga: "", tanggal_berlaku: "", keterangan: "" });
   const [errors, setErrors] = useState({});
@@ -53,7 +56,7 @@ const HargaProductForm = () => {
 
   const validate = (fieldName) => {
     const newErrors = { ...errors };
-    
+
     if ((fieldName === "product_id" || !fieldName) && !form.product_id) {
       newErrors.product_id = "Product wajib dipilih";
     } else if (fieldName === "product_id" || !fieldName) {
@@ -76,8 +79,7 @@ const HargaProductForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     let newValue = value;
-    
-    // Special handling for harga input
+
     if (name === "harga") {
       newValue = unformatRupiah(value);
     }
@@ -92,6 +94,7 @@ const HargaProductForm = () => {
     validate(name);
   };
 
+  // ✅ FIX: Urutan benar → mutateAsync → success → closeAllModals
   const handleSubmit = async (e) => {
     e.preventDefault();
     setTouched({ product_id: true, harga: true });
@@ -108,12 +111,12 @@ const HargaProductForm = () => {
     try {
       if (isEdit) {
         await updateMutation.mutateAsync({ id: selectedHarga.id, data: payload });
-        closeAllModals();
         await success("Berhasil!", "Harga berhasil diperbarui");
+        closeAllModals();
       } else {
         await createMutation.mutateAsync(payload);
-        closeAllModals();
         await success("Berhasil!", "Harga berhasil ditambahkan");
+        closeAllModals();
       }
     } catch (err) {
       if (err.response?.status === 422 && err.response?.data?.errors) {
@@ -154,8 +157,8 @@ const HargaProductForm = () => {
               <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <select name="product_id" value={form.product_id} onChange={handleChange} onBlur={handleBlur}
                 className={cn("w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm bg-white appearance-none", errors.product_id && touched.product_id ? "border-red-300 focus:ring-red-500" : "border-slate-200 focus:ring-blue-500")}
-                disabled={isSubmitting}>
-                <option value="">Pilih Product</option>
+                disabled={loadingProducts || isSubmitting}>
+                <option value="">{loadingProducts ? "Memuat..." : "Pilih Product"}</option>
                 {products.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
             </div>
@@ -170,8 +173,8 @@ const HargaProductForm = () => {
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <select name="customer_id" value={form.customer_id} onChange={handleChange}
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white appearance-none"
-                disabled={isSubmitting}>
-                <option value="">Harga Umum (Semua Customer)</option>
+                disabled={loadingCustomers || isSubmitting}>
+                <option value="">{loadingCustomers ? "Memuat..." : "Harga Umum (Semua Customer)"}</option>
                 {customers.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>

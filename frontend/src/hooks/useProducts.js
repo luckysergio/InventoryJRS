@@ -1,131 +1,80 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../lib/api/axios'
-import { useConfirmDialog } from './useConfirmDialog'
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import api from '../lib/api/axios';
+import { masterKeys, invalidateRelatedCaches } from './useMasterData';
 
-const extractArray = (response) => {
-  const responseData = response?.data?.data
-  if (Array.isArray(responseData)) return responseData
-  if (responseData && Array.isArray(responseData.data)) return responseData.data
-  return []
-}
+// Re-export dropdown hooks dari useMasterData agar import tetap kompatibel
+export { useJenisDropdown, useTypesDropdown, useBahansDropdown } from './useMasterData';
 
-// ==========================================
-// 1. MASTER DATA
-// ==========================================
-export const useJenis = () => useQuery({
-  queryKey: ['jenis'],
-  queryFn: async () => extractArray(await api.get('/jenis', { params: { per_page: 1000 } })),
-  staleTime: 1000 * 60 * 5,
-  refetchOnWindowFocus: false,
-})
+export const useProducts = (params = {}) => {
+  const { search = '', jenisId = '', typeId = '', perPage = 15, page = 1 } = params;
 
-export const useTypes = () => useQuery({
-  queryKey: ['types'],
-  queryFn: async () => extractArray(await api.get('/type', { params: { per_page: 1000 } })),
-  staleTime: 1000 * 60 * 5,
-  refetchOnWindowFocus: false,
-})
-
-export const useBahans = () => useQuery({
-  queryKey: ['bahans'],
-  queryFn: async () => extractArray(await api.get('/bahan', { params: { per_page: 1000 } })),
-  staleTime: 1000 * 60 * 5,
-  refetchOnWindowFocus: false,
-})
-
-// ==========================================
-// 2. PRODUCTS LIST
-// ==========================================
-export const useProducts = (search = '', jenisId = null, typeId = null, page = 1, perPage = 15) => {
   return useQuery({
-    queryKey: ['products', search, jenisId, typeId, page, perPage],
+    queryKey: masterKeys.product.list({ search, jenisId, typeId, perPage, page }),
     queryFn: async () => {
       const response = await api.get('/products', {
-        params: { search, jenis_id: jenisId, type_id: typeId, page, per_page: perPage }
-      })
-      return response.data
+        params: {
+          search: search || undefined,
+          jenis_id: jenisId || undefined,
+          type_id: typeId || undefined,
+          per_page: perPage,
+          page,
+        },
+      });
+      return {
+        products: response.data.data || [],
+        meta: response.data.meta || {},
+      };
     },
-    refetchOnWindowFocus: false,
-  })
-}
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60 * 1000,
+  });
+};
 
-// ==========================================
-// 3. MUTATIONS (✅ FIXED: Segitiga Sinkronisasi)
-// ==========================================
 export const useCreateProduct = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
-
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (formData) => api.post('/products', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    mutationFn: (formData) =>
+      api.post('/products', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['products'] })
-      await queryClient.invalidateQueries({ queryKey: ['distributor_products'] }) // ✅ Sinkron ke Distributor
-      await queryClient.invalidateQueries({ queryKey: ['harga_products'] }) // ✅ Sinkron ke Harga
-      await queryClient.invalidateQueries({ queryKey: ['jenis'] })
-      await queryClient.invalidateQueries({ queryKey: ['types'] })
-      await queryClient.invalidateQueries({ queryKey: ['bahans'] })
-      
-      await queryClient.refetchQueries({ queryKey: ['products'], type: 'active' })
-      await queryClient.refetchQueries({ queryKey: ['distributor_products'], type: 'active' })
-      await queryClient.refetchQueries({ queryKey: ['harga_products'], type: 'active' })
-      
-      await success('Berhasil!', 'Product berhasil ditambahkan')
+      await invalidateRelatedCaches(queryClient, 'product');
     },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || 'Gagal menambahkan product'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
+  });
+};
 
 export const useUpdateProduct = () => {
-  const queryClient = useQueryClient()
-  const { success, info } = useConfirmDialog()
-
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, formData }) => api.post(`/products/${id}?_method=PUT`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['products'] })
-      await queryClient.invalidateQueries({ queryKey: ['distributor_products'] }) // ✅ Sinkron ke Distributor
-      await queryClient.invalidateQueries({ queryKey: ['harga_products'] }) // ✅ Sinkron ke Harga
-      await queryClient.invalidateQueries({ queryKey: ['jenis'] })
-      await queryClient.invalidateQueries({ queryKey: ['types'] })
-      await queryClient.invalidateQueries({ queryKey: ['bahans'] })
-      
-      await queryClient.refetchQueries({ queryKey: ['products'], type: 'active' })
-      await queryClient.refetchQueries({ queryKey: ['distributor_products'], type: 'active' })
-      await queryClient.refetchQueries({ queryKey: ['harga_products'], type: 'active' })
-      
-      await success('Berhasil!', 'Product berhasil diperbarui')
+    mutationFn: ({ id, formData }) =>
+      api.post(`/products/${id}?_method=PUT`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    onSuccess: async (response, variables) => {
+      queryClient.setQueryData(masterKeys.product.detail(variables.id), response.data.data);
+      await invalidateRelatedCaches(queryClient, 'product');
     },
-    onError: (error) => {
-      const msg = Object.values(error.response?.data?.errors || {}).flat().join('<br>') || 'Gagal memperbarui product'
-      info('Validasi Gagal', msg)
-    },
-  })
-}
+  });
+};
 
 export const useDeleteProduct = () => {
-  const queryClient = useQueryClient()
-  const { danger, success, info } = useConfirmDialog()
-
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id) => api.delete(`/products/${id}`),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['products'] })
-      await queryClient.invalidateQueries({ queryKey: ['distributor_products'] }) // ✅ Sinkron ke Distributor
-      await queryClient.invalidateQueries({ queryKey: ['harga_products'] }) // ✅ Sinkron ke Harga
-      
-      await queryClient.refetchQueries({ queryKey: ['products'], type: 'active' })
-      await queryClient.refetchQueries({ queryKey: ['distributor_products'], type: 'active' })
-      await queryClient.refetchQueries({ queryKey: ['harga_products'], type: 'active' })
-      
-      await success('Berhasil!', 'Product berhasil dihapus')
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: masterKeys.product.lists(), exact: false });
+      const previousQueries = queryClient.getQueriesData({ queryKey: masterKeys.product.lists() });
+      queryClient.setQueriesData({ queryKey: masterKeys.product.lists() }, (old) => {
+        if (!old?.products) return old;
+        return {
+          ...old,
+          products: old.products.filter((p) => p.id !== id),
+          meta: { ...old.meta, total: (old.meta.total || 0) - 1 },
+        };
+      });
+      return { previousQueries };
     },
-    onError: (error) => {
-      const errorMsg = error.response?.data?.message || 'Gagal menghapus product. Pastikan product tidak sedang digunakan di transaksi.'
-      info('Gagal', errorMsg)
+    onError: (err, id, context) => {
+      context?.previousQueries?.forEach(([key, data]) => queryClient.setQueryData(key, data));
     },
-  })
-}
+    onSettled: async () => {
+      await invalidateRelatedCaches(queryClient, 'product');
+    },
+  });
+};

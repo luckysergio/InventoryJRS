@@ -1,22 +1,12 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import api from '../lib/api/axios';
-
-export const hargaProductKeys = {
-  all: ['harga_products'],
-  lists: () => [...hargaProductKeys.all, 'list'],
-  list: (filters) => [...hargaProductKeys.lists(), filters],
-  details: () => [...hargaProductKeys.all, 'detail'],
-  detail: (id) => [...hargaProductKeys.details(), id],
-  byProduct: (productId) => [...hargaProductKeys.all, 'by_product', productId],
-  productsDropdown: () => ['products_dropdown'],
-  customersDropdown: () => ['customers_dropdown'],
-};
+import { masterKeys, invalidateRelatedCaches } from './useMasterData';
 
 export const useHargaProducts = (params = {}) => {
   const { search = '', productId = '', perPage = 20, page = 1 } = params;
 
   return useQuery({
-    queryKey: hargaProductKeys.list({ search, productId, perPage, page }),
+    queryKey: masterKeys.harga.list({ search, productId, perPage, page }),
     queryFn: async () => {
       const response = await api.get('/harga', {
         params: {
@@ -36,32 +26,16 @@ export const useHargaProducts = (params = {}) => {
   });
 };
 
-export const useProductsDropdown = () => {
+export const useHargaByProduct = (productId) => {
   return useQuery({
-    queryKey: hargaProductKeys.productsDropdown(),
+    queryKey: masterKeys.harga.byProduct(productId),
     queryFn: async () => {
-      const response = await api.get('/products/dropdown');
+      const response = await api.get(`/harga/by-product/${productId}`);
       return response.data.data || [];
     },
-    staleTime: 15 * 60 * 1000,
+    enabled: !!productId,
+    staleTime: 10 * 60 * 1000,
   });
-};
-
-export const useCustomersDropdown = () => {
-  return useQuery({
-    queryKey: hargaProductKeys.customersDropdown(),
-    queryFn: async () => {
-      const response = await api.get('/customers/dropdown');
-      return response.data.data || [];
-    },
-    staleTime: 15 * 60 * 1000,
-  });
-};
-
-const forceInvalidateHargaCache = async (queryClient) => {
-  await queryClient.cancelQueries({ queryKey: hargaProductKeys.all, exact: false });
-  queryClient.removeQueries({ queryKey: hargaProductKeys.all, exact: false });
-  await queryClient.invalidateQueries({ queryKey: hargaProductKeys.all, exact: false, refetchType: 'all' });
 };
 
 export const useCreateHargaProduct = () => {
@@ -69,7 +43,7 @@ export const useCreateHargaProduct = () => {
   return useMutation({
     mutationFn: (data) => api.post('/harga', data),
     onSuccess: async () => {
-      await forceInvalidateHargaCache(queryClient);
+      await invalidateRelatedCaches(queryClient, 'harga');
     },
   });
 };
@@ -79,8 +53,8 @@ export const useUpdateHargaProduct = () => {
   return useMutation({
     mutationFn: ({ id, data }) => api.put(`/harga/${id}`, data),
     onSuccess: async (response, variables) => {
-      queryClient.setQueryData(hargaProductKeys.detail(variables.id), response.data.data);
-      await forceInvalidateHargaCache(queryClient);
+      queryClient.setQueryData(masterKeys.harga.detail(variables.id), response.data.data);
+      await invalidateRelatedCaches(queryClient, 'harga');
     },
   });
 };
@@ -90,9 +64,9 @@ export const useDeleteHargaProduct = () => {
   return useMutation({
     mutationFn: (id) => api.delete(`/harga/${id}`),
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: hargaProductKeys.lists(), exact: false });
-      const previousQueries = queryClient.getQueriesData({ queryKey: hargaProductKeys.lists() });
-      queryClient.setQueriesData({ queryKey: hargaProductKeys.lists() }, (old) => {
+      await queryClient.cancelQueries({ queryKey: masterKeys.harga.lists(), exact: false });
+      const previousQueries = queryClient.getQueriesData({ queryKey: masterKeys.harga.lists() });
+      queryClient.setQueriesData({ queryKey: masterKeys.harga.lists() }, (old) => {
         if (!old?.hargaProducts) return old;
         return {
           ...old,
@@ -106,7 +80,7 @@ export const useDeleteHargaProduct = () => {
       context?.previousQueries?.forEach(([key, data]) => queryClient.setQueryData(key, data));
     },
     onSettled: async () => {
-      await forceInvalidateHargaCache(queryClient);
+      await invalidateRelatedCaches(queryClient, 'harga');
     },
   });
 };

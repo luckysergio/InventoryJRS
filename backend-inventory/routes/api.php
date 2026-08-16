@@ -138,15 +138,17 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
     });
 
     Route::prefix('products')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/dropdown', [ProductController::class, 'dropdown']);
         Route::get('/available', [ProductController::class, 'available']);
         Route::get('/lowStok', [ProductController::class, 'lowStock']);
         Route::get('/best-seller', [ProductController::class, 'bestSeller']);
+
         Route::get('/', [ProductController::class, 'index']);
         Route::post('/', [ProductController::class, 'store'])->middleware('role:admin,admin_toko');
-        Route::get('/{id}', [ProductController::class, 'show']);
-        Route::put('/{id}', [ProductController::class, 'update'])->middleware('role:admin');
-        Route::delete('/{id}', [ProductController::class, 'destroy'])->middleware('role:admin');
-        Route::post('/{id}/upload-foto', [ProductController::class, 'uploadFoto']);
+        Route::get('/{product}', [ProductController::class, 'show']);
+        Route::put('/{product}', [ProductController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{product}', [ProductController::class, 'destroy'])->middleware('role:admin');
+        Route::post('/{product}/upload-foto', [ProductController::class, 'uploadFoto']);
     });
 
     Route::prefix('product-distributors')->middleware('role:admin,admin_toko,operator')->group(function () {
