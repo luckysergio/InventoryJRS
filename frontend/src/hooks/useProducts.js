@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import api from '../lib/api/axios';
 import { masterKeys, invalidateRelatedCaches } from './useMasterData';
 
-// Re-export dropdown hooks dari useMasterData agar import tetap kompatibel
+// Re-export dropdown hooks dari useMasterData
 export { useJenisDropdown, useTypesDropdown, useBahansDropdown } from './useMasterData';
 
 export const useProducts = (params = {}) => {
@@ -36,6 +36,7 @@ export const useCreateProduct = () => {
     mutationFn: (formData) =>
       api.post('/products', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
     onSuccess: async () => {
+      // ✅ Sekarang otomatis cross-invalidate distributorProduct via masterKeys
       await invalidateRelatedCaches(queryClient, 'product');
     },
   });
@@ -48,6 +49,7 @@ export const useUpdateProduct = () => {
       api.post(`/products/${id}?_method=PUT`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
     onSuccess: async (response, variables) => {
       queryClient.setQueryData(masterKeys.product.detail(variables.id), response.data.data);
+      // ✅ Sekarang otomatis cross-invalidate distributorProduct via masterKeys
       await invalidateRelatedCaches(queryClient, 'product');
     },
   });
@@ -58,9 +60,9 @@ export const useDeleteProduct = () => {
   return useMutation({
     mutationFn: (id) => api.delete(`/products/${id}`),
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: masterKeys.product.lists(), exact: false });
-      const previousQueries = queryClient.getQueriesData({ queryKey: masterKeys.product.lists() });
-      queryClient.setQueriesData({ queryKey: masterKeys.product.lists() }, (old) => {
+      await queryClient.cancelQueries({ queryKey: masterKeys.product.all, exact: false });
+      const previousQueries = queryClient.getQueriesData({ queryKey: masterKeys.product.all });
+      queryClient.setQueriesData({ queryKey: masterKeys.product.all }, (old) => {
         if (!old?.products) return old;
         return {
           ...old,

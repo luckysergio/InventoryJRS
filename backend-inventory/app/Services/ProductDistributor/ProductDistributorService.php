@@ -13,207 +13,349 @@ use App\Models\TypeProduct;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 
 class ProductDistributorService
 {
-    private const CACHE_LIST_PREFIX = 'product_distributors:list:';
-    private const CACHE_INDEX_KEY = 'product_distributors:cache:index';
-    
-    private const CACHE_TTL_LIST = 300;     // 5 Menit
-    private const CACHE_TTL_INDEX = 86400;  // 24 Jam
+    private const CACHE_LIST_PREFIX = 'product_distributors:list:v';
+    private const CACHE_DETAIL_PREFIX = 'product_distributors:detail:v';
 
-    public function getList(?string $search = null, ?int $jenisId = null, ?int $typeId = null, int $perPage = 15, int $page = 1)
-    {
-        $cacheKey = $this->buildListCacheKey($search, $jenisId, $typeId, $perPage, $page);
+    private const CACHE_VERSION_KEY = 'product_distributors:cache:version';
+    private const CACHE_VERSION_LOCK = 'product_distributors:cache:version:lock';
 
-        return Cache::remember($cacheKey, self::CACHE_TTL_LIST, function () use ($search, $jenisId, $typeId, $perPage, $page, $cacheKey) {
-            $this->trackCacheKey($cacheKey);
+    private const CACHE_TTL_LIST = 300;
+    private const CACHE_TTL_DETAIL = 900;
 
-            $query = Product::with([
-                'jenis', 'type', 'bahan', 'distributor',
-                'hargaProducts' => fn($q) => $q->whereNull('customer_id')->orderBy('tanggal_berlaku', 'desc')->limit(1),
-                'inventories.place' => fn($q) => $q->whereIn('kode', ['TOKO', 'BENGKEL'])
+    /**
+     * @return array{data: array, meta: array}
+     */
+    public function getList(
+        ?string $search = null,
+        ?int $jenisId = null,
+        ?int $typeId = null,
+        int $perPage = 15,
+        int $page = 1
+    ): array {
+        $version = $this->getCacheVersion();
+        $cacheKey = $this->buildListCacheKey($version, $search, $jenisId, $typeId, $perPage, $page);
+
+        $paginator = Cache::remember($cacheKey, self::CACHE_TTL_LIST, function () use ($search, $jenisId, $typeId, $perPage, $page) {
+            $query = Product::select([
+                'products.id', 'products.kode', 'products.ukuran', 'products.keterangan',
+                'products.jenis_id', 'products.type_id', 'products.bahan_id',
+                'products.distributor_id', 'products.harga_beli',
+                'products.foto_depan', 'products.foto_samping', 'products.foto_atas',
+                'products.created_at', 'products.updated_at',
             ])
-            ->whereNotNull('distributor_id')
-            ->when($search, function ($q) use ($search) {
-                $q->where('kode', 'like', "%{$search}%")
-                  ->orWhere('ukuran', 'like', "%{$search}%")
-                  ->orWhereHas('jenis', fn($q2) => $q2->where('nama', 'like', "%{$search}%"))
-                  ->orWhereHas('type', fn($q2) => $q2->where('nama', 'like', "%{$search}%"))
-                  ->orWhereHas('bahan', fn($q2) => $q2->where('nama', 'like', "%{$search}%"));
-            })
-            ->byJenis($jenisId)
-            ->byType($typeId)
-            ->orderBy('kode', 'asc');
+                ->with([
+                    'jenis' => fn($q) => $q->select('id', 'nama'),
+                    'type' => fn($q) => $q->select('id', 'nama'),
+                    'bahan' => fn($q) => $q->select('id', 'nama'),
+                    'distributor' => fn($q) => $q->select('id', 'nama'),
+                    'hargaProducts' => fn($q) => $q->whereNull('customer_id')
+                        ->orderByDesc('tanggal_berlaku')
+                        ->select('id', 'product_id', 'harga', 'tanggal_berlaku')
+                        ->limit(1),
+                    'inventories' => fn($q) => $q->join('places', 'places.id', '=', 'inventories.place_id')
+                        ->whereIn('places.kode', ['TOKO', 'BENGKEL'])
+                        ->select('inventories.product_id', 'inventories.qty', 'places.kode as place_kode'),
+                ])
+                ->whereNotNull('distributor_id')
+                ->when($search, function ($q) use ($search) {
+                    $q->where(function ($sub) use ($search) {
+                        $sub->where('products.kode', 'like', "%{$search}%")
+                            ->orWhere('products.ukuran', 'like', "%{$search}%")
+                            ->orWhereHas('jenis', fn($j) => $j->where('nama', 'like', "%{$search}%"))
+                            ->orWhereHas('type', fn($t) => $t->where('nama', 'like', "%{$search}%"))
+                            ->orWhereHas('distributor', fn($d) => $d->where('nama', 'like', "%{$search}%"));
+                    });
+                })
+                ->when($jenisId, fn($q) => $q->where('products.jenis_id', $jenisId))
+                ->when($typeId, fn($q) => $q->where('products.type_id', $typeId))
+                ->orderBy('products.kode', 'asc');
 
-            $products = $query->paginate($perPage, ['*'], 'page', $page);
+            return $query->paginate($perPage, ['*'], 'page', $page);
+        });
 
-            $products->getCollection()->transform(function ($product) {
-                $hargaUmum = $product->hargaProducts->first();
-                $product->harga_umum = $hargaUmum ? $hargaUmum->harga : null;
+        $items = collect($paginator->items())->map(function (Product $product) {
+            $arr = $product->toArray();
+            $arr['harga_umum'] = $product->hargaProducts->first()?->harga ?? null;
+            $arr['qty_toko'] = 0;
+            $arr['qty_bengkel'] = 0;
 
-                $toko = $product->inventories->firstWhere('place.kode', 'TOKO');
-                $bengkel = $product->inventories->firstWhere('place.kode', 'BENGKEL');
+            foreach ($product->inventories as $inv) {
+                if ($inv->place_kode === 'TOKO') $arr['qty_toko'] = $inv->qty;
+                if ($inv->place_kode === 'BENGKEL') $arr['qty_bengkel'] = $inv->qty;
+            }
 
-                $product->qty_toko = $toko ? $toko->qty : 0;
-                $product->qty_bengkel = $bengkel ? $bengkel->qty : 0;
+            unset($arr['harga_products'], $arr['inventories']);
+            return $arr;
+        });
 
-                unset($product->hargaProducts);
-                unset($product->inventories);
-                return $product;
-            });
+        return [
+            'data' => $items,
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'from' => $paginator->firstItem(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'to' => $paginator->lastItem(),
+                'total' => $paginator->total(),
+            ],
+        ];
+    }
 
-            return $products;
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function getDetail(int $id): ?array
+    {
+        $version = $this->getCacheVersion();
+        $cacheKey = self::CACHE_DETAIL_PREFIX . $version . ':' . $id;
+
+        return Cache::remember($cacheKey, self::CACHE_TTL_DETAIL, function () use ($id) {
+            $product = Product::with([
+                'jenis' => fn($q) => $q->select('id', 'nama'),
+                'type' => fn($q) => $q->select('id', 'nama'),
+                'bahan' => fn($q) => $q->select('id', 'nama'),
+                'distributor' => fn($q) => $q->select('id', 'nama'),
+                'hargaProducts' => fn($q) => $q->whereNull('customer_id')->orderByDesc('tanggal_berlaku'),
+                'inventories.place',
+            ])->find($id);
+
+            if (!$product || !$product->distributor_id) return null;
+
+            $arr = $product->toArray();
+            $arr['harga_umum'] = $product->hargaProducts->first()?->harga ?? null;
+            $arr['qty_toko'] = 0;
+            $arr['qty_bengkel'] = 0;
+
+            foreach ($product->inventories as $inv) {
+                if ($inv->place?->kode === 'TOKO') $arr['qty_toko'] = $inv->qty;
+                if ($inv->place?->kode === 'BENGKEL') $arr['qty_bengkel'] = $inv->qty;
+            }
+
+            unset($arr['inventories']);
+            return $arr;
         });
     }
 
     public function create(array $data): Product
     {
-        DB::beginTransaction();
-        try {
+        return DB::transaction(function () use ($data) {
             $distributor = Distributor::findOrFail($data['distributor_id']);
-            
-            $jenis = !empty($data['jenis_id']) 
-                ? JenisProduct::findOrFail($data['jenis_id']) 
+
+            $jenis = !empty($data['jenis_id'])
+                ? JenisProduct::findOrFail($data['jenis_id'])
                 : JenisProduct::firstOrCreate(['nama' => strtoupper(trim($data['jenis_nama']))]);
 
-            $type = !empty($data['type_id']) 
-                ? TypeProduct::where('id', $data['type_id'])->where('jenis_id', $jenis->id)->firstOrFail() 
-                : TypeProduct::firstOrCreate(['nama' => strtoupper(trim($data['type_nama'])), 'jenis_id' => $jenis->id]);
+            $type = !empty($data['type_id'])
+                ? TypeProduct::where('id', $data['type_id'])->where('jenis_id', $jenis->id)->firstOrFail()
+                : TypeProduct::firstOrCreate([
+                    'nama' => strtoupper(trim($data['type_nama'])),
+                    'jenis_id' => $jenis->id,
+                ]);
 
-            $bahan = !empty($data['bahan_id']) 
-                ? BahanProduct::findOrFail($data['bahan_id']) 
-                : BahanProduct::firstOrCreate(['nama' => strtoupper(trim($data['bahan_nama']))]);
+            $bahanId = null;
+            if (!empty($data['bahan_id'])) {
+                $bahanId = (int) $data['bahan_id'];
+            } elseif (!empty($data['bahan_nama'])) {
+                $bahan = BahanProduct::firstOrCreate(['nama' => strtoupper(trim($data['bahan_nama']))]);
+                $bahanId = $bahan->id;
+            }
 
-            $kode = $this->generateKode($jenis, $type, $bahan, $data['ukuran'], $distributor->nama, $distributor->no_hp);
-            $foto = $this->uploadImages($data, ['foto_depan', 'foto_samping', 'foto_atas']);
+            $kode = $this->generateKode(
+                $jenis->nama,
+                $type->nama,
+                $bahanId ? BahanProduct::find($bahanId)?->nama : null,
+                $data['ukuran'],
+                $distributor->nama,
+                $distributor->no_hp
+            );
+
+            $foto = $this->handleImageUpload($data, ['foto_depan', 'foto_samping', 'foto_atas']);
 
             $product = Product::create(array_merge([
-                'kode'           => $kode,
-                'jenis_id'       => $jenis->id,
-                'type_id'        => $type->id,
-                'bahan_id'       => $bahan->id,
-                'ukuran'         => $data['ukuran'],
-                'keterangan'     => $data['keterangan'] ?? null,
+                'kode' => $kode,
+                'jenis_id' => $jenis->id,
+                'type_id' => $type->id,
+                'bahan_id' => $bahanId,
+                'ukuran' => $data['ukuran'],
+                'keterangan' => $data['keterangan'] ?? null,
                 'distributor_id' => $distributor->id,
-                'harga_beli'     => $data['harga_beli'],
+                'harga_beli' => (int) $data['harga_beli'],
             ], $foto));
 
             HargaProduct::create([
                 'product_id' => $product->id,
                 'customer_id' => null,
-                'harga' => $data['harga_umum'],
+                'harga' => (int) $data['harga_umum'],
                 'tanggal_berlaku' => now(),
-                'keterangan' => 'Harga awal'
+                'keterangan' => 'Harga awal',
             ]);
 
-            foreach (Place::where('kode', 'TOKO')->get() as $place) {
-                Inventory::firstOrCreate(['product_id' => $product->id, 'place_id' => $place->id], ['qty' => 0]);
+            $places = Place::where('kode', 'TOKO')->get();
+            foreach ($places as $place) {
+                Inventory::firstOrCreate(
+                    ['product_id' => $product->id, 'place_id' => $place->id],
+                    ['qty' => 0]
+                );
             }
 
-            DB::commit();
-            $this->invalidateAllCache();
-            return $product->load(['jenis', 'type', 'bahan', 'distributor']);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            Log::error('Create Product Distributor failed', ['error' => $e->getMessage()]);
-            throw new \Exception("Gagal membuat product distributor: " . $e->getMessage());
-        }
+            Log::info('ProductDistributor created', [
+                'id' => $product->id,
+                'kode' => $product->kode,
+                'distributor_id' => $distributor->id,
+            ]);
+
+            return $product->load([
+                'jenis:id,nama',
+                'type:id,nama',
+                'bahan:id,nama',
+                'distributor:id,nama',
+            ]);
+        });
     }
 
     public function update(Product $product, array $data): Product
     {
-        DB::beginTransaction();
-        try {
+        return DB::transaction(function () use ($product, $data) {
+            if (!$product->exists) {
+                throw new \Exception("Gagal update: Data product tidak valid.");
+            }
+
             $distributor = Distributor::findOrFail($data['distributor_id']);
-            
-            $typeId = !empty($data['type_nama']) 
-                ? TypeProduct::firstOrCreate(['nama' => strtoupper(trim($data['type_nama'])), 'jenis_id' => $data['jenis_id']])->id 
-                : $data['type_id'];
 
-            $bahanId = !empty($data['bahan_nama']) 
-                ? BahanProduct::firstOrCreate(['nama' => strtoupper(trim($data['bahan_nama']))])->id 
-                : $data['bahan_id'];
+            $newTypeId = null;
+            if (!empty($data['type_nama'])) {
+                $type = TypeProduct::firstOrCreate([
+                    'nama' => strtoupper(trim($data['type_nama'])),
+                    'jenis_id' => (int) $data['jenis_id'],
+                ]);
+                $newTypeId = $type->id;
+            } elseif (!empty($data['type_id'])) {
+                $newTypeId = (int) $data['type_id'];
+            }
 
-            $jenis = JenisProduct::findOrFail($data['jenis_id']);
-            $type = $typeId ? TypeProduct::find($typeId) : null;
-            $bahan = $bahanId ? BahanProduct::find($bahanId) : null;
+            $newBahanId = null;
+            if (!empty($data['bahan_nama'])) {
+                $bahan = BahanProduct::firstOrCreate(['nama' => strtoupper(trim($data['bahan_nama']))]);
+                $newBahanId = $bahan->id;
+            } elseif (!empty($data['bahan_id'])) {
+                $newBahanId = (int) $data['bahan_id'];
+            }
 
-            $kode = $this->generateKode($jenis, $type, $bahan, $data['ukuran'], $distributor->nama, $distributor->no_hp, $product->id);
-            $foto = $this->uploadImages($data, ['foto_depan', 'foto_samping', 'foto_atas'], $product);
+            $isChanged = $this->isCombinationChanged(
+                $product,
+                (int) $data['jenis_id'],
+                $newTypeId,
+                $newBahanId,
+                (string) $data['ukuran'],
+                $distributor->id
+            );
 
-            $updateData = array_merge([
-                'kode'           => $kode,
-                'jenis_id'       => $jenis->id,
-                'type_id'        => $typeId,
-                'bahan_id'       => $bahanId,
-                'ukuran'         => $data['ukuran'],
-                'keterangan'     => $data['keterangan'] ?? null,
+            $jenisNama = JenisProduct::find((int) $data['jenis_id'])?->nama ?? '';
+            $typeNama = $newTypeId ? TypeProduct::find($newTypeId)?->nama : null;
+            $bahanNama = $newBahanId ? BahanProduct::find($newBahanId)?->nama : null;
+
+            $kode = $isChanged
+                ? $this->generateKode($jenisNama, $typeNama, $bahanNama, (string) $data['ukuran'], $distributor->nama, $distributor->no_hp, $product->id)
+                : $product->kode;
+
+            $foto = $this->handleImageUpload($data, ['foto_depan', 'foto_samping', 'foto_atas'], $product);
+
+            $product->update(array_merge([
+                'kode' => $kode,
+                'jenis_id' => (int) $data['jenis_id'],
+                'type_id' => $newTypeId,
+                'bahan_id' => $newBahanId,
+                'ukuran' => (string) $data['ukuran'],
+                'keterangan' => $data['keterangan'] ?? null,
                 'distributor_id' => $distributor->id,
-                'harga_beli'     => $data['harga_beli'],
-            ], $foto);
-
-            $product->update($updateData);
+                'harga_beli' => (int) $data['harga_beli'],
+            ], $foto));
 
             $product->hargaProducts()->whereNull('customer_id')->delete();
             HargaProduct::create([
                 'product_id' => $product->id,
                 'customer_id' => null,
-                'harga' => $data['harga_umum'],
+                'harga' => (int) ($data['harga_umum'] ?? 0),
                 'tanggal_berlaku' => now(),
-                'keterangan' => 'Harga diperbarui'
+                'keterangan' => 'Harga diperbarui',
             ]);
 
-            DB::commit();
-            $this->invalidateAllCache();
-            return $product->fresh()->load(['jenis', 'type', 'bahan', 'distributor']);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            Log::error('Update Product Distributor failed', ['error' => $e->getMessage()]);
-            throw new \Exception("Gagal memperbarui product distributor: " . $e->getMessage());
-        }
+            Log::info('ProductDistributor updated', [
+                'id' => $product->id,
+                'kode_changed' => $isChanged,
+            ]);
+
+            return $product->fresh()->load([
+                'jenis:id,nama',
+                'type:id,nama',
+                'bahan:id,nama',
+                'distributor:id,nama',
+            ]);
+        });
     }
 
+    /**
+     * @return array{success: bool, code?: int, message: string}
+     */
     public function delete(Product $product): array
     {
-        DB::beginTransaction();
-        try {
-            $this->deleteOldImages($product, ['foto_depan', 'foto_samping', 'foto_atas']);
-            $productId = $product->id;
-            $product->delete();
-            
-            DB::commit();
-            $this->invalidateAllCache();
-            return ['success' => true, 'message' => 'Product distributor berhasil dihapus.'];
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            throw new \Exception("Gagal menghapus product distributor: " . $e->getMessage());
+        $id = $product->id;
+        $kode = $product->kode;
+
+        if (!$id || !$product->exists) {
+            return ['success' => false, 'code' => 400, 'message' => 'Data product tidak valid.'];
         }
+
+        // Proteksi: cek relasi transaksi
+        if ($product->details()->exists()) {
+            return [
+                'success' => false,
+                'code' => 422,
+                'message' => "Product '{$kode}' tidak dapat dihapus karena masih memiliki riwayat transaksi.",
+            ];
+        }
+
+        if ($product->productions()->exists()) {
+            return [
+                'success' => false,
+                'code' => 422,
+                'message' => "Product '{$kode}' tidak dapat dihapus karena masih memiliki riwayat produksi.",
+            ];
+        }
+
+        DB::transaction(function () use ($product) {
+            $this->deleteOldImages($product, ['foto_depan', 'foto_samping', 'foto_atas']);
+            $product->hargaProducts()->delete();
+            $product->inventories()->delete();
+            $product->delete();
+        });
+
+        Log::info('ProductDistributor deleted', ['id' => $id, 'kode' => $kode]);
+
+        return ['success' => true, 'message' => "Product '{$kode}' berhasil dihapus."];
     }
 
-    // ==========================================
-    // HELPER METHODS
-    // ==========================================
-    private function uploadImages(array $data, array $fields, ?Product $product = null): array
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<int, string>    $fields
+     * @return array<string, string>
+     */
+    private function handleImageUpload(array $data, array $fields, ?Product $product = null): array
     {
-        $manager = new ImageManager(new Driver());
         $uploaded = [];
-        
-        // ✅ PATH DIREKTORI (Pilih salah satu)
-        $basePath = public_path('storage/products');
-        // $basePath = '/home/jaym3787/public_html/storage/products';
-
-        if (!file_exists($basePath)) {
-            mkdir($basePath, 0755, true);
-        }
+        $manager = new ImageManager(new Driver());
 
         foreach ($fields as $field) {
             if (isset($data[$field]) && $data[$field] instanceof \Illuminate\Http\UploadedFile) {
                 if ($product && $product->{$field}) {
-                    $this->deleteSingleImage($product->{$field}, $basePath);
+                    Storage::disk('public')->delete($product->{$field});
                 }
 
                 $image = $manager->read($data[$field]);
@@ -222,48 +364,62 @@ class ProductDistributorService
                 }
 
                 $filename = 'products/' . Str::uuid() . '.jpg';
-                $path = $basePath . '/' . basename($filename);
-
-                file_put_contents($path, (string) $image->toJpeg(75));
-                chmod($path, 0644);
+                Storage::disk('public')->put($filename, (string) $image->toJpeg(75));
 
                 $uploaded[$field] = $filename;
             }
         }
+
         return $uploaded;
     }
 
+    /**
+     * @param  array<int, string>  $fields
+     */
     private function deleteOldImages(Product $product, array $fields): void
     {
-        $basePath = public_path('storage/products');
-        // $basePath = '/home/jaym3787/public_html/storage/products';
-
         foreach ($fields as $field) {
             if ($product->{$field}) {
-                $this->deleteSingleImage($product->{$field}, $basePath);
+                Storage::disk('public')->delete($product->{$field});
             }
         }
     }
 
-    private function deleteSingleImage(string $filename, string $basePath): void
-    {
-        $path = $basePath . '/' . basename($filename);
-        if (file_exists($path)) {
-            unlink($path);
-        }
+    private function isCombinationChanged(
+        Product $product,
+        int $newJenisId,
+        ?int $newTypeId,
+        ?int $newBahanId,
+        string $newUkuran,
+        int $newDistributorId
+    ): bool {
+        return (int) $product->jenis_id !== $newJenisId
+            || ($product->type_id ? (int) $product->type_id : null) !== $newTypeId
+            || ($product->bahan_id ? (int) $product->bahan_id : null) !== $newBahanId
+            || trim((string) $product->ukuran) !== trim($newUkuran)
+            || (int) $product->distributor_id !== $newDistributorId;
     }
 
-    private function generateKode(JenisProduct $jenis, ?TypeProduct $type, ?BahanProduct $bahan, string $ukuran, string $distributorNama, string $distributorHp, ?int $ignoreId = null): string
-    {
+    private function generateKode(
+        string $jenisNama,
+        ?string $typeNama,
+        ?string $bahanNama,
+        string $ukuran,
+        string $distributorNama,
+        string $distributorHp,
+        ?int $ignoreId = null
+    ): string {
         $baseKode = strtoupper(
-            $this->jenisKode($jenis->nama) .
-            ($type ? $this->typeKode($type->nama) : '') .
-            ($bahan ? $this->bahanKode($bahan->nama) : '') .
+            $this->jenisKode($jenisNama) .
+            $this->typeKode($typeNama ?? '') .
+            $this->bahanKode($bahanNama ?? '') .
             $this->ukuranKode($ukuran)
         );
 
         $prefix = $this->distributorPrefix($distributorNama, $distributorHp);
-        return $this->makeUniqueKode("{$prefix}-{$baseKode}", $ignoreId);
+        $fullKode = "{$prefix}-{$baseKode}";
+
+        return $this->makeUniqueKode($fullKode, $ignoreId);
     }
 
     private function makeUniqueKode(string $kode, ?int $ignoreId = null): string
@@ -275,22 +431,29 @@ class ProductDistributorService
             $final = "{$kode}-{$i}";
             $i++;
         }
+
         return $final;
     }
 
     private function distributorPrefix(string $nama, string $noHp): string
     {
-        $initial = collect(preg_split('/\s+/', trim($nama)))->map(fn($w) => strtoupper(substr($w, 0, 1)))->implode('');
+        $initial = collect(preg_split('/\s+/', trim($nama)))
+            ->filter(fn($w) => !empty($w))
+            ->map(fn($w) => strtoupper(substr($w, 0, 1)))
+            ->implode('');
         $hpAngka = preg_replace('/\D/', '', $noHp);
         return $initial . substr($hpAngka, -4);
     }
 
-    private function jenisKode(string $text): string {
+    private function jenisKode(string $text): string
+    {
         $text = trim($text);
         return strlen($text) < 2 ? strtoupper($text) : strtoupper(substr($text, 0, 1) . substr($text, -1));
     }
 
-    private function typeKode(string $text): string {
+    private function typeKode(string $text): string
+    {
+        if (empty($text)) return '';
         $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
         $words = collect(preg_split('/\s+/', trim($clean)))->filter(fn($w) => ctype_alpha(substr($w, 0, 1)));
         $huruf = $words->count() === 1 ? substr($words->first(), 0, 2) : $words->map(fn($w) => substr($w, 0, 1))->implode('');
@@ -299,45 +462,55 @@ class ProductDistributorService
         return strtoupper($huruf . $angka);
     }
 
-    private function bahanKode(string $text): string {
+    private function bahanKode(string $text): string
+    {
+        if (empty($text)) return '';
         $clean = preg_replace('/\(.+?\)/', '', strtoupper($text));
         $words = collect(preg_split('/\s+/', trim($clean)))->filter(fn($w) => ctype_alpha(substr($w, 0, 1)));
         return $words->count() === 1 ? substr($words->first(), 0, 2) : $words->map(fn($w) => substr($w, 0, 1))->implode('');
     }
 
-    private function ukuranKode(string $text): string {
+    private function ukuranKode(string $text): string
+    {
         preg_match_all('/\d+[.,]?\d*/', $text, $matches);
         return collect($matches[0])->map(fn($n) => str_replace([',', '.'], '', $n))->implode('');
     }
 
-    // ==========================================
-    // CACHE HELPER METHODS
-    // ==========================================
-    private function buildListCacheKey(?string $search, ?int $jenisId, ?int $typeId, int $perPage, int $page): string
+    public function getCacheVersion(): int
     {
-        return self::CACHE_LIST_PREFIX . md5(json_encode([$search, $jenisId, $typeId, $perPage, $page]));
+        return (int) Cache::get(self::CACHE_VERSION_KEY, 1);
     }
 
-    private function trackCacheKey(string $cacheKey): void
+    public function invalidateCache(): void
     {
-        $keys = Cache::get(self::CACHE_INDEX_KEY, []);
-        if (!is_array($keys)) $keys = [];
-        if (!in_array($cacheKey, $keys, true)) {
-            $keys[] = $cacheKey;
-            Cache::put(self::CACHE_INDEX_KEY, $keys, self::CACHE_TTL_INDEX);
+        $lock = Cache::lock(self::CACHE_VERSION_LOCK, 10);
+
+        try {
+            $lock->block(5, function (): void {
+                $current = (int) Cache::get(self::CACHE_VERSION_KEY, 1);
+                Cache::forever(self::CACHE_VERSION_KEY, $current + 1);
+
+                Log::info('ProductDistributor cache invalidated', [
+                    'old_version' => $current,
+                    'new_version' => $current + 1,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            $current = (int) Cache::get(self::CACHE_VERSION_KEY, 1);
+            Cache::forever(self::CACHE_VERSION_KEY, $current + 1);
+
+            Log::warning('ProductDistributor cache invalidation fallback used', [
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
-    private function invalidateAllCache(): void
+    private function buildListCacheKey(int $version, ?string $search, ?int $jenisId, ?int $typeId, int $perPage, int $page): string
     {
-        $keys = Cache::get(self::CACHE_INDEX_KEY, []);
-        if (!is_array($keys) || empty($keys)) return;
+        $searchKey = $search ? md5($search) : 'all';
+        $jenisKey = $jenisId ?? 'all';
+        $typeKey = $typeId ?? 'all';
 
-        foreach ($keys as $key) {
-            if (str_starts_with($key, self::CACHE_LIST_PREFIX)) {
-                Cache::forget($key);
-            }
-        }
-        Cache::forget(self::CACHE_INDEX_KEY);
+        return self::CACHE_LIST_PREFIX . "{$version}:{$searchKey}:{$jenisKey}:{$typeKey}:{$perPage}:{$page}";
     }
 }

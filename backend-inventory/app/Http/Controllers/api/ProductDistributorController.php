@@ -5,10 +5,12 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ProductDistributor\StoreProductDistributorRequest;
 use App\Http\Requests\ProductDistributor\UpdateProductDistributorRequest;
+use App\Http\Resources\ProductDistributorResource;
 use App\Models\Product;
 use App\Services\ProductDistributor\ProductDistributorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ProductDistributorController extends Controller
 {
@@ -18,85 +20,138 @@ class ProductDistributorController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $perPage = min((int) $request->input('per_page', 15), 50);
-        $page = max((int) $request->input('page', 1), 1);
+        try {
+            $perPage = min((int) $request->input('per_page', 15), 50);
+            $page = max((int) $request->input('page', 1), 1);
 
-        $products = $this->productDistributorService->getList(
-            search: $request->input('search'),
-            jenisId: $request->input('jenis_id') ? (int) $request->input('jenis_id') : null,
-            typeId: $request->input('type_id') ? (int) $request->input('type_id') : null,
-            perPage: $perPage,
-            page: $page
-        );
+            $result = $this->productDistributorService->getList(
+                search: $request->input('search'),
+                jenisId: $request->input('jenis_id') ? (int) $request->input('jenis_id') : null,
+                typeId: $request->input('type_id') ? (int) $request->input('type_id') : null,
+                perPage: $perPage,
+                page: $page
+            );
 
-        return response()->json([
-            'status'  => true,
-            'message' => 'Berhasil mengambil data product distributor',
-            'data'    => $products->items(),
-            'meta'    => [
-                'current_page' => $products->currentPage(),
-                'last_page'    => $products->lastPage(),
-                'per_page'     => $products->perPage(),
-                'total'        => $products->total(),
-            ]
-        ]);
+            return response()->json([
+                'status' => true,
+                'data' => $result['data'],
+                'meta' => $result['meta'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('ProductDistributor index error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat data product distributor.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
-    // ✅ FIXED: Terima $id agar sinkron dengan route /{id}
-    public function show(string|int $id): JsonResponse
+    public function show(Product $product): JsonResponse
     {
-        $product = Product::with(['jenis', 'type', 'bahan', 'distributor'])->find((int) $id);
-        
-        if (!$product) {
-            return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
-        }
+        try {
+            if (!$product->distributor_id) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Product distributor tidak ditemukan.',
+                ], 404);
+            }
 
-        return response()->json(['status' => true, 'data' => $product]);
+            $detail = $this->productDistributorService->getDetail($product->id);
+
+            if (!$detail) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Product distributor tidak ditemukan.',
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => true,
+                'data' => $detail,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('ProductDistributor show error', ['id' => $product->id, 'error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat detail product distributor.',
+            ], 500);
+        }
     }
 
     public function store(StoreProductDistributorRequest $request): JsonResponse
     {
-        $product = $this->productDistributorService->create($request->validated());
+        try {
+            $product = $this->productDistributorService->create($request->validated());
 
-        return response()->json([
-            'status'  => true,
-            'message' => 'Product distributor berhasil dibuat',
-            'data'    => $product->load(['jenis', 'type', 'bahan', 'distributor'])
-        ], 201);
+            $this->productDistributorService->invalidateCache();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Product distributor berhasil dibuat.',
+                'data' => new ProductDistributorResource($product),
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('ProductDistributor store error', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal membuat product distributor.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
-    // ✅ FIXED: Terima $id agar sinkron dengan route /{id}
-    public function update(UpdateProductDistributorRequest $request, string|int $id): JsonResponse
+    public function update(UpdateProductDistributorRequest $request, Product $product): JsonResponse
     {
-        $product = Product::find((int) $id);
+        try {
+            $updated = $this->productDistributorService->update($product, $request->validated());
 
-        if (!$product) {
-            return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
+            $this->productDistributorService->invalidateCache();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Product distributor berhasil diperbarui.',
+                'data' => new ProductDistributorResource($updated),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('ProductDistributor update error', [
+                'id' => $product->id,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memperbarui product distributor.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        $updatedProduct = $this->productDistributorService->update($product, $request->validated());
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Product distributor berhasil diperbarui',
-            'data'    => $updatedProduct
-        ]);
     }
 
-    // ✅ FIXED: Terima $id agar sinkron dengan route /{id}
-    public function destroy(string|int $id): JsonResponse
+    public function destroy(Product $product): JsonResponse
     {
-        $product = Product::find((int) $id);
+        try {
+            $result = $this->productDistributorService->delete($product);
 
-        if (!$product) {
-            return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
+            if ($result['success']) {
+                $this->productDistributorService->invalidateCache();
+            }
+
+            return response()->json([
+                'status' => $result['success'],
+                'message' => $result['message'],
+            ], $result['success'] ? 200 : ($result['code'] ?? 400));
+        } catch (\Throwable $e) {
+            Log::error('ProductDistributor destroy error', [
+                'id' => $product->id,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus product distributor.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        $result = $this->productDistributorService->delete($product);
-
-        return response()->json([
-            'status'  => $result['success'],
-            'message' => $result['message']
-        ]);
     }
 }

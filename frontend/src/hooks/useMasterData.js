@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api/axios';
 
-// ✅ FIX: Key distributor TIDAK duplikat, semua sub-key ada dalam satu definisi
 export const masterKeys = {
   jenis: {
     all: ['jenis_products'],
@@ -31,7 +30,6 @@ export const masterKeys = {
     statistics: () => [...masterKeys.bahan.all, 'statistics'],
   },
 
-  // ✅ FIX: Satu definisi distributor yang LENGKAP (tidak duplikat)
   distributor: {
     all: ['distributors'],
     lists: () => [...masterKeys.distributor.all, 'list'],
@@ -49,6 +47,13 @@ export const masterKeys = {
     available: () => [...masterKeys.product.all, 'available'],
     lowStock: () => [...masterKeys.product.all, 'low_stock'],
     bestSeller: (params) => [...masterKeys.product.all, 'best_seller', params],
+  },
+
+  // ✅ FIX: Tambahkan distributorProduct ke masterKeys
+  distributorProduct: {
+    all: ['distributor_products'],
+    lists: () => [...masterKeys.distributorProduct.all, 'list'],
+    list: (filters) => [...masterKeys.distributorProduct.lists(), filters],
   },
 
   harga: {
@@ -126,7 +131,6 @@ export const useCustomersDropdown = () => {
   });
 };
 
-// ✅ FIX: Tambahkan export useDistributorsDropdown
 export const useDistributorsDropdown = () => {
   return useQuery({
     queryKey: masterKeys.distributor.dropdown(),
@@ -148,6 +152,8 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
     type: masterKeys.type.all,
     bahan: masterKeys.bahan.all,
     product: masterKeys.product.all,
+    // ✅ FIX: Tambahkan distributorProduct ke entityMap
+    distributorProduct: masterKeys.distributorProduct.all,
     harga: masterKeys.harga.all,
     customer: masterKeys.customer.all,
     distributor: masterKeys.distributor.all,
@@ -155,13 +161,16 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
 
   const keysToInvalidate = [entityMap[changedEntity]];
 
+  // ✅ FIX: Cross-invalidation dua arah product ↔ distributorProduct
   const crossInvalidation = {
-    jenis: [masterKeys.type.all, masterKeys.product.all],
-    type: [masterKeys.product.all],
-    bahan: [masterKeys.product.all],
-    product: [masterKeys.harga.all],
+    jenis: [masterKeys.type.all, masterKeys.product.all, masterKeys.distributorProduct.all],
+    type: [masterKeys.product.all, masterKeys.distributorProduct.all],
+    bahan: [masterKeys.product.all, masterKeys.distributorProduct.all],
+    product: [masterKeys.harga.all, masterKeys.distributorProduct.all],
+    // ✅ FIX: distributorProduct berubah → product & harga ikut ter-invalidate
+    distributorProduct: [masterKeys.product.all, masterKeys.harga.all],
     customer: [masterKeys.harga.all],
-    distributor: [masterKeys.product.all],
+    distributor: [masterKeys.product.all, masterKeys.distributorProduct.all],
   };
 
   if (crossInvalidation[changedEntity]) {
@@ -171,6 +180,10 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
   for (const key of keysToInvalidate) {
     await queryClient.cancelQueries({ queryKey: key, exact: false });
     queryClient.removeQueries({ queryKey: key, exact: false });
-    await queryClient.invalidateQueries({ queryKey: key, exact: false, refetchType: 'all' });
+    await queryClient.invalidateQueries({
+      queryKey: key,
+      exact: false,
+      refetchType: 'all',
+    });
   }
 };
