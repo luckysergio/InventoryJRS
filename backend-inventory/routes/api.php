@@ -176,12 +176,16 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{jenisProduct}', [JenisProductController::class, 'destroy'])->middleware('role:admin');
     });
 
+    // Bahan Products
     Route::prefix('bahan')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [BahanProductController::class, 'index']);
-        Route::get('/{id}', [BahanProductController::class, 'show']);
+        Route::get('/dropdown', [BahanProductController::class, 'dropdown']);
+        Route::get('/statistics', [BahanProductController::class, 'statistics'])->middleware('role:admin');
+
         Route::post('/', [BahanProductController::class, 'store'])->middleware('role:admin,admin_toko');
-        Route::put('/{id}', [BahanProductController::class, 'update'])->middleware('role:admin,admin_toko');
-        Route::delete('/{id}', [BahanProductController::class, 'destroy'])->middleware('role:admin');
+        Route::get('/{bahanProduct}', [BahanProductController::class, 'show']);
+        Route::put('/{bahanProduct}', [BahanProductController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{bahanProduct}', [BahanProductController::class, 'destroy'])->middleware('role:admin');
     });
 
     Route::prefix('type')->middleware('role:admin,admin_toko,operator')->group(function () {

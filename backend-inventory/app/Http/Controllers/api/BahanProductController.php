@@ -5,101 +5,162 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BahanProduct\StoreBahanProductRequest;
 use App\Http\Requests\BahanProduct\UpdateBahanProductRequest;
+use App\Http\Resources\BahanProductResource;
 use App\Models\BahanProduct;
 use App\Services\BahanProduct\BahanProductService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class BahanProductController extends Controller
 {
     public function __construct(
         protected BahanProductService $bahanProductService
-    ) {}
-
-    public function index(): JsonResponse
-    {
-        $data = $this->bahanProductService->getList(withCount: true);
-
-        return response()->json([
-            'status' => true,
-            'data'   => $data,
-        ]);
+    ) {
     }
 
-    // ✅ FIXED: Terima $id, cari manual agar sinkron dengan route /{id}
-    public function show(string|int $id): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $bahanProduct = BahanProduct::find((int) $id);
-        
-        if (!$bahanProduct) {
+        try {
+            $search = $request->input('search');
+            $withCount = $request->boolean('with_count', true);
+            $perPage = $request->input('per_page') ? (int) $request->input('per_page') : null;
+            $page = max((int) $request->input('page', 1), 1);
+
+            $result = $this->bahanProductService->getList(
+                search: $search,
+                withCount: $withCount,
+                perPage: $perPage,
+                page: $page
+            );
+
+            return response()->json([
+                'status' => true,
+                'data' => BahanProductResource::collection($result['data']),
+                'meta' => $result['meta'],
+            ]);
+        } catch (\Throwable $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
+                'message' => 'Gagal memuat data bahan product.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
+    }
 
-        $detail = $this->bahanProductService->getDetail($bahanProduct->id);
+    public function dropdown(): JsonResponse
+    {
+        try {
+            $bahanProducts = $this->bahanProductService->getForDropdown();
 
-        return response()->json([
-            'status' => true,
-            'data'   => $detail,
-        ]);
+            return response()->json([
+                'status' => true,
+                'data' => $bahanProducts->map(fn($b) => [
+                    'value' => $b->id,
+                    'label' => $b->nama,
+                ]),
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat data dropdown.',
+            ], 500);
+        }
+    }
+
+    public function statistics(): JsonResponse
+    {
+        try {
+            $stats = $this->bahanProductService->getStatistics();
+
+            return response()->json([
+                'status' => true,
+                'data' => $stats,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat statistik.',
+            ], 500);
+        }
+    }
+
+    public function show(BahanProduct $bahanProduct): JsonResponse
+    {
+        try {
+            $detail = $this->bahanProductService->getDetail($bahanProduct->id);
+
+            if (!$detail) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Bahan product tidak ditemukan.',
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => true,
+                'data' => new BahanProductResource($detail),
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat detail bahan product.',
+            ], 500);
+        }
     }
 
     public function store(StoreBahanProductRequest $request): JsonResponse
     {
-        $bahan = $this->bahanProductService->create($request->validated());
+        try {
+            $bahan = $this->bahanProductService->create($request->validated());
 
-        return response()->json([
-            'status'  => true,
-            'message' => 'Data berhasil ditambahkan.',
-            'data'    => $bahan,
-        ], 201);
-    }
-
-    // ✅ FIXED: Terima $id, cari manual
-    public function update(UpdateBahanProductRequest $request, string|int $id): JsonResponse
-    {
-        $bahanProduct = BahanProduct::find((int) $id);
-
-        if (!$bahanProduct) {
+            return response()->json([
+                'status' => true,
+                'message' => 'Bahan product berhasil dibuat.',
+                'data' => new BahanProductResource($bahan),
+            ], 201);
+        } catch (\Throwable $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
+                'message' => 'Gagal membuat bahan product.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        $updatedBahan = $this->bahanProductService->update($bahanProduct, $request->validated());
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Data berhasil diperbarui.',
-            'data'    => $updatedBahan,
-        ]);
     }
 
-    public function destroy(string|int $id): JsonResponse
+    public function update(UpdateBahanProductRequest $request, BahanProduct $bahanProduct): JsonResponse
     {
-        $bahanProduct = BahanProduct::find((int) $id);
+        try {
+            $updated = $this->bahanProductService->update($bahanProduct, $request->validated());
 
-        if (!$bahanProduct) {
+            return response()->json([
+                'status' => true,
+                'message' => 'Bahan product berhasil diperbarui.',
+                'data' => new BahanProductResource($updated),
+            ]);
+        } catch (\Throwable $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
+                'message' => 'Gagal memperbarui bahan product.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
+    }
 
-        $result = $this->bahanProductService->delete($bahanProduct);
+    public function destroy(BahanProduct $bahanProduct): JsonResponse
+    {
+        try {
+            $result = $this->bahanProductService->delete($bahanProduct);
 
-        if (!$result['success']) {
             return response()->json([
-                'status'  => false,
+                'status' => $result['success'],
                 'message' => $result['message'],
-            ], $result['code']);
+            ], $result['success'] ? 200 : ($result['code'] ?? 400));
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus bahan product.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        return response()->json([
-            'status'  => true,
-            'message' => $result['message'],
-        ]);
     }
 }

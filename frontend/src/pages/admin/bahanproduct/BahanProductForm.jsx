@@ -1,78 +1,190 @@
 import { useState, useEffect } from "react";
-import { X, Package } from "lucide-react";
-import { useBahanProductStore } from "../../../lib/zustand/bahanProductStore";
-import { useCreateBahanProduct, useUpdateBahanProduct } from "../../../hooks/useBahanProducts";
+import {
+  X,
+  Package,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
+import { useBahanProductModals } from "../../../lib/zustand/bahanProductStore";
+import {
+  useCreateBahanProduct,
+  useUpdateBahanProduct,
+} from "../../../hooks/useBahanProducts";
+import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
+import { cn } from "../../../lib/utils";
+
+const MAX_LENGTH = 100;
 
 const BahanProductForm = () => {
-  const { isFormOpen, selectedBahan, closeModals } = useBahanProductStore();
+  const { modals, selectedBahan, closeAllModals } = useBahanProductModals();
   const createMutation = useCreateBahanProduct();
   const updateMutation = useUpdateBahanProduct();
+  const { success, info } = useConfirmDialog();
 
   const [nama, setNama] = useState("");
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
-  const isEdit = !!selectedBahan;
+  const isEdit = modals.edit && selectedBahan;
+  const isCreate = modals.create;
+  const isOpen = isEdit || isCreate;
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
+  // Reset form saat modal open/close
   useEffect(() => {
-    if (isFormOpen) {
-      if (isEdit) {
-        setNama(selectedBahan.nama);
+    if (isEdit && selectedBahan) {
+      setNama(selectedBahan.nama || "");
+      setErrors({});
+      setTouched({});
+    } else if (isCreate) {
+      setNama("");
+      setErrors({});
+      setTouched({});
+    }
+  }, [isEdit, isCreate, selectedBahan, modals.edit, modals.create]);
+
+  // Real-time validation
+  const validate = (fieldName, value) => {
+    const newErrors = { ...errors };
+
+    if (fieldName === "nama" || !fieldName) {
+      const trimmed = (value || "").trim();
+      if (!trimmed) {
+        newErrors.nama = "Nama bahan wajib diisi";
+      } else if (trimmed.length < 2) {
+        newErrors.nama = "Nama minimal 2 karakter";
+      } else if (trimmed.length > MAX_LENGTH) {
+        newErrors.nama = `Nama maksimal ${MAX_LENGTH} karakter`;
+      } else if (!/^[A-Z0-9\s\-\(\)#]+$/.test(trimmed)) {
+        newErrors.nama = "Hanya huruf kapital, angka, spasi, dan (-, (), #)";
       } else {
-        setNama("");
+        delete newErrors.nama;
       }
-      setError("");
-    }
-  }, [isFormOpen, isEdit, selectedBahan]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const trimmedNama = nama.trim().toUpperCase();
-
-    if (!trimmedNama) {
-      setError("Nama bahan wajib diisi");
-      return;
     }
 
-    if (!/^[A-Z0-9\s\-\(\)#]+$/.test(trimmedNama)) {
-      setError("Nama harus menggunakan HURUF KAPITAL, angka, atau karakter (-, (), #)");
-      return;
-    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-    try {
-      if (isEdit) {
-        await updateMutation.mutateAsync({ id: selectedBahan.id, data: { nama: trimmedNama } });
-      } else {
-        await createMutation.mutateAsync({ nama: trimmedNama });
-      }
-      closeModals();
-    } catch (err) {
-      console.error(err);
+  const handleChange = (e) => {
+    const value = e.target.value.toUpperCase();
+    setNama(value);
+
+    if (touched.nama) {
+      setTimeout(() => validate("nama", value), 0);
     }
   };
 
-  if (!isFormOpen) return null;
+  const handleBlur = () => {
+    setTouched((prev) => ({ ...prev, nama: true }));
+    validate("nama", nama);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Mark as touched
+    setTouched({ nama: true });
+
+    // Validate
+    if (!validate("nama", nama)) {
+      return;
+    }
+
+    const trimmedNama = nama.trim();
+
+    try {
+      if (isEdit) {
+        await updateMutation.mutateAsync({
+          id: selectedBahan.id,
+          data: { nama: trimmedNama },
+        });
+        closeAllModals();
+        await success(
+          "Berhasil!",
+          `Bahan "${trimmedNama}" berhasil diperbarui`
+        );
+      } else {
+        await createMutation.mutateAsync({ nama: trimmedNama });
+        closeAllModals();
+        await success(
+          "Berhasil!",
+          `Bahan "${trimmedNama}" berhasil ditambahkan`
+        );
+      }
+    } catch (err) {
+      // Handle validation errors dari backend
+      if (err.response?.status === 422 && err.response?.data?.errors) {
+        const serverErrors = {};
+        Object.keys(err.response.data.errors).forEach((key) => {
+          serverErrors[key] = err.response.data.errors[key][0];
+        });
+        setErrors(serverErrors);
+        return;
+      }
+
+      await info(
+        "Gagal",
+        err.response?.data?.message || "Terjadi kesalahan, silakan coba lagi"
+      );
+    }
+  };
+
+  const handleCancel = () => {
+    if (isSubmitting) return;
+    closeAllModals();
+  };
+
+  if (!isOpen) return null;
+
+  const charCount = nama.length;
+  const charPercentage = (charCount / MAX_LENGTH) * 100;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className={`px-6 py-4 border-b border-slate-200 flex items-center justify-between ${isEdit ? 'bg-gradient-to-r from-amber-50 to-white' : 'bg-gradient-to-r from-blue-50 to-white'}`}>
+        <div
+          className={cn(
+            "px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0",
+            isEdit
+              ? "bg-gradient-to-r from-amber-50 to-white"
+              : "bg-gradient-to-r from-blue-50 to-white"
+          )}
+        >
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${isEdit ? 'bg-amber-100' : 'bg-blue-100'}`}>
-              <Package className={`w-5 h-5 ${isEdit ? 'text-amber-600' : 'text-blue-600'}`} />
+            <div
+              className={cn(
+                "p-2 rounded-lg",
+                isEdit ? "bg-amber-100" : "bg-blue-100"
+              )}
+            >
+              <Package
+                className={cn(
+                  "w-5 h-5",
+                  isEdit ? "text-amber-600" : "text-blue-600"
+                )}
+              />
             </div>
             <h2 className="text-lg font-semibold text-slate-900">
               {isEdit ? "Edit Bahan Product" : "Tambah Bahan Product Baru"}
             </h2>
           </div>
-          <button onClick={closeModals} className="p-2 hover:bg-slate-100 rounded-lg transition-colors" disabled={isSubmitting}>
+          <button
+            onClick={handleCancel}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            disabled={isSubmitting}
+          >
             <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form
+          onSubmit={handleSubmit}
+          className="p-6 space-y-5 overflow-y-auto flex-1"
+        >
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
               Nama Bahan <span className="text-red-500">*</span>
@@ -82,31 +194,79 @@ const BahanProductForm = () => {
               <input
                 type="text"
                 value={nama}
-                onChange={(e) => {
-                  // ✅ Auto uppercase untuk UX yang lebih baik dan sesuai validasi backend
-                  setNama(e.target.value.toUpperCase());
-                  if (error) setError("");
-                }}
-                className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 transition-colors text-sm font-medium tracking-wide ${
-                  error ? "border-red-300 focus:ring-red-500" : "border-slate-200 focus:ring-blue-500"
-                }`}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={cn(
+                  "w-full pl-10 pr-10 py-2.5 border rounded-lg focus:outline-none focus:ring-2 transition-colors text-sm font-medium tracking-wide",
+                  errors.nama && touched.nama
+                    ? "border-red-300 focus:ring-red-500"
+                    : "border-slate-200 focus:ring-blue-500"
+                )}
                 placeholder="CONTOH: KARET ALAM #1"
                 disabled={isSubmitting}
                 autoFocus
+                maxLength={MAX_LENGTH}
+              />
+
+              {/* Validation Icon */}
+              {touched.nama && nama.trim() && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {errors.nama ? (
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                  ) : (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Error Message or Hint */}
+            <div className="mt-2 flex items-center justify-between text-xs">
+              {errors.nama && touched.nama ? (
+                <p className="text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.nama}
+                </p>
+              ) : (
+                <p className="text-slate-500">
+                  Kapital, angka, spasi, (-, (), #). Contoh: KARET ALAM #1
+                </p>
+              )}
+              <span
+                className={cn(
+                  "font-medium",
+                  charPercentage > 90
+                    ? "text-red-600"
+                    : charPercentage > 75
+                    ? "text-amber-600"
+                    : "text-slate-500"
+                )}
+              >
+                {charCount}/{MAX_LENGTH}
+              </span>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mt-2 h-1 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  "h-full transition-all duration-300 rounded-full",
+                  charPercentage > 90
+                    ? "bg-red-500"
+                    : charPercentage > 75
+                    ? "bg-amber-500"
+                    : "bg-blue-500"
+                )}
+                style={{ width: `${charPercentage}%` }}
               />
             </div>
-            {error ? (
-              <p className="mt-1.5 text-xs text-red-600">{error}</p>
-            ) : (
-              <p className="mt-1.5 text-xs text-slate-500">Hanya huruf kapital, angka, atau karakter (-, (), #).</p>
-            )}
           </div>
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
             <button
               type="button"
-              onClick={closeModals}
+              onClick={handleCancel}
               className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
               disabled={isSubmitting}
             >
@@ -115,17 +275,22 @@ const BahanProductForm = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all flex items-center justify-center gap-2 ${
-                isEdit ? "bg-amber-600 hover:bg-amber-700" : "bg-blue-600 hover:bg-blue-700"
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={cn(
+                "flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed",
+                isEdit
+                  ? "bg-amber-600 hover:bg-amber-700"
+                  : "bg-blue-600 hover:bg-blue-700"
+              )}
             >
               {isSubmitting ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   Menyimpan...
                 </>
+              ) : isEdit ? (
+                "Perbarui"
               ) : (
-                isEdit ? "Perbarui" : "Simpan"
+                "Simpan"
               )}
             </button>
           </div>

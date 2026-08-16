@@ -17,7 +17,8 @@ class StoreBahanProductRequest extends FormRequest
             'nama' => [
                 'required',
                 'string',
-                'max:255',
+                'max:100',
+                'min:2',
                 'unique:bahan_products,nama',
                 'regex:/^[A-Z0-9\s\-\(\)#]+$/',
             ],
@@ -27,8 +28,12 @@ class StoreBahanProductRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'nama.regex'  => 'Nama harus menggunakan HURUF KAPITAL dan boleh mengandung angka atau karakter (-, (), #).',
+            'nama.required' => 'Nama bahan product wajib diisi.',
+            'nama.string' => 'Nama harus berupa teks.',
+            'nama.max' => 'Nama maksimal 100 karakter.',
+            'nama.min' => 'Nama minimal 2 karakter.',
             'nama.unique' => 'Bahan product ini sudah terdaftar.',
+            'nama.regex' => 'Nama harus HURUF KAPITAL, boleh mengandung angka, spasi, dan simbol (-, (), #).',
         ];
     }
 
@@ -36,7 +41,7 @@ class StoreBahanProductRequest extends FormRequest
     {
         if ($this->has('nama')) {
             $this->merge([
-                'nama' => strtoupper(trim($this->input('nama'))),
+                'nama' => strtoupper(trim($this->input('nama', ''))),
             ]);
         }
     }
