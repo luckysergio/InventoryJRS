@@ -218,11 +218,11 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{hargaProduct}', [HargaProductController::class, 'destroy'])->middleware('role:admin');
     });
 
-    Route::prefix('status-transaksi')->middleware('role:admin,admin_toko,operator')->group(function () {
+    Route::prefix('status-transaksi')->middleware('role:admin')->group(function () {
         Route::get('/', [StatusTransaksiController::class, 'index']);
-        Route::post('/', [StatusTransaksiController::class, 'store'])->middleware('role:admin');
-        Route::put('/{id}', [StatusTransaksiController::class, 'update'])->middleware('role:admin');
-        Route::delete('/{id}', [StatusTransaksiController::class, 'destroy'])->middleware('role:admin');
+        Route::post('/', [StatusTransaksiController::class, 'store']);
+        Route::put('/{statusTransaksi}', [StatusTransaksiController::class, 'update']);
+        Route::delete('/{statusTransaksi}', [StatusTransaksiController::class, 'destroy']);
     });
 
     Route::prefix('transaksi')->middleware('role:admin,admin_toko,operator')->group(function () {

@@ -5,17 +5,13 @@ import { useShallow } from 'zustand/react/shallow';
 export const useCustomerStore = create(
   devtools(
     (set, get) => ({
-      filters: {
-        search: '',
-        perPage: 20,
-      },
+      filters: { search: '', perPage: 20 },
       currentPage: 1,
 
       modals: {
-        create: false,
-        edit: false,
-        detail: false,
+        form: false,
         tagihan: false,
+        detail: false,
         bayar: false,
       },
       selectedItem: null,
@@ -23,7 +19,7 @@ export const useCustomerStore = create(
       bayarDetail: null,
 
       setSearch: (search) =>
-        set((state) => ({ filters: { ...state.filters, search }, currentPage: 1 }), false, 'setSearch'),
+        set((s) => ({ filters: { ...s.filters, search }, currentPage: 1 }), false, 'setSearch'),
 
       setCurrentPage: (page) => set({ currentPage: page }, false, 'setCurrentPage'),
 
@@ -31,46 +27,46 @@ export const useCustomerStore = create(
         set({ filters: { search: '', perPage: 20 }, currentPage: 1 }, false, 'resetFilters'),
 
       openCreateModal: () =>
-        set((state) => ({
-          modals: { ...state.modals, create: true, edit: false, detail: false, tagihan: false, bayar: false },
+        set({
+          modals: { form: true, tagihan: false, detail: false, bayar: false },
           selectedItem: null,
           tagihanFilter: null,
           bayarDetail: null,
-        }), false, 'openCreateModal'),
+        }, false, 'openCreateModal'),
 
       openEditModal: (customer) =>
-        set((state) => ({
-          modals: { ...state.modals, edit: true, create: false, detail: false, tagihan: false, bayar: false },
+        set({
+          modals: { form: true, tagihan: false, detail: false, bayar: false },
           selectedItem: customer,
           tagihanFilter: null,
           bayarDetail: null,
-        }), false, 'openEditModal'),
+        }, false, 'openEditModal'),
 
       openDetailModal: (customer) =>
-        set((state) => ({
-          modals: { ...state.modals, detail: true, create: false, edit: false, tagihan: false, bayar: false },
+        set({
+          modals: { form: false, tagihan: false, detail: true, bayar: false },
           selectedItem: customer,
           tagihanFilter: null,
           bayarDetail: null,
-        }), false, 'openDetailModal'),
+        }, false, 'openDetailModal'),
 
       openTagihanModal: (customer, filter = null) =>
-        set((state) => ({
-          modals: { ...state.modals, tagihan: true, create: false, edit: false, detail: false, bayar: false },
+        set({
+          modals: { form: false, tagihan: true, detail: false, bayar: false },
           selectedItem: customer,
           tagihanFilter: filter,
           bayarDetail: null,
-        }), false, 'openTagihanModal'),
+        }, false, 'openTagihanModal'),
 
       openBayarModal: (detail) =>
-        set((state) => ({
-          modals: { ...state.modals, bayar: true, create: false, edit: false, detail: false, tagihan: false },
+        set({
+          modals: { form: false, tagihan: false, detail: false, bayar: true },
           bayarDetail: detail,
-        }), false, 'openBayarModal'),
+        }, false, 'openBayarModal'),
 
       closeAllModals: () =>
         set({
-          modals: { create: false, edit: false, detail: false, tagihan: false, bayar: false },
+          modals: { form: false, tagihan: false, detail: false, bayar: false },
           selectedItem: null,
           tagihanFilter: null,
           bayarDetail: null,
@@ -85,42 +81,33 @@ export const useCustomerStore = create(
         };
       },
 
-      hasActiveSearch: () => {
-        const { filters } = get();
-        return Boolean(filters.search);
-      },
+      hasActiveSearch: () => Boolean(get().filters.search),
     }),
     { name: 'CustomerStore', enabled: import.meta.env.DEV }
   )
 );
 
-export const useCustomerFilters = () => {
-  return useCustomerStore(
-    useShallow((state) => ({
-      filters: state.filters,
-      currentPage: state.currentPage,
-      setSearch: state.setSearch,
-      setCurrentPage: state.setCurrentPage,
-      resetFilters: state.resetFilters,
-      hasActiveSearch: state.hasActiveSearch,
-      getQueryParams: state.getQueryParams,
-    }))
-  );
-};
+export const useCustomerFilters = () =>
+  useCustomerStore(useShallow((s) => ({
+    filters: s.filters,
+    currentPage: s.currentPage,
+    setSearch: s.setSearch,
+    setCurrentPage: s.setCurrentPage,
+    resetFilters: s.resetFilters,
+    hasActiveSearch: s.hasActiveSearch,
+    getQueryParams: s.getQueryParams,
+  })));
 
-export const useCustomerModals = () => {
-  return useCustomerStore(
-    useShallow((state) => ({
-      modals: state.modals,
-      selectedItem: state.selectedItem,
-      tagihanFilter: state.tagihanFilter,
-      bayarDetail: state.bayarDetail,
-      openCreateModal: state.openCreateModal,
-      openEditModal: state.openEditModal,
-      openDetailModal: state.openDetailModal,
-      openTagihanModal: state.openTagihanModal,
-      openBayarModal: state.openBayarModal,
-      closeAllModals: state.closeAllModals,
-    }))
-  );
-};
+export const useCustomerModals = () =>
+  useCustomerStore(useShallow((s) => ({
+    modals: s.modals,
+    selectedItem: s.selectedItem,
+    tagihanFilter: s.tagihanFilter,
+    bayarDetail: s.bayarDetail,
+    openCreateModal: s.openCreateModal,
+    openEditModal: s.openEditModal,
+    openDetailModal: s.openDetailModal,
+    openTagihanModal: s.openTagihanModal,
+    openBayarModal: s.openBayarModal,
+    closeAllModals: s.closeAllModals,
+  })));

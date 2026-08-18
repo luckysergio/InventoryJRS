@@ -1,13 +1,15 @@
 import { useState, useMemo, useCallback } from "react";
 import {
   Plus, Pencil, Trash2, Search, Receipt, Wallet, ArrowLeft,
-  CheckCircle, X, Calendar, User, Phone, Mail, Printer, ShieldAlert,
+  CheckCircle, X, Calendar, Printer,
 } from "lucide-react";
-import { useCustomers, useDeleteCustomer, useStatusTransaksi } from "../../../hooks/useCustomers";
+import { useCustomers, useDeleteCustomer } from "../../../hooks/useCustomers";
+import { useStatusTransaksiList } from "../../../hooks/useStatusTransaksi";
 import { useCustomerFilters, useCustomerModals } from "../../../lib/zustand/customerStore";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import { cn } from "../../../lib/utils";
 import CustomerForm from "./CustomerForm";
+import CustomerDetail from "./CustomerDetail"; // ✅ FIX: Import CustomerDetail
 
 // ==========================================
 // UTILITY FUNCTIONS
@@ -19,22 +21,37 @@ const fmtProductName = (p) => p ? [p.jenis?.nama, p.type?.nama, p.ukuran].filter
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 const STATUS_DIBATALKAN_ID = 6;
 
+const getUserRole = () => {
+  try {
+    const raw = localStorage.getItem("user");
+    if (!raw) return null;
+    return JSON.parse(raw)?.role || null;
+  } catch { return null; }
+};
+
+const canCreateCustomer = (role) => ["admin", "admin_toko", "operator"].includes(role);
+const isAdminRole = (role) => role === "admin";
+
 // ==========================================
 // MAIN PAGE COMPONENT
 // ==========================================
 const CustomerPage = () => {
   const { filters, currentPage, setSearch, setCurrentPage, resetFilters, hasActiveSearch, getQueryParams } = useCustomerFilters();
-  const { openCreateModal, openEditModal, openTagihanModal, openDetailModal, openBayarModal, modals, selectedItem, tagihanFilter, bayarDetail, closeAllModals } = useCustomerModals();
+  const {
+    openCreateModal, openEditModal, openTagihanModal,
+    openDetailModal, openBayarModal, modals, selectedItem,
+    tagihanFilter, bayarDetail, closeAllModals,
+  } = useCustomerModals();
   const { danger, success, info, warning } = useConfirmDialog();
-  const user = JSON.parse(localStorage.getItem("user"));
-  const role = user?.role;
-  const isAdmin = role === "admin";
-  const canCreate = role === "admin" || role === "admin_toko";
+
+  const role = getUserRole();
+  const isAdmin = isAdminRole(role);
+  const canCreate = canCreateCustomer(role);
 
   const [searchInput, setSearchInput] = useState(filters.search);
   const { data, isLoading, isFetching, isPlaceholderData, refetch } = useCustomers(getQueryParams());
   const deleteMut = useDeleteCustomer();
-  const { data: statuses = [] } = useStatusTransaksi();
+  const { data: statuses = [] } = useStatusTransaksiList();
   const statusSelesaiId = useMemo(() => statuses.find((s) => s.nama?.toLowerCase().includes("selesai"))?.id?.toString(), [statuses]);
 
   // Debounced search
@@ -54,7 +71,6 @@ const CustomerPage = () => {
   const to = meta.to || 0;
   const isFilterActive = hasActiveSearch();
 
-  // Sort: with tagihan first, then alphabetical
   const sortedCustomers = useMemo(() => {
     const withTag = [], withoutTag = [];
     customers.forEach((c) => {
@@ -67,7 +83,6 @@ const CustomerPage = () => {
     return [...withTag, ...withoutTag];
   }, [customers]);
 
-  // Pagination numbers
   const paginationNumbers = useMemo(() => {
     const max = 5, pages = [];
     let start = Math.max(1, currentPage - Math.floor(max / 2));
@@ -110,14 +125,14 @@ const CustomerPage = () => {
       return `<tr><td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:center;font-size:10px">${fmtDate(d.transaksi?.tanggal)}</td><td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:10px;max-width:200px;word-wrap:break-word">${fmtProductName(d.product)}</td><td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:center;font-size:10px">${qty}</td><td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:right;font-size:10px">Rp ${fmtRp(subAsli)}</td><td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:right;font-size:10px">Rp ${fmtRp(disc)}</td><td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:right;font-size:10px">Rp ${fmtRp(paid)}</td><td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:right;color:#dc2626;font-weight:600;font-size:10px">Rp ${fmtRp(sisa)}</td></tr>`;
     }).join("");
 
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Surat Tagihan - ${customer.name}</title><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');*{box-sizing:border-box}body{font-family:'Inter',sans-serif;padding:20mm;color:#1f2937;width:210mm;min-height:297mm;margin:0 auto;background:#fff;line-height:1.4;font-size:10px}@media print{body{padding:15mm}@page{margin:0;size:A4}}h1{text-align:center;color:#1e40af;margin:0 0 4px;font-size:20px;font-weight:700}.subtitle{text-align:center;color:#64748b;margin-bottom:16px;font-size:11px}.salutation{margin-bottom:16px;font-size:11px;line-height:1.5}table{width:100%;border-collapse:collapse;margin:16px 0;font-size:10px}th{background:#dbeafe;color:#1e40af;font-weight:600;padding:6px 8px;text-align:center;text-transform:uppercase;letter-spacing:.3px;border:1px solid #bfdbfe;font-size:9px;white-space:nowrap}td{padding:6px 8px;border:1px solid #e5e7eb;vertical-align:middle;font-size:10px}td:nth-child(1){text-align:center;width:12%}td:nth-child(2){text-align:left;width:35%;word-break:break-word}td:nth-child(3){text-align:center;width:8%}td:nth-child(4),td:nth-child(5),td:nth-child(6),td:nth-child(7){text-align:right;width:11.25%;white-space:nowrap}.summary{margin-top:16px;padding-top:12px;border-top:2px solid #cbd5e1}.total-due{font-size:13px;text-align:center;font-weight:700;color:#dc2626;margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb}.footer{margin-top:24px;text-align:center;color:#64748b;font-size:9px}.highlight{color:#1e40af;font-weight:600}</style></head><body><h1>SURAT TAGIHAN</h1><div class="subtitle">Jaya Rubber Seal</div><p class="salutation">Kepada Yth.<br><span class="highlight">${customer.name}</span><br><br>Bersama ini kami dari <strong>Jaya Rubber Seal</strong> ingin mengingatkan bahwa Bapak/Ibu masih memiliki tagihan yang belum dilunasi.</p><table><thead><tr><th>Tgl</th><th>Produk</th><th>Qty</th><th>Subtotal</th><th>Diskon</th><th>Dibayar</th><th>Sisa</th></tr></thead><tbody>${rows}</tbody></table><div class="summary"><div class="total-due">SISA TAGIHAN: Rp ${fmtRp(tTag - tPaid)}</div></div><div class="footer"><p>Mohon segera melakukan pelunasan. Atas perhatiannya, terima kasih.</p><p>Dicetak: ${new Date().toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"})}</p></div></body></html>`;
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Surat Tagihan - ${customer.name}</title><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');*{box-sizing:border-box}body{font-family:'Inter',sans-serif;padding:20mm;color:#1f2937;width:210mm;min-height:297mm;margin:0 auto;background:#fff;line-height:1.4;font-size:10px}@media print{body{padding:15mm}@page{margin:0;size:A4}}h1{text-align:center;color:#1e40af;margin:0 0 4px;font-size:20px;font-weight:700}.subtitle{text-align:center;color:#64748b;margin-bottom:16px;font-size:11px}.salutation{margin-bottom:16px;font-size:11px;line-height:1.5}table{width:100%;border-collapse:collapse;margin:16px 0;font-size:10px}th{background:#dbeafe;color:#1e40af;font-weight:600;padding:6px 8px;text-align:center;text-transform:uppercase;letter-spacing:.3px;border:1px solid #bfdbfe;font-size:9px;white-space:nowrap}td{padding:6px 8px;border:1px solid #e5e7eb;vertical-align:middle;font-size:10px}td:nth-child(1){text-align:center;width:12%}td:nth-child(2){text-align:left;width:35%;word-break:break-word}td:nth-child(3){text-align:center;width:8%}td:nth-child(4),td:nth-child(5),td:nth-child(6),td:nth-child(7){text-align:right;width:11.25%;white-space:nowrap}.summary{margin-top:16px;padding-top:12px;border-top:2px solid #cbd5e1}.total-due{font-size:13px;text-align:center;font-weight:700;color:#dc2626;margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb}.footer{margin-top:24px;text-align:center;color:#64748b;font-size:9px}.highlight{color:#1e40af;font-weight:600}</style></head><body><h1>SURAT TAGIHAN</h1><div class="subtitle">Jaya Rubber Seal</div><p class="salutation">Kepada Yth.<br><span class="highlight">${customer.name}</span><br><br>Bersama ini kami dari <strong>Jaya Rubber Seal</strong> ingin mengingatkan bahwa Bapak/Ibu masih memiliki tagihan yang belum dilunasi.</p><table><thead><tr><th>Tgl</th><th>Produk</th><th>Qty</th><th>Subtotal</th><th>Diskon</th><th>Dibayar</th><th>Sisa</th></tr></thead><tbody>${rows}</tbody></table><div class="summary"><div class="total-due">SISA TAGIHAN: Rp ${fmtRp(tTag - tPaid)}</div></div><div class="footer"><p>Mohon segera melakukan pelunasan. Atas perhatiannya, terima kasih.</p><p>Dicetak: ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p></div></body></html>`;
 
     const w = window.open("", "_blank", "width=800,height=600");
     if (w) { w.document.write(html); w.document.close(); setTimeout(() => { w.focus(); w.print(); }, 250); }
     else info("Error", "Gagal membuka jendela cetak");
   };
 
-  // BAYAR HANDLER (dengan auto-complete status)
+  // BAYAR HANDLER
   const [jumlahBayar, setJumlahBayar] = useState("");
   const handleJumlahBayarChange = (raw) => { const c = raw.replace(/\D/g, ""); setJumlahBayar(c === "" ? "" : fmtRp(c)); };
 
@@ -161,7 +176,10 @@ const CustomerPage = () => {
             </div>
             <div className="flex gap-2 flex-shrink-0">
               {isFilterActive && <button onClick={() => { setSearchInput(""); resetFilters(); }} className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"><X className="w-4 h-4" /> Reset</button>}
-              <button onClick={() => refetch()} disabled={isFetching} className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors disabled:opacity-50" title="Refresh"><span className={cn("transition-transform", isFetching && "animate-spin")}><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg></span><span className="hidden sm:inline">Refresh</span></button>
+              <button onClick={() => refetch()} disabled={isFetching} className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors disabled:opacity-50" title="Refresh">
+                <span className={cn("transition-transform", isFetching && "animate-spin")}><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg></span>
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
             </div>
           </div>
         </div>
@@ -181,13 +199,11 @@ const CustomerPage = () => {
         </div>
       ) : (
         <>
-          {/* Stats */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-1">
             <p className="text-xs sm:text-sm text-slate-500">Menampilkan <span className="font-semibold text-slate-900">{sortedCustomers.length}</span> dari <span className="font-semibold text-slate-900">{total}</span> customer</p>
             {lastPage > 1 && <p className="text-xs sm:text-sm text-slate-400">Halaman <span className="font-medium">{currentPage}</span> / <span className="font-medium">{lastPage}</span></p>}
           </div>
 
-          {/* Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
             {sortedCustomers.map((item) => {
               const tH = Number(item.tagihan_harian_belum_lunas) || 0;
@@ -220,7 +236,6 @@ const CustomerPage = () => {
             })}
           </div>
 
-          {/* Pagination */}
           {lastPage > 1 && (
             <div className="flex items-center justify-center gap-1.5 mt-6 pb-4 flex-wrap">
               <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1 || isFetching} className={cn("px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition", currentPage === 1 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 active:scale-95")}>← Prev</button>
@@ -237,15 +252,16 @@ const CustomerPage = () => {
 
       {/* FAB */}
       {canCreate && (
-        <button onClick={openCreateModal} className="fixed bottom-6 right-6 z-40 group" aria-label="Tambah Customer">
+        <button onClick={openCreateModal} className="fixed bottom-6 right-6 z-40 group" aria-label="Tambah Customer" title="Tambah Customer">
           <span className="absolute inset-0 rounded-full bg-blue-600 animate-ping opacity-20 group-hover:opacity-0 transition-opacity duration-500" />
           <div className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all duration-300 active:scale-95 hover:scale-110"><Plus className="w-6 h-6" strokeWidth={2.5} /></div>
           <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">Tambah Customer<div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-900" /></div>
         </button>
       )}
 
-      {/* ========== MODALS ========== */}
+      {/* ✅ FIX: Semua modal dirender dengan benar */}
       <CustomerForm />
+      <CustomerDetail />
 
       {/* MODAL: Tagihan List */}
       {modals.tagihan && selectedItem && (() => {
@@ -261,7 +277,7 @@ const CustomerPage = () => {
             <div className="bg-white w-full max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col animate-modalIn">
               <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
                 <div className="min-w-0"><h2 className="text-lg font-bold text-slate-900 truncate">Tagihan {selectedItem.name}</h2><p className="text-xs text-slate-500">{tagihanFilter === "daily" ? "Transaksi Harian" : tagihanFilter === "pesanan" ? "Transaksi Pesanan" : "Semua Tagihan"}</p></div>
-                <button onClick={closeAllModals} className="p-2 hover:bg-slate-100 rounded-full transition"><ArrowLeft size={20} className="text-slate-500" /></button>
+                <button onClick={closeAllModals} className="p-2 hover:bg-slate-100 rounded-full transition flex-shrink-0"><ArrowLeft size={20} className="text-slate-500" /></button>
               </div>
               <div className="p-4 sm:p-5 overflow-y-auto flex-1">
                 {filtered.length === 0 ? (
@@ -289,7 +305,7 @@ const CustomerPage = () => {
         );
       })()}
 
-      {/* MODAL: Detail Tagihan */}
+      {/* MODAL: Detail Tagihan (inline) */}
       {modals.detail && bayarDetail && (() => {
         const d = bayarDetail, sub = safeFloat(d.subtotal), paid = (d.pembayarans || []).reduce((s, p) => s + safeFloat(p.jumlah_bayar), 0), sisa = sub - paid, lunas = sisa <= 0;
         return (
@@ -306,7 +322,7 @@ const CustomerPage = () => {
                 <div className="text-center py-2"><p className="text-xs text-slate-500">Dibayar: Rp {fmtRp(paid)} / Rp {fmtRp(sub)}</p>{!lunas && <p className="text-sm font-bold text-red-600 mt-1">Sisa: Rp {fmtRp(sisa)}</p>}</div>
                 {!lunas && <button onClick={() => { setJumlahBayar(fmtRp(sisa)); openBayarModal(d); }} className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl transition active:scale-95 text-sm font-medium"><Wallet size={16} /> Bayar Sekarang</button>}
               </div>
-              <div className="p-4 border-t border-slate-200"><button onClick={() => closeAllModals()} className="w-full px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button></div>
+              <div className="p-4 border-t border-slate-200"><button onClick={closeAllModals} className="w-full px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button></div>
             </div>
           </div>
         );

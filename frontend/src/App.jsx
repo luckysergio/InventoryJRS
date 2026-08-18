@@ -35,7 +35,7 @@ const BarangKeluarPage = lazy(() => import("./pages/admin/BarangKeluar"));
 const JenisPage = lazy(() => import("./pages/admin/jenisproduct/JenisProduct"));
 const TypePage = lazy(() => import("./pages/admin/typeproduct/TypeProduct"));
 const BahanProductPage = lazy(() => import("./pages/admin/bahanproduct/BahanProduct"));
-const StatusTransaksiPage = lazy(() => import("./pages/admin/StatusTransaksiPage"));
+const StatusTransaksiPage = lazy(() => import("./pages/admin/statustransaksi/StatusTransaksiPage"));
 const PlacePage = lazy(() => import("./pages/admin/PlacePage"));
 
 // Production
