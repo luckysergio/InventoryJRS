@@ -114,11 +114,13 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
     });
 
     Route::prefix('customers')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/dropdown', [CustomerController::class, 'dropdown']);
+
         Route::get('/', [CustomerController::class, 'index']);
         Route::post('/', [CustomerController::class, 'store'])->middleware('role:admin,admin_toko');
-        Route::get('/{id}', [CustomerController::class, 'show']);
-        Route::put('/{id}', [CustomerController::class, 'update'])->middleware('role:admin,admin_toko');
-        Route::delete('/{id}', [CustomerController::class, 'destroy'])->middleware('role:admin');
+        Route::get('/{customer}', [CustomerController::class, 'show']);
+        Route::put('/{customer}', [CustomerController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{customer}', [CustomerController::class, 'destroy'])->middleware('role:admin');
     });
 
     Route::prefix('distributors')->middleware('role:admin,admin_toko,operator')->group(function () {

@@ -21,7 +21,7 @@ const JabatanPage = lazy(() => import("./pages/admin/jabatan/JabatanPage"));
 const DistributorPage = lazy(() => import("./pages/admin/distributor/DistributorPage"));
 const DistributorProductPage = lazy(() => import("./pages/admin/productdistributor/DistributorProductPage"));
 const ProductCustomerPage = lazy(() => import("./pages/admin/ProductCustomerPage"));
-const CustomerPage = lazy(() => import("./pages/admin/Customer"));
+const CustomerPage = lazy(() => import("./pages/admin/customer/Customer"));
 
 // Product & Inventory
 const AllProductsPage = lazy(() => import("./pages/admin/AllProductsPage"));
