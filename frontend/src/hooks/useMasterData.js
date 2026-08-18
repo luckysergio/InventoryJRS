@@ -10,7 +10,6 @@ export const masterKeys = {
     dropdown: () => [...masterKeys.jenis.all, 'dropdown'],
     statistics: () => [...masterKeys.jenis.all, 'statistics'],
   },
-
   type: {
     all: ['type_products'],
     lists: () => [...masterKeys.type.all, 'list'],
@@ -20,7 +19,6 @@ export const masterKeys = {
     byJenis: (jenisId) => [...masterKeys.type.all, 'by_jenis', jenisId],
     statistics: () => [...masterKeys.type.all, 'statistics'],
   },
-
   bahan: {
     all: ['bahan_products'],
     lists: () => [...masterKeys.bahan.all, 'list'],
@@ -29,7 +27,6 @@ export const masterKeys = {
     dropdown: () => [...masterKeys.bahan.all, 'dropdown'],
     statistics: () => [...masterKeys.bahan.all, 'statistics'],
   },
-
   distributor: {
     all: ['distributors'],
     lists: () => [...masterKeys.distributor.all, 'list'],
@@ -37,7 +34,6 @@ export const masterKeys = {
     detail: (id) => [...masterKeys.distributor.all, 'detail', id],
     dropdown: () => [...masterKeys.distributor.all, 'dropdown'],
   },
-
   product: {
     all: ['products'],
     lists: () => [...masterKeys.product.all, 'list'],
@@ -48,14 +44,11 @@ export const masterKeys = {
     lowStock: () => [...masterKeys.product.all, 'low_stock'],
     bestSeller: (params) => [...masterKeys.product.all, 'best_seller', params],
   },
-
-  // ✅ FIX: Tambahkan distributorProduct ke masterKeys
   distributorProduct: {
     all: ['distributor_products'],
     lists: () => [...masterKeys.distributorProduct.all, 'list'],
     list: (filters) => [...masterKeys.distributorProduct.lists(), filters],
   },
-
   harga: {
     all: ['harga_products'],
     lists: () => [...masterKeys.harga.all, 'list'],
@@ -63,88 +56,49 @@ export const masterKeys = {
     detail: (id) => [...masterKeys.harga.all, 'detail', id],
     byProduct: (productId) => [...masterKeys.harga.all, 'by_product', productId],
   },
-
   customer: {
     all: ['customers'],
+    lists: () => [...masterKeys.customer.all, 'list'],
+    list: (filters) => [...masterKeys.customer.lists(), filters],
     dropdown: () => [...masterKeys.customer.all, 'dropdown'],
   },
 };
 
-// ==========================================
-// DROPDOWN HOOKS
-// ==========================================
+export const useJenisDropdown = () => useQuery({
+  queryKey: masterKeys.jenis.dropdown(),
+  queryFn: async () => (await api.get('/jenis/dropdown')).data.data || [],
+  staleTime: 15 * 60 * 1000,
+});
 
-export const useJenisDropdown = () => {
-  return useQuery({
-    queryKey: masterKeys.jenis.dropdown(),
-    queryFn: async () => {
-      const response = await api.get('/jenis/dropdown');
-      return response.data.data || [];
-    },
-    staleTime: 15 * 60 * 1000,
-  });
-};
+export const useTypesDropdown = (jenisId = null) => useQuery({
+  queryKey: masterKeys.type.dropdown(jenisId || 'all'),
+  queryFn: async () => (await api.get('/type/dropdown', { params: { jenis_id: jenisId || undefined } })).data.data || [],
+  staleTime: 15 * 60 * 1000,
+});
 
-export const useTypesDropdown = (jenisId = null) => {
-  return useQuery({
-    queryKey: masterKeys.type.dropdown(jenisId || 'all'),
-    queryFn: async () => {
-      const response = await api.get('/type/dropdown', {
-        params: { jenis_id: jenisId || undefined },
-      });
-      return response.data.data || [];
-    },
-    staleTime: 15 * 60 * 1000,
-  });
-};
+export const useBahansDropdown = () => useQuery({
+  queryKey: masterKeys.bahan.dropdown(),
+  queryFn: async () => (await api.get('/bahan/dropdown')).data.data || [],
+  staleTime: 15 * 60 * 1000,
+});
 
-export const useBahansDropdown = () => {
-  return useQuery({
-    queryKey: masterKeys.bahan.dropdown(),
-    queryFn: async () => {
-      const response = await api.get('/bahan/dropdown');
-      return response.data.data || [];
-    },
-    staleTime: 15 * 60 * 1000,
-  });
-};
+export const useProductsDropdown = () => useQuery({
+  queryKey: masterKeys.product.dropdown(),
+  queryFn: async () => (await api.get('/products/dropdown')).data.data || [],
+  staleTime: 15 * 60 * 1000,
+});
 
-export const useProductsDropdown = () => {
-  return useQuery({
-    queryKey: masterKeys.product.dropdown(),
-    queryFn: async () => {
-      const response = await api.get('/products/dropdown');
-      return response.data.data || [];
-    },
-    staleTime: 15 * 60 * 1000,
-  });
-};
+export const useCustomersDropdown = () => useQuery({
+  queryKey: masterKeys.customer.dropdown(),
+  queryFn: async () => (await api.get('/customers/dropdown')).data.data || [],
+  staleTime: 15 * 60 * 1000,
+});
 
-export const useCustomersDropdown = () => {
-  return useQuery({
-    queryKey: masterKeys.customer.dropdown(),
-    queryFn: async () => {
-      const response = await api.get('/customers/dropdown');
-      return response.data.data || [];
-    },
-    staleTime: 15 * 60 * 1000,
-  });
-};
-
-export const useDistributorsDropdown = () => {
-  return useQuery({
-    queryKey: masterKeys.distributor.dropdown(),
-    queryFn: async () => {
-      const response = await api.get('/distributors/dropdown');
-      return response.data.data || [];
-    },
-    staleTime: 15 * 60 * 1000,
-  });
-};
-
-// ==========================================
-// CROSS-INVALIDATION HELPER
-// ==========================================
+export const useDistributorsDropdown = () => useQuery({
+  queryKey: masterKeys.distributor.dropdown(),
+  queryFn: async () => (await api.get('/distributors/dropdown')).data.data || [],
+  staleTime: 15 * 60 * 1000,
+});
 
 export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
   const entityMap = {
@@ -152,7 +106,6 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
     type: masterKeys.type.all,
     bahan: masterKeys.bahan.all,
     product: masterKeys.product.all,
-    // ✅ FIX: Tambahkan distributorProduct ke entityMap
     distributorProduct: masterKeys.distributorProduct.all,
     harga: masterKeys.harga.all,
     customer: masterKeys.customer.all,
@@ -161,23 +114,58 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
 
   const keysToInvalidate = [entityMap[changedEntity]];
 
-  // ✅ FIX: Cross-invalidation dua arah product ↔ distributorProduct
   const crossInvalidation = {
-    jenis: [masterKeys.type.all, masterKeys.product.all, masterKeys.distributorProduct.all],
-    type: [masterKeys.product.all, masterKeys.distributorProduct.all],
-    bahan: [masterKeys.product.all, masterKeys.distributorProduct.all],
-    product: [masterKeys.harga.all, masterKeys.distributorProduct.all],
-    // ✅ FIX: distributorProduct berubah → product & harga ikut ter-invalidate
-    distributorProduct: [masterKeys.product.all, masterKeys.harga.all],
-    customer: [masterKeys.harga.all],
-    distributor: [masterKeys.product.all, masterKeys.distributorProduct.all],
+    jenis: [
+      masterKeys.jenis.all,
+      masterKeys.type.all,
+      masterKeys.product.all,
+      masterKeys.distributorProduct.all,
+      masterKeys.harga.all,
+    ],
+    type: [
+      masterKeys.type.all,
+      masterKeys.product.all,
+      masterKeys.distributorProduct.all,
+      masterKeys.harga.all,
+    ],
+    bahan: [
+      masterKeys.bahan.all,
+      masterKeys.product.all,
+      masterKeys.distributorProduct.all,
+      masterKeys.harga.all,
+    ],
+    product: [
+      masterKeys.distributorProduct.all,
+      masterKeys.harga.all,
+      masterKeys.product.all,
+    ],
+    distributorProduct: [
+      masterKeys.product.all,
+      masterKeys.harga.all,
+      masterKeys.distributorProduct.all,
+    ],
+    harga: [
+      masterKeys.product.all,
+      masterKeys.distributorProduct.all,
+    ],
+    customer: [
+      masterKeys.harga.all,
+    ],
+    distributor: [
+      masterKeys.product.all,
+      masterKeys.distributorProduct.all,
+      masterKeys.harga.all,
+      masterKeys.distributor.all,
+    ],
   };
 
   if (crossInvalidation[changedEntity]) {
     keysToInvalidate.push(...crossInvalidation[changedEntity]);
   }
 
-  for (const key of keysToInvalidate) {
+  const uniqueKeys = [...new Set(keysToInvalidate.map((k) => JSON.stringify(k)))].map((k) => JSON.parse(k));
+
+  for (const key of uniqueKeys) {
     await queryClient.cancelQueries({ queryKey: key, exact: false });
     queryClient.removeQueries({ queryKey: key, exact: false });
     await queryClient.invalidateQueries({

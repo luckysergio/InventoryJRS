@@ -2,12 +2,10 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import api from '../lib/api/axios';
 import { masterKeys, invalidateRelatedCaches } from './useMasterData';
 
-// Re-export dropdown hooks dari useMasterData
 export { useJenisDropdown, useTypesDropdown, useBahansDropdown } from './useMasterData';
 
 export const useProducts = (params = {}) => {
   const { search = '', jenisId = '', typeId = '', perPage = 15, page = 1 } = params;
-
   return useQuery({
     queryKey: masterKeys.product.list({ search, jenisId, typeId, perPage, page }),
     queryFn: async () => {
@@ -20,10 +18,7 @@ export const useProducts = (params = {}) => {
           page,
         },
       });
-      return {
-        products: response.data.data || [],
-        meta: response.data.meta || {},
-      };
+      return { products: response.data.data || [], meta: response.data.meta || {} };
     },
     placeholderData: keepPreviousData,
     staleTime: 5 * 60 * 1000,
@@ -33,10 +28,9 @@ export const useProducts = (params = {}) => {
 export const useCreateProduct = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (formData) =>
-      api.post('/products', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    mutationFn: (formData) => api.post('/products', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
     onSuccess: async () => {
-      // ✅ Sekarang otomatis cross-invalidate distributorProduct via masterKeys
+      // ✅ Sekarang otomatis cross-invalidate harga + distributorProduct via masterKeys
       await invalidateRelatedCaches(queryClient, 'product');
     },
   });
@@ -45,11 +39,9 @@ export const useCreateProduct = () => {
 export const useUpdateProduct = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, formData }) =>
-      api.post(`/products/${id}?_method=PUT`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    mutationFn: ({ id, formData }) => api.post(`/products/${id}?_method=PUT`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
     onSuccess: async (response, variables) => {
       queryClient.setQueryData(masterKeys.product.detail(variables.id), response.data.data);
-      // ✅ Sekarang otomatis cross-invalidate distributorProduct via masterKeys
       await invalidateRelatedCaches(queryClient, 'product');
     },
   });
@@ -64,11 +56,7 @@ export const useDeleteProduct = () => {
       const previousQueries = queryClient.getQueriesData({ queryKey: masterKeys.product.all });
       queryClient.setQueriesData({ queryKey: masterKeys.product.all }, (old) => {
         if (!old?.products) return old;
-        return {
-          ...old,
-          products: old.products.filter((p) => p.id !== id),
-          meta: { ...old.meta, total: (old.meta.total || 0) - 1 },
-        };
+        return { ...old, products: old.products.filter((p) => p.id !== id), meta: { ...old.meta, total: (old.meta.total || 0) - 1 } };
       });
       return { previousQueries };
     },

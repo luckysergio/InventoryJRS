@@ -323,7 +323,7 @@ const DistributorProductForm = () => {
               <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200 space-y-3 animate-fadeIn">
                 <p className="text-xs font-medium text-blue-800 flex items-center gap-1"><Truck size={12} /> Buat Distributor Baru</p>
                 <input type="text" placeholder="Nama Distributor *" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none" value={newDistForm.nama} onChange={(e) => setNewDistForm((p) => ({ ...p, nama: e.target.value }))} />
-                <input type="tel" placeholder="Nomor HP (opsional)" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none" value={newDistForm.no_hp} onChange={(e) => setNewDistForm((p) => ({ ...p, no_hp: e.target.value }))} />
+                <input type="tel" placeholder="Nomor HP" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none" value={newDistForm.no_hp} onChange={(e) => setNewDistForm((p) => ({ ...p, no_hp: e.target.value }))} />
                 {errors.new_distributor && <p className="text-xs text-red-600">{errors.new_distributor}</p>}
                 <div className="flex gap-2">
                   <button type="button" onClick={handleCreateNewDistributor} disabled={createDistributorMutation.isPending} className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-1 disabled:opacity-50">
@@ -382,7 +382,7 @@ const DistributorProductForm = () => {
 
             <FormField label="Bahan" error={errors.bahan_id} touched={touched.bahan_id}>
               <select value={form.bahan_id} onChange={(e) => { setForm((p) => ({ ...p, bahan_id: e.target.value })); setNewInputs((p) => ({ ...p, bahan: "" })); setErrors((p) => ({ ...p, bahan_id: undefined })); }} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white" disabled={loadingBahans || isSubmitting}>
-                <option value="">{loadingBahans ? "Memuat..." : "Pilih Bahan (Opsional)"}</option>
+                <option value="">{loadingBahans ? "Memuat..." : "Pilih Bahan"}</option>
                 {bahansOptions.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
                 <option value="new">➕ Tambah Bahan Baru</option>
               </select>

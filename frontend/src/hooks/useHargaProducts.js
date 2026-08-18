@@ -2,6 +2,15 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import api from '../lib/api/axios';
 import { masterKeys, invalidateRelatedCaches } from './useMasterData';
 
+// ✅ Re-export dari useMasterData (single source of truth)
+export {
+  useProductsDropdown as useProductsForHarga,
+  useCustomersDropdown as useCustomersForHarga,
+} from './useMasterData';
+
+/**
+ * ✅ FIX: Gunakan masterKeys.harga (BUKAN key lokal)
+ */
 export const useHargaProducts = (params = {}) => {
   const { search = '', productId = '', perPage = 20, page = 1 } = params;
 
@@ -26,18 +35,6 @@ export const useHargaProducts = (params = {}) => {
   });
 };
 
-export const useHargaByProduct = (productId) => {
-  return useQuery({
-    queryKey: masterKeys.harga.byProduct(productId),
-    queryFn: async () => {
-      const response = await api.get(`/harga/by-product/${productId}`);
-      return response.data.data || [];
-    },
-    enabled: !!productId,
-    staleTime: 10 * 60 * 1000,
-  });
-};
-
 export const useCreateHargaProduct = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -52,8 +49,7 @@ export const useUpdateHargaProduct = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }) => api.put(`/harga/${id}`, data),
-    onSuccess: async (response, variables) => {
-      queryClient.setQueryData(masterKeys.harga.detail(variables.id), response.data.data);
+    onSuccess: async () => {
       await invalidateRelatedCaches(queryClient, 'harga');
     },
   });
@@ -64,9 +60,9 @@ export const useDeleteHargaProduct = () => {
   return useMutation({
     mutationFn: (id) => api.delete(`/harga/${id}`),
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: masterKeys.harga.lists(), exact: false });
-      const previousQueries = queryClient.getQueriesData({ queryKey: masterKeys.harga.lists() });
-      queryClient.setQueriesData({ queryKey: masterKeys.harga.lists() }, (old) => {
+      await queryClient.cancelQueries({ queryKey: masterKeys.harga.all, exact: false });
+      const previousQueries = queryClient.getQueriesData({ queryKey: masterKeys.harga.all });
+      queryClient.setQueriesData({ queryKey: masterKeys.harga.all }, (old) => {
         if (!old?.hargaProducts) return old;
         return {
           ...old,

@@ -351,7 +351,7 @@ const ProductForm = () => {
               <select value={form.bahan_id} onChange={handleBahanChange}
                 className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                 disabled={loadingBahans || isSubmitting}>
-                <option value="">{loadingBahans ? "Memuat..." : "Pilih Bahan (Opsional)"}</option>
+                <option value="">{loadingBahans ? "Memuat..." : "Pilih Bahan"}</option>
                 {bahansOptions.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
                 <option value="new">➕ Tambah Bahan Baru</option>
               </select>
