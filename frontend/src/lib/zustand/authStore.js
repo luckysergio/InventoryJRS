@@ -1,94 +1,61 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import api from '../api/axios';
+import { useShallow } from 'zustand/react/shallow';
 
 export const useAuthStore = create(
-    persist(
-        (set, get) => ({
-            user: null,
-            token: null,
-            isAuthenticated: false,
-            isLoading: false,
+  persist(
+    (set, get) => ({
+      user: null,
+      token: null,
+      isAuthenticated: false,
 
-            login: async (credentials) => {
-                set({ isLoading: true });
-                try {
-                    const response = await api.post('/auth/login', credentials);
-                    const { user, token } = response.data;
+      setAuth: (user, token) =>
+        set({ user, token, isAuthenticated: true }, false, 'setAuth'),
 
-                    set({
-                        user,
-                        token,
-                        isAuthenticated: true,
-                        isLoading: false,
-                    });
+      clearAuth: () =>
+        set({ user: null, token: null, isAuthenticated: false }, false, 'clearAuth'),
 
-                    return { success: true, data: response.data };
-                } catch (error) {
-                    set({ isLoading: false });
-                    return {
-                        success: false,
-                        message: error.response?.data?.message || 'Login gagal',
-                        errors: error.response?.data?.errors,
-                    };
-                }
-            },
+      updateToken: (token) =>
+        set({ token }, false, 'updateToken'),
 
-            logout: async () => {
-                try {
-                    await api.post('/auth/logout');
-                } catch (error) {
-                    console.error('Logout error:', error);
-                } finally {
-                    set({
-                        user: null,
-                        token: null,
-                        isAuthenticated: false,
-                    });
-                }
-            },
+      updateUser: (user) =>
+        set({ user }, false, 'updateUser'),
 
-            refresh: async () => {
-                try {
-                    const response = await api.post('/auth/refresh');
-                    const newToken = response.data.token;
-                    set({ token: newToken });
-                    return newToken;
-                } catch (error) {
-                    throw error;
-                }
-            },
+      // ✅ Tambah logout sebagai alias clearAuth agar interceptor tidak crash
+      logout: () =>
+        set({ user: null, token: null, isAuthenticated: false }, false, 'logout'),
 
-            fetchProfile: async () => {
-                try {
-                    const response = await api.get('/auth/profile');
-                    set({ user: response.data.user });
-                    return response.data.user;
-                } catch (error) {
-                    console.error('Fetch profile error:', error);
-                    throw error;
-                }
-            },
-
-            setToken: (token) => set({ token }),
-
-            hasRole: (role) => {
-                const { user } = get();
-                return user?.role === role;
-            },
-
-            hasAnyRole: (roles) => {
-                const { user } = get();
-                return roles.includes(user?.role);
-            },
-        }),
-        {
-            name: 'jrs-auth-storage',
-            partialize: (state) => ({
-                token: state.token,
-                user: state.user,
-                isAuthenticated: state.isAuthenticated,
-            }),
-        }
-    )
+      hasRole: (role) => get().user?.role === role,
+      hasAnyRole: (roles) => roles.includes(get().user?.role),
+    }),
+    {
+      name: 'jrs-auth-storage',
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    }
+  )
 );
+
+// ============================================
+// SELECTORS
+// ============================================
+export const useAuthState = () =>
+  useAuthStore(useShallow((s) => ({
+    user: s.user,
+    token: s.token,
+    isAuthenticated: s.isAuthenticated,
+    setAuth: s.setAuth,
+    clearAuth: s.clearAuth,
+    updateToken: s.updateToken,
+    updateUser: s.updateUser,
+    logout: s.logout,
+  })));
+
+export const useUserRole = () =>
+  useAuthStore(useShallow((s) => s.user?.role || null));
+
+export const useIsAdmin = () =>
+  useAuthStore(useShallow((s) => s.user?.role === 'admin'));

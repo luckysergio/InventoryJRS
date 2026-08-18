@@ -3,38 +3,35 @@
 namespace App\Services\Auth;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
-use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 class AuthService
 {
-    /**
-     * Registrasi user baru
-     */
     public function register(array $data): array
     {
         $user = User::create([
             'name'     => $data['name'],
-            'email'    => $data['email'],
+            'email'    => strtolower(trim($data['email'])),
             'password' => Hash::make($data['password']),
+            'role'     => 'operator',
         ]);
 
         $token = JWTAuth::fromUser($user);
 
+        Log::info('User registered', ['id' => $user->id, 'email' => $user->email]);
+
         return [
-            'user'  => $user,
+            'user'  => $this->formatUser($user),
             'token' => $token,
         ];
     }
 
-    /**
-     * Login user dengan rate limiting
-     */
-    public function login(array $data, string $ip, string $rateLimiterKey): array
+    public function login(array $data, string $rateLimiterKey): array
     {
-        // Cek rate limiter
         if (RateLimiter::tooManyAttempts($rateLimiterKey, 5)) {
             $seconds = RateLimiter::availableIn($rateLimiterKey);
 
@@ -46,19 +43,18 @@ class AuthService
         }
 
         $credentials = [
-            'email'    => $data['email'],
+            'email'    => strtolower(trim($data['email'])),
             'password' => $data['password'],
         ];
 
         if (!$token = JWTAuth::attempt($credentials)) {
             RateLimiter::hit($rateLimiterKey, 600);
 
-            // Delay untuk mencegah brute force
-            usleep(500000);
+            usleep(random_int(300000, 700000));
 
             return [
                 'success' => false,
-                'code'    => 422,
+                'code'    => 401,
                 'message' => 'Email atau password salah.',
             ];
         }
@@ -67,34 +63,47 @@ class AuthService
 
         $user = JWTAuth::user();
 
+        Log::info('User logged in', ['id' => $user->id, 'email' => $user->email]);
+
         return [
             'success' => true,
-            'user'    => $user,
+            'user'    => $this->formatUser($user),
             'token'   => $token,
         ];
     }
 
-    /**
-     * Ambil profil user yang sedang login
-     */
-    public function profile(): ?User
+    public function profile(): ?array
     {
-        return JWTAuth::user();
+        $user = JWTAuth::user();
+        return $user ? $this->formatUser($user) : null;
     }
 
-    /**
-     * Logout / invalidate token
-     */
     public function logout(): void
     {
-        JWTAuth::invalidate(JWTAuth::getToken());
+        try {
+            JWTAuth::invalidate(JWTAuth::getToken());
+        } catch (\Throwable $e) {
+            Log::warning('JWT invalidate failed during logout', ['error' => $e->getMessage()]);
+        }
+
+        Cache::flush();
+
+        Log::info('User logged out, all cache cleared');
     }
 
-    /**
-     * Refresh token JWT
-     */
     public function refresh(): string
     {
         return JWTAuth::refresh(JWTAuth::getToken());
+    }
+
+    private function formatUser(User $user): array
+    {
+        return [
+            'id'         => $user->id,
+            'name'       => $user->name,
+            'email'      => $user->email,
+            'role'       => $user->role ?? 'operator',
+            'created_at' => $user->created_at?->toISOString(),
+        ];
     }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { X, Image as ImageIcon, Camera, Tag, Truck, CheckCircle, Search, ChevronDown, ChevronUp, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { X, Image as ImageIcon, Camera, Tag, Truck, Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { useDistributorProductModals } from "../../../lib/zustand/distributorProductStore";
 import {
   useCreateDistributorProduct,
@@ -11,7 +11,6 @@ import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import { cn } from "../../../lib/utils";
 
 const ASSET_URL = import.meta.env.VITE_ASSET_URL || '';
-const MAX_LENGTH = 100;
 
 // --- Code Generation Helpers (mirror backend) ---
 const extractJenisKode = (text) => { if (!text) return ""; const c = text.trim().toUpperCase(); return c.length < 2 ? c : c.charAt(0) + c.charAt(c.length - 1); };
@@ -94,6 +93,9 @@ const SearchableDistributorDropdown = ({ distributors, selectedValue, onSelect, 
   );
 };
 
+// Import ChevronUp/ChevronDown/Search/X/CheckCircle untuk dropdown
+import { ChevronUp, ChevronDown, Search as SearchIcon } from "lucide-react";
+
 // --- Main Form Component ---
 const DistributorProductForm = () => {
   const { modals, selectedItem, closeAllModals } = useDistributorProductModals();
@@ -112,6 +114,9 @@ const DistributorProductForm = () => {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
 
+  // ✅ FIX: Flag untuk mencegah auto-reset type sebelum form terinisialisasi
+  const [isInitialized, setIsInitialized] = useState(false);
+
   const [isCreatingNewDistributor, setIsCreatingNewDistributor] = useState(false);
   const [newDistForm, setNewDistForm] = useState({ nama: "", no_hp: "" });
 
@@ -123,11 +128,21 @@ const DistributorProductForm = () => {
   const fileRefs = { depan: useRef(null), samping: useRef(null), atas: useRef(null) };
   const camRefs = { depan: useRef(null), samping: useRef(null), atas: useRef(null) };
 
-  // ✅ Types dropdown reactive terhadap jenis_id
-  const activeJenisId = form.jenis_id === "new" ? null : (form.jenis_id || null);
+  const isNewJenis = form.jenis_id === "new";
+  const isNewType = form.type_id === "new";
+  const isNewBahan = form.bahan_id === "new";
+
+  // ✅ FIX: Types dropdown reactive terhadap jenis_id
+  const activeJenisId = isNewJenis ? null : (form.jenis_id || null);
   const { data: typesOptions = [], isLoading: loadingTypes } = useTypesDropdown(activeJenisId);
 
+  // ✅ FIX: Reset form saat modal open/close + set initialized flag
   useEffect(() => {
+    if (!isOpen) {
+      setIsInitialized(false);
+      return;
+    }
+
     if (isEdit && selectedItem) {
       setForm({
         jenis_id: String(selectedItem.jenis_id || ""),
@@ -145,34 +160,50 @@ const DistributorProductForm = () => {
         atas: selectedItem.foto_atas_url || (selectedItem.foto_atas ? `${ASSET_URL}/storage/${selectedItem.foto_atas}` : null),
       });
       setNewInputs({ jenis: "", type: "", bahan: "" });
-      setIsCreatingNewDistributor(false);
-      setNewDistForm({ nama: "", no_hp: "" });
       setErrors({});
       setTouched({});
+      // ✅ Tunda initialized agar types hinna selesai dimuat sebelum auto-reset berjalan
+      setIsInitialized(false);
     } else if (isCreate) {
       setForm({ jenis_id: "", type_id: "", bahan_id: "", ukuran: "", keterangan: "", distributor_id: "", harga_beli: "", harga_umum: "" });
       setFotos({ depan: null, samping: null, atas: null });
       setNewInputs({ jenis: "", type: "", bahan: "" });
-      setIsCreatingNewDistributor(false);
-      setNewDistForm({ nama: "", no_hp: "" });
       setErrors({});
       setTouched({});
+      setIsInitialized(true);
     }
   }, [isEdit, isCreate, selectedItem, modals.edit, modals.create]);
 
-  // Auto-reset type when jenis changes
+  // ✅ FIX: Set initialized setelah types selesai dimuat saat edit mode
   useEffect(() => {
-    if (form.jenis_id && form.jenis_id !== "new" && form.type_id && form.type_id !== "new") {
-      const isValid = typesOptions.some((t) => String(t.value) === String(form.type_id));
-      if (!isValid) setForm((prev) => ({ ...prev, type_id: "" }));
+    if (isEdit && !loadingTypes && !isInitialized) {
+      setIsInitialized(true);
     }
-  }, [form.jenis_id, form.type_id, typesOptions]);
+  }, [isEdit, loadingTypes, isInitialized]);
 
-  // Kode preview
+  // ✅ FIX: Auto-reset type HANYA jika sudah initialized DAN types sudah loaded
+  useEffect(() => {
+    if (!isInitialized || loadingTypes) return;
+    if (isNewJenis || isNewType) return;
+    if (form.jenis_id && form.type_id) {
+      const isValid = typesOptions.some((t) => String(t.value) === String(form.type_id));
+      if (!isValid) {
+        setForm((prev) => ({ ...prev, type_id: "" }));
+      }
+    }
+  }, [form.jenis_id, form.type_id, typesOptions, loadingTypes, isInitialized, isNewJenis, isNewType]);
+
+  // Live kode preview
   const kodePreview = useMemo(() => {
-    const jNama = form.jenis_id === "new" ? newInputs.jenis : jenisOptions.find((j) => String(j.value) === String(form.jenis_id))?.label || "";
-    const tNama = form.type_id === "new" ? newInputs.type : typesOptions.find((t) => String(t.value) === String(form.type_id))?.label || "";
-    const bNama = form.bahan_id === "new" ? newInputs.bahan : bahansOptions.find((b) => String(b.value) === String(form.bahan_id))?.label || "";
+    const jNama = isNewJenis
+      ? newInputs.jenis
+      : jenisOptions.find((j) => String(j.value) === String(form.jenis_id))?.label || "";
+    const tNama = isNewType
+      ? newInputs.type
+      : typesOptions.find((t) => String(t.value) === String(form.type_id))?.label || "";
+    const bNama = isNewBahan
+      ? newInputs.bahan
+      : bahansOptions.find((b) => String(b.value) === String(form.bahan_id))?.label || "";
     let dNama = "", dHp = "";
     if (isCreatingNewDistributor) { dNama = newDistForm.nama; dHp = newDistForm.no_hp; }
     else if (form.distributor_id) { const dist = distributorsData.find((d) => String(d.value) === String(form.distributor_id)); dNama = dist?.label || ""; }
@@ -184,13 +215,23 @@ const DistributorProductForm = () => {
     const newErrors = {};
     if (!form.distributor_id && !isCreatingNewDistributor) newErrors.distributor_id = "Distributor wajib dipilih";
     if (!form.jenis_id) newErrors.jenis_id = "Jenis wajib dipilih";
-    else if (form.jenis_id === "new" && !newInputs.jenis.trim()) newErrors.jenis_id = "Nama jenis baru wajib diisi";
+    else if (isNewJenis && !newInputs.jenis.trim()) newErrors.jenis_id = "Nama jenis baru wajib diisi";
     if (!form.ukuran?.trim()) newErrors.ukuran = "Ukuran wajib diisi";
     const rawBeli = unformatRupiah(form.harga_beli);
     if (!rawBeli || rawBeli < 0) newErrors.harga_beli = "Harga beli wajib diisi";
     const rawUmum = unformatRupiah(form.harga_umum);
     if (!rawUmum || rawUmum < 0) newErrors.harga_umum = "Harga jual wajib diisi";
     if (isCreatingNewDistributor && !newDistForm.nama.trim()) newErrors.new_distributor = "Nama distributor baru wajib diisi";
+
+    if (!isNewJenis) {
+      if (!form.type_id) newErrors.type_id = "Tipe wajib dipilih";
+      else if (isNewType && !newInputs.type.trim()) newErrors.type_id = "Nama tipe baru wajib diisi";
+    } else {
+      if (!newInputs.type.trim()) newErrors.type_id = "Nama tipe baru wajib diisi saat membuat jenis baru";
+    }
+
+    if (isNewBahan && !newInputs.bahan.trim()) newErrors.bahan_id = "Nama bahan baru wajib diisi";
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -199,6 +240,7 @@ const DistributorProductForm = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { info("Error", "Ukuran file maksimal 5MB"); return; }
+    if (!["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(file.type)) { info("Error", "Hanya JPG/PNG/WebP"); return; }
     setFotos((prev) => ({ ...prev, [field]: file }));
   };
 
@@ -220,7 +262,7 @@ const DistributorProductForm = () => {
   // ✅ FIX: Urutan benar → mutateAsync → success → closeAllModals
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setTouched({ distributor_id: true, jenis_id: true, ukuran: true, harga_beli: true, harga_umum: true });
+    setTouched({ distributor_id: true, jenis_id: true, ukuran: true, harga_beli: true, harga_umum: true, type_id: true, bahan_id: true });
     if (!validate()) return;
 
     const formData = new FormData();
@@ -230,14 +272,23 @@ const DistributorProductForm = () => {
     formData.append("harga_umum", unformatRupiah(form.harga_umum));
     if (form.keterangan) formData.append("keterangan", form.keterangan);
 
-    if (form.jenis_id === "new") formData.append("jenis_nama", newInputs.jenis.trim());
-    else if (form.jenis_id) formData.append("jenis_id", form.jenis_id);
+    if (isNewJenis) {
+      formData.append("jenis_nama", newInputs.jenis.trim().toUpperCase());
+      formData.append("type_nama", newInputs.type.trim().toUpperCase());
+    } else {
+      formData.append("jenis_id", form.jenis_id);
+      if (isNewType) {
+        formData.append("type_nama", newInputs.type.trim().toUpperCase());
+      } else if (form.type_id) {
+        formData.append("type_id", form.type_id);
+      }
+    }
 
-    if (form.type_id === "new") formData.append("type_nama", newInputs.type.trim());
-    else if (form.type_id) formData.append("type_id", form.type_id);
-
-    if (form.bahan_id === "new") formData.append("bahan_nama", newInputs.bahan.trim());
-    else if (form.bahan_id) formData.append("bahan_id", form.bahan_id);
+    if (isNewBahan) {
+      formData.append("bahan_nama", newInputs.bahan.trim().toUpperCase());
+    } else if (form.bahan_id) {
+      formData.append("bahan_id", form.bahan_id);
+    }
 
     if (fotos.depan instanceof File) formData.append("foto_depan", fotos.depan);
     if (fotos.samping instanceof File) formData.append("foto_samping", fotos.samping);
@@ -266,6 +317,27 @@ const DistributorProductForm = () => {
 
   const handleCancel = () => { if (!isSubmitting) closeAllModals(); };
 
+  const handleJenisChange = (e) => {
+    const val = e.target.value;
+    setForm((prev) => ({ ...prev, jenis_id: val, type_id: "" }));
+    setNewInputs((prev) => ({ ...prev, jenis: "", type: "" }));
+    setErrors((prev) => ({ ...prev, jenis_id: undefined, type_id: undefined }));
+  };
+
+  const handleTypeChange = (e) => {
+    const val = e.target.value;
+    setForm((prev) => ({ ...prev, type_id: val }));
+    if (val !== "new") setNewInputs((prev) => ({ ...prev, type: "" }));
+    setErrors((prev) => ({ ...prev, type_id: undefined }));
+  };
+
+  const handleBahanChange = (e) => {
+    const val = e.target.value;
+    setForm((prev) => ({ ...prev, bahan_id: val }));
+    if (val !== "new") setNewInputs((prev) => ({ ...prev, bahan: "" }));
+    setErrors((prev) => ({ ...prev, bahan_id: undefined }));
+  };
+
   if (!isOpen) return null;
 
   const renderFotoInput = (label, field) => {
@@ -276,12 +348,18 @@ const DistributorProductForm = () => {
         <label className="block text-xs font-medium text-slate-600 text-center">{label}</label>
         <div className="flex flex-col items-center gap-1.5">
           <div className="relative">
-            {preview ? <img src={preview} alt={label} className="w-16 h-16 object-cover rounded-lg border border-slate-200" /> : <div className="w-16 h-16 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50"><ImageIcon size={20} className="text-slate-400" /></div>}
-            {preview && <button type="button" onClick={() => setFotos((prev) => ({ ...prev, [field]: null }))} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm hover:bg-red-600 transition">×</button>}
+            {preview ? (
+              <img src={preview} alt={label} className="w-16 h-16 object-cover rounded-lg border border-slate-200" />
+            ) : (
+              <div className="w-16 h-16 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50"><ImageIcon size={20} className="text-slate-400" /></div>
+            )}
+            {preview && (
+              <button type="button" onClick={() => setFotos((prev) => ({ ...prev, [field]: null }))} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm hover:bg-red-600 transition">×</button>
+            )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             <button type="button" onClick={() => fileRefs[field].current?.click()} className="text-[10px] px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition">Galeri</button>
-            <button type="button" onClick={() => camRefs[field].current?.click()} className="text-[10px] px-2 py-1 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 transition flex items-center gap-1"><Camera size={10} /> Kamera</button>
+            <button type="button" onClick={() => camRefs[field].current?.click()} className="text-[10px] px-2 py-1 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 transition flex items-center gap-0.5"><Camera size={9} /> Kamera</button>
           </div>
         </div>
         <input type="file" ref={fileRefs[field]} accept="image/*" onChange={(e) => handleFileChange(e, field)} className="hidden" />
@@ -353,63 +431,107 @@ const DistributorProductForm = () => {
 
           {/* Master Data Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* JENIS */}
             <FormField label="Jenis" required error={errors.jenis_id} touched={touched.jenis_id}>
-              <select value={form.jenis_id} onChange={(e) => { setForm((p) => ({ ...p, jenis_id: e.target.value, type_id: "" })); setNewInputs((p) => ({ ...p, jenis: "", type: "" })); setErrors((p) => ({ ...p, jenis_id: undefined })); }} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white" disabled={loadingJenis || isSubmitting}>
+              <select value={form.jenis_id} onChange={handleJenisChange}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                disabled={loadingJenis || isSubmitting}>
                 <option value="">{loadingJenis ? "Memuat..." : "Pilih Jenis"}</option>
                 {jenisOptions.map((j) => <option key={j.value} value={j.value}>{j.label}</option>)}
                 <option value="new">➕ Tambah Jenis Baru</option>
               </select>
-              {form.jenis_id === "new" && <input type="text" placeholder="Nama jenis baru (HURUF KAPITAL)" className="w-full mt-2 px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide" value={newInputs.jenis} onChange={(e) => setNewInputs((p) => ({ ...p, jenis: e.target.value.toUpperCase() }))} disabled={isSubmitting} />}
+              {isNewJenis && (
+                <div className="mt-2 space-y-2">
+                  <input type="text" placeholder="Nama JENIS baru (HURUF KAPITAL)"
+                    className="w-full px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide"
+                    value={newInputs.jenis} onChange={(e) => setNewInputs((p) => ({ ...p, jenis: e.target.value.toUpperCase() }))}
+                    disabled={isSubmitting} autoFocus />
+                  <p className="text-[11px] text-blue-600 flex items-center gap-1">💡 Jenis baru akan dibuat otomatis. Anda juga wajib mengisi Tipe baru di bawah.</p>
+                </div>
+              )}
             </FormField>
 
-            <FormField label="Tipe" error={errors.type_id} touched={touched.type_id}>
-              {form.jenis_id === "new" ? (
+            {/* TYPE - ✅ FIX: Sama persis dengan ProductForm */}
+            <FormField label={`Tipe ${isNewJenis ? "Baru *" : "*"}`} required error={errors.type_id} touched={touched.type_id}>
+              {isNewJenis ? (
                 <div className="space-y-2">
-                  <input type="text" placeholder="Nama tipe baru (HURUF KAPITAL)" className="w-full px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide" value={newInputs.type} onChange={(e) => setNewInputs((p) => ({ ...p, type: e.target.value.toUpperCase() }))} disabled={isSubmitting} />
-                  <p className="text-[11px] text-blue-600">💡 Tipe baru akan dibuat bersama jenis baru.</p>
+                  <input type="text" placeholder="Nama TIPE baru (HURUF KAPITAL)"
+                    className={cn("w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm font-medium tracking-wide",
+                      errors.type_id && touched.type_id ? "border-red-300 focus:ring-red-500" : "border-blue-300 focus:ring-blue-500")}
+                    value={newInputs.type}
+                    onChange={(e) => { setNewInputs((p) => ({ ...p, type: e.target.value.toUpperCase() })); if (errors.type_id) setErrors((p) => ({ ...p, type_id: undefined })); }}
+                    disabled={isSubmitting} autoFocus />
+                  <p className="text-[11px] text-blue-600 flex items-center gap-1">💡 Tipe ini akan otomatis dibuat dan dihubungkan dengan Jenis baru.</p>
                 </div>
               ) : (
                 <>
-                  <select value={form.type_id} onChange={(e) => { setForm((p) => ({ ...p, type_id: e.target.value })); setNewInputs((p) => ({ ...p, type: "" })); setErrors((p) => ({ ...p, type_id: undefined })); }} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-400" disabled={!form.jenis_id || loadingTypes || isSubmitting}>
-                    <option value="">{loadingTypes ? "Memuat..." : (form.jenis_id ? `Pilih Tipe (${typesOptions.length})` : "Pilih Jenis dulu")}</option>
+                  <select value={form.type_id} onChange={handleTypeChange}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-400"
+                    disabled={!form.jenis_id || loadingTypes || isSubmitting}>
+                    <option value="">{loadingTypes ? "Memuat..." : (form.jenis_id ? `Pilih Tipe (${typesOptions.length} tersedia)` : "Pilih Jenis dulu")}</option>
                     {typesOptions.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                     <option value="new">➕ Tambah Tipe Baru</option>
                   </select>
-                  {form.type_id === "new" && <input type="text" placeholder="Nama tipe baru (HURUF KAPITAL)" className="w-full mt-2 px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide" value={newInputs.type} onChange={(e) => setNewInputs((p) => ({ ...p, type: e.target.value.toUpperCase() }))} disabled={isSubmitting} />}
+                  {isNewType && (
+                    <input type="text" placeholder="Nama TIPE baru (HURUF KAPITAL)"
+                      className="w-full mt-2 px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide"
+                      value={newInputs.type}
+                      onChange={(e) => { setNewInputs((p) => ({ ...p, type: e.target.value.toUpperCase() })); if (errors.type_id) setErrors((p) => ({ ...p, type_id: undefined })); }}
+                      disabled={isSubmitting} autoFocus />
+                  )}
                 </>
               )}
             </FormField>
 
+            {/* BAHAN */}
             <FormField label="Bahan" error={errors.bahan_id} touched={touched.bahan_id}>
-              <select value={form.bahan_id} onChange={(e) => { setForm((p) => ({ ...p, bahan_id: e.target.value })); setNewInputs((p) => ({ ...p, bahan: "" })); setErrors((p) => ({ ...p, bahan_id: undefined })); }} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white" disabled={loadingBahans || isSubmitting}>
+              <select value={form.bahan_id} onChange={handleBahanChange}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                disabled={loadingBahans || isSubmitting}>
                 <option value="">{loadingBahans ? "Memuat..." : "Pilih Bahan"}</option>
                 {bahansOptions.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
                 <option value="new">➕ Tambah Bahan Baru</option>
               </select>
-              {form.bahan_id === "new" && <input type="text" placeholder="Nama bahan baru (HURUF KAPITAL)" className="w-full mt-2 px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide" value={newInputs.bahan} onChange={(e) => setNewInputs((p) => ({ ...p, bahan: e.target.value.toUpperCase() }))} disabled={isSubmitting} />}
+              {isNewBahan && (
+                <input type="text" placeholder="Nama BAHAN baru (HURUF KAPITAL)"
+                  className="w-full mt-2 px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide"
+                  value={newInputs.bahan}
+                  onChange={(e) => { setNewInputs((p) => ({ ...p, bahan: e.target.value.toUpperCase() })); if (errors.bahan_id) setErrors((p) => ({ ...p, bahan_id: undefined })); }}
+                  disabled={isSubmitting} autoFocus />
+              )}
             </FormField>
 
+            {/* UKURAN */}
             <FormField label="Ukuran" required error={errors.ukuran} touched={touched.ukuran}>
-              <input type="text" value={form.ukuran} onChange={(e) => setForm((p) => ({ ...p, ukuran: e.target.value }))} onBlur={() => setTouched((p) => ({ ...p, ukuran: true }))} className={cn("w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm", errors.ukuran && touched.ukuran ? "border-red-300 focus:ring-red-500" : "border-slate-200 focus:ring-blue-500")} placeholder="Contoh: 10x20" disabled={isSubmitting} />
+              <input type="text" value={form.ukuran} onChange={(e) => setForm((p) => ({ ...p, ukuran: e.target.value }))}
+                onBlur={() => setTouched((p) => ({ ...p, ukuran: true }))}
+                className={cn("w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm", errors.ukuran && touched.ukuran ? "border-red-300 focus:ring-red-500" : "border-slate-200 focus:ring-blue-500")}
+                placeholder="Contoh: 10x20" disabled={isSubmitting} />
             </FormField>
           </div>
 
           {/* Foto */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Foto Product</label>
-            <div className="grid grid-cols-3 gap-4">{renderFotoInput("Depan", "depan")}{renderFotoInput("Samping", "samping")}{renderFotoInput("Atas", "atas")}</div>
+            <div className="grid grid-cols-3 gap-4">
+              {renderFotoInput("Depan", "depan")}
+              {renderFotoInput("Samping", "samping")}
+              {renderFotoInput("Atas", "atas")}
+            </div>
           </div>
 
           {/* Keterangan */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Keterangan</label>
-            <textarea value={form.keterangan} onChange={(e) => setForm((p) => ({ ...p, keterangan: e.target.value }))} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none" rows={2} placeholder="Opsional" disabled={isSubmitting} />
+            <textarea value={form.keterangan} onChange={(e) => setForm((p) => ({ ...p, keterangan: e.target.value }))}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none" rows={2} placeholder="Opsional" disabled={isSubmitting} />
           </div>
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={handleCancel} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" disabled={isSubmitting}>Batal</button>
-            <button type="submit" disabled={isSubmitting} className={cn("flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed", isEdit ? "bg-amber-600 hover:bg-amber-700" : "bg-blue-600 hover:bg-blue-700")}>
+            <button type="submit" disabled={isSubmitting}
+              className={cn("flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed", isEdit ? "bg-amber-600 hover:bg-amber-700" : "bg-blue-600 hover:bg-blue-700")}>
               {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</> : (isEdit ? "Perbarui" : "Simpan")}
             </button>
           </div>

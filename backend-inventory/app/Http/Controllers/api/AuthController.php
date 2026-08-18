@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Services\Auth\AuthService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -14,29 +15,32 @@ class AuthController extends Controller
         protected AuthService $authService
     ) {}
 
-    /**
-     * Registrasi user baru
-     */
     public function register(RegisterRequest $request): JsonResponse
     {
-        $result = $this->authService->register($request->validated());
+        try {
+            $result = $this->authService->register($request->validated());
 
-        return response()->json([
-            'status'  => true,
-            'message' => 'Registrasi berhasil.',
-            'user'    => $result['user'],
-            'token'   => $result['token'],
-        ], 201);
+            return response()->json([
+                'status'  => true,
+                'message' => 'Registrasi berhasil.',
+                'data'    => [
+                    'user'  => $result['user'],
+                    'token' => $result['token'],
+                ],
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('Register error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal melakukan registrasi.',
+            ], 500);
+        }
     }
 
-    /**
-     * Login user
-     */
     public function login(LoginRequest $request): JsonResponse
     {
         $result = $this->authService->login(
             data: $request->validated(),
-            ip: $request->ip(),
             rateLimiterKey: $request->rateLimiterKey()
         );
 
@@ -50,47 +54,71 @@ class AuthController extends Controller
         return response()->json([
             'status'  => true,
             'message' => 'Login berhasil.',
-            'user'    => $result['user'],
-            'token'   => $result['token'],
+            'data'    => [
+                'user'  => $result['user'],
+                'token' => $result['token'],
+            ],
         ]);
     }
 
-    /**
-     * Ambil profil user yang sedang login
-     */
     public function profile(): JsonResponse
     {
-        $user = $this->authService->profile();
+        try {
+            $user = $this->authService->profile();
 
-        return response()->json([
-            'status' => true,
-            'user'   => $user,
-        ]);
+            if (!$user) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'User tidak ditemukan.',
+                ], 401);
+            }
+
+            return response()->json([
+                'status' => true,
+                'data'   => ['user' => $user],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Profile error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal memuat profil.',
+            ], 500);
+        }
     }
 
-    /**
-     * Logout user
-     */
     public function logout(): JsonResponse
     {
-        $this->authService->logout();
+        try {
+            $this->authService->logout();
 
-        return response()->json([
-            'status'  => true,
-            'message' => 'Logout berhasil.',
-        ]);
+            return response()->json([
+                'status'  => true,
+                'message' => 'Logout berhasil.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Logout error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal melakukan logout.',
+            ], 500);
+        }
     }
 
-    /**
-     * Refresh token JWT
-     */
     public function refresh(): JsonResponse
     {
-        $token = $this->authService->refresh();
+        try {
+            $token = $this->authService->refresh();
 
-        return response()->json([
-            'status' => true,
-            'token'  => $token,
-        ]);
+            return response()->json([
+                'status' => true,
+                'data'   => ['token' => $token],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Token refresh error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal me-refresh token. Silakan login ulang.',
+            ], 401);
+        }
     }
 }

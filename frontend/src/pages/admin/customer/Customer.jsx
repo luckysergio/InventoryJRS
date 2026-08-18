@@ -1,15 +1,17 @@
 import { useState, useMemo, useCallback } from "react";
 import {
   Plus, Pencil, Trash2, Search, Receipt, Wallet, ArrowLeft,
-  CheckCircle, X, Calendar, Printer,
+  CheckCircle, X, Calendar, Printer, User, Phone, Mail, ShieldAlert,
 } from "lucide-react";
 import { useCustomers, useDeleteCustomer } from "../../../hooks/useCustomers";
 import { useStatusTransaksiList } from "../../../hooks/useStatusTransaksi";
 import { useCustomerFilters, useCustomerModals } from "../../../lib/zustand/customerStore";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
+import { useIsAdmin, useUserRole } from "../../../lib/zustand/authStore";
 import { cn } from "../../../lib/utils";
+import api from "../../../lib/api/axios";
 import CustomerForm from "./CustomerForm";
-import CustomerDetail from "./CustomerDetail"; // ✅ FIX: Import CustomerDetail
+import CustomerDetail from "./CustomerDetail";
 
 // ==========================================
 // UTILITY FUNCTIONS
@@ -21,16 +23,107 @@ const fmtProductName = (p) => p ? [p.jenis?.nama, p.type?.nama, p.ukuran].filter
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 const STATUS_DIBATALKAN_ID = 6;
 
-const getUserRole = () => {
-  try {
-    const raw = localStorage.getItem("user");
-    if (!raw) return null;
-    return JSON.parse(raw)?.role || null;
-  } catch { return null; }
-};
-
 const canCreateCustomer = (role) => ["admin", "admin_toko", "operator"].includes(role);
-const isAdminRole = (role) => role === "admin";
+
+// ==========================================
+// CUSTOMER CARD COMPONENT (Serasi dengan halaman lain)
+// ==========================================
+const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHarian, onTagihanPesanan, onPrint }) => {
+  const tH = Number(item.tagihan_harian_belum_lunas) || 0;
+  const tP = Number(item.tagihan_pesanan_belum_lunas) || 0;
+  const hasTag = tH > 0 || tP > 0;
+  const initials = item.name?.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "?";
+
+  return (
+    <div className="group relative bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-blue-300 hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-300 flex flex-col h-full">
+      {/* Top Section: Avatar + Name + Contact */}
+      <div className="flex flex-col items-center text-center pt-4 px-4 pb-3">
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white mb-3 group-hover:scale-105 transition-transform duration-300">
+          {initials}
+        </div>
+
+        <h3 className="text-sm font-bold text-slate-900 truncate w-full" title={item.name}>
+          {item.name}
+        </h3>
+
+        {isAdmin ? (
+          <div className="mt-1.5 space-y-0.5 w-full">
+            <div className="flex items-center justify-center gap-1 text-[11px] text-slate-500">
+              <Phone className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">{item.phone || "-"}</span>
+            </div>
+            <div className="flex items-center justify-center gap-1 text-[11px] text-slate-500">
+              <Mail className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">{item.email || "-"}</span>
+            </div>
+          </div>
+        ) : (
+          <p className="text-[11px] text-slate-400 mt-1">(kontak hanya admin)</p>
+        )}
+      </div>
+
+      {/* Middle Section: Tagihan Badges (serasi dengan Product stock badges) */}
+      <div className="px-4 space-y-1 text-xs min-w-0 flex-1">
+        {tH > 0 && (
+          <div
+            className="flex justify-between pt-2 border-t border-slate-100 cursor-pointer hover:bg-orange-50 rounded p-1 gap-1 transition-colors"
+            onClick={() => onTagihanHarian(item)}
+          >
+            <span className="text-orange-600 font-medium truncate">Harian:</span>
+            <span className="text-orange-600 font-bold shrink-0 whitespace-nowrap">{fmtRp(tH)}</span>
+          </div>
+        )}
+        {tP > 0 && (
+          <div
+            className="flex justify-between pt-1 cursor-pointer hover:bg-purple-50 rounded p-1 gap-1 transition-colors"
+            onClick={() => onTagihanPesanan(item)}
+          >
+            <span className="text-purple-600 font-medium truncate">Pesanan:</span>
+            <span className="text-purple-600 font-bold shrink-0 whitespace-nowrap">{fmtRp(tP)}</span>
+          </div>
+        )}
+        {!hasTag && (
+          <div className="flex justify-between pt-2 border-t border-slate-100">
+            <span className="text-emerald-600 font-medium">Lunas</span>
+            <CheckCircle size={14} className="text-emerald-600" />
+          </div>
+        )}
+      </div>
+
+      {/* Print Button (hanya jika ada tagihan) */}
+      {hasTag && (
+        <div className="mt-3 mx-4 pt-2 border-t border-slate-100">
+          <button
+            onClick={() => onPrint(item)}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 text-xs w-full transition active:scale-95"
+          >
+            <Printer size={14} />
+            <span className="hidden sm:inline">Cetak Tagihan</span>
+            <span className="sm:hidden">Print</span>
+          </button>
+        </div>
+      )}
+
+      {/* Spacer */}
+      <div className="flex-1 min-h-[8px]" />
+
+      {/* Action Buttons (hover reveal - serasi dengan halaman lain) */}
+      {isAdmin && (
+        <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <button onClick={() => onDetail(item)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Detail">
+            <User size={14} />
+          </button>
+          <button onClick={() => onEdit(item)} className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+            <Pencil size={14} />
+          </button>
+          <button onClick={() => onDelete(item)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
+            <Trash2 size={14} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ==========================================
 // MAIN PAGE COMPONENT
@@ -44,8 +137,8 @@ const CustomerPage = () => {
   } = useCustomerModals();
   const { danger, success, info, warning } = useConfirmDialog();
 
-  const role = getUserRole();
-  const isAdmin = isAdminRole(role);
+  const role = useUserRole();
+  const isAdmin = useIsAdmin();
   const canCreate = canCreateCustomer(role);
 
   const [searchInput, setSearchInput] = useState(filters.search);
@@ -149,7 +242,6 @@ const CustomerPage = () => {
     if (jumlah > sisa) { warning("Error", `Jumlah bayar tidak boleh melebihi sisa tagihan (Rp ${fmtRp(sisa)})`); return; }
 
     try {
-      const api = (await import("../../../services/api")).default;
       await api.post("/pembayaran", { transaksi_detail_id: detail.id, jumlah_bayar: jumlah, tanggal_bayar: new Date().toISOString().split("T")[0] });
       const newSisa = sisa - jumlah;
       if (newSisa <= 0 && statusSelesaiId) {
@@ -188,52 +280,46 @@ const CustomerPage = () => {
       {/* CONTENT */}
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-          {[...Array(12)].map((_, i) => <div key={i} className="bg-white border border-slate-200 rounded-xl p-4 animate-pulse"><div className="w-10 h-10 bg-slate-200 rounded-full mx-auto mb-3" /><div className="h-4 bg-slate-200 rounded w-3/4 mx-auto mb-2" /><div className="h-3 bg-slate-200 rounded w-1/2 mx-auto mb-2" /><div className="h-6 bg-slate-200 rounded-full w-full mt-3" /></div>)}
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className="bg-white border border-slate-200 rounded-xl overflow-hidden animate-pulse">
+              <div className="flex flex-col items-center pt-4 px-4 pb-3">
+                <div className="w-14 h-14 bg-slate-200 rounded-full mb-3" />
+                <div className="h-4 bg-slate-200 rounded w-3/4 mb-2" />
+                <div className="h-3 bg-slate-200 rounded w-1/2" />
+              </div>
+              <div className="px-4 space-y-2 pb-4">
+                <div className="h-6 bg-slate-200 rounded-full w-full" />
+                <div className="h-6 bg-slate-200 rounded-full w-full" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : sortedCustomers.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200/60 p-12 text-center shadow-sm">
-          <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4"><Search className="w-10 h-10 text-slate-400" /></div>
+          <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+            <Search className="w-10 h-10 text-slate-400" />
+          </div>
           <p className="text-slate-900 font-semibold text-lg">{isFilterActive ? "Tidak ada customer yang cocok" : "Belum ada data customer"}</p>
           <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">{isFilterActive ? "Coba ubah kata kunci pencarian atau reset filter" : "Mulai dengan menambahkan customer baru"}</p>
           {isFilterActive && <button onClick={() => { setSearchInput(""); resetFilters(); }} className="mt-4 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">Reset Filter</button>}
         </div>
       ) : (
         <>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-1">
-            <p className="text-xs sm:text-sm text-slate-500">Menampilkan <span className="font-semibold text-slate-900">{sortedCustomers.length}</span> dari <span className="font-semibold text-slate-900">{total}</span> customer</p>
-            {lastPage > 1 && <p className="text-xs sm:text-sm text-slate-400">Halaman <span className="font-medium">{currentPage}</span> / <span className="font-medium">{lastPage}</span></p>}
-          </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-            {sortedCustomers.map((item) => {
-              const tH = Number(item.tagihan_harian_belum_lunas) || 0;
-              const tP = Number(item.tagihan_pesanan_belum_lunas) || 0;
-              const hasTag = tH > 0 || tP > 0;
-              return (
-                <div key={item.id} className="group bg-white rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 hover:border-blue-200 min-w-0 flex flex-col h-full">
-                  <h3 className="text-sm font-bold text-slate-900 text-center truncate" title={item.name}>{item.name}</h3>
-                  {isAdmin ? (
-                    <>
-                      <p className="text-xs text-slate-500 mt-1 text-center truncate" title={item.phone || ""}>📞 {item.phone || "-"}</p>
-                      <p className="text-xs text-slate-500 text-center break-all" title={item.email || ""}>✉️ {item.email || "-"}</p>
-                    </>
-                  ) : <p className="text-xs text-slate-400 text-center mt-2">(kontak hanya admin)</p>}
-
-                  <div className="mt-3 space-y-1 text-xs min-w-0 flex-1">
-                    {tH > 0 && <div className="flex justify-between pt-2 border-t border-slate-100 cursor-pointer hover:bg-orange-50 rounded p-1 gap-1" onClick={() => openTagihanModal(item, "daily")}><span className="text-orange-600 font-medium truncate">Harian:</span><span className="text-orange-600 font-bold shrink-0 whitespace-nowrap">{fmtRp(tH)}</span></div>}
-                    {tP > 0 && <div className="flex justify-between pt-1 cursor-pointer hover:bg-purple-50 rounded p-1 gap-1" onClick={() => openTagihanModal(item, "pesanan")}><span className="text-purple-600 font-medium truncate">Pesanan:</span><span className="text-purple-600 font-bold shrink-0 whitespace-nowrap">{fmtRp(tP)}</span></div>}
-                    {!hasTag && <div className="flex justify-between pt-2 border-t border-slate-100"><span className="text-emerald-600 font-medium">Lunas</span><CheckCircle size={14} className="text-emerald-600" /></div>}
-                  </div>
-
-                  {hasTag && <div className="mt-3 pt-2 border-t border-slate-100"><button onClick={() => handlePrintTagihan(item)} className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 text-xs w-full transition active:scale-95"><Printer size={14} /><span className="hidden sm:inline">Cetak Tagihan</span><span className="sm:hidden">Print</span></button></div>}
-
-                  {isAdmin && <div className="flex gap-2 mt-3 pt-2 border-t border-slate-100">
-                    <button onClick={() => openEditModal(item)} className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 text-xs transition active:scale-95"><Pencil size={14} /><span className="hidden sm:inline">Edit</span></button>
-                    <button onClick={() => handleDelete(item)} className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-xs transition active:scale-95"><Trash2 size={14} /><span className="hidden sm:inline">Hapus</span></button>
-                  </div>}
-                </div>
-              );
-            })}
+            {sortedCustomers.map((item) => (
+              <CustomerCard
+                key={item.id}
+                item={item}
+                isAdmin={isAdmin}
+                onDetail={openDetailModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+                onTagihanHarian={(c) => openTagihanModal(c, "daily")}
+                onTagihanPesanan={(c) => openTagihanModal(c, "pesanan")}
+                onPrint={handlePrintTagihan}
+              />
+            ))}
           </div>
 
           {lastPage > 1 && (
@@ -259,7 +345,7 @@ const CustomerPage = () => {
         </button>
       )}
 
-      {/* ✅ FIX: Semua modal dirender dengan benar */}
+      {/* Modals */}
       <CustomerForm />
       <CustomerDetail />
 
@@ -305,7 +391,7 @@ const CustomerPage = () => {
         );
       })()}
 
-      {/* MODAL: Detail Tagihan (inline) */}
+      {/* MODAL: Detail Tagihan */}
       {modals.detail && bayarDetail && (() => {
         const d = bayarDetail, sub = safeFloat(d.subtotal), paid = (d.pembayarans || []).reduce((s, p) => s + safeFloat(p.jumlah_bayar), 0), sisa = sub - paid, lunas = sisa <= 0;
         return (
