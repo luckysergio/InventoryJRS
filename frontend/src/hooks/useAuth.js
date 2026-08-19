@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import api from '../lib/api/axios';
 import { useAuthStore } from '../lib/zustand/authStore';
+import { useConfirmDialog } from './useConfirmDialog';
 
 const AUTH_KEYS = {
   all: ['auth'],
@@ -12,21 +13,22 @@ const AUTH_KEYS = {
 export const useAuth = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { user, token, isAuthenticated, setAuth, clearAuth, updateToken } = useAuthStore();
+  const { user, token, isAuthenticated, setAuth, clearAuth } = useAuthStore();
+  const { info } = useConfirmDialog();
 
-  // ✅ Listen for logout event dari axios interceptor
   useEffect(() => {
     const handleLogout = () => {
       clearAuth();
       queryClient.cancelQueries();
       queryClient.removeQueries();
       navigate('/jayarubberseallogin', { replace: true });
+      info('Sesi Berakhir', 'Anda telah keluar dari sistem.');
     };
+    
     window.addEventListener('auth:logout', handleLogout);
     return () => window.removeEventListener('auth:logout', handleLogout);
-  }, [navigate, clearAuth, queryClient]);
+  }, [navigate, clearAuth, queryClient, info]);
 
-  // ✅ Fetch profile untuk validasi token saat page refresh
   const { data: profileData, isLoading: isProfileLoading } = useQuery({
     queryKey: AUTH_KEYS.profile(),
     queryFn: async () => {
@@ -36,17 +38,17 @@ export const useAuth = () => {
     enabled: !!token && isAuthenticated,
     staleTime: 5 * 60 * 1000,
     retry: 1,
-    retryDelay: 1000,
+    onError: () => {
+      clearAuth();
+    }
   });
 
-  // Sync profile data ke store
   useEffect(() => {
     if (profileData) {
       useAuthStore.getState().updateUser(profileData);
     }
   }, [profileData]);
 
-  // ✅ Login mutation
   const loginMutation = useMutation({
     mutationFn: async (credentials) => {
       const res = await api.post('/auth/login', credentials);
@@ -58,18 +60,19 @@ export const useAuth = () => {
     },
   });
 
-  // ✅ Logout mutation - clear ALL cache
   const logoutMutation = useMutation({
     mutationFn: () => api.post('/auth/logout'),
     onSettled: () => {
       clearAuth();
       queryClient.cancelQueries();
       queryClient.removeQueries();
+      navigate('/jayarubberseallogin', { replace: true });
     },
     onError: () => {
       clearAuth();
       queryClient.cancelQueries();
       queryClient.removeQueries();
+      navigate('/jayarubberseallogin', { replace: true });
     },
   });
 

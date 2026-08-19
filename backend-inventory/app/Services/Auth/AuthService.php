@@ -11,6 +11,9 @@ use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
 class AuthService
 {
+    private const CACHE_PREFIX = 'auth:user:';
+    private const CACHE_TTL = 3600; // 1 jam
+
     public function register(array $data): array
     {
         $user = User::create([
@@ -49,7 +52,6 @@ class AuthService
 
         if (!$token = JWTAuth::attempt($credentials)) {
             RateLimiter::hit($rateLimiterKey, 600);
-
             usleep(random_int(300000, 700000));
 
             return [
@@ -63,6 +65,8 @@ class AuthService
 
         $user = JWTAuth::user();
 
+        $this->cacheUserData($user);
+
         Log::info('User logged in', ['id' => $user->id, 'email' => $user->email]);
 
         return [
@@ -75,25 +79,89 @@ class AuthService
     public function profile(): ?array
     {
         $user = JWTAuth::user();
-        return $user ? $this->formatUser($user) : null;
+        
+        if (!$user) {
+            return null;
+        }
+
+        $cachedUser = $this->getCachedUserData($user->id);
+        
+        if ($cachedUser) {
+            return $cachedUser;
+        }
+
+        $formattedUser = $this->formatUser($user);
+        $this->cacheUserData($user);
+
+        return $formattedUser;
     }
 
     public function logout(): void
     {
         try {
+            $user = JWTAuth::user();
+            
+            if ($user) {
+                $this->clearUserCache($user->id);
+                
+                Log::info('User logged out and cache cleared', ['user_id' => $user->id]);
+            }
+
             JWTAuth::invalidate(JWTAuth::getToken());
+            
         } catch (\Throwable $e) {
             Log::warning('JWT invalidate failed during logout', ['error' => $e->getMessage()]);
         }
-
-        Cache::flush();
-
-        Log::info('User logged out, all cache cleared');
     }
 
     public function refresh(): string
     {
-        return JWTAuth::refresh(JWTAuth::getToken());
+        $oldToken = JWTAuth::getToken();
+        $newToken = JWTAuth::refresh($oldToken);
+
+        $user = JWTAuth::setToken($newToken)->authenticate();
+        if ($user) {
+            $this->cacheUserData($user);
+        }
+
+        return $newToken;
+    }
+
+    private function cacheUserData(User $user): void
+    {
+        $cacheKey = self::CACHE_PREFIX . $user->id;
+        $userData = $this->formatUser($user);
+
+        if (config('cache.default') === 'redis' || config('cache.default') === 'memcached') {
+            Cache::tags(['user_data', "user:{$user->id}"])
+                ->put($cacheKey, $userData, self::CACHE_TTL);
+        } else {
+            Cache::put($cacheKey, $userData, self::CACHE_TTL);
+        }
+    }
+
+    private function getCachedUserData(int $userId): ?array
+    {
+        $cacheKey = self::CACHE_PREFIX . $userId;
+        return Cache::get($cacheKey);
+    }
+
+    private function clearUserCache(int $userId): void
+    {
+        $cacheKey = self::CACHE_PREFIX . $userId;
+        
+        if (config('cache.default') === 'redis' || config('cache.default') === 'memcached') {
+            Cache::tags(["user:{$userId}"])->flush();
+        } else {
+            Cache::forget($cacheKey);
+        }
+    }
+
+    public static function invalidateAllUserCaches(): void
+    {
+        if (config('cache.default') === 'redis' || config('cache.default') === 'memcached') {
+            Cache::tags(['user_data'])->flush();
+        }
     }
 
     private function formatUser(User $user): array

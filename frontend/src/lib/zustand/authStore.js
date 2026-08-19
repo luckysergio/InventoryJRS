@@ -10,23 +10,23 @@ export const useAuthStore = create(
       isAuthenticated: false,
 
       setAuth: (user, token) =>
-        set({ user, token, isAuthenticated: true }, false, 'setAuth'),
+        set({ user, token, isAuthenticated: true }),
 
       clearAuth: () =>
-        set({ user: null, token: null, isAuthenticated: false }, false, 'clearAuth'),
+        set({ user: null, token: null, isAuthenticated: false }),
 
       updateToken: (token) =>
-        set({ token }, false, 'updateToken'),
+        set({ token }),
 
       updateUser: (user) =>
-        set({ user }, false, 'updateUser'),
-
-      // ✅ Tambah logout sebagai alias clearAuth agar interceptor tidak crash
-      logout: () =>
-        set({ user: null, token: null, isAuthenticated: false }, false, 'logout'),
+        set({ user }),
 
       hasRole: (role) => get().user?.role === role,
-      hasAnyRole: (roles) => roles.includes(get().user?.role),
+      
+      hasAnyRole: (roles) => {
+        const userRole = get().user?.role;
+        return roles.includes(userRole);
+      },
     }),
     {
       name: 'jrs-auth-storage',
@@ -39,9 +39,6 @@ export const useAuthStore = create(
   )
 );
 
-// ============================================
-// SELECTORS
-// ============================================
 export const useAuthState = () =>
   useAuthStore(useShallow((s) => ({
     user: s.user,
@@ -51,11 +48,10 @@ export const useAuthState = () =>
     clearAuth: s.clearAuth,
     updateToken: s.updateToken,
     updateUser: s.updateUser,
-    logout: s.logout,
   })));
 
 export const useUserRole = () =>
-  useAuthStore(useShallow((s) => s.user?.role || null));
+  useAuthStore((s) => s.user?.role || null);
 
 export const useIsAdmin = () =>
-  useAuthStore(useShallow((s) => s.user?.role === 'admin'));
+  useAuthStore((s) => s.user?.role === 'admin');

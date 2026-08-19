@@ -15,13 +15,15 @@ let failedQueue = [];
 
 const processQueue = (error, token = null) => {
   failedQueue.forEach((prom) => {
-    if (error) prom.reject(error);
-    else prom.resolve(token);
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
   });
   failedQueue = [];
 };
 
-// ✅ Request Interceptor: Attach token
 api.interceptors.request.use(
   (config) => {
     const token = useAuthStore.getState().token;
@@ -33,15 +35,14 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ✅ Response Interceptor: Header-based refresh + 401 fallback
 api.interceptors.response.use(
   (response) => {
-    // Backend bisa mengirim token baru via header (optional optimization)
-    const newToken = response.headers['authorization']?.replace('Bearer ', '');
+    const newToken = response.headers['authorization'];
     const isRefreshed = response.headers['x-token-refreshed'] === 'true';
 
     if (isRefreshed && newToken) {
-      useAuthStore.getState().updateToken(newToken);
+      const cleanToken = newToken.replace('Bearer ', '');
+      useAuthStore.getState().updateToken(cleanToken);
     }
 
     return response;
@@ -49,20 +50,17 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Skip retry untuk auth endpoints
-    const skipPaths = ['/auth/login', '/auth/logout', '/auth/refresh', '/auth/forgot-password'];
+    const skipPaths = ['/auth/login', '/auth/logout', '/auth/refresh', '/auth/forgot-password', '/auth/reset-password'];
     if (skipPaths.some((p) => originalRequest.url?.includes(p))) {
       return Promise.reject(error);
     }
 
-    // ✅ Backend signal: requires_relogin → force logout
     if (error.response?.data?.requires_relogin) {
       useAuthStore.getState().clearAuth();
       window.dispatchEvent(new CustomEvent('auth:logout'));
       return Promise.reject(error);
     }
 
-    // ✅ 401 → Try refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -80,28 +78,26 @@ api.interceptors.response.use(
 
       try {
         const currentToken = useAuthStore.getState().token;
+        
         if (!currentToken) {
-          useAuthStore.getState().clearAuth();
-          window.dispatchEvent(new CustomEvent('auth:logout'));
-          return Promise.reject(error);
+          throw new Error('No token available');
         }
 
         const refreshResponse = await api.post('/auth/refresh');
-
-        // ✅ FIX: Backend response format = { status, data: { token } }
         const newToken = refreshResponse.data?.data?.token;
 
         if (newToken) {
           useAuthStore.getState().updateToken(newToken);
           processQueue(null, newToken);
+          
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return api(originalRequest);
         }
 
-        throw new Error('No token in refresh response');
+        throw new Error('Invalid refresh response');
+
       } catch (refreshError) {
         processQueue(refreshError, null);
-        // ✅ FIX: Gunakan clearAuth() bukan logout() (method yang ada di store)
         useAuthStore.getState().clearAuth();
         window.dispatchEvent(new CustomEvent('auth:logout'));
         return Promise.reject(refreshError);

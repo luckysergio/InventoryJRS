@@ -13,10 +13,16 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AutoRefreshToken
 {
-    private const REFRESH_THRESHOLD = 600;
+    private const REFRESH_THRESHOLD = 600; // 10 menit sebelum expired
+    private const HEADER_REFRESHED = 'X-Token-Refreshed';
+    private const HEADER_EXPIRES_IN = 'X-Token-Expires-In';
 
     public function handle(Request $request, Closure $next): Response
     {
+        if ($request->headers->has(self::HEADER_REFRESHED)) {
+            return $next($request);
+        }
+
         if (!$this->hasAuthorizationHeader($request)) {
             return $next($request);
         }
@@ -72,16 +78,18 @@ class AutoRefreshToken
             $newTtl = $newExp - time();
 
             $request->headers->set('Authorization', 'Bearer ' . $newToken);
+            $request->headers->set(self::HEADER_REFRESHED, 'true');
 
             /** @var Response $response */
             $response = $next($request);
 
-            $response->headers->set('X-Token-Refreshed', 'true');
-            $response->headers->set('X-Token-Expires-In', (string) $newTtl);
+            $response->headers->set(self::HEADER_REFRESHED, 'true');
+            $response->headers->set(self::HEADER_EXPIRES_IN, (string) $newTtl);
             $response->headers->set('Authorization', 'Bearer ' . $newToken);
 
+            // Expose headers untuk CORS
             $response->headers->set('Access-Control-Expose-Headers', 
-                'Authorization, X-Token-Refreshed, X-Token-Expires-In'
+                'Authorization, ' . self::HEADER_REFRESHED . ', ' . self::HEADER_EXPIRES_IN
             );
 
             return $response;

@@ -78,7 +78,7 @@ export const masterKeys = {
     list: (filters) => [...masterKeys.place.lists(), filters],
     dropdown: () => [...masterKeys.place.all, 'dropdown'],
   },
-  // ✅ BARU: Inventory master keys
+  // ✅ Inventory master keys (LENGKAP)
   inventory: {
     all: ['inventory'],
     lists: () => [...masterKeys.inventory.all, 'list'],
@@ -133,6 +133,9 @@ export const usePlacesDropdown = () => useQuery({
 
 // ==========================================
 // CROSS-INVALIDATION HELPER
+// ✅ PRINSIP: Cross-invalidation HANYA untuk entity LAIN
+// Entity utama di-handle TERPISAH oleh caller (useInventory.js, useCustomers.js, dll)
+// Jangan pernah memasukkan entity itu sendiri ke dalam array cross-invalidation
 // ==========================================
 export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
   const entityMap = {
@@ -147,12 +150,11 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
     distributor: masterKeys.distributor.all,
     productMovement: masterKeys.productMovement.all,
     place: masterKeys.place.all,
-    // ✅ BARU: Inventory di entityMap
     inventory: masterKeys.inventory.all,
   };
 
-  const keysToInvalidate = [entityMap[changedEntity]];
-
+  // ✅ Cross-invalidation: HANYA entity LAIN yang terdampak
+  // Entity utama TIDAK dimasukkan di sini (di-handle terpisah oleh caller)
   const crossInvalidation = {
     jenis: [
       masterKeys.type.all,
@@ -160,37 +162,41 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.distributorProduct.all,
       masterKeys.productCustomer.all,
       masterKeys.harga.all,
+      masterKeys.inventory.all,
     ],
     type: [
       masterKeys.product.all,
       masterKeys.distributorProduct.all,
       masterKeys.productCustomer.all,
       masterKeys.harga.all,
+      masterKeys.inventory.all,
     ],
     bahan: [
       masterKeys.product.all,
       masterKeys.distributorProduct.all,
       masterKeys.productCustomer.all,
       masterKeys.harga.all,
+      masterKeys.inventory.all,
     ],
     product: [
       masterKeys.distributorProduct.all,
       masterKeys.productCustomer.all,
       masterKeys.harga.all,
       masterKeys.productMovement.all,
-      // ✅ BARU: Product berubah → inventory refresh
       masterKeys.inventory.all,
     ],
     distributorProduct: [
       masterKeys.product.all,
       masterKeys.productCustomer.all,
       masterKeys.harga.all,
+      masterKeys.inventory.all,
     ],
     productCustomer: [
       masterKeys.product.all,
       masterKeys.distributorProduct.all,
       masterKeys.harga.all,
       masterKeys.customer.all,
+      masterKeys.inventory.all,
     ],
     harga: [
       masterKeys.product.all,
@@ -207,30 +213,29 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.productCustomer.all,
       masterKeys.harga.all,
       masterKeys.distributor.all,
+      masterKeys.inventory.all,
     ],
     productMovement: [
       masterKeys.product.all,
       masterKeys.place.all,
-      // ✅ BARU: Movement berubah → inventory refresh
       masterKeys.inventory.all,
     ],
     place: [
       masterKeys.productMovement.all,
-      // ✅ BARU: Place berubah → inventory refresh
       masterKeys.inventory.all,
     ],
-    // ✅ BARU: Inventory cross-invalidation
+    // ✅ Inventory cross-invalidate HANYA entity lain
+    // Inventory sendiri di-handle oleh invalidateInventoryCache() di useInventory.js
     inventory: [
       masterKeys.product.all,
       masterKeys.productMovement.all,
     ],
   };
 
-  if (crossInvalidation[changedEntity]) {
-    keysToInvalidate.push(...crossInvalidation[changedEntity]);
-  }
+  const relatedKeys = crossInvalidation[changedEntity] || [];
 
-  const uniqueKeys = [...new Set(keysToInvalidate.map((k) => JSON.stringify(k)))].map((k) => JSON.parse(k));
+  // Deduplicate
+  const uniqueKeys = [...new Set(relatedKeys.map((k) => JSON.stringify(k)))].map((k) => JSON.parse(k));
 
   for (const key of uniqueKeys) {
     await queryClient.cancelQueries({ queryKey: key, exact: false });

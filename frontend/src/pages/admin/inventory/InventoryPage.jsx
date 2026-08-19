@@ -34,7 +34,6 @@ const InventoryCard = ({ item, isAdmin, onMovement }) => {
 
   return (
     <div className={cn("group relative bg-white border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col h-full overflow-hidden", borderColor, bgColor)}>
-      {/* Place Badge */}
       <div className="absolute top-3 left-3">
         <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold", labelColor)}>
           <Warehouse size={10} />
@@ -42,7 +41,6 @@ const InventoryCard = ({ item, isAdmin, onMovement }) => {
         </span>
       </div>
 
-      {/* Admin Actions */}
       {isAdmin && (
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <button onClick={() => onMovement(item, "in")} className="p-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors" title="Stok Masuk"><Plus size={12} /></button>
@@ -51,16 +49,13 @@ const InventoryCard = ({ item, isAdmin, onMovement }) => {
         </div>
       )}
 
-      {/* Content */}
       <div className="flex flex-col items-center text-center pt-10 px-4 pb-4 flex-1">
         <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-md mb-3">
           {product?.kode?.slice(0, 2) || "?"}
         </div>
-
         <p className="font-mono font-bold text-xs text-indigo-700 truncate w-full">{product?.kode || "-"}</p>
         <p className="text-[11px] text-slate-500 mt-1 line-clamp-2 min-h-[32px] leading-tight">{formatProductName(product)}</p>
 
-        {/* Qty Display */}
         <div className="mt-auto pt-3 w-full">
           <div className={cn("text-2xl font-bold", qtyColor)}>{qty}</div>
           <p className="text-[10px] text-slate-400 mt-0.5">unit tersedia</p>
@@ -72,7 +67,7 @@ const InventoryCard = ({ item, isAdmin, onMovement }) => {
 };
 
 // ==========================================
-// MAIN PAGE
+// MAIN PAGE (Pola IDENTIK dengan ProductCustomerPage)
 // ==========================================
 const InventoryPage = () => {
   const { filters, currentPage, sortBy, setSearch, setPlaceFilter, setSortBy, setCurrentPage, resetFilters, hasActiveFilters, getQueryParams } = useInventoryFilters();
@@ -83,7 +78,7 @@ const InventoryPage = () => {
   const { data: placesOptions = [] } = usePlacesDropdown();
   const { data, isLoading, isFetching, isPlaceholderData, refetch } = useInventories(getQueryParams());
 
-  // Debounced search
+  // Debounced search (identik dengan ProductCustomerPage)
   const [debounceTimer, setDebounceTimer] = useState(null);
   const handleSearchChange = useCallback((val) => {
     setSearchInput(val);
@@ -100,7 +95,7 @@ const InventoryPage = () => {
   const to = meta.to || 0;
   const isFilterActive = hasActiveFilters();
 
-  // Client-side sorting (backend returns by place_id, product_id)
+  // Client-side sorting (identik dengan ProductCustomerPage)
   const sortedInventories = useMemo(() => {
     const result = [...inventories];
     result.sort((a, b) => {
@@ -108,7 +103,6 @@ const InventoryPage = () => {
       const qtyB = Number(b.qty) || 0;
       const namaA = formatProductName(a.product)?.toLowerCase() || "";
       const namaB = formatProductName(b.product)?.toLowerCase() || "";
-
       switch (sortBy) {
         case "stok-desc": return qtyB - qtyA;
         case "stok-asc": return qtyA - qtyB;
@@ -135,22 +129,17 @@ const InventoryPage = () => {
       <div className="sticky top-4 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-2 pb-3 bg-white/70 backdrop-blur-md border-b border-slate-200/60">
         <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200/60 p-3 shadow-sm">
           <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
-            {/* Search */}
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input type="text" value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Cari kode atau nama produk..." className="w-full pl-10 pr-8 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm transition-all bg-white" />
             </div>
-
-            {/* Place Filter */}
             <div className="relative flex-shrink-0 min-w-[160px]">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10" />
               <select value={filters.placeId} onChange={(e) => setPlaceFilter(e.target.value)} className="w-full pl-10 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm bg-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
                 <option value="">Semua Tempat</option>
                 {placesOptions.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
             </div>
-
-            {/* Sort */}
             <div className="relative flex-shrink-0 min-w-[140px]">
               <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full pl-10 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm bg-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
@@ -160,8 +149,6 @@ const InventoryPage = () => {
                 <option value="nama-desc">🔤 Z-A</option>
               </select>
             </div>
-
-            {/* Actions */}
             <div className="flex gap-2 flex-shrink-0">
               {isFilterActive && <button onClick={resetFilters} className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"><X className="w-4 h-4" /> Reset</button>}
               <button onClick={() => refetch()} disabled={isFetching} className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors disabled:opacity-50" title="Refresh">
