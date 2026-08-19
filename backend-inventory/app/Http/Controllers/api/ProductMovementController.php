@@ -3,132 +3,75 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
-use App\Models\ProductMovement;
-use App\Models\Inventory;
+use App\Http\Requests\ProductMovement\StoreProductMovementRequest;
+use App\Http\Resources\ProductMovementResource;
+use App\Services\ProductMovement\ProductMovementService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class ProductMovementController extends Controller
 {
-    public function index()
+    public function __construct(
+        protected ProductMovementService $productMovementService
+    ) {}
+
+    /**
+     * GET /api/product-movements
+     */
+    public function index(Request $request): JsonResponse
     {
-        $movements = ProductMovement::with(
-            'inventory.product',
-            'inventory.place',
-            'inventory.product.jenis',
-            'inventory.product.type',
-            'inventory.product.bahan'
-        )
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Berhasil mengambil data mutasi produk',
-            'data' => $movements
-        ]);
-    }
-
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'inventory_id'      => 'required|exists:inventories,id',
-            'tipe'              => 'required|in:in,out,transfer,produksi',
-            'qty'               => 'required|integer|min:1',
-            'to_place_id'       => 'nullable|exists:places,id',
-            'keterangan'        => 'nullable|string'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Validasi gagal',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        DB::beginTransaction();
-
         try {
-            $inventoryFrom = Inventory::lockForUpdate()->find($request->inventory_id);
+            $perPage = min((int) $request->input('per_page', 20), 50);
+            $page = max((int) $request->input('page', 1), 1);
 
-            if (in_array($request->tipe, ['out', 'transfer']) && $inventoryFrom->qty < $request->qty) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Stok tidak mencukupi'
-                ], 422);
-            }
-
-            if (in_array($request->tipe, ['in', 'produksi'])) {
-                $inventoryFrom->increment('qty', $request->qty);
-
-                ProductMovement::create([
-                    'inventory_id' => $inventoryFrom->id,
-                    'tipe' => $request->tipe,
-                    'qty' => $request->qty,
-                    'keterangan' => $request->keterangan
-                ]);
-            }
-
-            if ($request->tipe === 'out') {
-                $inventoryFrom->decrement('qty', $request->qty);
-
-                ProductMovement::create([
-                    'inventory_id' => $inventoryFrom->id,
-                    'tipe' => 'out',
-                    'qty' => $request->qty,
-                    'keterangan' => $request->keterangan
-                ]);
-            }
-
-            if ($request->tipe === 'transfer') {
-                if (!$request->to_place_id) {
-                    throw new \Exception('Tempat tujuan wajib diisi');
-                }
-
-                $inventoryFrom->decrement('qty', $request->qty);
-
-                $inventoryTo = Inventory::firstOrCreate(
-                    [
-                        'product_id' => $inventoryFrom->product_id,
-                        'place_id'   => $request->to_place_id,
-                    ],
-                    [
-                        'qty' => 0
-                    ]
-                );
-
-                $inventoryTo->increment('qty', $request->qty);
-
-                ProductMovement::create([
-                    'inventory_id' => $inventoryFrom->id,
-                    'tipe' => 'transfer',
-                    'qty' => $request->qty,
-                    'keterangan' => 'Transfer ke ' . $inventoryTo->place->nama
-                ]);
-
-                ProductMovement::create([
-                    'inventory_id' => $inventoryTo->id,
-                    'tipe' => 'in',
-                    'qty' => $request->qty,
-                    'keterangan' => 'Transfer dari ' . $inventoryFrom->place->nama
-                ]);
-            }
-
-            DB::commit();
+            $result = $this->productMovementService->getList(
+                perPage: $perPage,
+                page: $page
+            );
 
             return response()->json([
                 'status' => true,
-                'message' => 'Mutasi produk berhasil'
+                'data' => ProductMovementResource::collection($result['data']),
+                'meta' => $result['meta'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('ProductMovement index error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat data mutasi produk.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    /**
+     * POST /api/product-movements
+     */
+    public function store(StoreProductMovementRequest $request): JsonResponse
+    {
+        try {
+            $this->productMovementService->create($request->validated());
+
+            // Invalidate cache setelah transaction commit
+            $this->productMovementService->invalidateCache();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Mutasi produk berhasil.',
             ], 201);
         } catch (\Throwable $e) {
-            DB::rollBack();
+            Log::error('ProductMovement store error', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
+
+            $statusCode = str_contains($e->getMessage(), 'Stok tidak mencukupi') ? 422 : 500;
 
             return response()->json([
                 'status' => false,
-                'message' => $e->getMessage()
-            ], 500);
+                'message' => $e->getMessage(),
+            ], $statusCode);
         }
     }
 }

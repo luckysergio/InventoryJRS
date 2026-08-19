@@ -28,7 +28,7 @@ const AllProductsPage = lazy(() => import("./pages/admin/AllProductsPage"));
 const ProductPage = lazy(() => import("./pages/admin/product/Product"));
 const HargaProductPage = lazy(() => import("./pages/admin/hargaproduct/HargaProduct"));
 const InventoryPage = lazy(() => import("./pages/admin/InventoryPage"));
-const ProductMovementPage = lazy(() => import("./pages/admin/ProductMovementPage"));
+const ProductMovementPage = lazy(() => import("./pages/admin/productmovement/ProductMovementPage"));
 const BarangKeluarPage = lazy(() => import("./pages/admin/BarangKeluar"));
 
 // Master Data

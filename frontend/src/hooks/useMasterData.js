@@ -49,7 +49,6 @@ export const masterKeys = {
     lists: () => [...masterKeys.distributorProduct.all, 'list'],
     list: (filters) => [...masterKeys.distributorProduct.lists(), filters],
   },
-  // ✅ FIX: Tambahkan productCustomer ke masterKeys
   productCustomer: {
     all: ['product_customers'],
     lists: () => [...masterKeys.productCustomer.all, 'list'],
@@ -67,6 +66,12 @@ export const masterKeys = {
     lists: () => [...masterKeys.customer.all, 'list'],
     list: (filters) => [...masterKeys.customer.lists(), filters],
     dropdown: () => [...masterKeys.customer.all, 'dropdown'],
+  },
+  // ✅ FIX: Indentasi konsisten + lengkap
+  productMovement: {
+    all: ['product_movements'],
+    lists: () => [...masterKeys.productMovement.all, 'list'],
+    list: (filters) => [...masterKeys.productMovement.lists(), filters],
   },
 };
 
@@ -123,6 +128,8 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
     harga: masterKeys.harga.all,
     customer: masterKeys.customer.all,
     distributor: masterKeys.distributor.all,
+    // ✅ FIX: Tambahkan productMovement ke entityMap
+    productMovement: masterKeys.productMovement.all,
   };
 
   const keysToInvalidate = [entityMap[changedEntity]];
@@ -151,6 +158,8 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.distributorProduct.all,
       masterKeys.productCustomer.all,
       masterKeys.harga.all,
+      // ✅ FIX: Product berubah → movement juga perlu refresh (stok berubah)
+      masterKeys.productMovement.all,
     ],
     distributorProduct: [
       masterKeys.product.all,
@@ -178,6 +187,10 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.productCustomer.all,
       masterKeys.harga.all,
       masterKeys.distributor.all,
+    ],
+    // ✅ FIX: Tambahkan productMovement ke crossInvalidation
+    productMovement: [
+      masterKeys.product.all,
     ],
   };
 

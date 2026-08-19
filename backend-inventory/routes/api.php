@@ -265,7 +265,7 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
 
     Route::prefix('product-movements')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [ProductMovementController::class, 'index']);
-        Route::post('/', [ProductMovementController::class, 'store']);
+        Route::post('/', [ProductMovementController::class, 'store'])->middleware('role:admin,admin_toko');
     });
 
     Route::prefix('inventories')->middleware('role:admin,admin_toko,operator')->group(function () {
