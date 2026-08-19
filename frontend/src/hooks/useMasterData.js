@@ -49,6 +49,12 @@ export const masterKeys = {
     lists: () => [...masterKeys.distributorProduct.all, 'list'],
     list: (filters) => [...masterKeys.distributorProduct.lists(), filters],
   },
+  // ✅ FIX: Tambahkan productCustomer ke masterKeys
+  productCustomer: {
+    all: ['product_customers'],
+    lists: () => [...masterKeys.productCustomer.all, 'list'],
+    list: (filters) => [...masterKeys.productCustomer.lists(), filters],
+  },
   harga: {
     all: ['harga_products'],
     lists: () => [...masterKeys.harga.all, 'list'],
@@ -64,6 +70,9 @@ export const masterKeys = {
   },
 };
 
+// ==========================================
+// DROPDOWN HOOKS
+// ==========================================
 export const useJenisDropdown = () => useQuery({
   queryKey: masterKeys.jenis.dropdown(),
   queryFn: async () => (await api.get('/jenis/dropdown')).data.data || [],
@@ -100,6 +109,9 @@ export const useDistributorsDropdown = () => useQuery({
   staleTime: 15 * 60 * 1000,
 });
 
+// ==========================================
+// CROSS-INVALIDATION HELPER
+// ==========================================
 export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
   const entityMap = {
     jenis: masterKeys.jenis.all,
@@ -107,6 +119,7 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
     bahan: masterKeys.bahan.all,
     product: masterKeys.product.all,
     distributorProduct: masterKeys.distributorProduct.all,
+    productCustomer: masterKeys.productCustomer.all,
     harga: masterKeys.harga.all,
     customer: masterKeys.customer.all,
     distributor: masterKeys.distributor.all,
@@ -116,44 +129,53 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
 
   const crossInvalidation = {
     jenis: [
-      masterKeys.jenis.all,
       masterKeys.type.all,
       masterKeys.product.all,
       masterKeys.distributorProduct.all,
+      masterKeys.productCustomer.all,
       masterKeys.harga.all,
     ],
     type: [
-      masterKeys.type.all,
       masterKeys.product.all,
       masterKeys.distributorProduct.all,
+      masterKeys.productCustomer.all,
       masterKeys.harga.all,
     ],
     bahan: [
-      masterKeys.bahan.all,
       masterKeys.product.all,
       masterKeys.distributorProduct.all,
+      masterKeys.productCustomer.all,
       masterKeys.harga.all,
     ],
     product: [
       masterKeys.distributorProduct.all,
+      masterKeys.productCustomer.all,
       masterKeys.harga.all,
-      masterKeys.product.all,
     ],
     distributorProduct: [
       masterKeys.product.all,
+      masterKeys.productCustomer.all,
       masterKeys.harga.all,
+    ],
+    productCustomer: [
+      masterKeys.product.all,
       masterKeys.distributorProduct.all,
+      masterKeys.harga.all,
+      masterKeys.customer.all,
     ],
     harga: [
       masterKeys.product.all,
       masterKeys.distributorProduct.all,
+      masterKeys.productCustomer.all,
     ],
     customer: [
       masterKeys.harga.all,
+      masterKeys.productCustomer.all,
     ],
     distributor: [
       masterKeys.product.all,
       masterKeys.distributorProduct.all,
+      masterKeys.productCustomer.all,
       masterKeys.harga.all,
       masterKeys.distributor.all,
     ],

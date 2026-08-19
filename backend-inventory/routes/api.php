@@ -153,9 +153,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
     Route::prefix('product-customers')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/', [ProductCustomerController::class, 'index']);
         Route::post('/', [ProductCustomerController::class, 'store'])->middleware('role:admin,admin_toko');
-        Route::get('/{id}', [ProductCustomerController::class, 'show']);
-        Route::put('/{id}', [ProductCustomerController::class, 'update'])->middleware('role:admin');
-        Route::delete('/{id}', [ProductCustomerController::class, 'destroy'])->middleware('role:admin');
+        Route::get('/{product}', [ProductCustomerController::class, 'show']);
+        Route::put('/{product}', [ProductCustomerController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{product}', [ProductCustomerController::class, 'destroy'])->middleware('role:admin');
     });
 
     Route::prefix('jenis')->middleware('role:admin,admin_toko,operator')->group(function () {
