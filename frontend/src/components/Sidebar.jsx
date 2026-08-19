@@ -25,9 +25,6 @@ import {
 import { useAuthStore } from "../lib/zustand/authStore";
 import { useAuth } from "../hooks/useAuth";
 
-/**
- * Build navigation items based on user role
- */
 const buildNavItems = (userRole) => {
   const isAdmin = userRole === "admin";
   const isAllowedForTransaksi = userRole === "admin" || userRole === "admin_toko";
@@ -54,6 +51,8 @@ const buildNavItems = (userRole) => {
         { title: "Type Product", href: "/type", icon: Boxes },
         { title: "Bahan Product", href: "/bahan", icon: Boxes },
         { title: "Status Transaksi", href: "/status-transaksi", icon: Receipt },
+        // ✅ BARU: Place ditambahkan di Master Data
+        { title: "Place", href: "/place", icon: Warehouse },
       ],
     });
   }

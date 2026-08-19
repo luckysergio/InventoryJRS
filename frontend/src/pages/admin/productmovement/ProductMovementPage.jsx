@@ -186,10 +186,6 @@ const ProductMovementPage = () => {
         </div>
       ) : (
         <>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-1">
-            <p className="text-xs sm:text-sm text-slate-500">Menampilkan <span className="font-semibold text-slate-900">{movements.length}</span> dari <span className="font-semibold text-slate-900">{total}</span> mutasi</p>
-            {lastPage > 1 && <p className="text-xs sm:text-sm text-slate-400">Halaman <span className="font-medium">{currentPage}</span> / <span className="font-medium">{lastPage}</span></p>}
-          </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {movements.map((item) => (

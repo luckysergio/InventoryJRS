@@ -67,11 +67,17 @@ export const masterKeys = {
     list: (filters) => [...masterKeys.customer.lists(), filters],
     dropdown: () => [...masterKeys.customer.all, 'dropdown'],
   },
-  // ✅ FIX: Indentasi konsisten + lengkap
   productMovement: {
     all: ['product_movements'],
     lists: () => [...masterKeys.productMovement.all, 'list'],
     list: (filters) => [...masterKeys.productMovement.lists(), filters],
+  },
+  // ✅ BARU: Place master keys
+  place: {
+    all: ['places'],
+    lists: () => [...masterKeys.place.all, 'list'],
+    list: (filters) => [...masterKeys.place.lists(), filters],
+    dropdown: () => [...masterKeys.place.all, 'dropdown'],
   },
 };
 
@@ -114,6 +120,13 @@ export const useDistributorsDropdown = () => useQuery({
   staleTime: 15 * 60 * 1000,
 });
 
+// ✅ BARU: Place dropdown hook
+export const usePlacesDropdown = () => useQuery({
+  queryKey: masterKeys.place.dropdown(),
+  queryFn: async () => (await api.get('/places/dropdown')).data.data || [],
+  staleTime: 15 * 60 * 1000,
+});
+
 // ==========================================
 // CROSS-INVALIDATION HELPER
 // ==========================================
@@ -128,8 +141,9 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
     harga: masterKeys.harga.all,
     customer: masterKeys.customer.all,
     distributor: masterKeys.distributor.all,
-    // ✅ FIX: Tambahkan productMovement ke entityMap
     productMovement: masterKeys.productMovement.all,
+    // ✅ BARU: Place di entityMap
+    place: masterKeys.place.all,
   };
 
   const keysToInvalidate = [entityMap[changedEntity]];
@@ -158,7 +172,6 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.distributorProduct.all,
       masterKeys.productCustomer.all,
       masterKeys.harga.all,
-      // ✅ FIX: Product berubah → movement juga perlu refresh (stok berubah)
       masterKeys.productMovement.all,
     ],
     distributorProduct: [
@@ -188,9 +201,14 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.harga.all,
       masterKeys.distributor.all,
     ],
-    // ✅ FIX: Tambahkan productMovement ke crossInvalidation
     productMovement: [
       masterKeys.product.all,
+      // ✅ BARU: Movement berubah → place juga perlu refresh
+      masterKeys.place.all,
+    ],
+    // ✅ BARU: Place cross-invalidation
+    place: [
+      masterKeys.productMovement.all,
     ],
   };
 

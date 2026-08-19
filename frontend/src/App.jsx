@@ -29,6 +29,7 @@ const ProductPage = lazy(() => import("./pages/admin/product/Product"));
 const HargaProductPage = lazy(() => import("./pages/admin/hargaproduct/HargaProduct"));
 const InventoryPage = lazy(() => import("./pages/admin/InventoryPage"));
 const ProductMovementPage = lazy(() => import("./pages/admin/productmovement/ProductMovementPage"));
+const PlacePage = lazy(() => import("./pages/admin/places/PlacePage"));
 const BarangKeluarPage = lazy(() => import("./pages/admin/BarangKeluar"));
 
 // Master Data
@@ -36,7 +37,6 @@ const JenisPage = lazy(() => import("./pages/admin/jenisproduct/JenisProduct"));
 const TypePage = lazy(() => import("./pages/admin/typeproduct/TypeProduct"));
 const BahanProductPage = lazy(() => import("./pages/admin/bahanproduct/BahanProduct"));
 const StatusTransaksiPage = lazy(() => import("./pages/admin/statustransaksi/StatusTransaksiPage"));
-const PlacePage = lazy(() => import("./pages/admin/PlacePage"));
 
 // Production
 const ProductionPage = lazy(() => import("./pages/admin/ProductionPage"));
@@ -82,8 +82,6 @@ const ProtectedLayout = ({ children, roles = [] }) => (
 // HELPER: GUEST ROUTE (Redirect jika sudah login)
 // ============================================
 const GuestRoute = ({ children }) => {
-  // ✅ PERBAIKAN: Gunakan Zustand sebagai single source of truth
-  // untuk menghindari infinite loop akibat desync dengan localStorage
   const { token, isAuthenticated } = useAuthStore();
 
   if (token || isAuthenticated) {

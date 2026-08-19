@@ -3,115 +3,167 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Place\StorePlaceRequest;
+use App\Http\Requests\Place\UpdatePlaceRequest;
+use App\Http\Resources\PlaceResource;
 use App\Models\Place;
+use App\Services\Place\PlaceService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class PlaceController extends Controller
 {
-    public function index()
-    {
-        $places = Place::all();
+    public function __construct(
+        protected PlaceService $placeService
+    ) {}
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Berhasil mengambil data tempat',
-            'data' => $places
-        ]);
+    /**
+     * GET /api/places
+     * ✅ FIX: Support pagination + search + meta structure
+     */
+    public function index(Request $request): JsonResponse
+    {
+        try {
+            $perPage = min((int) $request->input('per_page', 20), 50);
+            $page = max((int) $request->input('page', 1), 1);
+            $search = $request->input('search');
+
+            $result = $this->placeService->getList(
+                search: $search,
+                perPage: $perPage,
+                page: $page
+            );
+
+            return response()->json([
+                'status' => true,
+                'data' => PlaceResource::collection($result['data']),
+                'meta' => $result['meta'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Place index error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat data tempat.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
-    public function show($id)
+    /**
+     * GET /api/places/dropdown
+     */
+    public function dropdown(): JsonResponse
     {
-        $place = Place::find($id);
-
-        if (!$place) {
+        try {
+            return response()->json([
+                'status' => true,
+                'data' => $this->placeService->getForDropdown(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Place dropdown error', ['error' => $e->getMessage()]);
             return response()->json([
                 'status' => false,
-                'message' => 'Tempat tidak ditemukan'
-            ], 404);
+                'message' => 'Gagal memuat data dropdown tempat.',
+            ], 500);
         }
-
-        return response()->json([
-            'status' => true,
-            'data' => $place
-        ]);
     }
 
-    public function store(Request $request)
+    /**
+     * GET /api/places/{place}
+     */
+    public function show(Place $place): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'nama' => 'required|string|max:100',
-            'kode' => 'required|string|max:20|unique:places,kode',
-            'keterangan' => 'nullable|string'
-        ]);
-
-        if ($validator->fails()) {
+        try {
+            return response()->json([
+                'status' => true,
+                'data' => new PlaceResource($place),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Place show error', ['id' => $place->id, 'error' => $e->getMessage()]);
             return response()->json([
                 'status' => false,
-                'message' => 'Validasi gagal',
-                'errors' => $validator->errors()
-            ], 422);
+                'message' => 'Gagal memuat detail tempat.',
+            ], 500);
         }
-
-        $place = Place::create($validator->validated());
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Tempat berhasil dibuat',
-            'data' => $place
-        ], 201);
     }
 
-    public function update(Request $request, $id)
+    /**
+     * POST /api/places
+     */
+    public function store(StorePlaceRequest $request): JsonResponse
     {
-        $place = Place::find($id);
+        try {
+            $place = $this->placeService->create($request->validated());
 
-        if (!$place) {
+            $this->placeService->invalidateCache();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Tempat berhasil dibuat.',
+                'data' => new PlaceResource($place),
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('Place store error', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
             return response()->json([
                 'status' => false,
-                'message' => 'Tempat tidak ditemukan'
-            ], 404);
+                'message' => 'Gagal membuat tempat.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        $validator = Validator::make($request->all(), [
-            'nama' => 'required|string|max:100',
-            'kode' => 'required|string|max:20|unique:places,kode,' . $id,
-            'keterangan' => 'nullable|string'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Validasi gagal',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $place->update($validator->validated());
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Tempat berhasil diperbarui',
-            'data' => $place
-        ]);
     }
 
-    public function destroy($id)
+    /**
+     * PUT /api/places/{place}
+     */
+    public function update(UpdatePlaceRequest $request, Place $place): JsonResponse
     {
-        $place = Place::find($id);
+        try {
+            $updated = $this->placeService->update($place, $request->validated());
 
-        if (!$place) {
+            $this->placeService->invalidateCache();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Tempat berhasil diperbarui.',
+                'data' => new PlaceResource($updated),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Place update error', ['id' => $place->id, 'error' => $e->getMessage()]);
             return response()->json([
                 'status' => false,
-                'message' => 'Tempat tidak ditemukan'
-            ], 404);
+                'message' => 'Gagal memperbarui tempat.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
+    }
 
-        $place->delete();
+    /**
+     * DELETE /api/places/{place}
+     */
+    public function destroy(Place $place): JsonResponse
+    {
+        try {
+            $result = $this->placeService->delete($place);
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Tempat berhasil dihapus'
-        ]);
+            if ($result['success']) {
+                $this->placeService->invalidateCache();
+            }
+
+            return response()->json([
+                'status' => $result['success'],
+                'message' => $result['message'],
+            ], $result['success'] ? 200 : ($result['code'] ?? 400));
+        } catch (\Throwable $e) {
+            Log::error('Place destroy error', ['id' => $place->id, 'error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menghapus tempat.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 }

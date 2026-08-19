@@ -246,12 +246,14 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{id}', [PembayaranController::class, 'destroy'])->middleware('role:admin');
     });
 
-    Route::prefix('places')->middleware('role:admin,admin_toko,operator')->group(function () {
+    Route::prefix('places')->middleware('role:admin,admin_toko')->group(function () {
+        Route::get('/dropdown', [PlaceController::class, 'dropdown']);
+
         Route::get('/', [PlaceController::class, 'index']);
         Route::post('/', [PlaceController::class, 'store'])->middleware('role:admin');
-        Route::get('/{id}', [PlaceController::class, 'show']);
-        Route::put('/{id}', [PlaceController::class, 'update'])->middleware('role:admin');
-        Route::delete('/{id}', [PlaceController::class, 'destroy'])->middleware('role:admin');
+        Route::get('/{place}', [PlaceController::class, 'show']);
+        Route::put('/{place}', [PlaceController::class, 'update'])->middleware('role:admin');
+        Route::delete('/{place}', [PlaceController::class, 'destroy'])->middleware('role:admin');
     });
 
     Route::prefix('productions')->middleware('role:admin,admin_toko,operator')->group(function () {
