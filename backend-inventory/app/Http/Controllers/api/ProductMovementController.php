@@ -5,6 +5,7 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ProductMovement\StoreProductMovementRequest;
 use App\Http\Resources\ProductMovementResource;
+use App\Services\Inventory\InventoryService;
 use App\Services\ProductMovement\ProductMovementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,12 +14,10 @@ use Illuminate\Support\Facades\Log;
 class ProductMovementController extends Controller
 {
     public function __construct(
-        protected ProductMovementService $productMovementService
+        protected ProductMovementService $productMovementService,
+        protected InventoryService $inventoryService
     ) {}
 
-    /**
-     * GET /api/product-movements
-     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -26,6 +25,10 @@ class ProductMovementController extends Controller
             $page = max((int) $request->input('page', 1), 1);
 
             $result = $this->productMovementService->getList(
+                search: $request->input('search'),
+                tipe: $request->input('tipe'),
+                dari: $request->input('dari'),
+                sampai: $request->input('sampai'),
                 perPage: $perPage,
                 page: $page
             );
@@ -45,16 +48,14 @@ class ProductMovementController extends Controller
         }
     }
 
-    /**
-     * POST /api/product-movements
-     */
     public function store(StoreProductMovementRequest $request): JsonResponse
     {
         try {
             $this->productMovementService->create($request->validated());
 
-            // Invalidate cache setelah transaction commit
+            // Invalidate kedua cache (movement + inventory berubah)
             $this->productMovementService->invalidateCache();
+            $this->inventoryService->invalidateCache();
 
             return response()->json([
                 'status' => true,

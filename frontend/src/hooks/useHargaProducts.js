@@ -2,15 +2,11 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import api from '../lib/api/axios';
 import { masterKeys, invalidateRelatedCaches } from './useMasterData';
 
-// ✅ Re-export dari useMasterData (single source of truth)
 export {
   useProductsDropdown as useProductsForHarga,
   useCustomersDropdown as useCustomersForHarga,
 } from './useMasterData';
 
-/**
- * ✅ FIX: Gunakan masterKeys.harga (BUKAN key lokal)
- */
 export const useHargaProducts = (params = {}) => {
   const { search = '', productId = '', perPage = 20, page = 1 } = params;
 
@@ -31,8 +27,19 @@ export const useHargaProducts = (params = {}) => {
       };
     },
     placeholderData: keepPreviousData,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
   });
+};
+
+// ✅ FIXED: Invalidate harga sendiri + cross-invalidate
+const invalidateHargaCache = async (qc) => {
+  await qc.cancelQueries({ queryKey: masterKeys.harga.all, exact: false });
+  await qc.invalidateQueries({
+    queryKey: masterKeys.harga.all,
+    exact: false,
+    refetchType: 'all',
+  });
+  await invalidateRelatedCaches(qc, 'harga');
 };
 
 export const useCreateHargaProduct = () => {
@@ -40,7 +47,7 @@ export const useCreateHargaProduct = () => {
   return useMutation({
     mutationFn: (data) => api.post('/harga', data),
     onSuccess: async () => {
-      await invalidateRelatedCaches(queryClient, 'harga');
+      await invalidateHargaCache(queryClient);
     },
   });
 };
@@ -50,7 +57,7 @@ export const useUpdateHargaProduct = () => {
   return useMutation({
     mutationFn: ({ id, data }) => api.put(`/harga/${id}`, data),
     onSuccess: async () => {
-      await invalidateRelatedCaches(queryClient, 'harga');
+      await invalidateHargaCache(queryClient);
     },
   });
 };
@@ -76,7 +83,7 @@ export const useDeleteHargaProduct = () => {
       context?.previousQueries?.forEach(([key, data]) => queryClient.setQueryData(key, data));
     },
     onSettled: async () => {
-      await invalidateRelatedCaches(queryClient, 'harga');
+      await invalidateHargaCache(queryClient);
     },
   });
 };

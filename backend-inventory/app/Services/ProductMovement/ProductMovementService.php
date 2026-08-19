@@ -21,20 +21,58 @@ class ProductMovementService
     |--------------------------------------------------------------------------
     */
 
-    public function getList(int $perPage = 20, int $page = 1): array
-    {
+    /**
+     * ✅ FIXED: Tambah parameter filter (search, tipe, dari, sampai)
+     * Setiap kombinasi filter menghasilkan cache key yang unik via MD5
+     */
+    public function getList(
+        ?string $search = null,
+        ?string $tipe = null,
+        ?string $dari = null,
+        ?string $sampai = null,
+        int $perPage = 20,
+        int $page = 1
+    ): array {
         $version = $this->getCacheVersion();
-        $cacheKey = self::CACHE_LIST_PREFIX . "{$version}:{$perPage}:{$page}";
 
-        $paginator = Cache::remember($cacheKey, self::CACHE_TTL_LIST, function () use ($perPage, $page) {
-            return ProductMovement::with([
+        // ✅ Cache key unik per kombinasi filter
+        $cacheKey = self::CACHE_LIST_PREFIX . "{$version}:" . md5(json_encode([
+            's' => $search,
+            't' => $tipe,
+            'd' => $dari,
+            'u' => $sampai,
+            'pp' => $perPage,
+            'p' => $page,
+        ]));
+
+        $paginator = Cache::remember($cacheKey, self::CACHE_TTL_LIST, function () use ($search, $tipe, $dari, $sampai, $perPage, $page) {
+            $query = ProductMovement::with([
                 'inventory.product.jenis:id,nama',
                 'inventory.product.type:id,nama',
                 'inventory.product.bahan:id,nama',
                 'inventory.place:id,nama,kode',
             ])
-                ->orderByDesc('created_at')
-                ->paginate($perPage, ['*'], 'page', $page);
+                // ✅ Filter by tipe (in, out, transfer, produksi)
+                ->when($tipe, fn($q) => $q->where('tipe', $tipe))
+                // ✅ Filter by date range (inclusive full day)
+                ->when($dari, fn($q) => $q->whereDate('created_at', '>=', $dari))
+                ->when($sampai, fn($q) => $q->whereDate('created_at', '<=', $sampai))
+                // ✅ Filter by search (kode, ukuran, nama jenis/type, keterangan)
+                ->when($search, function ($q) use ($search) {
+                    $q->where(function ($sub) use ($search) {
+                        $sub->where('keterangan', 'like', "%{$search}%")
+                            ->orWhereHas('inventory.product', function ($p) use ($search) {
+                                $p->where('kode', 'like', "%{$search}%")
+                                    ->orWhere('ukuran', 'like', "%{$search}%")
+                                    ->orWhereHas('jenis', fn($j) => $j->where('nama', 'like', "%{$search}%"))
+                                    ->orWhereHas('type', fn($t) => $t->where('nama', 'like', "%{$search}%"))
+                                    ->orWhereHas('bahan', fn($b) => $b->where('nama', 'like', "%{$search}%"));
+                            });
+                    });
+                })
+                ->orderByDesc('created_at');
+
+            return $query->paginate($perPage, ['*'], 'page', $page);
         });
 
         return [
@@ -52,7 +90,7 @@ class ProductMovementService
 
     /*
     |--------------------------------------------------------------------------
-    | WRITE OPERATIONS
+    | WRITE OPERATIONS (tetap sama)
     |--------------------------------------------------------------------------
     */
 
@@ -69,7 +107,6 @@ class ProductMovementService
             $qty = (int) $data['qty'];
             $keterangan = $data['keterangan'] ?? null;
 
-            // Validasi stok untuk out dan transfer
             if (in_array($tipe, ['out', 'transfer']) && $inventoryFrom->qty < $qty) {
                 throw new \Exception('Stok tidak mencukupi. Stok tersedia: ' . $inventoryFrom->qty);
             }
@@ -101,10 +138,8 @@ class ProductMovementService
                 case 'transfer':
                     $toPlaceId = (int) $data['to_place_id'];
 
-                    // Kurangi stok asal
                     $inventoryFrom->decrement('qty', $qty);
 
-                    // Buat atau update inventory tujuan
                     $inventoryTo = Inventory::firstOrCreate(
                         ['product_id' => $inventoryFrom->product_id, 'place_id' => $toPlaceId],
                         ['qty' => 0]
@@ -115,7 +150,6 @@ class ProductMovementService
                     $toPlaceName = $inventoryTo->place?->nama ?? 'Unknown';
                     $fromPlaceName = $inventoryFrom->place?->nama ?? 'Unknown';
 
-                    // Record movement keluar dari asal
                     ProductMovement::create([
                         'inventory_id' => $inventoryFrom->id,
                         'tipe' => 'transfer',
@@ -123,7 +157,6 @@ class ProductMovementService
                         'keterangan' => $keterangan ?? ('Transfer ke ' . $toPlaceName),
                     ]);
 
-                    // Record movement masuk ke tujuan
                     ProductMovement::create([
                         'inventory_id' => $inventoryTo->id,
                         'tipe' => 'in',

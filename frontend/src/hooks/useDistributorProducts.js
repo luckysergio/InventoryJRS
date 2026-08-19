@@ -10,15 +10,16 @@ export {
 } from './useMasterData';
 
 export const useDistributorProducts = (params = {}) => {
-  const { search = '', jenisId = '', typeId = '', perPage = 15, page = 1 } = params;
+  const { search = '', jenisId = '', typeId = '', distributorId = '', perPage = 15, page = 1 } = params;
   return useQuery({
-    queryKey: masterKeys.distributorProduct.list({ search, jenisId, typeId, perPage, page }),
+    queryKey: masterKeys.distributorProduct.list({ search, jenisId, typeId, distributorId, perPage, page }),
     queryFn: async () => {
       const response = await api.get('/product-distributors', {
         params: {
           search: search || undefined,
           jenis_id: jenisId || undefined,
           type_id: typeId || undefined,
+          distributor_id: distributorId || undefined,
           per_page: perPage,
           page,
         },
@@ -26,8 +27,19 @@ export const useDistributorProducts = (params = {}) => {
       return { products: response.data.data || [], meta: response.data.meta || {} };
     },
     placeholderData: keepPreviousData,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
   });
+};
+
+// ✅ FIXED: Invalidate distributorProduct sendiri + cross-invalidate
+const invalidateDistributorProductCache = async (qc) => {
+  await qc.cancelQueries({ queryKey: masterKeys.distributorProduct.all, exact: false });
+  await qc.invalidateQueries({
+    queryKey: masterKeys.distributorProduct.all,
+    exact: false,
+    refetchType: 'all',
+  });
+  await invalidateRelatedCaches(qc, 'distributorProduct');
 };
 
 export const useCreateDistributorProduct = () => {
@@ -35,8 +47,7 @@ export const useCreateDistributorProduct = () => {
   return useMutation({
     mutationFn: (formData) => api.post('/product-distributors', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
     onSuccess: async () => {
-      // ✅ Sekarang otomatis cross-invalidate product + harga via masterKeys
-      await invalidateRelatedCaches(queryClient, 'distributorProduct');
+      await invalidateDistributorProductCache(queryClient);
     },
   });
 };
@@ -46,7 +57,7 @@ export const useUpdateDistributorProduct = () => {
   return useMutation({
     mutationFn: ({ id, formData }) => api.post(`/product-distributors/${id}?_method=PUT`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
     onSuccess: async () => {
-      await invalidateRelatedCaches(queryClient, 'distributorProduct');
+      await invalidateDistributorProductCache(queryClient);
     },
   });
 };
@@ -68,7 +79,7 @@ export const useDeleteDistributorProduct = () => {
       context?.previousQueries?.forEach(([key, data]) => queryClient.setQueryData(key, data));
     },
     onSettled: async () => {
-      await invalidateRelatedCaches(queryClient, 'distributorProduct');
+      await invalidateDistributorProductCache(queryClient);
     },
   });
 };
