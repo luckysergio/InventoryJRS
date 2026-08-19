@@ -12,7 +12,6 @@ import { cn } from "../../../lib/utils";
 
 const ASSET_URL = import.meta.env.VITE_ASSET_URL || '';
 
-// Kode generator helpers (mirror backend)
 const jenisKode = (t) => { if (!t) return ""; const c = t.trim().toUpperCase(); return c.length < 2 ? c : c.charAt(0) + c.charAt(c.length - 1); };
 const typeKode = (t) => { if (!t) return ""; const c = t.replace(/\(.+?\)/g, "").trim().toUpperCase(); const w = c.split(/\s+/).filter((w) => /^[A-Z]/.test(w)); const h = w.length === 1 ? w[0].slice(0, 2) : w.map((w) => w.charAt(0)).join(""); const n = t.match(/\d+/g) || []; const a = n.length >= 2 ? n[0] + n[1] : n[0] || ""; return (h + a).toUpperCase(); };
 const bahanKode = (t) => { if (!t) return ""; const c = t.replace(/\(.+?\)/g, "").trim().toUpperCase(); const w = c.split(/\s+/).filter((w) => /^[A-Z]/.test(w)); return w.length === 1 ? w[0].slice(0, 2) : w.map((w) => w.charAt(0)).join(""); };
@@ -28,9 +27,6 @@ const generateKodePreview = (jenisNama, typeNama, bahanNama, ukuran, custName, c
 const formatRupiahDisplay = (v) => { if (!v && v !== 0) return ""; return new Intl.NumberFormat("id-ID").format(v); };
 const unformatRupiah = (s) => parseInt(String(s || "").replace(/\D/g, ""), 10) || 0;
 
-// ==========================================
-// SEARCHABLE CUSTOMER DROPDOWN
-// ==========================================
 const SearchableCustomerDropdown = ({ customers, selectedValue, onSelect, onCreateNew, disabled }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -89,9 +85,6 @@ const SearchableCustomerDropdown = ({ customers, selectedValue, onSelect, onCrea
   );
 };
 
-// ==========================================
-// MAIN FORM COMPONENT
-// ==========================================
 const ProductCustomerForm = () => {
   const { modals, selectedItem, closeAllModals } = useProductCustomerModals();
   const createMut = useCreateProductCustomer();
@@ -127,7 +120,6 @@ const ProductCustomerForm = () => {
   const activeJenisId = isNewJenis ? null : (form.jenis_id || null);
   const { data: typesOptions = [], isLoading: loadingTypes } = useTypesDropdown(activeJenisId);
 
-  // Reset form
   useEffect(() => {
     if (!isOpen) { setIsInitialized(false); return; }
     if (isEdit && selectedItem) {
@@ -160,12 +152,12 @@ const ProductCustomerForm = () => {
     }
   }, [isEdit, isCreate, selectedItem, modals.form]);
 
-  // Wait for types to load before allowing auto-reset
+  // ✅ FIX: Tunggu types load sebelum initialized
   useEffect(() => {
     if (isEdit && !loadingTypes && !isInitialized) setIsInitialized(true);
   }, [isEdit, loadingTypes, isInitialized]);
 
-  // Auto-reset type only after initialized
+  // ✅ FIX: Auto-reset HANYA setelah initialized DAN types sudah load
   useEffect(() => {
     if (!isInitialized || loadingTypes) return;
     if (isNewJenis || isNewType) return;
@@ -175,7 +167,6 @@ const ProductCustomerForm = () => {
     }
   }, [form.jenis_id, form.type_id, typesOptions, loadingTypes, isInitialized, isNewJenis, isNewType]);
 
-  // Kode preview
   const kodePreview = useMemo(() => {
     const jNama = isNewJenis ? newInputs.jenis : jenisOptions.find((j) => String(j.value) === String(form.jenis_id))?.label || "";
     const tNama = isNewType ? newInputs.type : typesOptions.find((t) => String(t.value) === String(form.type_id))?.label || "";
@@ -186,7 +177,6 @@ const ProductCustomerForm = () => {
     return generateKodePreview(jNama, tNama, bNama, form.ukuran, cName, cPhone);
   }, [form.jenis_id, form.type_id, form.bahan_id, form.ukuran, form.customer_id, newInputs, isCreatingNewCustomer, newCustForm, jenisOptions, typesOptions, bahansOptions, customersOptions]);
 
-  // Validation
   const validate = () => {
     const e = {};
     if (!isEdit && !form.customer_id && !isCreatingNewCustomer) e.customer_id = "Customer wajib dipilih";
@@ -305,13 +295,11 @@ const ProductCustomerForm = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
-          {/* Kode Preview */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Kode Product <span className="text-slate-400 font-normal">(Auto-generated)</span></label>
             <div className={cn("w-full px-4 py-2.5 border rounded-lg font-mono font-semibold tracking-wider text-center transition-colors", kodePreview !== "—" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-slate-100 border-slate-200 text-slate-400")}>{isEdit ? (selectedItem?.kode || kodePreview) : kodePreview}</div>
           </div>
 
-          {/* Customer */}
           {!isEdit && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer <span className="text-red-500">*</span></label>
@@ -341,7 +329,6 @@ const ProductCustomerForm = () => {
             </div>
           )}
 
-          {/* Harga */}
           <FormField label="Harga Customer" required error={errors.harga} touched={touched.harga}>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-bold">Rp</span>
@@ -349,7 +336,6 @@ const ProductCustomerForm = () => {
             </div>
           </FormField>
 
-          {/* Master Data Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label="Jenis" required error={errors.jenis_id} touched={touched.jenis_id}>
               <select value={form.jenis_id} onChange={(e) => { setForm((p) => ({ ...p, jenis_id: e.target.value, type_id: "" })); setNewInputs((p) => ({ ...p, jenis: "", type: "" })); setErrors((p) => ({ ...p, jenis_id: undefined })); }} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white" disabled={loadingJenis || isSubmitting}>
@@ -392,19 +378,16 @@ const ProductCustomerForm = () => {
             </FormField>
           </div>
 
-          {/* Foto */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Foto Product</label>
             <div className="grid grid-cols-3 gap-4">{renderFotoInput("Depan", "depan")}{renderFotoInput("Samping", "samping")}{renderFotoInput("Atas", "atas")}</div>
           </div>
 
-          {/* Keterangan */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Keterangan</label>
             <textarea value={form.keterangan} onChange={(e) => setForm((p) => ({ ...p, keterangan: e.target.value }))} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none" rows={2} placeholder="Opsional" disabled={isSubmitting} />
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={handleCancel} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" disabled={isSubmitting}>Batal</button>
             <button type="submit" disabled={isSubmitting} className={cn("flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed", isEdit ? "bg-amber-600 hover:bg-amber-700" : "bg-blue-600 hover:bg-blue-700")}>

@@ -34,6 +34,8 @@ const ProductForm = () => {
   const [fotos, setFotos] = useState({ depan: null, samping: null, atas: null });
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  // ✅ FIX: Tambah isInitialized flag untuk mencegah reset saat loading
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const fileRefs = { depan: useRef(null), samping: useRef(null), atas: useRef(null) };
   const camRefs = { depan: useRef(null), samping: useRef(null), atas: useRef(null) };
@@ -52,6 +54,8 @@ const ProductForm = () => {
 
   // Reset form saat modal open/close
   useEffect(() => {
+    if (!isOpen) { setIsInitialized(false); return; }
+    
     if (isEdit && selectedProduct) {
       setForm({
         jenis_id: String(selectedProduct.jenis_id || ""),
@@ -69,30 +73,42 @@ const ProductForm = () => {
       setNewInputs({ jenis: "", type: "", bahan: "" });
       setErrors({});
       setTouched({});
+      setIsInitialized(false); // Reset flag, tunggu types load
     } else if (isCreate) {
       setForm({ jenis_id: "", type_id: "", bahan_id: "", ukuran: "", keterangan: "", harga_umum: "" });
       setFotos({ depan: null, samping: null, atas: null });
       setNewInputs({ jenis: "", type: "", bahan: "" });
       setErrors({});
       setTouched({});
+      setIsInitialized(true); // Create mode langsung initialized
     }
   }, [isEdit, isCreate, selectedProduct, modals.edit, modals.create]);
+
+  // ✅ FIX: Tunggu types selesai loading sebelum set initialized
+  useEffect(() => {
+    if (isEdit && !loadingTypes && !isInitialized) {
+      setIsInitialized(true);
+    }
+  }, [isEdit, loadingTypes, isInitialized]);
 
   const filteredTypes = useMemo(() => {
     if (!form.jenis_id || isNewJenis) return [];
     return typesOptions;
   }, [form.jenis_id, isNewJenis, typesOptions]);
 
-  // Auto-reset type_id ketika jenis berubah dan type tidak valid
+  // ✅ FIX: Auto-reset type_id HANYA setelah initialized DAN types sudah load
   useEffect(() => {
+    // Guard: jangan reset saat masih loading atau belum initialized
+    if (!isInitialized || loadingTypes) return;
     if (isNewJenis || isNewType) return;
+    
     if (form.jenis_id && form.type_id) {
       const isValid = filteredTypes.some((t) => String(t.value) === String(form.type_id));
       if (!isValid) {
         setForm((prev) => ({ ...prev, type_id: "" }));
       }
     }
-  }, [form.jenis_id, form.type_id, filteredTypes, isNewJenis, isNewType]);
+  }, [form.jenis_id, form.type_id, filteredTypes, loadingTypes, isInitialized, isNewJenis, isNewType]);
 
   // Live kode preview
   const kodePreview = useMemo(() => {
@@ -140,7 +156,6 @@ const ProductForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ✅ FIX: Urutan yang BENAR → mutateAsync → success dialog → BARU close modal
   const handleSubmit = async (e) => {
     e.preventDefault();
     setTouched({ jenis_id: true, type_id: true, ukuran: true, harga_umum: true, bahan_id: true });
@@ -175,18 +190,15 @@ const ProductForm = () => {
 
     try {
       if (isEdit) {
-        // ✅ FIX: await mutation DULU, lalu dialog, lalu close
         await updateMutation.mutateAsync({ id: selectedProduct.id, formData });
         await success("Berhasil!", "Product berhasil diperbarui");
         closeAllModals();
       } else {
-        // ✅ FIX: await mutation DULU, lalu dialog, lalu close
         await createMutation.mutateAsync(formData);
         await success("Berhasil!", "Product berhasil ditambahkan");
         closeAllModals();
       }
     } catch (err) {
-      // ❌ JANGAN close modal saat error - user perlu melihat & memperbaiki
       if (err.response?.status === 422 && err.response?.data?.errors) {
         const serverErrors = {};
         Object.keys(err.response.data.errors).forEach((key) => {
@@ -272,7 +284,6 @@ const ProductForm = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
-          {/* Kode Preview */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Kode Product <span className="text-slate-400 font-normal">(Auto-generated)</span></label>
             <div className={cn("w-full px-4 py-2.5 border rounded-lg font-mono font-semibold tracking-wider text-center transition-colors", kodePreview !== "—" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-slate-100 border-slate-200 text-slate-400")}>
@@ -280,7 +291,6 @@ const ProductForm = () => {
             </div>
           </div>
 
-          {/* Harga */}
           <FormField label="Harga Umum" required error={errors.harga_umum} touched={touched.harga_umum}>
             <div className="relative">
               <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -292,9 +302,7 @@ const ProductForm = () => {
             </div>
           </FormField>
 
-          {/* Master Data Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* JENIS */}
             <FormField label="Jenis" required error={errors.jenis_id} touched={touched.jenis_id}>
               <select value={form.jenis_id} onChange={handleJenisChange}
                 className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
@@ -314,7 +322,6 @@ const ProductForm = () => {
               )}
             </FormField>
 
-            {/* TYPE */}
             <FormField label={`Tipe ${isNewJenis ? "Baru *" : "*"}`} required error={errors.type_id} touched={touched.type_id}>
               {isNewJenis ? (
                 <div className="space-y-2">
@@ -346,7 +353,6 @@ const ProductForm = () => {
               )}
             </FormField>
 
-            {/* BAHAN */}
             <FormField label="Bahan" error={errors.bahan_id} touched={touched.bahan_id}>
               <select value={form.bahan_id} onChange={handleBahanChange}
                 className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
@@ -364,7 +370,6 @@ const ProductForm = () => {
               )}
             </FormField>
 
-            {/* UKURAN */}
             <FormField label="Ukuran" required error={errors.ukuran} touched={touched.ukuran}>
               <input type="text" value={form.ukuran} onChange={(e) => setForm((p) => ({ ...p, ukuran: e.target.value }))}
                 onBlur={() => setTouched((p) => ({ ...p, ukuran: true }))}
@@ -373,7 +378,6 @@ const ProductForm = () => {
             </FormField>
           </div>
 
-          {/* Foto */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Foto Product</label>
             <div className="grid grid-cols-3 gap-4">
@@ -383,14 +387,12 @@ const ProductForm = () => {
             </div>
           </div>
 
-          {/* Keterangan */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Keterangan</label>
             <textarea value={form.keterangan} onChange={(e) => setForm((p) => ({ ...p, keterangan: e.target.value }))}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none" rows={2} placeholder="Opsional" disabled={isSubmitting} />
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={handleCancel} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" disabled={isSubmitting}>Batal</button>
             <button type="submit" disabled={isSubmitting}
