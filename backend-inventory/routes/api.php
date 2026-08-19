@@ -270,11 +270,13 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::post('/', [ProductMovementController::class, 'store'])->middleware('role:admin,admin_toko');
     });
 
-    Route::prefix('inventories')->middleware('role:admin,admin_toko,operator')->group(function () {
-        Route::get('/', [InventoryController::class, 'index']);
+    Route::prefix('inventory')->middleware('role:admin,admin_toko,operator')->group(function () {
+        Route::get('/low-stock', [InventoryController::class, 'lowStock']);
+        Route::get('/total/{productId}', [InventoryController::class, 'totalProduct']);
         Route::get('/place/{placeId}', [InventoryController::class, 'byPlace']);
         Route::get('/product/{productId}', [InventoryController::class, 'byProduct']);
-        Route::get('/product/{productId}/total', [InventoryController::class, 'totalProduct']);
+
+        Route::get('/', [InventoryController::class, 'index']);
     });
 
     Route::prefix('stok-opname')->middleware('role:admin,admin_toko,operator')->group(function () {

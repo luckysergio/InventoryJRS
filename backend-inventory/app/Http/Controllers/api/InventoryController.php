@@ -3,77 +3,150 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Inventory;
+use App\Http\Resources\InventoryResource;
+use App\Services\Inventory\InventoryService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class InventoryController extends Controller
 {
-    public function index()
-    {
-        $inventories = Inventory::with(['product.jenis', 'product.type','product.bahan', 'place'])
-            ->orderBy('place_id')
-            ->orderBy('product_id')
-            ->get();
+    public function __construct(
+        protected InventoryService $inventoryService
+    ) {}
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Berhasil mengambil data inventory',
-            'data' => $inventories
-        ]);
+    /**
+     * GET /api/inventory
+     */
+    public function index(Request $request): JsonResponse
+    {
+        try {
+            $perPage = min((int) $request->input('per_page', 20), 50);
+            $page = max((int) $request->input('page', 1), 1);
+
+            $result = $this->inventoryService->getList(
+                search: $request->input('search'),
+                placeId: $request->input('place_id') ? (int) $request->input('place_id') : null,
+                perPage: $perPage,
+                page: $page
+            );
+
+            return response()->json([
+                'status' => true,
+                'data' => InventoryResource::collection($result['data']),
+                'meta' => $result['meta'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Inventory index error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat data inventory.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
-    public function byPlace($placeId)
+    /**
+     * GET /api/inventory/place/{placeId}
+     */
+    public function byPlace(Request $request, int $placeId): JsonResponse
     {
-        $inventories = Inventory::with('product')
-            ->where('place_id', $placeId)
-            ->orderBy('product_id')
-            ->get();
+        try {
+            $perPage = min((int) $request->input('per_page', 20), 50);
+            $page = max((int) $request->input('page', 1), 1);
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Berhasil mengambil inventory berdasarkan tempat',
-            'data' => $inventories
-        ]);
+            $result = $this->inventoryService->getByPlace($placeId, $perPage, $page);
+
+            return response()->json([
+                'status' => true,
+                'data' => InventoryResource::collection($result['data']),
+                'meta' => $result['meta'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Inventory byPlace error', ['placeId' => $placeId, 'error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat inventory berdasarkan tempat.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
-    public function byProduct($productId)
+    /**
+     * GET /api/inventory/product/{productId}
+     */
+    public function byProduct(Request $request, int $productId): JsonResponse
     {
-        $inventories = Inventory::with('place')
-            ->where('product_id', $productId)
-            ->orderBy('place_id')
-            ->get();
+        try {
+            $perPage = min((int) $request->input('per_page', 20), 50);
+            $page = max((int) $request->input('page', 1), 1);
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Berhasil mengambil inventory berdasarkan produk',
-            'data' => $inventories
-        ]);
+            $result = $this->inventoryService->getByProduct($productId, $perPage, $page);
+
+            return response()->json([
+                'status' => true,
+                'data' => InventoryResource::collection($result['data']),
+                'meta' => $result['meta'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Inventory byProduct error', ['productId' => $productId, 'error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat inventory berdasarkan produk.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
-    public function totalProduct($productId)
+    /**
+     * GET /api/inventory/total/{productId}
+     */
+    public function totalProduct(int $productId): JsonResponse
     {
-        $total = Inventory::where('product_id', $productId)->sum('qty');
+        try {
+            $total = $this->inventoryService->getTotalByProduct($productId);
 
-        return response()->json([
-            'status' => true,
-            'product_id' => $productId,
-            'total_qty' => $total
-        ]);
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'product_id' => $productId,
+                    'total_qty' => $total,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Inventory totalProduct error', ['productId' => $productId, 'error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat total stok produk.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
-    public function lowStock(Request $request)
+    /**
+     * GET /api/inventory/low-stock
+     */
+    public function lowStock(Request $request): JsonResponse
     {
-        $threshold = $request->get('threshold', 10);
+        try {
+            $threshold = max(1, (int) $request->input('threshold', 10));
+            $perPage = min((int) $request->input('per_page', 20), 50);
+            $page = max((int) $request->input('page', 1), 1);
 
-        $inventories = Inventory::with(['product', 'place'])
-            ->where('qty', '<=', $threshold)
-            ->orderBy('qty')
-            ->get();
+            $result = $this->inventoryService->getLowStock($threshold, $perPage, $page);
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Berhasil mengambil inventory stok rendah',
-            'data' => $inventories
-        ]);
+            return response()->json([
+                'status' => true,
+                'data' => InventoryResource::collection($result['data']),
+                'meta' => $result['meta'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Inventory lowStock error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat data stok rendah.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 }

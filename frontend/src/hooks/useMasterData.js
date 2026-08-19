@@ -72,12 +72,17 @@ export const masterKeys = {
     lists: () => [...masterKeys.productMovement.all, 'list'],
     list: (filters) => [...masterKeys.productMovement.lists(), filters],
   },
-  // ✅ BARU: Place master keys
   place: {
     all: ['places'],
     lists: () => [...masterKeys.place.all, 'list'],
     list: (filters) => [...masterKeys.place.lists(), filters],
     dropdown: () => [...masterKeys.place.all, 'dropdown'],
+  },
+  // ✅ BARU: Inventory master keys
+  inventory: {
+    all: ['inventory'],
+    lists: () => [...masterKeys.inventory.all, 'list'],
+    list: (filters) => [...masterKeys.inventory.lists(), filters],
   },
 };
 
@@ -120,7 +125,6 @@ export const useDistributorsDropdown = () => useQuery({
   staleTime: 15 * 60 * 1000,
 });
 
-// ✅ BARU: Place dropdown hook
 export const usePlacesDropdown = () => useQuery({
   queryKey: masterKeys.place.dropdown(),
   queryFn: async () => (await api.get('/places/dropdown')).data.data || [],
@@ -142,8 +146,9 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
     customer: masterKeys.customer.all,
     distributor: masterKeys.distributor.all,
     productMovement: masterKeys.productMovement.all,
-    // ✅ BARU: Place di entityMap
     place: masterKeys.place.all,
+    // ✅ BARU: Inventory di entityMap
+    inventory: masterKeys.inventory.all,
   };
 
   const keysToInvalidate = [entityMap[changedEntity]];
@@ -173,6 +178,8 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.productCustomer.all,
       masterKeys.harga.all,
       masterKeys.productMovement.all,
+      // ✅ BARU: Product berubah → inventory refresh
+      masterKeys.inventory.all,
     ],
     distributorProduct: [
       masterKeys.product.all,
@@ -203,11 +210,18 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
     ],
     productMovement: [
       masterKeys.product.all,
-      // ✅ BARU: Movement berubah → place juga perlu refresh
       masterKeys.place.all,
+      // ✅ BARU: Movement berubah → inventory refresh
+      masterKeys.inventory.all,
     ],
-    // ✅ BARU: Place cross-invalidation
     place: [
+      masterKeys.productMovement.all,
+      // ✅ BARU: Place berubah → inventory refresh
+      masterKeys.inventory.all,
+    ],
+    // ✅ BARU: Inventory cross-invalidation
+    inventory: [
+      masterKeys.product.all,
       masterKeys.productMovement.all,
     ],
   };
