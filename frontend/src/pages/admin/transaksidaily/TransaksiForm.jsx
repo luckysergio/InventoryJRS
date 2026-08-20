@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   X, Plus, Trash2, Search, ChevronDown, ChevronUp,
   Package, Loader2, User, Calendar, CheckCircle2, DollarSign,
-  Tag, AlertCircle, Sparkles, TrendingUp,
+  Tag, AlertCircle, Sparkles, TrendingUp, Lock, Unlock, Pencil,
 } from "lucide-react";
 import { useTransaksiModals } from "../../../lib/zustand/transaksiStore";
 import {
@@ -49,6 +50,80 @@ const getStokFromMap = (productId, stokMap) => {
 };
 
 // ==========================================
+// ✅ DROPDOWN POSITIONING (Portal-based, anti-clip)
+// ==========================================
+const useDropdownPosition = (open) => {
+  const triggerRef = useRef(null);
+  const [style, setStyle] = useState(null);
+
+  const update = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    const MAX_H = 420;
+    const spaceBelow = window.innerHeight - rect.bottom - 12;
+    const spaceAbove = rect.top - 12;
+
+    // Buka ke bawah jika ruang cukup,否则 buka ke atas
+    if (spaceBelow >= 260 || spaceBelow >= spaceAbove) {
+      setStyle({
+        top: rect.bottom + 6,
+        left: rect.left,
+        width: rect.width,
+        maxHeight: Math.max(200, Math.min(MAX_H, spaceBelow)),
+      });
+    } else {
+      setStyle({
+        bottom: window.innerHeight - rect.top + 6,
+        left: rect.left,
+        width: rect.width,
+        maxHeight: Math.max(200, Math.min(MAX_H, spaceAbove)),
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setStyle(null);
+      return;
+    }
+    update();
+    // Reposition saat scroll (capture = termasuk scroll container) & resize
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open, update]);
+
+  return { triggerRef, style };
+};
+
+// ==========================================
+// ✅ DROPDOWN PORTAL (render ke body, tidak ter-clip)
+// ==========================================
+const DropdownPortal = ({ open, style, onClose, children }) => {
+  if (!open || !style) return null;
+
+  return createPortal(
+    <>
+      {/* Overlay untuk close saat klik luar */}
+      <div className="fixed inset-0 z-[80]" onClick={onClose} />
+      {/* Panel fixed - tidak ter-clip container manapun */}
+      <div
+        style={style}
+        className="fixed z-[85] bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-fadeIn"
+      >
+        {children}
+      </div>
+    </>,
+    document.body
+  );
+};
+
+// ==========================================
 // INITIAL DETAIL SHAPE
 // ==========================================
 const createEmptyDetail = (statusProsesId) => ({
@@ -59,12 +134,12 @@ const createEmptyDetail = (statusProsesId) => ({
   status_transaksi_id: statusProsesId,
   harga_product_id: "",
   harga_baru: { harga: "", keterangan: "", tanggal_berlaku: "" },
-  selected_harga: 0,      // ✅ Cached actual value for instant calculation
-  harga_label: "",        // ✅ Display label
+  selected_harga: 0,
+  harga_label: "",
 });
 
 // ==========================================
-// HARGA SELECTOR COMPONENT (REDESIGNED)
+// HARGA SELECTOR COMPONENT
 // ==========================================
 const HargaSelector = ({
   detailIndex,
@@ -77,18 +152,15 @@ const HargaSelector = ({
   const { data: hargaList = [], isLoading } = useHargaByProduct(productId, customerId);
   const [showNewForm, setShowNewForm] = useState(false);
 
-  // Sync showNewForm dengan state detail
   useEffect(() => {
     if (!detail.harga_product_id && detail.harga_baru?.harga) {
       setShowNewForm(true);
     }
   }, [detail.harga_product_id, detail.harga_baru?.harga]);
 
-  // Categorize harga
   const hargaUmum = hargaList.filter((h) => !h.customer_id);
   const hargaKhusus = hargaList.filter((h) => h.customer_id);
 
-  // Determine current selection state
   const selectedHargaObj = detail.harga_product_id
     ? hargaList.find((h) => String(h.id) === String(detail.harga_product_id))
     : null;
@@ -144,7 +216,6 @@ const HargaSelector = ({
 
   if (!productId) return null;
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-xs text-slate-500 py-3 px-4 bg-slate-50 rounded-lg border border-slate-200">
@@ -154,12 +225,10 @@ const HargaSelector = ({
     );
   }
 
-  // Empty state - belum ada harga
   const hasAnyHarga = hargaList.length > 0;
 
   return (
     <div className="space-y-3">
-      {/* Label */}
       <div className="flex items-center justify-between">
         <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
           <Tag size={13} className="text-indigo-600" />
@@ -172,7 +241,6 @@ const HargaSelector = ({
         )}
       </div>
 
-      {/* Main Select */}
       <select
         className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-200 focus:outline-none focus:border-indigo-400 disabled:bg-slate-100 disabled:cursor-not-allowed transition"
         value={currentSelection}
@@ -204,8 +272,7 @@ const HargaSelector = ({
         <option value="tambah_harga_khusus">✨ Buat Harga Khusus Baru</option>
       </select>
 
-      {/* Empty warning */}
-      {!hasAnyHarga && !showNewForm && (
+      {!hasAnyHarga && !showNewForm && !disabled && (
         <div className="flex items-start gap-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
           <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
           <div>
@@ -215,7 +282,6 @@ const HargaSelector = ({
         </div>
       )}
 
-      {/* Selected harga info card */}
       {selectedHargaObj && !showNewForm && (
         <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg animate-fadeIn">
           <div className="p-2 bg-white rounded-lg shadow-sm">
@@ -237,7 +303,6 @@ const HargaSelector = ({
         </div>
       )}
 
-      {/* Edit mode - harga tersimpan dari DB */}
       {detail.harga_product_id && !selectedHargaObj && !isLoading && detail.selected_harga > 0 && (
         <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
           <div className="p-2 bg-white rounded-lg shadow-sm">
@@ -257,7 +322,6 @@ const HargaSelector = ({
         </div>
       )}
 
-      {/* New harga form */}
       {showNewForm && (
         <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 space-y-3 animate-fadeIn">
           <div className="flex items-center gap-2 pb-2 border-b border-blue-200">
@@ -325,13 +389,13 @@ const HargaSelector = ({
 };
 
 // ==========================================
-// SEARCHABLE CUSTOMER DROPDOWN
+// SEARCHABLE CUSTOMER DROPDOWN (PORTAL)
 // ==========================================
 const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabled }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const inputRef = useRef(null);
-  const dropdownRef = useRef(null);
+  const { triggerRef, style } = useDropdownPosition(isOpen);
 
   const normalizedCustomers = useMemo(() => {
     return (customers || []).map((c, idx) => ({
@@ -355,17 +419,6 @@ const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabl
   const selected = normalizedCustomers.find((c) => String(c.id) === String(selectedId));
 
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
-        setSearch("");
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
@@ -385,8 +438,14 @@ const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabl
     );
   }
 
+  const handleSelect = (id) => {
+    onSelect(id);
+    setSearch("");
+    setTimeout(() => setIsOpen(false), 100);
+  };
+
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div ref={triggerRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -422,95 +481,91 @@ const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabl
         {isOpen ? <ChevronUp size={16} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={16} className="text-slate-400 flex-shrink-0" />}
       </button>
 
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => { setIsOpen(false); setSearch(""); }} />
-          <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl max-h-80 overflow-hidden flex flex-col animate-fadeIn">
-            <div className="p-3 border-b border-slate-100 bg-slate-50/50">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="Cari nama/no HP..."
-                  className="w-full pl-9 pr-8 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  autoFocus
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setSearch(""); }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded transition"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="overflow-y-auto flex-1 max-h-60">
-              {filtered.length === 0 ? (
-                <div className="p-6 text-center">
-                  <User size={24} className="mx-auto text-slate-300 mb-2" />
-                  <p className="text-sm text-slate-500">Customer tidak ditemukan</p>
-                </div>
-              ) : (
-                filtered.map((c) => {
-                  const isSelected = String(c.id) === String(selectedId);
-                  return (
-                    <button
-                      key={c._key}
-                      type="button"
-                      onClick={() => { onSelect(c.id); setIsOpen(false); setSearch(""); }}
-                      className={cn(
-                        "w-full px-3 py-2.5 text-left text-sm hover:bg-indigo-50 flex items-center gap-3 transition",
-                        isSelected ? "bg-indigo-50" : ""
-                      )}
-                    >
-                      <div className={cn(
-                        "p-1.5 rounded-lg flex-shrink-0",
-                        isSelected ? "bg-indigo-100" : "bg-slate-100"
-                      )}>
-                        <User size={13} className={isSelected ? "text-indigo-600" : "text-slate-500"} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 truncate">{c.name}</p>
-                        {c.no_hp && <p className="text-xs text-slate-500 truncate">{c.no_hp}</p>}
-                      </div>
-                      {isSelected && <CheckCircle2 size={16} className="text-indigo-600 flex-shrink-0" />}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-            {onCreateNew && (
+      {/* ✅ Portal - tidak ter-clip container */}
+      <DropdownPortal open={isOpen} style={style} onClose={() => { setIsOpen(false); setSearch(""); }}>
+        <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex-shrink-0">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="Cari nama/no HP..."
+              className="w-full pl-9 pr-8 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
               <button
                 type="button"
-                onClick={() => { onCreateNew(); setIsOpen(false); setSearch(""); }}
-                className="p-3 border-t border-slate-100 text-sm text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-2 font-medium transition"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded transition"
               >
-                <Plus size={14} /> Buat Customer Baru
+                <X size={14} />
               </button>
             )}
           </div>
-        </>
-      )}
+        </div>
+
+        <div className="overflow-y-auto flex-1">
+          {filtered.length === 0 ? (
+            <div className="p-6 text-center">
+              <User size={24} className="mx-auto text-slate-300 mb-2" />
+              <p className="text-sm text-slate-500">Customer tidak ditemukan</p>
+            </div>
+          ) : (
+            filtered.map((c) => {
+              const isSelected = String(c.id) === String(selectedId);
+              return (
+                <button
+                  key={c._key}
+                  type="button"
+                  onClick={() => handleSelect(c.id)}
+                  className={cn(
+                    "w-full px-3 py-2.5 text-left text-sm hover:bg-indigo-50 flex items-center gap-3 transition",
+                    isSelected ? "bg-indigo-50" : ""
+                  )}
+                >
+                  <div className={cn(
+                    "p-1.5 rounded-lg flex-shrink-0",
+                    isSelected ? "bg-indigo-100" : "bg-slate-100"
+                  )}>
+                    <User size={13} className={isSelected ? "text-indigo-600" : "text-slate-500"} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-900 truncate">{c.name}</p>
+                    {c.no_hp && <p className="text-xs text-slate-500 truncate">{c.no_hp}</p>}
+                  </div>
+                  {isSelected && <CheckCircle2 size={16} className="text-indigo-600 flex-shrink-0" />}
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {onCreateNew && (
+          <button
+            type="button"
+            onClick={() => { onCreateNew(); setIsOpen(false); setSearch(""); }}
+            className="p-3 border-t border-slate-100 text-sm text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-2 font-medium transition flex-shrink-0"
+          >
+            <Plus size={14} /> Buat Customer Baru
+          </button>
+        )}
+      </DropdownPortal>
     </div>
   );
 };
 
 // ==========================================
-// SEARCHABLE PRODUCT DROPDOWN
+// SEARCHABLE PRODUCT DROPDOWN (PORTAL)
 // ==========================================
-const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, stokMap }) => {
+const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, stokMap, disabled = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterJenis, setFilterJenis] = useState("");
   const [filterType, setFilterType] = useState("");
   const inputRef = useRef(null);
-  const dropdownRef = useRef(null);
+  const { triggerRef, style } = useDropdownPosition(isOpen);
 
   const normalizedProducts = useMemo(() => {
     return (products || []).map((p, idx) => ({
@@ -563,16 +618,6 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
   }, [filterJenis, typeList]);
 
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
@@ -584,8 +629,44 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
     setFilterType("");
   };
 
+  const handleSelect = (id) => {
+    onSelect(id);
+    setTimeout(() => setIsOpen(false), 200);
+  };
+
+  if (disabled) {
+    return (
+      <div className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-left cursor-not-allowed opacity-75">
+        <span className="truncate flex items-center gap-2 min-w-0">
+          {selected ? (
+            <>
+              <div className="p-1.5 bg-indigo-100 rounded-lg flex-shrink-0">
+                <Package size={13} className="text-indigo-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-mono font-bold text-xs text-indigo-700">{selected.kode}</span>
+                </div>
+                <p className="text-xs text-slate-600 truncate mt-0.5">
+                  {formatProductName(selected._raw)}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="p-1.5 bg-slate-100 rounded-lg flex-shrink-0">
+                <Package size={13} className="text-slate-400" />
+              </div>
+              <span className="text-slate-500 text-sm">Belum ada produk</span>
+            </>
+          )}
+        </span>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div ref={triggerRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -629,132 +710,124 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
         {isOpen ? <ChevronUp size={16} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={16} className="text-slate-400 flex-shrink-0" />}
       </button>
 
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl max-h-96 overflow-hidden flex flex-col animate-fadeIn">
-            <div className="p-3 border-b border-slate-100 bg-slate-50/50 space-y-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="Cari kode/nama produk..."
-                  className="w-full pl-9 pr-8 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  autoFocus
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setSearch(""); }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded transition"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-
-              <div className="flex gap-1.5">
-                <select
-                  className="flex-1 py-1.5 px-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-200 transition"
-                  value={filterJenis}
-                  onChange={(e) => { setFilterJenis(e.target.value); setFilterType(""); }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <option value="">Semua Jenis</option>
-                  {jenisList.map((j) => (
-                    <option key={j.value ?? j.id} value={j.value ?? j.id}>{j.label ?? j.nama}</option>
-                  ))}
-                </select>
-                <select
-                  className="flex-1 py-1.5 px-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-200 disabled:bg-slate-50 disabled:cursor-not-allowed transition"
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  disabled={!filterJenis}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <option value="">Semua Tipe</option>
-                  {filteredTypes.map((t) => (
-                    <option key={t.value ?? t.id} value={t.value ?? t.id}>{t.label ?? t.nama}</option>
-                  ))}
-                </select>
-                {(search || filterJenis || filterType) && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); resetFilters(); }}
-                    className="px-2 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
-                    title="Reset filter"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-
-              {(search || filterJenis || filterType) && (
-                <p className="text-[10px] text-slate-500 text-center">
-                  {filtered.length} dari {normalizedProducts.length} produk
-                </p>
-              )}
-            </div>
-
-            <div className="overflow-y-auto flex-1 max-h-72">
-              {filtered.length === 0 ? (
-                <div className="p-6 text-center">
-                  <Package size={24} className="mx-auto text-slate-300 mb-2" />
-                  <p className="text-sm text-slate-500">Produk tidak ditemukan</p>
-                </div>
-              ) : (
-                filtered.map((p) => {
-                  const isSelected = String(p.id) === String(selectedId);
-                  const stok = getStokFromMap(p.id, stokMap);
-                  const isOutOfStock = stok <= 0;
-                  return (
-                    <button
-                      key={p._key}
-                      type="button"
-                      onClick={() => { if (!isOutOfStock) { onSelect(p.id); setIsOpen(false); } }}
-                      disabled={isOutOfStock}
-                      className={cn(
-                        "w-full px-3 py-2.5 text-left hover:bg-indigo-50 flex items-center gap-3 border-b border-slate-100 last:border-0 transition",
-                        isSelected ? "bg-indigo-50" : "",
-                        isOutOfStock ? "opacity-50 cursor-not-allowed hover:bg-transparent" : ""
-                      )}
-                    >
-                      <div className={cn(
-                        "p-1.5 rounded-lg flex-shrink-0",
-                        isSelected ? "bg-indigo-100" : "bg-slate-100"
-                      )}>
-                        <Package size={13} className={cn(
-                          isSelected ? "text-indigo-600" : "text-slate-500",
-                          isOutOfStock && "text-red-400"
-                        )} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-bold text-xs">{p.kode || "-"}</span>
-                          <span className={cn(
-                            "text-[9px] px-1.5 py-0.5 rounded-full font-semibold",
-                            stok > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                          )}>
-                            {stok > 0 ? `${stok} unit` : "Habis"}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-600 mt-0.5 truncate">
-                          {formatProductName(p._raw)}
-                        </p>
-                      </div>
-                      {isSelected && <CheckCircle2 size={16} className="text-indigo-600 flex-shrink-0" />}
-                    </button>
-                  );
-                })
-              )}
-            </div>
+      {/* ✅ Portal - tidak ter-clip container, scrollable, auto-flip */}
+      <DropdownPortal open={isOpen} style={style} onClose={() => setIsOpen(false)}>
+        <div className="p-3 border-b border-slate-100 bg-slate-50/50 space-y-2 flex-shrink-0">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="Cari kode/nama produk..."
+              className="w-full pl-9 pr-8 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded transition"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
-        </>
-      )}
+
+          <div className="flex gap-1.5">
+            <select
+              className="flex-1 py-1.5 px-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-200 transition"
+              value={filterJenis}
+              onChange={(e) => { setFilterJenis(e.target.value); setFilterType(""); }}
+            >
+              <option value="">Semua Jenis</option>
+              {jenisList.map((j) => (
+                <option key={j.value ?? j.id} value={j.value ?? j.id}>{j.label ?? j.nama}</option>
+              ))}
+            </select>
+            <select
+              className="flex-1 py-1.5 px-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-200 disabled:bg-slate-50 disabled:cursor-not-allowed transition"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              disabled={!filterJenis}
+            >
+              <option value="">Semua Tipe</option>
+              {filteredTypes.map((t) => (
+                <option key={t.value ?? t.id} value={t.value ?? t.id}>{t.label ?? t.nama}</option>
+              ))}
+            </select>
+            {(search || filterJenis || filterType) && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="px-2 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                title="Reset filter"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {(search || filterJenis || filterType) && (
+            <p className="text-[10px] text-slate-500 text-center">
+              {filtered.length} dari {normalizedProducts.length} produk
+            </p>
+          )}
+        </div>
+
+        <div className="overflow-y-auto flex-1">
+          {filtered.length === 0 ? (
+            <div className="p-6 text-center">
+              <Package size={24} className="mx-auto text-slate-300 mb-2" />
+              <p className="text-sm text-slate-500">Produk tidak ditemukan</p>
+            </div>
+          ) : (
+            filtered.map((p) => {
+              const isSelected = String(p.id) === String(selectedId);
+              const stok = getStokFromMap(p.id, stokMap);
+              const isOutOfStock = stok <= 0;
+              return (
+                <button
+                  key={p._key}
+                  type="button"
+                  onClick={() => { if (!isOutOfStock) handleSelect(p.id); }}
+                  disabled={isOutOfStock}
+                  className={cn(
+                    "w-full px-3 py-2.5 text-left hover:bg-indigo-50 flex items-center gap-3 border-b border-slate-100 last:border-0 transition",
+                    isSelected ? "bg-indigo-50" : "",
+                    isOutOfStock ? "opacity-50 cursor-not-allowed hover:bg-transparent" : ""
+                  )}
+                >
+                  <div className={cn(
+                    "p-1.5 rounded-lg flex-shrink-0",
+                    isSelected ? "bg-indigo-100" : "bg-slate-100"
+                  )}>
+                    <Package size={13} className={cn(
+                      isSelected ? "text-indigo-600" : "text-slate-500",
+                      isOutOfStock && "text-red-400"
+                    )} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-bold text-xs">{p.kode || "-"}</span>
+                      <span className={cn(
+                        "text-[9px] px-1.5 py-0.5 rounded-full font-semibold",
+                        stok > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                      )}>
+                        {stok > 0 ? `${stok} unit` : "Habis"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5 truncate">
+                      {formatProductName(p._raw)}
+                    </p>
+                  </div>
+                  {isSelected && <CheckCircle2 size={16} className="text-indigo-600 flex-shrink-0" />}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </DropdownPortal>
     </div>
   );
 };
@@ -803,8 +876,8 @@ const TransaksiForm = () => {
     details: [],
   });
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+  const [editableIndices, setEditableIndices] = useState(new Set());
 
-  // Reset form saat modal buka
   useEffect(() => {
     if (isOpen) {
       if (isEdit && selectedTransaksi) {
@@ -819,7 +892,6 @@ const TransaksiForm = () => {
             status_transaksi_id: String(d.status_transaksi_id || statusProsesId),
             harga_product_id: d.harga_product_id ? String(d.harga_product_id) : "",
             harga_baru: { harga: "", keterangan: "", tanggal_berlaku: "" },
-            // ✅ Restore from actual harga used in transaction
             selected_harga: Number(d.harga) || 0,
             harga_label: d.harga ? `Rp ${formatRupiah(d.harga)} (tersimpan)` : "",
           }));
@@ -837,6 +909,7 @@ const TransaksiForm = () => {
             : [createEmptyDetail(statusProsesId)],
         });
         setIsCreatingCustomer(!selectedTransaksi.customer_id && !!selectedTransaksi.customer);
+        setEditableIndices(new Set());
       } else {
         setForm({
           customer_id: "",
@@ -845,16 +918,30 @@ const TransaksiForm = () => {
           details: [createEmptyDetail(statusProsesId)],
         });
         setIsCreatingCustomer(false);
+        setEditableIndices(new Set([0]));
       }
     }
   }, [isOpen, isEdit, selectedTransaksi, statusProsesId]);
 
-  // Detail operations
+  const toggleEditDetail = (index) => {
+    setEditableIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
   const addDetailRow = () => {
+    const newIndex = form.details.length;
     setForm((f) => ({
       ...f,
       details: [...f.details, createEmptyDetail(statusProsesId)],
     }));
+    setEditableIndices((prev) => new Set([...prev, newIndex]));
   };
 
   const removeDetailRow = (index) => {
@@ -862,6 +949,14 @@ const TransaksiForm = () => {
       ...f,
       details: f.details.filter((_, i) => i !== index),
     }));
+    setEditableIndices((prev) => {
+      const next = new Set();
+      prev.forEach((i) => {
+        if (i < index) next.add(i);
+        else if (i > index) next.add(i - 1);
+      });
+      return next;
+    });
   };
 
   const updateDetail = (index, field, value) => {
@@ -869,7 +964,6 @@ const TransaksiForm = () => {
       const updated = [...f.details];
       updated[index] = { ...updated[index], [field]: value };
 
-      // Reset harga saat product berubah
       if (field === "product_id") {
         updated[index].harga_product_id = "";
         updated[index].harga_baru = { harga: "", keterangan: "", tanggal_berlaku: "" };
@@ -889,11 +983,9 @@ const TransaksiForm = () => {
     });
   };
 
-  // ✅ Real-time calculation using selected_harga
-  const { totalTransaksi, totalDiscount, itemCount } = useMemo(() => {
+  const { totalTransaksi, totalDiscount } = useMemo(() => {
     let total = 0;
     let discount = 0;
-    let count = 0;
 
     form.details.forEach((d) => {
       if (!d.product_id || !d.selected_harga) return;
@@ -902,13 +994,11 @@ const TransaksiForm = () => {
       const subtotal = (d.selected_harga * qty) - disc;
       total += subtotal;
       discount += disc;
-      count += qty;
     });
 
-    return { totalTransaksi: total, totalDiscount: discount, itemCount: count };
+    return { totalTransaksi: total, totalDiscount: discount };
   }, [form.details]);
 
-  // Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -1031,7 +1121,7 @@ const TransaksiForm = () => {
                 {isEdit ? "Edit Transaksi" : "Transaksi Baru"}
               </h2>
               <p className="text-[11px] sm:text-xs text-slate-500">
-                {isEdit ? "Perbarui detail transaksi penjualan" : "Buat transaksi penjualan baru"}
+                {isEdit ? "Klik ikon pensil untuk edit detail" : "Buat transaksi penjualan baru"}
               </p>
             </div>
           </div>
@@ -1131,6 +1221,10 @@ const TransaksiForm = () => {
               </div>
 
               <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide items-center gap-1.5">
+                  <Calendar size={13} className="text-indigo-600" />
+                  Tanggal Transaksi
+                </label>
                 <input
                   type="date"
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 text-sm bg-white transition"
@@ -1153,70 +1247,110 @@ const TransaksiForm = () => {
                   <span className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">
                     {form.details.length} item
                   </span>
+                  {isEdit && (
+                    <span className="text-[10px] font-medium px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full flex items-center gap-1">
+                      <Lock size={9} />
+                      {editableIndices.size > 0
+                        ? `${editableIndices.size} diedit`
+                        : "Semua terkunci"}
+                    </span>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={addDetailRow}
-                  disabled={isSubmitting}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-medium rounded-lg shadow-sm transition disabled:opacity-50"
-                >
-                  <Plus size={13} /> Tambah
-                </button>
               </div>
 
+              {/* Items List */}
               <div className="space-y-4">
                 {form.details.map((detail, index) => {
                   const product = products.find((p) => String(p.id) === String(detail.product_id));
                   const stok = detail.product_id ? getStokFromMap(detail.product_id, stokTokoMap) : 0;
                   const detailKey = detail.id ? `detail-${detail.id}` : `detail-new-${index}`;
                   const qtyNum = Number(detail.qty) || 0;
-                  const discNum = Number(detail.discount) || 0;
                   const hargaNum = Number(detail.selected_harga) || 0;
-                  const subtotal = (hargaNum * qtyNum) - discNum;
+                  const subtotal = (hargaNum * qtyNum) - (Number(detail.discount) || 0);
                   const exceedsStok = qtyNum > stok && stok >= 0;
+
+                  const isEditable = editableIndices.has(index);
+                  const isLocked = !isEditable;
 
                   return (
                     <div
                       key={detailKey}
                       className={cn(
-                        "border rounded-2xl overflow-hidden transition-all duration-200",
-                        exceedsStok
+                        "border rounded-2xl transition-all duration-200",
+                        exceedsStok && isEditable
                           ? "border-red-300 shadow-sm shadow-red-100"
-                          : "border-slate-200 hover:shadow-md hover:border-slate-300"
+                          : isLocked
+                            ? "border-slate-200 bg-slate-50/30"
+                            : "border-slate-200 hover:shadow-md hover:border-slate-300"
                       )}
                     >
                       {/* Item Header */}
                       <div className={cn(
-                        "flex items-center justify-between px-4 py-2.5",
-                        exceedsStok ? "bg-red-50" : "bg-slate-50"
+                        "flex items-center justify-between px-4 py-2.5 rounded-t-2xl",
+                        exceedsStok && isEditable ? "bg-red-50"
+                          : isLocked ? "bg-slate-100"
+                          : "bg-slate-50"
                       )}>
                         <div className="flex items-center gap-2">
                           <span className={cn(
                             "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-                            exceedsStok ? "bg-red-100 text-red-700" : "bg-slate-200 text-slate-700"
+                            exceedsStok && isEditable ? "bg-red-100 text-red-700"
+                              : isLocked ? "bg-slate-200 text-slate-600"
+                              : "bg-slate-200 text-slate-700"
                           )}>
                             Item #{index + 1}
                           </span>
-                          {exceedsStok && (
+                          {isLocked ? (
+                            <span className="text-[10px] text-slate-500 flex items-center gap-1 font-medium">
+                              <Lock size={10} /> Terkunci
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-indigo-600 flex items-center gap-1 font-medium">
+                              <Unlock size={10} /> Diedit
+                            </span>
+                          )}
+                          {exceedsStok && isEditable && (
                             <span className="text-[10px] text-red-600 flex items-center gap-1">
                               <AlertCircle size={11} /> Melebihi stok
                             </span>
                           )}
                         </div>
-                        {form.details.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeDetailRow(index)}
-                            className="text-red-500 hover:bg-red-100 p-1.5 rounded-lg transition"
-                            disabled={isSubmitting}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {detail.product_id && (
+                            <button
+                              type="button"
+                              onClick={() => toggleEditDetail(index)}
+                              disabled={isSubmitting}
+                              className={cn(
+                                "p-1.5 rounded-lg transition",
+                                isLocked
+                                  ? "text-amber-600 hover:bg-amber-100"
+                                  : "text-indigo-600 hover:bg-indigo-100"
+                              )}
+                              title={isLocked ? "Edit item ini" : "Kunci item ini"}
+                            >
+                              {isLocked ? <Pencil size={14} /> : <Lock size={14} />}
+                            </button>
+                          )}
+                          {isEditable && form.details.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeDetailRow(index)}
+                              className="text-red-500 hover:bg-red-100 p-1.5 rounded-lg transition"
+                              disabled={isSubmitting}
+                              title="Hapus item"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {/* Item Body */}
-                      <div className="p-4 space-y-3">
+                      <div className={cn(
+                        "p-4 space-y-3 transition-opacity",
+                        isLocked && "opacity-80"
+                      )}>
                         <ProductDropdown
                           products={products}
                           selectedId={detail.product_id}
@@ -1224,6 +1358,7 @@ const TransaksiForm = () => {
                           jenisList={jenisList}
                           typeList={typeList}
                           stokMap={stokTokoMap}
+                          disabled={isLocked || isSubmitting}
                         />
 
                         {detail.product_id && (
@@ -1233,16 +1368,16 @@ const TransaksiForm = () => {
                             productId={detail.product_id}
                             customerId={form.customer_id}
                             onUpdateHarga={updateHarga}
-                            disabled={isSubmitting}
+                            disabled={isLocked || isSubmitting}
                           />
                         )}
 
-                        {/* Qty, Stok, Diskon */}
+                        {/* Qty, Stok, Diskon, Subtotal */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           <div>
                             <label className={cn(
                               "block text-[10px] font-semibold mb-1 uppercase tracking-wide",
-                              exceedsStok ? "text-red-600" : "text-slate-600"
+                              exceedsStok && isEditable ? "text-red-600" : "text-slate-600"
                             )}>
                               Qty <span className="text-red-500">*</span>
                             </label>
@@ -1252,13 +1387,16 @@ const TransaksiForm = () => {
                               max={stok || 9999}
                               className={cn(
                                 "w-full px-3 py-2 border rounded-lg text-sm font-semibold focus:ring-2 focus:outline-none transition",
-                                exceedsStok
-                                  ? "border-red-300 focus:ring-red-500 bg-red-50"
-                                  : "border-slate-200 focus:ring-indigo-200 focus:border-indigo-400"
+                                isLocked
+                                  ? "border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed"
+                                  : exceedsStok
+                                    ? "border-red-300 focus:ring-red-500 bg-red-50"
+                                    : "border-slate-200 focus:ring-indigo-200 focus:border-indigo-400"
                               )}
                               value={detail.qty}
                               onChange={(e) => updateDetail(index, "qty", e.target.value)}
-                              disabled={isSubmitting || !product}
+                              disabled={isLocked || isSubmitting || !product}
+                              readOnly={isLocked}
                             />
                           </div>
                           <div>
@@ -1279,11 +1417,17 @@ const TransaksiForm = () => {
                             <input
                               type="text"
                               inputMode="numeric"
-                              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-200 focus:outline-none focus:border-indigo-400 transition"
+                              className={cn(
+                                "w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:outline-none transition",
+                                isLocked
+                                  ? "border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed"
+                                  : "border-slate-200 focus:ring-indigo-200 focus:border-indigo-400"
+                              )}
                               value={detail.discount ? formatRupiah(detail.discount) : ""}
                               onChange={(e) => updateDetail(index, "discount", unformatRupiah(e.target.value))}
                               placeholder="0"
-                              disabled={isSubmitting}
+                              disabled={isLocked || isSubmitting}
+                              readOnly={isLocked}
                             />
                           </div>
                           <div>
@@ -1308,26 +1452,86 @@ const TransaksiForm = () => {
                           </label>
                           <input
                             type="text"
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-200 focus:outline-none focus:border-indigo-400 transition"
+                            className={cn(
+                              "w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:outline-none transition",
+                              isLocked
+                                ? "border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed"
+                                : "border-slate-200 focus:ring-indigo-200 focus:border-indigo-400"
+                            )}
                             value={detail.catatan}
                             onChange={(e) => updateDetail(index, "catatan", e.target.value)}
                             placeholder="Catatan khusus..."
-                            disabled={isSubmitting}
+                            disabled={isLocked || isSubmitting}
+                            readOnly={isLocked}
                             maxLength={500}
                           />
                         </div>
+
+                        {/* Action bar khusus locked item */}
+                        {isLocked && detail.product_id && (
+                          <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                            <p className="text-[11px] text-slate-500 italic flex items-center gap-1">
+                              <Lock size={11} />
+                              Item terkunci untuk mencegah perubahan tidak sengaja
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => toggleEditDetail(index)}
+                              disabled={isSubmitting}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
+                            >
+                              <Pencil size={12} /> Edit Item
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
+
+              {/* Button "Tambah Item" di Bawah */}
+              <button
+                type="button"
+                onClick={addDetailRow}
+                disabled={isSubmitting}
+                className={cn(
+                  "mt-4 w-full flex items-center justify-center gap-2 py-4 rounded-2xl border-2 border-dashed transition-all duration-200 group",
+                  isSubmitting
+                    ? "border-slate-200 bg-slate-50 cursor-not-allowed opacity-50"
+                    : "border-indigo-300 hover:border-indigo-500 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 hover:from-indigo-50 hover:to-purple-50 hover:shadow-md active:scale-[0.99]"
+                )}
+              >
+                <div className={cn(
+                  "p-2 rounded-full transition-colors",
+                  isSubmitting ? "bg-slate-200" : "bg-indigo-100 group-hover:bg-indigo-200"
+                )}>
+                  <Plus size={18} className={cn(
+                    "transition-transform",
+                    isSubmitting ? "text-slate-400" : "text-indigo-600 group-hover:scale-110"
+                  )} />
+                </div>
+                <div className="text-left">
+                  <p className={cn(
+                    "text-sm font-bold",
+                    isSubmitting ? "text-slate-400" : "text-indigo-700"
+                  )}>
+                    Tambah Item Produk
+                  </p>
+                  <p className={cn(
+                    "text-[11px]",
+                    isSubmitting ? "text-slate-400" : "text-indigo-500"
+                  )}>
+                    Item baru akan otomatis dalam mode edit
+                  </p>
+                </div>
+              </button>
             </div>
           </div>
         </form>
 
         {/* Sticky Footer with Summary */}
         <div className="border-t border-slate-200 bg-white flex-shrink-0">
-          {/* Summary Bar */}
           <div className="px-5 sm:px-6 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
             <div className="grid grid-cols-3 gap-3">
               <div className="text-center">
@@ -1347,7 +1551,6 @@ const TransaksiForm = () => {
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="px-5 sm:px-6 py-3 sm:py-4 flex gap-2 sm:gap-3">
             <button
               type="button"

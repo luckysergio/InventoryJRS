@@ -245,38 +245,6 @@ const TransaksiDetail = () => {
                               "{d.catatan}"
                             </p>
                           )}
-
-                          {/* Actions */}
-                          <div className="flex gap-2 mt-3">
-                            {!detailLunas && d.status_transaksi_id !== STATUS_MAP.SELESAI && (
-                              <button
-                                onClick={() => openPembayaranModal(d)}
-                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-lg transition"
-                              >
-                                <Wallet size={12} /> Bayar
-                              </button>
-                            )}
-                            {detailLunas && d.status_transaksi_id !== STATUS_MAP.SELESAI && (
-                              <button
-                                onClick={() => handleSelesai(d)}
-                                disabled={updateStatusMut.isPending}
-                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition disabled:opacity-50"
-                              >
-                                {updateStatusMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-                                Selesai
-                              </button>
-                            )}
-                            {isAdmin && d.status_transaksi_id !== STATUS_MAP.SELESAI && (
-                              <button
-                                onClick={() => handleBatal(d)}
-                                disabled={cancelMut.isPending}
-                                className="flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition disabled:opacity-50"
-                              >
-                                {cancelMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />}
-                                Batal
-                              </button>
-                            )}
-                          </div>
                         </>
                       ) : (
                         <p className="text-xs text-center text-slate-500 italic py-2">

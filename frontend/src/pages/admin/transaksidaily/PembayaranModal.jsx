@@ -23,7 +23,6 @@ const PembayaranModal = () => {
   const [errors, setErrors] = useState({});
   const [justCompleted, setJustCompleted] = useState(false);
 
-  // ✅ Memoize quickAmounts DI ATAS (sebelum early return)
   const quickAmounts = useMemo(() => [
     { label: "25%", value: 0.25 },
     { label: "50%", value: 0.50 },
@@ -44,7 +43,7 @@ const PembayaranModal = () => {
   }, [modals.pembayaran, selectedDetail]);
 
   // ==========================================
-  // 2. DERIVED VALUES (boleh setelah hooks)
+  // 2. DERIVED VALUES
   // ==========================================
   const isOpen = modals.pembayaran && !!selectedDetail;
   const isSubmitting = createPembayaranMut.isPending || updateStatusMut.isPending;
@@ -54,17 +53,44 @@ const PembayaranModal = () => {
   const sisaTagihan = subtotal - totalBayar;
   const jumlahBayarNum = unformatRupiah(jumlahBayar);
   const sisaSetelahBayar = sisaTagihan - jumlahBayarNum;
-  const progressPercent = subtotal > 0 ? ((totalBayar + jumlahBayarNum) / subtotal) * 100 : 0;
+
+  const progressPercent = subtotal > 0
+    ? Math.min(((totalBayar + jumlahBayarNum) / subtotal) * 100, 100)
+    : 0;
+
+  // ✅ NEW: Track tombol quick amount mana yang aktif
+  // Bandingkan nilai jumlahBayarNum dengan expected amount untuk setiap persentase
+  const activeQuickPercent = useMemo(() => {
+    if (!detail || jumlahBayarNum <= 0) return null;
+
+    const totalBayarSekarang = Number(detail.total_bayar) || 0;
+    const subtotalSekarang = Number(detail.subtotal) || 0;
+    const sisaSekarang = subtotalSekarang - totalBayarSekarang;
+
+    if (sisaSekarang <= 0) return null;
+
+    // Cek tombol mana yang nilainya cocok dengan jumlahBayarNum (toleransi 1 rupiah untuk rounding)
+    for (const qa of quickAmounts) {
+      const expected = Math.round(sisaSekarang * qa.value);
+      if (Math.abs(jumlahBayarNum - expected) <= 1) {
+        return qa.value;
+      }
+    }
+    return null;
+  }, [detail, jumlahBayarNum, quickAmounts]);
 
   // ==========================================
-  // 3. HANDLERS (useCallback untuk stabilitas)
+  // 3. HANDLERS
   // ==========================================
   const setQuickAmount = useCallback((percentage) => {
-    const currentSisa = subtotal - (detail ? Number(detail.total_bayar) || 0 : 0);
-    const amount = Math.round(currentSisa * percentage);
+    const totalBayarSekarang = detail ? Number(detail.total_bayar) || 0 : 0;
+    const subtotalSekarang = detail ? Number(detail.subtotal) || 0 : 0;
+    const sisaSekarang = subtotalSekarang - totalBayarSekarang;
+
+    const amount = Math.round(sisaSekarang * percentage);
     setJumlahBayar(String(amount));
     setErrors((er) => ({ ...er, jumlahBayar: undefined }));
-  }, [subtotal, detail]);
+  }, [detail]);
 
   const handleSubmit = useCallback(async () => {
     if (!detail) return;
@@ -91,7 +117,6 @@ const PembayaranModal = () => {
         tanggal_bayar: tanggalBayar,
       });
 
-      // Auto-selesai jika lunas
       if (sisaSetelahBayar <= 0) {
         try {
           await updateStatusMut.mutateAsync({
@@ -101,7 +126,6 @@ const PembayaranModal = () => {
         } catch {}
       }
 
-      // Brief delay untuk success animation
       setTimeout(() => {
         closePembayaranModal();
         success(
@@ -115,7 +139,7 @@ const PembayaranModal = () => {
     }
   }, [detail, jumlahBayarNum, sisaTagihan, sisaSetelahBayar, tanggalBayar, createPembayaranMut, updateStatusMut, closePembayaranModal, success, info]);
 
-  // Keyboard shortcut: Enter untuk submit
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Enter" && isOpen && !isSubmitting) {
@@ -133,7 +157,7 @@ const PembayaranModal = () => {
   }, [isOpen, isSubmitting, handleSubmit, closePembayaranModal]);
 
   // ==========================================
-  // 4. EARLY RETURN (setelah SEMUA hooks)
+  // 4. EARLY RETURN
   // ==========================================
   if (!isOpen || !selectedDetail) return null;
 
@@ -233,7 +257,7 @@ const PembayaranModal = () => {
                 <div className="flex justify-between items-center mb-1.5">
                   <span className="text-[10px] text-amber-700 font-medium">Progress Pembayaran</span>
                   <span className="text-[10px] font-bold text-amber-900">
-                    {Math.min(Math.round(progressPercent), 100)}%
+                    {Math.round(progressPercent)}%
                   </span>
                 </div>
                 <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
@@ -244,7 +268,7 @@ const PembayaranModal = () => {
                         ? "bg-gradient-to-r from-green-500 to-emerald-500"
                         : "bg-gradient-to-r from-amber-500 to-orange-500"
                     )}
-                    style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                    style={{ width: `${progressPercent}%` }}
                   />
                 </div>
               </div>
@@ -288,26 +312,42 @@ const PembayaranModal = () => {
                 </p>
               )}
 
-              {/* Quick Amount Buttons */}
+              {/* ✅ Quick Amount Buttons - FIXED: Active state tracking */}
               {sisaTagihan > 0 && (
                 <div className="grid grid-cols-4 gap-1.5 pt-1">
-                  {quickAmounts.map((qa) => (
-                    <button
-                      key={qa.label}
-                      type="button"
-                      onClick={() => setQuickAmount(qa.value)}
-                      disabled={isSubmitting}
-                      className={cn(
-                        "py-1.5 px-2 text-[11px] font-semibold rounded-lg transition-all border",
-                        qa.highlight
-                          ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-transparent hover:from-green-600 hover:to-emerald-600 shadow-sm"
-                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
-                      )}
-                    >
-                      {qa.label}
-                    </button>
-                  ))}
+                  {quickAmounts.map((qa) => {
+                    const isActive = activeQuickPercent === qa.value;
+
+                    return (
+                      <button
+                        key={qa.label}
+                        type="button"
+                        onClick={() => setQuickAmount(qa.value)}
+                        disabled={isSubmitting}
+                        className={cn(
+                          "py-1.5 px-2 text-[11px] font-semibold rounded-lg transition-all border relative",
+                          isActive
+                            ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-transparent shadow-md shadow-green-500/30 scale-105"
+                            : qa.highlight
+                              ? "bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-200 hover:from-green-100 hover:to-emerald-100 hover:border-green-300"
+                              : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+                        )}
+                      >
+                        {qa.label}
+                        {isActive && (
+                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full border-2 border-green-500 shadow-sm" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
+              )}
+
+              {/* Active quick amount info */}
+              {activeQuickPercent !== null && (
+                <p className="text-[10px] text-center text-green-700 font-medium animate-fadeIn">
+                  ✓ {activeQuickPercent * 100}% dari sisa tagihan (Rp {formatRupiah(Math.round(sisaTagihan * activeQuickPercent))})
+                </p>
               )}
             </div>
 
@@ -404,7 +444,7 @@ const PembayaranModal = () => {
                   </div>
                 </div>
 
-                <div className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar">
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
                   {detail.pembayarans.map((p, idx) => (
                     <div
                       key={p.id}
@@ -436,7 +476,6 @@ const PembayaranModal = () => {
 
         {/* Footer */}
         <div className="border-t border-slate-200 bg-gradient-to-r from-slate-50 to-white flex-shrink-0">
-          {/* Summary Strip */}
           <div className="px-5 sm:px-6 py-2 bg-white border-b border-slate-100 flex items-center justify-between">
             <span className="text-xs text-slate-500">Total yang akan dibayar:</span>
             <span className={cn(
@@ -447,7 +486,6 @@ const PembayaranModal = () => {
             </span>
           </div>
 
-          {/* Action Buttons */}
           <div className="px-5 sm:px-6 py-3 sm:py-4 flex gap-2 sm:gap-3">
             <button
               onClick={closePembayaranModal}
@@ -483,13 +521,6 @@ const PembayaranModal = () => {
           </div>
         </div>
       </div>
-
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a1a1a1; }
-      `}</style>
     </div>
   );
 };
