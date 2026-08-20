@@ -23,9 +23,6 @@ class StokOpnameController extends Controller
         protected ProductMovementService $productMovementService
     ) {}
 
-    /**
-     * GET /api/stok-opname
-     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -36,6 +33,7 @@ class StokOpnameController extends Controller
                 status: $request->input('status'),
                 dari: $request->input('dari'),
                 sampai: $request->input('sampai'),
+                excludeDraft: $request->boolean('exclude_draft'),  // ✅ BARU
                 perPage: $perPage,
                 page: $page
             );
@@ -55,9 +53,6 @@ class StokOpnameController extends Controller
         }
     }
 
-    /**
-     * POST /api/stok-opname
-     */
     public function store(StoreStokOpnameRequest $request): JsonResponse
     {
         try {
@@ -83,9 +78,6 @@ class StokOpnameController extends Controller
         }
     }
 
-    /**
-     * GET /api/stok-opname/{stokOpname}
-     */
     public function show(StokOpname $stokOpname): JsonResponse
     {
         try {
@@ -115,9 +107,6 @@ class StokOpnameController extends Controller
         }
     }
 
-    /**
-     * POST /api/stok-opname/{stokOpname}/detail
-     */
     public function storeDetail(StoreDetailStokOpnameRequest $request, StokOpname $stokOpname): JsonResponse
     {
         try {
@@ -146,15 +135,11 @@ class StokOpnameController extends Controller
         }
     }
 
-    /**
-     * POST /api/stok-opname/{stokOpname}/selesai
-     */
     public function selesai(StokOpname $stokOpname): JsonResponse
     {
         try {
             $this->stokOpnameService->selesai($stokOpname);
 
-            // Invalidate semua cache terkait (stok opname + inventory + movement)
             $this->stokOpnameService->invalidateCache();
             $this->inventoryService->invalidateCache();
             $this->productMovementService->invalidateCache();
@@ -170,24 +155,14 @@ class StokOpnameController extends Controller
                 'trace' => config('app.debug') ? $e->getTraceAsString() : null,
             ]);
 
-            $statusCode = 422;
-            if (str_contains($e->getMessage(), 'diproses') || str_contains($e->getMessage(), 'belum diisi')) {
-                $statusCode = 422;
-            } elseif (str_contains($e->getMessage(), 'tidak mencukupi')) {
-                $statusCode = 422;
-            }
-
             return response()->json([
                 'status' => false,
                 'message' => $e->getMessage(),
                 'error' => config('app.debug') ? $e->getMessage() : null,
-            ], $statusCode);
+            ], 422);
         }
     }
 
-    /**
-     * POST /api/stok-opname/{stokOpname}/batalkan
-     */
     public function batalkan(StokOpname $stokOpname): JsonResponse
     {
         try {

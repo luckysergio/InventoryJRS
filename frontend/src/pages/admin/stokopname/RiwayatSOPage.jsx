@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import {
   X, RefreshCw, Package, Calendar, User, Printer, Filter,
 } from "lucide-react";
@@ -17,16 +17,18 @@ import { cn } from "../../../lib/utils";
 // RIWAYAT CARD
 // ==========================================
 const RiwayatCard = ({ opname, onPrint }) => {
-  // ✅ NORMALIZE details agar d.product & d.place tersedia (flat)
   const details = normalizeDetails(opname.details || []);
   const totalItems = details.length;
   const totalSelisih = getTotalSelisih(details);
 
+  // ✅ FIXED: Tambahkan config "draft" + fallback ke draft (netral)
   const statusConfig = {
+    draft: { bg: "bg-amber-100", text: "text-amber-700", label: "Draft" },
     selesai: { bg: "bg-green-100", text: "text-green-700", label: "Selesai" },
     dibatalkan: { bg: "bg-red-100", text: "text-red-700", label: "Dibatalkan" },
   };
-  const cfg = statusConfig[opname.status] || statusConfig.selesai;
+  // ✅ Fallback ke "draft", BUKAN "selesai" — agar tidak misleading
+  const cfg = statusConfig[opname.status] || statusConfig.draft;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-all duration-300">
@@ -75,7 +77,6 @@ const RiwayatCard = ({ opname, onPrint }) => {
           <div className="flex flex-wrap gap-1.5">
             {details.slice(0, 8).map((d) => {
               const selisih = Number(d.selisih) || 0;
-              // ✅ Gunakan d.product?.kode (hasil normalize), BUKAN d.inventory?.product?.kode
               const productCode = d.product?.kode || "?";
               const productName = formatProductName(d.product);
               return (
@@ -120,6 +121,12 @@ const RiwayatSOPage = () => {
   const total = meta.total || 0;
   const isFilterActive = hasActiveFilters();
 
+  // ✅ SAFETY FILTER: Buang draft yang mungkin bocor dari backend
+  // Ini sebagai double-protection jika backend cache lama belum ter-clear
+  const filteredOpnames = useMemo(() => {
+    return opnames.filter((op) => op.status !== "draft");
+  }, [opnames]);
+
   const paginationNumbers = useMemo(() => {
     const max = 5, pages = [];
     let start = Math.max(1, currentPage - Math.floor(max / 2));
@@ -135,7 +142,6 @@ const RiwayatSOPage = () => {
       <div className="sticky top-4 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-2 pb-3 bg-white/70 backdrop-blur-md border-b border-slate-200/60">
         <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200/60 p-3 shadow-sm">
           <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
-            {/* Date From */}
             <div className="relative flex-1 min-w-[140px]">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <input
@@ -145,7 +151,6 @@ const RiwayatSOPage = () => {
                 className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
-            {/* Date To */}
             <div className="relative flex-1 min-w-[140px]">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <input
@@ -156,7 +161,6 @@ const RiwayatSOPage = () => {
                 className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
-            {/* Status */}
             <div className="relative flex-shrink-0 min-w-[140px]">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <select
@@ -169,7 +173,6 @@ const RiwayatSOPage = () => {
                 <option value="dibatalkan">Dibatalkan</option>
               </select>
             </div>
-            {/* Actions */}
             <div className="flex gap-2 flex-shrink-0">
               {isFilterActive && (
                 <button onClick={resetFilters} className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors">
@@ -201,7 +204,7 @@ const RiwayatSOPage = () => {
             </div>
           ))}
         </div>
-      ) : opnames.length === 0 ? (
+      ) : filteredOpnames.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200/60 p-12 text-center shadow-sm">
           <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
             <Package className="w-10 h-10 text-slate-400" />
@@ -227,7 +230,7 @@ const RiwayatSOPage = () => {
         <>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {opnames.map((op) => (
+            {filteredOpnames.map((op) => (
               <RiwayatCard
                 key={op.id}
                 opname={op}

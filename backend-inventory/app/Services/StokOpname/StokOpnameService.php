@@ -19,25 +19,26 @@ class StokOpnameService
     private const CACHE_VERSION_LOCK = 'stok_opname:cache:version:lock';
     private const CACHE_TTL = 300; // 5 menit
 
-    /*
-    |--------------------------------------------------------------------------
-    | READ OPERATIONS
-    |--------------------------------------------------------------------------
-    */
-
     public function getList(
         ?string $status = null,
         ?string $dari = null,
         ?string $sampai = null,
+        bool $excludeDraft = false,
         int $perPage = 20,
         int $page = 1
     ): array {
         $version = $this->getCacheVersion();
+
         $cacheKey = self::CACHE_LIST_PREFIX . "{$version}:" . md5(json_encode([
-            's' => $status, 'd' => $dari, 'u' => $sampai, 'pp' => $perPage, 'p' => $page,
+            's'  => $status,
+            'd'  => $dari,
+            'u'  => $sampai,
+            'x'  => $excludeDraft,
+            'pp' => $perPage,
+            'p'  => $page,
         ]));
 
-        $paginator = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($status, $dari, $sampai, $perPage, $page) {
+        $paginator = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($status, $dari, $sampai, $excludeDraft, $perPage, $page) {
             $query = StokOpname::with([
                 'user:id,name,role',
                 'details.inventory.product.jenis:id,nama',
@@ -46,6 +47,7 @@ class StokOpnameService
                 'details.inventory.place:id,nama,kode',
             ])
                 ->when($status, fn($q) => $q->where('status', $status))
+                ->when($excludeDraft && !$status, fn($q) => $q->where('status', '!=', 'draft'))
                 ->when($dari, fn($q) => $q->whereDate('tgl_opname', '>=', $dari))
                 ->when($sampai, fn($q) => $q->whereDate('tgl_opname', '<=', $sampai))
                 ->latest('created_at');
@@ -76,12 +78,6 @@ class StokOpnameService
             'details.inventory.place:id,nama,kode',
         ])->find($id);
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | WRITE OPERATIONS
-    |--------------------------------------------------------------------------
-    */
 
     public function create(array $data): StokOpname
     {
@@ -179,15 +175,12 @@ class StokOpnameService
                 $tipe = (int) $detail->selisih > 0 ? 'in' : 'out';
                 $qty = abs((int) $detail->selisih);
 
-                // Lock inventory untuk prevent race condition
                 $inventory = Inventory::lockForUpdate()->findOrFail($detail->inventory_id);
 
-                // Validasi stok cukup untuk out
                 if ($tipe === 'out' && $inventory->qty < $qty) {
                     throw new \Exception("Stok tidak mencukupi untuk inventory ID {$inventory->id}. Tersedia: {$inventory->qty}, dibutuhkan: {$qty}");
                 }
 
-                // Buat movement
                 ProductMovement::create([
                     'inventory_id' => $inventory->id,
                     'tipe'         => $tipe,
@@ -195,7 +188,6 @@ class StokOpnameService
                     'keterangan'   => "Penyesuaian stok opname #{$stokOpname->id}",
                 ]);
 
-                // Update inventory
                 if ($tipe === 'in') {
                     $inventory->increment('qty', $qty);
                 } else {
@@ -228,12 +220,6 @@ class StokOpnameService
             ]);
         });
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CACHE MANAGEMENT
-    |--------------------------------------------------------------------------
-    */
 
     public function getCacheVersion(): int
     {
