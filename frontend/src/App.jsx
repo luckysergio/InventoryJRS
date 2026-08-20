@@ -4,10 +4,9 @@ import AOS from "aos";
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 
-// Components
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
-import ConfirmDialog from "./components/ui/ConfirmDialog"; // ✅ Import Dialog Global
+import ConfirmDialog from "./components/ui/ConfirmDialog";
 
 // Pages
 import Login from "./pages/login";
@@ -37,8 +36,8 @@ const BahanProductPage = lazy(() => import("./pages/admin/bahanproduct/BahanProd
 const StatusTransaksiPage = lazy(() => import("./pages/admin/statustransaksi/StatusTransaksiPage"));
 const ProductionPage = lazy(() => import("./pages/admin/ProductionPage"));
 const RiwayatProductionPage = lazy(() => import("./pages/admin/RiwayatProductionPage"));
-const StokOpnamePage = lazy(() => import("./pages/admin/StokOpnamePage"));
-const RiwayatSOPage = lazy(() => import("./pages/admin/RiwayatSOPage"));
+const StokOpnamePage = lazy(() => import("./pages/admin/stokopname/StokOpnamePage"));
+const RiwayatSOPage = lazy(() => import("./pages/admin/stokopname/RiwayatSOPage"));
 const TransaksiPage = lazy(() => import("./pages/admin/DaftarTransaksi"));
 const PesananPage = lazy(() => import("./pages/admin/Pesanan"));
 const RiwayatTransaksi = lazy(() => import("./pages/admin/RiwayatTransaksi"));

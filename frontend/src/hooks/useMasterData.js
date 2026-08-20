@@ -78,17 +78,19 @@ export const masterKeys = {
     list: (filters) => [...masterKeys.place.lists(), filters],
     dropdown: () => [...masterKeys.place.all, 'dropdown'],
   },
-  // ✅ Inventory master keys (LENGKAP)
   inventory: {
     all: ['inventory'],
     lists: () => [...masterKeys.inventory.all, 'list'],
     list: (filters) => [...masterKeys.inventory.lists(), filters],
   },
+  stokOpname: {
+    all: ['stok_opname'],
+    lists: () => [...masterKeys.stokOpname.all, 'list'],
+    list: (filters) => [...masterKeys.stokOpname.lists(), filters],
+    detail: (id) => [...masterKeys.stokOpname.all, 'detail', id],
+  },
 };
 
-// ==========================================
-// DROPDOWN HOOKS
-// ==========================================
 export const useJenisDropdown = () => useQuery({
   queryKey: masterKeys.jenis.dropdown(),
   queryFn: async () => (await api.get('/jenis/dropdown')).data.data || [],
@@ -131,12 +133,6 @@ export const usePlacesDropdown = () => useQuery({
   staleTime: 15 * 60 * 1000,
 });
 
-// ==========================================
-// CROSS-INVALIDATION HELPER
-// ✅ PRINSIP: Cross-invalidation HANYA untuk entity LAIN
-// Entity utama di-handle TERPISAH oleh caller (useInventory.js, useCustomers.js, dll)
-// Jangan pernah memasukkan entity itu sendiri ke dalam array cross-invalidation
-// ==========================================
 export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
   const entityMap = {
     jenis: masterKeys.jenis.all,
@@ -151,10 +147,10 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
     productMovement: masterKeys.productMovement.all,
     place: masterKeys.place.all,
     inventory: masterKeys.inventory.all,
+    // ✅ BARU: StokOpname di entityMap
+    stokOpname: masterKeys.stokOpname.all,
   };
 
-  // ✅ Cross-invalidation: HANYA entity LAIN yang terdampak
-  // Entity utama TIDAK dimasukkan di sini (di-handle terpisah oleh caller)
   const crossInvalidation = {
     jenis: [
       masterKeys.type.all,
@@ -224,17 +220,17 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.productMovement.all,
       masterKeys.inventory.all,
     ],
-    // ✅ Inventory cross-invalidate HANYA entity lain
-    // Inventory sendiri di-handle oleh invalidateInventoryCache() di useInventory.js
     inventory: [
       masterKeys.product.all,
+      masterKeys.productMovement.all,
+    ],
+    stokOpname: [
+      masterKeys.inventory.all,
       masterKeys.productMovement.all,
     ],
   };
 
   const relatedKeys = crossInvalidation[changedEntity] || [];
-
-  // Deduplicate
   const uniqueKeys = [...new Set(relatedKeys.map((k) => JSON.stringify(k)))].map((k) => JSON.parse(k));
 
   for (const key of uniqueKeys) {

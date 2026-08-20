@@ -279,12 +279,13 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::get('/', [InventoryController::class, 'index']);
     });
 
-    Route::prefix('stok-opname')->middleware('role:admin,admin_toko,operator')->group(function () {
+    Route::prefix('stok-opname')->middleware('role:admin,admin_toko')->group(function () {
+        Route::post('/', [StokOpnameController::class, 'store'])->middleware('role:admin,admin_toko');
         Route::get('/', [StokOpnameController::class, 'index']);
-        Route::post('/', [StokOpnameController::class, 'store']);
-        Route::get('/{id}', [StokOpnameController::class, 'show']);
-        Route::post('/{id}/detail', [StokOpnameController::class, 'storeDetail']);
-        Route::post('/{id}/selesai', [StokOpnameController::class, 'selesai'])->middleware('role:admin');
-        Route::post('/{id}/batal', [StokOpnameController::class, 'batalkan'])->middleware('role:admin');
+
+        Route::post('/{stokOpname}/detail', [StokOpnameController::class, 'storeDetail']);
+        Route::post('/{stokOpname}/selesai', [StokOpnameController::class, 'selesai'])->middleware('role:admin,admin_toko');
+        Route::post('/{stokOpname}/batalkan', [StokOpnameController::class, 'batalkan'])->middleware('role:admin,admin_toko');
+        Route::get('/{stokOpname}', [StokOpnameController::class, 'show']);
     });
 });

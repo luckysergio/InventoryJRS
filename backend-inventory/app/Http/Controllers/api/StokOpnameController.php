@@ -3,167 +3,215 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StokOpname\StoreDetailStokOpnameRequest;
+use App\Http\Requests\StokOpname\StoreStokOpnameRequest;
+use App\Http\Resources\DetailStokOpnameResource;
+use App\Http\Resources\StokOpnameResource;
 use App\Models\StokOpname;
-use App\Models\DetailStokOpname;
-use App\Models\Inventory;
-use App\Models\ProductMovement;
+use App\Services\Inventory\InventoryService;
+use App\Services\ProductMovement\ProductMovementService;
+use App\Services\StokOpname\StokOpnameService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class StokOpnameController extends Controller
 {
-    public function index()
+    public function __construct(
+        protected StokOpnameService $stokOpnameService,
+        protected InventoryService $inventoryService,
+        protected ProductMovementService $productMovementService
+    ) {}
+
+    /**
+     * GET /api/stok-opname
+     */
+    public function index(Request $request): JsonResponse
     {
-        return StokOpname::with([
-            'user',
-            'details.inventory.product.jenis',
-            'details.inventory.product.type',
-            'details.inventory.product.bahan',
-            'details.inventory.place'
-        ])->latest()->get();
-    }
+        try {
+            $perPage = min((int) $request->input('per_page', 20), 50);
+            $page = max((int) $request->input('page', 1), 1);
 
-    public function store(Request $request)
-{
-    $data = $request->validate([
-        'tgl_opname' => 'required|date',
-        'keterangan' => 'nullable|string',
-        'inventory_ids' => 'required|array',
-        'inventory_ids.*' => 'exists:inventories,id'
-    ]);
+            $result = $this->stokOpnameService->getList(
+                status: $request->input('status'),
+                dari: $request->input('dari'),
+                sampai: $request->input('sampai'),
+                perPage: $perPage,
+                page: $page
+            );
 
-    DB::beginTransaction();
-    try {
-        $stokOpname = StokOpname::create([
-            'user_id' => Auth::id(),
-            'tgl_opname' => $data['tgl_opname'],
-            'keterangan' => $data['keterangan'] ?? null,
-            'status' => 'draft'
-        ]);
-
-        $inventories = Inventory::whereIn('id', $data['inventory_ids'])->get();
-        foreach ($inventories as $inv) {
-            DetailStokOpname::create([
-                'stok_opname_id' => $stokOpname->id,
-                'inventory_id' => $inv->id,
-                'stok_sistem' => $inv->qty,
-                'stok_real' => null,
-                'selisih' => null,
-                'keterangan' => null
+            return response()->json([
+                'status' => true,
+                'data' => StokOpnameResource::collection($result['data']),
+                'meta' => $result['meta'],
             ]);
-        }
-
-        DB::commit();
-        return response()->json($stokOpname->load('details'), 201);
-    } catch (\Exception $e) {
-        DB::rollBack();
-        throw $e;
-    }
-}
-
-    public function show($id)
-    {
-        $stokOpname = StokOpname::with([
-            'details.inventory.product',
-            'user'
-        ])->findOrFail($id);
-
-        return response()->json($stokOpname);
-    }
-
-    public function storeDetail(Request $request, $stokOpnameId)
-    {
-        $stokOpname = StokOpname::findOrFail($stokOpnameId);
-
-        if ($stokOpname->status !== 'draft') {
+        } catch (\Throwable $e) {
+            Log::error('StokOpname index error', ['error' => $e->getMessage()]);
             return response()->json([
-                'message' => 'Stok opname sudah dikunci'
-            ], 422);
+                'status' => false,
+                'message' => 'Gagal memuat data stok opname.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        $data = $request->validate([
-            'inventory_id' => 'required|exists:inventories,id',
-            'stok_real' => 'nullable|integer|min:0',
-            'keterangan' => 'nullable|string'
-        ]);
-
-        $detail = DetailStokOpname::where('stok_opname_id', $stokOpnameId)
-            ->where('inventory_id', $data['inventory_id'])
-            ->firstOrFail();
-
-        $selisih = null;
-        if ($data['stok_real'] !== null) {
-            $selisih = $data['stok_real'] - $detail->stok_sistem;
-        }
-
-        $detail->update([
-            'stok_real' => $data['stok_real'],
-            'selisih' => $selisih,
-            'keterangan' => $data['keterangan'] ?? $detail->keterangan
-        ]);
-
-        return response()->json($detail->fresh());
     }
 
-    public function selesai($id)
+    /**
+     * POST /api/stok-opname
+     */
+    public function store(StoreStokOpnameRequest $request): JsonResponse
     {
-        $stokOpname = StokOpname::with('details')->findOrFail($id);
+        try {
+            $stokOpname = $this->stokOpnameService->create($request->validated());
 
-        if ($stokOpname->status !== 'draft') {
-            return response()->json(['message' => 'Stok opname sudah diproses'], 422);
-        }
+            $this->stokOpnameService->invalidateCache();
 
-        $hasUnfilled = $stokOpname->details->contains(function ($detail) {
-            return $detail->stok_real === null;
-        });
-
-        if ($hasUnfilled) {
             return response()->json([
-                'message' => 'Masih ada item yang belum diisi stok real-nya'
-            ], 422);
+                'status' => true,
+                'message' => 'Stok opname berhasil dibuat.',
+                'data' => new StokOpnameResource($stokOpname),
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('StokOpname store error', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal membuat stok opname.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
+    }
 
-        DB::transaction(function () use ($stokOpname) {
-            foreach ($stokOpname->details as $detail) {
-                if ($detail->selisih == 0) continue;
+    /**
+     * GET /api/stok-opname/{stokOpname}
+     */
+    public function show(StokOpname $stokOpname): JsonResponse
+    {
+        try {
+            $detail = $this->stokOpnameService->getDetail($stokOpname->id);
 
-                ProductMovement::create([
-                    'inventory_id' => $detail->inventory_id,
-                    'product_id' => $detail->inventory->product_id,
-                    'tipe' => $detail->selisih > 0 ? 'in' : 'out',
-                    'qty' => abs($detail->selisih),
-                    'ref_type' => 'stok_opname',
-                    'ref_id' => $stokOpname->id,
-                    'keterangan' => 'Penyesuaian stok opname'
-                ]);
-
-                Inventory::where('id', $detail->inventory_id)
-                    ->increment('qty', $detail->selisih);
+            if (!$detail) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Stok opname tidak ditemukan.',
+                ], 404);
             }
 
-            $stokOpname->update(['status' => 'selesai']);
-        });
-
-        return response()->json(['message' => 'Stok opname berhasil diselesaikan']);
+            return response()->json([
+                'status' => true,
+                'data' => new StokOpnameResource($detail),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('StokOpname show error', [
+                'id' => $stokOpname->id,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat detail stok opname.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
-    public function batalkan($id)
+    /**
+     * POST /api/stok-opname/{stokOpname}/detail
+     */
+    public function storeDetail(StoreDetailStokOpnameRequest $request, StokOpname $stokOpname): JsonResponse
     {
-        $stokOpname = StokOpname::findOrFail($id);
+        try {
+            $detail = $this->stokOpnameService->updateDetail($stokOpname, $request->validated());
 
-        if ($stokOpname->status !== 'draft') {
+            $this->stokOpnameService->invalidateCache();
+
             return response()->json([
-                'message' => 'Tidak bisa membatalkan stok opname'
-            ], 422);
+                'status' => true,
+                'message' => 'Detail stok opname berhasil diperbarui.',
+                'data' => new DetailStokOpnameResource($detail),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('StokOpname storeDetail error', [
+                'id' => $stokOpname->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            $statusCode = str_contains($e->getMessage(), 'dikunci') ? 422 : 500;
+
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], $statusCode);
         }
+    }
 
-        $stokOpname->update([
-            'status' => 'dibatalkan'
-        ]);
+    /**
+     * POST /api/stok-opname/{stokOpname}/selesai
+     */
+    public function selesai(StokOpname $stokOpname): JsonResponse
+    {
+        try {
+            $this->stokOpnameService->selesai($stokOpname);
 
-        return response()->json([
-            'message' => 'Stok opname dibatalkan'
-        ]);
+            // Invalidate semua cache terkait (stok opname + inventory + movement)
+            $this->stokOpnameService->invalidateCache();
+            $this->inventoryService->invalidateCache();
+            $this->productMovementService->invalidateCache();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Stok opname berhasil diselesaikan dan stok disesuaikan.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('StokOpname selesai error', [
+                'id' => $stokOpname->id,
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
+
+            $statusCode = 422;
+            if (str_contains($e->getMessage(), 'diproses') || str_contains($e->getMessage(), 'belum diisi')) {
+                $statusCode = 422;
+            } elseif (str_contains($e->getMessage(), 'tidak mencukupi')) {
+                $statusCode = 422;
+            }
+
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], $statusCode);
+        }
+    }
+
+    /**
+     * POST /api/stok-opname/{stokOpname}/batalkan
+     */
+    public function batalkan(StokOpname $stokOpname): JsonResponse
+    {
+        try {
+            $this->stokOpnameService->batalkan($stokOpname);
+
+            $this->stokOpnameService->invalidateCache();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Stok opname berhasil dibatalkan.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('StokOpname batalkan error', [
+                'id' => $stokOpname->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            $statusCode = str_contains($e->getMessage(), 'draft') ? 422 : 500;
+
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], $statusCode);
+        }
     }
 }

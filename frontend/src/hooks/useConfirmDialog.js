@@ -3,51 +3,59 @@ import { useOpenDialog } from '../lib/zustand/dialogStore'
 export const useConfirmDialog = () => {
   const openDialog = useOpenDialog()
 
+  const normalizeArgs = (title, description, third, fourth) => {
+    if (third && typeof third === 'object' && !Array.isArray(third)) {
+      return { title, description, ...third }
+    }
+    return {
+      title,
+      description,
+      ...(typeof third === 'string' ? { confirmText: third } : {}),
+      ...(typeof fourth === 'string' ? { cancelText: fourth } : {}),
+    }
+  }
+
   const confirm = async (config) => {
     return await openDialog(config)
   }
 
-  const danger = async (title, description, options = {}) => {
+  const danger = async (title, description, third, fourth) => {
+    const normalized = normalizeArgs(title, description, third, fourth)
     return await confirm({
-      title,
-      description,
       variant: 'danger',
       confirmText: 'Ya, Hapus',
       cancelText: 'Batal',
-      ...options,
+      ...normalized,
     })
   }
 
-  const warning = async (title, description, options = {}) => {
+  const warning = async (title, description, third, fourth) => {
+    const normalized = normalizeArgs(title, description, third, fourth)
     return await confirm({
-      title,
-      description,
       variant: 'warning',
       confirmText: 'Ya, Lanjutkan',
       cancelText: 'Batal',
-      ...options,
+      ...normalized,
     })
   }
 
-  const success = async (title, description, options = {}) => {
+  const success = async (title, description, third) => {
+    const normalized = normalizeArgs(title, description, third)
     return await confirm({
-      title,
-      description,
       variant: 'success',
       confirmText: 'OK',
       showCancel: false,
-      ...options,
+      ...normalized,
     })
   }
 
-  const info = async (title, description, options = {}) => {
+  const info = async (title, description, third) => {
+    const normalized = normalizeArgs(title, description, third)
     return await confirm({
-      title,
-      description,
       variant: 'info',
       confirmText: 'Mengerti',
       showCancel: false,
-      ...options,
+      ...normalized,
     })
   }
 
