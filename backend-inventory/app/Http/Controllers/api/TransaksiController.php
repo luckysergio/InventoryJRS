@@ -3,554 +3,294 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Transaksi\StoreTransaksiRequest;
+use App\Http\Requests\Transaksi\UpdateTransaksiRequest;
+use App\Http\Resources\TransaksiDetailResource;
+use App\Http\Resources\TransaksiResource;
 use App\Models\Transaksi;
 use App\Models\TransaksiDetail;
-use App\Models\Customer;
-use App\Models\Product;
-use App\Models\HargaProduct;
-use App\Models\Inventory;
-use App\Models\Place;
-use App\Models\ProductMovement;
+use App\Services\Inventory\InventoryService;
+use App\Services\Pembayaran\PembayaranService;
+use App\Services\ProductMovement\ProductMovementService;
+use App\Services\Transaksi\TransaksiService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class TransaksiController extends Controller
 {
-    private function getTokoPlace()
+    public function __construct(
+        protected TransaksiService $transaksiService,
+        protected InventoryService $inventoryService,
+        protected ProductMovementService $productMovementService,
+        protected PembayaranService $pembayaranService
+    ) {}
+
+    /**
+     * Helper untuk invalidate semua cache terkait
+     */
+    private function invalidateAll(): void
     {
-        return Place::where('kode', 'TOKO')->firstOrFail();
+        $this->transaksiService->invalidateCache();
+        $this->inventoryService->invalidateCache();
+        $this->productMovementService->invalidateCache();
+        $this->pembayaranService->invalidateCache();
     }
 
-    private function createOrUpdateCustomer($requestData)
+    /**
+     * GET /api/transaksi
+     * Support mode: all | aktif | riwayat | riwayat_all
+     */
+    public function index(Request $request): JsonResponse
     {
-        if (!empty($requestData['customer_id'])) {
-            return $requestData['customer_id'];
-        }
-
-        if (!empty($requestData['customer_baru']['name'])) {
-            $customer = Customer::create($requestData['customer_baru']);
-            return $customer->id;
-        }
-
-        return null;
-    }
-
-    private function resolveHargaProduct($productId, $customerId, $hargaInput = null)
-    {
-        if (!empty($hargaInput['harga_baru'])) {
-            return HargaProduct::create([
-                'product_id' => $productId,
-                'customer_id' => $customerId,
-                'harga' => $hargaInput['harga_baru']['harga'],
-                'tanggal_berlaku' => $hargaInput['harga_baru']['tanggal_berlaku'] ?? now(),
-                'keterangan' => $hargaInput['harga_baru']['keterangan'] ?? null,
-            ]);
-        }
-
-        if (!empty($hargaInput['harga_product_id'])) {
-            return HargaProduct::where('id', $hargaInput['harga_product_id'])
-                ->where('product_id', $productId)
-                ->firstOrFail();
-        }
-
-        $hp = HargaProduct::where('product_id', $productId)
-            ->where('customer_id', $customerId)
-            ->where('tanggal_berlaku', '<=', now())
-            ->orderBy('tanggal_berlaku', 'DESC')
-            ->orderBy('id', 'DESC')
-            ->first();
-
-        if (!$hp) {
-            // Jika tidak ada, gunakan harga umum
-            $hp = HargaProduct::where('product_id', $productId)
-                ->whereNull('customer_id')
-                ->where('tanggal_berlaku', '<=', now())
-                ->orderBy('tanggal_berlaku', 'DESC')
-                ->orderBy('id', 'DESC')
-                ->first();
-        }
-
-        if (!$hp) {
-            throw new \Exception("Harga untuk produk ID {$productId} tidak ditemukan.");
-        }
-
-        return $hp;
-    }
-
-    private function validateStockForDetails($details, $tokoPlaceId, $existingDetails = [])
-    {
-        $errors = [];
-
-        foreach ($details as $index => $d) {
-            if (empty($d['product_id'])) continue;
-
-            $inventory = Inventory::where('product_id', $d['product_id'])
-                ->where('place_id', $tokoPlaceId)
-                ->first();
-
-            if (!$inventory) {
-                $errors["details.{$index}.qty"] = ['Inventory tidak tersedia di TOKO'];
-                continue;
-            }
-
-            $qtyLama = 0;
-            if (!empty($d['id'])) {
-                $detailLama = collect($existingDetails)->firstWhere('id', $d['id']);
-                $qtyLama = $detailLama ? $detailLama->qty : 0;
-            }
-
-            $selisih = $d['qty'] - $qtyLama;
-
-            if ($selisih > 0 && $inventory->qty < $selisih) {
-                $errors["details.{$index}.qty"] = [
-                    "Stok tidak cukup untuk penambahan {$selisih} unit. Tersedia: {$inventory->qty}"
-                ];
-            }
-        }
-
-        return $errors;
-    }
-
-    private function updateInventoryAndMovement($productId, $qtyChange, $transaksiId, $keterangan)
-    {
-        if ($qtyChange == 0) return;
-
-        $toko = $this->getTokoPlace();
-        $inventory = Inventory::where('product_id', $productId)
-            ->where('place_id', $toko->id)
-            ->lockForUpdate()
-            ->first();
-
-        if (!$inventory) {
-            throw new \Exception("Inventory untuk produk ID {$productId} di TOKO tidak ditemukan.");
-        }
-
-        if ($qtyChange > 0) {
-            $inventory->increment('qty', $qtyChange);
-            $tipe = 'in';
-        } else {
-            $absQty = abs($qtyChange);
-            if ($inventory->qty < $absQty) {
-                throw new \Exception("Stok tidak mencukupi untuk produk ID {$productId}.");
-            }
-            $inventory->decrement('qty', $absQty);
-            $tipe = 'out';
-        }
-
-        ProductMovement::create([
-            'inventory_id' => $inventory->id,
-            'tipe' => $tipe,
-            'qty' => abs($qtyChange),
-            'keterangan' => $keterangan,
-        ]);
-    }
-
-    public function aktif(Request $request)
-    {
-        $query = Transaksi::with([
-            'customer',
-            'details' => function ($q) {
-                $q->where('status_transaksi_id', 1);
-            },
-            'details.product.jenis',
-            'details.product.type',
-            'details.product.bahan',
-            'details.statusTransaksi',
-            'details.pembayarans'
-        ])
-            ->where('jenis_transaksi', 'daily')
-            ->whereHas(
-                'details',
-                fn($q) =>
-                $q->where('status_transaksi_id', 1)
-            );
-
-        if ($request->filled('search')) {
-            $searchTerm = '%' . $request->search . '%';
-            $query->whereHas('customer', function ($q) use ($searchTerm) {
-                $q->where('name', 'like', $searchTerm);
-            });
-        }
-
-        $data = $query->orderByDesc('id')->get();
-
-        return response()->json($data);
-    }
-
-    public function riwayat()
-    {
-        $data = Transaksi::with([
-            'customer',
-            'details.product',
-            'details.statusTransaksi',
-            'details.pembayarans'
-        ])
-            ->where('jenis_transaksi', 'daily')
-            ->whereHas('details', fn($q) => $q->where('status_transaksi_id', 2))
-            ->orderByDesc('id')
-            ->get();
-
-        return response()->json($data);
-    }
-
-    public function riwayatAll(Request $request)
-    {
-        $query = Transaksi::with([
-            'customer',
-            'details.product.jenis',
-            'details.product.type',
-            'details.product.bahan',
-            'details.statusTransaksi',
-            'details.pembayarans',
-        ])
-            ->whereIn('jenis_transaksi', ['daily', 'pesanan'])
-            ->whereHas('details', fn($q) => $q->whereIn('status_transaksi_id', [5, 6]))
-            ->orderByDesc('tanggal');
-
-        if ($request->filled('jenis')) {
-            $query->where('jenis_transaksi', $request->jenis);
-        }
-
-        if ($request->filled('customer_id')) {
-            $query->where('customer_id', $request->customer_id);
-        }
-
-        return response()->json($query->get());
-    }
-
-    public function riwayatByCustomer($customerId)
-    {
-        $data = Transaksi::with([
-            'customer',
-            'details.product',
-            'details.statusTransaksi',
-            'details.pembayarans'
-        ])
-            ->where('jenis_transaksi', 'daily')
-            ->where('customer_id', $customerId)
-            ->whereHas('details', fn($q) => $q->where('status_transaksi_id', 2))
-            ->orderByDesc('id')
-            ->get();
-
-        return response()->json($data);
-    }
-
-    public function index()
-    {
-        $data = Transaksi::with([
-            'customer',
-            'details.product.jenis',
-            'details.product.type',
-            'details.product.bahan',
-            'details.statusTransaksi',
-            'details.pembayarans',
-        ])
-            ->where('jenis_transaksi', 'daily')
-            ->orderByDesc('id')
-            ->get();
-
-        return response()->json(['status' => true, 'data' => $data]);
-    }
-
-    public function show($id)
-    {
-        $data = Transaksi::with(['customer', 'details.product', 'details.pembayarans'])
-            ->where('jenis_transaksi', 'daily')
-            ->findOrFail($id);
-
-        return response()->json($data);
-    }
-
-    public function destroy($id)
-    {
-        $transaksi = Transaksi::where('jenis_transaksi', 'daily')->findOrFail($id);
-        $transaksi->delete();
-
-        return response()->json(['message' => 'Transaksi harian berhasil dihapus']);
-    }
-
-    public function updateStatus(Request $request, $id)
-    {
-        $validator = Validator::make($request->all(), [
-            'status_transaksi_id' => 'required|exists:status_transaksis,id',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $detail = TransaksiDetail::with('transaksi')->findOrFail($id);
-        $detail->update(['status_transaksi_id' => $request->status_transaksi_id]);
-
-        return response()->json([
-            'message' => 'Status detail transaksi berhasil diubah',
-            'data' => $detail->load('statusTransaksi')
-        ]);
-    }
-
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'customer_id' => 'nullable|exists:customers,id',
-            'customer_baru.name' => 'nullable|string',
-            'customer_baru.phone' => 'nullable|string',
-            'customer_baru.email' => 'nullable|email',
-            'tanggal' => 'required|date',
-            'details' => 'required|array|min:1',
-            'details.*.product_id' => 'required|exists:products,id',
-            'details.*.qty' => 'required|integer|min:1',
-            'details.*.discount' => 'nullable|numeric|min:0',
-            'details.*.catatan' => 'nullable|string',
-            'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
-            'details.*.harga_product_id' => 'nullable|exists:harga_products,id',
-            'details.*.harga_baru.harga' => 'nullable|integer|min:0',
-            'details.*.harga_baru.keterangan' => 'nullable|string',
-            'details.*.harga_baru.tanggal_berlaku' => 'nullable|date',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        DB::beginTransaction();
-
         try {
-            $toko = $this->getTokoPlace();
-            $customer_id = $this->createOrUpdateCustomer($request->all());
+            $perPage = min((int) $request->input('per_page', 20), 50);
+            $page = max((int) $request->input('page', 1), 1);
 
-            $stockErrors = $this->validateStockForDetails($request->details, $toko->id);
-            if (!empty($stockErrors)) {
-                return response()->json(['errors' => $stockErrors], 422);
-            }
+            $filters = [
+                'jenis'       => $request->input('jenis', 'daily'),
+                'mode'        => $request->input('mode', 'all'),
+                'search'      => $request->input('search'),
+                'customer_id' => $request->input('customer_id'),
+                'dari'        => $request->input('dari'),
+                'sampai'      => $request->input('sampai'),
+            ];
 
-            $tanggal = $request->tanggal;
-
-            $transaksi = Transaksi::create([
-                'customer_id' => $customer_id,
-                'jenis_transaksi' => 'daily',
-                'tanggal' => $tanggal,
-                'total' => 0,
-            ]);
-
-            $total_transaksi = 0;
-
-            foreach ($request->details as $d) {
-                $product = Product::findOrFail($d['product_id']);
-                $hp = $this->resolveHargaProduct($product->id, $customer_id, $d);
-
-                $harga = $hp->harga;
-                $qty = $d['qty'];
-                $discount = $d['discount'] ?? 0;
-                $subtotal = ($harga * $qty) - $discount;
-                $total_transaksi += $subtotal;
-
-                $this->updateInventoryAndMovement(
-                    $product->id,
-                    -$qty,
-                    $transaksi->id,
-                    "Penjualan Transaksi Daily #{$transaksi->id} oleh " . ($transaksi->customer?->name ?? 'Customer Umum')
-                );
-
-                TransaksiDetail::create([
-                    'transaksi_id' => $transaksi->id,
-                    'product_id' => $product->id,
-                    'harga_product_id' => $hp->id,
-                    'status_transaksi_id' => $d['status_transaksi_id'],
-                    'qty' => $qty,
-                    'harga' => $harga,
-                    'subtotal' => $subtotal,
-                    'discount' => $discount,
-                    'catatan' => $d['catatan'] ?? null,
-                ]);
-            }
-
-            $transaksi->update(['total' => $total_transaksi]);
-
-            DB::commit();
+            $result = $this->transaksiService->getList($filters, $perPage, $page);
 
             return response()->json([
-                'message' => 'Transaksi harian berhasil dibuat',
-                'data' => $transaksi->load('customer', 'details.product')
+                'status' => true,
+                'data'   => TransaksiResource::collection($result['data']),
+                'meta'   => $result['meta'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Transaksi index error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal memuat data transaksi.',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    /**
+     * GET /api/transaksi/aktif (shortcut)
+     */
+    public function aktif(Request $request): JsonResponse
+    {
+        return $this->index($request->merge(['mode' => 'aktif']));
+    }
+
+    /**
+     * GET /api/transaksi/riwayat (shortcut)
+     */
+    public function riwayat(Request $request): JsonResponse
+    {
+        return $this->index($request->merge(['mode' => 'riwayat']));
+    }
+
+    /**
+     * GET /api/transaksi/riwayat-all (shortcut)
+     */
+    public function riwayatAll(Request $request): JsonResponse
+    {
+        return $this->index($request->merge(['mode' => 'riwayat_all']));
+    }
+
+    /**
+     * GET /api/transaksi/customer/{customerId}/riwayat (shortcut)
+     * ✅ FIXED: Tambahkan type hint int untuk $customerId
+     */
+    public function riwayatByCustomer(Request $request, int $customerId): JsonResponse
+    {
+        return $this->index($request->merge([
+            'mode'        => 'riwayat',
+            'customer_id' => $customerId,
+        ]));
+    }
+
+    /**
+     * POST /api/transaksi
+     */
+    public function store(StoreTransaksiRequest $request): JsonResponse
+    {
+        try {
+            $transaksi = $this->transaksiService->create($request->validated());
+
+            $this->invalidateAll();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Transaksi berhasil dibuat.',
+                'data'    => new TransaksiResource($transaksi),
             ], 201);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['error' => 'Gagal membuat transaksi: ' . $e->getMessage()], 500);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status' => false,
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Transaksi store error', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal membuat transaksi: ' . $e->getMessage(),
+            ], 500);
         }
     }
 
-    public function update(Request $request, $id)
+    /**
+     * GET /api/transaksi/{transaksi}
+     */
+    public function show(Transaksi $transaksi): JsonResponse
     {
-        $transaksi = Transaksi::with(['details'])->findOrFail($id);
-
-        if ($transaksi->jenis_transaksi !== 'daily') {
-            return response()->json(['message' => 'Hanya transaksi harian yang bisa diupdate.'], 422);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'customer_id' => 'nullable|exists:customers,id',
-            'tanggal' => 'required|date',
-            'customer_baru.name' => 'nullable|string',
-            'customer_baru.phone' => 'nullable|string',
-            'customer_baru.email' => 'nullable|email',
-            'details' => 'required|array|min:1',
-            'details.*.id' => 'nullable|exists:transaksi_details,id,transaksi_id,' . $transaksi->id,
-            'details.*.product_id' => 'required|exists:products,id',
-            'details.*.qty' => 'required|integer|min:1',
-            'details.*.discount' => 'nullable|numeric|min:0',
-            'details.*.catatan' => 'nullable|string',
-            'details.*.status_transaksi_id' => 'required|exists:status_transaksis,id',
-            'details.*.harga_product_id' => 'nullable|exists:harga_products,id',
-            'details.*.harga_baru.harga' => 'nullable|integer|min:0',
-            'details.*.harga_baru.keterangan' => 'nullable|string',
-            'details.*.harga_baru.tanggal_berlaku' => 'nullable|date',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        DB::beginTransaction();
-
         try {
-            $toko = $this->getTokoPlace();
-            $customer_id = $this->createOrUpdateCustomer($request->all());
-            $transaksi->update(['customer_id' => $customer_id,'tanggal' => $request->tanggal,]);
+            $detail = $this->transaksiService->getDetail($transaksi->id);
 
-            $existingDetailIds = $transaksi->details->pluck('id')->toArray();
-            $incomingDetailIds = collect($request->details)
-                ->pluck('id')
-                ->filter()
-                ->toArray();
-
-            $deletedIds = array_diff($existingDetailIds, $incomingDetailIds);
-            foreach ($deletedIds as $detailId) {
-                $detail = TransaksiDetail::findOrFail($detailId);
-                $this->updateInventoryAndMovement(
-                    $detail->product_id,
-                    $detail->qty,
-                    $transaksi->id,
-                    "Update Transaksi #{$transaksi->id}: Hapus detail (qty {$detail->qty} dikembalikan)"
-                );
-                $detail->update(['status_transaksi_id' => 6]); // Dibatalkan
+            if (!$detail) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Transaksi tidak ditemukan.',
+                ], 404);
             }
-
-            $total_transaksi = 0;
-
-            foreach ($request->details as $d) {
-                $isUpdate = !empty($d['id']);
-                $product = Product::findOrFail($d['product_id']);
-                $hp = $this->resolveHargaProduct($product->id, $customer_id, $d);
-
-                $qtyBaru = $d['qty'];
-                $discount = $d['discount'] ?? 0;
-                $subtotal = ($hp->harga * $qtyBaru) - $discount;
-                $total_transaksi += $subtotal;
-
-                if ($isUpdate) {
-                    $detail = TransaksiDetail::findOrFail($d['id']);
-                    $qtyLama = $detail->qty;
-                    $selisih = $qtyBaru - $qtyLama;
-
-                    if ($selisih != 0) {
-                        $this->updateInventoryAndMovement(
-                            $product->id,
-                            -$selisih,
-                            $transaksi->id,
-                            "Update Transaksi #{$transaksi->id}: Ubah qty dari {$qtyLama} ke {$qtyBaru}"
-                        );
-                    }
-
-                    $detail->update([
-                        'product_id' => $product->id,
-                        'harga_product_id' => $hp->id,
-                        'status_transaksi_id' => $d['status_transaksi_id'],
-                        'qty' => $qtyBaru,
-                        'harga' => $hp->harga,
-                        'subtotal' => $subtotal,
-                        'discount' => $discount,
-                        'catatan' => $d['catatan'] ?? null,
-                    ]);
-                } else {
-                    $this->updateInventoryAndMovement(
-                        $product->id,
-                        -$qtyBaru,
-                        $transaksi->id,
-                        "Update Transaksi #{$transaksi->id}: Detail baru (qty {$qtyBaru})"
-                    );
-
-                    TransaksiDetail::create([
-                        'transaksi_id' => $transaksi->id,
-                        'product_id' => $product->id,
-                        'harga_product_id' => $hp->id,
-                        'status_transaksi_id' => $d['status_transaksi_id'],
-                        'qty' => $qtyBaru,
-                        'harga' => $hp->harga,
-                        'subtotal' => $subtotal,
-                        'discount' => $discount,
-                        'catatan' => $d['catatan'] ?? null,
-                    ]);
-                }
-            }
-
-            $transaksi->update(['total' => $total_transaksi]);
-
-            DB::commit();
 
             return response()->json([
                 'status' => true,
-                'message' => 'Transaksi berhasil diperbarui',
-                'data' => $transaksi->load('customer', 'details.product')
+                'data'   => new TransaksiResource($detail),
             ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['status' => false, 'message' => 'Gagal mengupdate transaksi: ' . $e->getMessage()], 500);
+        } catch (\Throwable $e) {
+            Log::error('Transaksi show error', [
+                'id'    => $transaksi->id,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal memuat detail transaksi.',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
     }
 
-    public function cancelDetail($detailId)
+    /**
+     * PUT /api/transaksi/{transaksi}
+     */
+    public function update(UpdateTransaksiRequest $request, Transaksi $transaksi): JsonResponse
     {
-        $detail = TransaksiDetail::with(['transaksi', 'transaksi.customer', 'product'])
-            ->findOrFail($detailId);
-
-        if ($detail->transaksi->jenis_transaksi !== 'daily') {
-            return response()->json(['message' => 'Hanya transaksi harian yang bisa dibatalkan per detail.'], 422);
-        }
-
-        if ($detail->pembayarans->isNotEmpty()) {
-            return response()->json(['message' => 'Tidak dapat membatalkan detail yang sudah memiliki pembayaran.'], 422);
-        }
-
-        DB::beginTransaction();
-
         try {
-            $this->updateInventoryAndMovement(
-                $detail->product_id,
-                $detail->qty,
-                $detail->transaksi_id,
-                "Pembatalan Detail Transaksi Daily #{$detail->transaksi->id} (Detail ID: {$detail->id}) oleh " . ($detail->transaksi->customer?->name ?? 'Customer Umum')
-            );
+            $updated = $this->transaksiService->update($transaksi, $request->validated());
 
-            $detail->update([
-                'status_transaksi_id' => 6,
-                'subtotal' => 0,
-                'discount' => 0,
-            ]);
-
-            $totalBaru = $detail->transaksi->details()
-                ->where('status_transaksi_id', '!=', 6)
-                ->sum('subtotal');
-            $detail->transaksi->update(['total' => $totalBaru]);
-
-            DB::commit();
+            $this->invalidateAll();
 
             return response()->json([
-                'status' => true,
-                'message' => 'Detail transaksi berhasil dibatalkan. Stok telah dikembalikan.'
+                'status'  => true,
+                'message' => 'Transaksi berhasil diperbarui.',
+                'data'    => new TransaksiResource($updated),
             ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['status' => false, 'message' => 'Gagal membatalkan detail transaksi: ' . $e->getMessage()], 500);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status' => false,
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Transaksi update error', [
+                'id'    => $transaksi->id,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal mengupdate transaksi: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * DELETE /api/transaksi/{transaksi}
+     */
+    public function destroy(Transaksi $transaksi): JsonResponse
+    {
+        try {
+            $this->transaksiService->delete($transaksi);
+
+            $this->invalidateAll();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Transaksi berhasil dihapus.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Transaksi destroy error', [
+                'id'    => $transaksi->id,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'status'  => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * PUT /api/transaksi/detail/{detail}/status
+     */
+    public function updateStatus(Request $request, TransaksiDetail $detail): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'status_transaksi_id' => ['required', 'integer', 'exists:status_transaksis,id'],
+            ]);
+
+            $updated = $this->transaksiService->updateDetailStatus($detail, $validated['status_transaksi_id']);
+
+            $this->invalidateAll();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Status detail transaksi berhasil diubah.',
+                'data'    => new TransaksiDetailResource($updated),
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status' => false,
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Transaksi updateStatus error', [
+                'detail_id' => $detail->id,
+                'error'     => $e->getMessage(),
+            ]);
+            return response()->json([
+                'status'  => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * POST /api/transaksi/detail/{detail}/cancel
+     */
+    public function cancelDetail(TransaksiDetail $detail): JsonResponse
+    {
+        try {
+            $this->transaksiService->cancelDetail($detail);
+
+            $this->invalidateAll();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Detail transaksi berhasil dibatalkan. Stok telah dikembalikan.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Transaksi cancelDetail error', [
+                'detail_id' => $detail->id,
+                'error'     => $e->getMessage(),
+            ]);
+            return response()->json([
+                'status'  => false,
+                'message' => $e->getMessage(),
+            ], 422);
         }
     }
 }

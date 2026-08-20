@@ -5,37 +5,76 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Pembayaran\StorePembayaranRequest;
 use App\Http\Requests\Pembayaran\UpdatePembayaranRequest;
+use App\Http\Resources\PembayaranResource;
 use App\Models\Pembayaran;
 use App\Services\Pembayaran\PembayaranService;
+use App\Services\Transaksi\TransaksiService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class PembayaranController extends Controller
 {
     public function __construct(
-        protected PembayaranService $pembayaranService
+        protected PembayaranService $pembayaranService,
+        protected TransaksiService $transaksiService
     ) {}
 
-    public function index(): JsonResponse
+    /**
+     * GET /api/pembayaran
+     */
+    public function index(Request $request): JsonResponse
     {
-        $pembayarans = $this->pembayaranService->getList();
+        try {
+            $perPage = min((int) $request->input('per_page', 20), 50);
+            $page = max((int) $request->input('page', 1), 1);
 
-        return response()->json([
-            'status' => true,
-            'data'   => $pembayarans,
-        ]);
+            $result = $this->pembayaranService->getList(
+                search: $request->input('search'),
+                dari: $request->input('dari'),
+                sampai: $request->input('sampai'),
+                transaksiId: $request->input('transaksi_id') ? (int) $request->input('transaksi_id') : null,
+                perPage: $perPage,
+                page: $page
+            );
+
+            return response()->json([
+                'status' => true,
+                'data'   => PembayaranResource::collection($result['data']),
+                'meta'   => $result['meta'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Pembayaran index error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal memuat data pembayaran.',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
+    /**
+     * POST /api/pembayaran
+     */
     public function store(StorePembayaranRequest $request): JsonResponse
     {
         try {
             $pembayaran = $this->pembayaranService->create($request->validated());
 
+            // Invalidate cache pembayaran + transaksi
+            $this->pembayaranService->invalidateCache();
+            $this->transaksiService->invalidateCache();
+
             return response()->json([
                 'status'  => true,
-                'message' => 'Pembayaran berhasil ditambahkan',
-                'data'    => $pembayaran->load('transaksiDetail'),
+                'message' => 'Pembayaran berhasil ditambahkan.',
+                'data'    => new PembayaranResource($pembayaran),
             ], 201);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            Log::error('Pembayaran store error', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
             return response()->json([
                 'status'  => false,
                 'message' => $e->getMessage(),
@@ -43,37 +82,60 @@ class PembayaranController extends Controller
         }
     }
 
-    public function show(string|int $id): JsonResponse
+    /**
+     * GET /api/pembayaran/{pembayaran}
+     * ✅ Gunakan route model binding
+     */
+    public function show(Pembayaran $pembayaran): JsonResponse
     {
-        $pembayaran = Pembayaran::with([
-            'transaksiDetail.transaksi.customer',
-            'transaksiDetail.product'
-        ])->find((int) $id);
+        try {
+            $detail = $this->pembayaranService->getDetail($pembayaran->id);
 
-        if (!$pembayaran) {
-            return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
+            if (!$detail) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Pembayaran tidak ditemukan.',
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => true,
+                'data'   => new PembayaranResource($detail),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Pembayaran show error', [
+                'id' => $pembayaran->id,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal memuat detail pembayaran.',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        return response()->json(['status' => true, 'data' => $pembayaran]);
     }
 
-    public function update(UpdatePembayaranRequest $request, string|int $id): JsonResponse
+    /**
+     * PUT /api/pembayaran/{pembayaran}
+     */
+    public function update(UpdatePembayaranRequest $request, Pembayaran $pembayaran): JsonResponse
     {
-        $pembayaran = Pembayaran::find((int) $id);
-
-        if (!$pembayaran) {
-            return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
-        }
-
         try {
             $updatedPembayaran = $this->pembayaranService->update($pembayaran, $request->validated());
 
+            $this->pembayaranService->invalidateCache();
+            $this->transaksiService->invalidateCache();
+
             return response()->json([
                 'status'  => true,
-                'message' => 'Pembayaran berhasil diupdate',
-                'data'    => $updatedPembayaran,
+                'message' => 'Pembayaran berhasil diperbarui.',
+                'data'    => new PembayaranResource($updatedPembayaran),
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            Log::error('Pembayaran update error', [
+                'id' => $pembayaran->id,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'status'  => false,
                 'message' => $e->getMessage(),
@@ -81,19 +143,30 @@ class PembayaranController extends Controller
         }
     }
 
-    public function destroy(string|int $id): JsonResponse
+    /**
+     * DELETE /api/pembayaran/{pembayaran}
+     */
+    public function destroy(Pembayaran $pembayaran): JsonResponse
     {
-        $pembayaran = Pembayaran::find((int) $id);
+        try {
+            $this->pembayaranService->delete($pembayaran);
 
-        if (!$pembayaran) {
-            return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
+            $this->pembayaranService->invalidateCache();
+            $this->transaksiService->invalidateCache();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Pembayaran berhasil dihapus.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Pembayaran destroy error', [
+                'id' => $pembayaran->id,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'status'  => false,
+                'message' => $e->getMessage(),
+            ], 500);
         }
-
-        $result = $this->pembayaranService->delete($pembayaran);
-
-        return response()->json([
-            'status'  => true,
-            'message' => $result['message'],
-        ]);
     }
 }
