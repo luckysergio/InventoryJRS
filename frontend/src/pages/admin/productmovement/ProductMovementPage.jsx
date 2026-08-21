@@ -1,14 +1,12 @@
 import { useState, useMemo, useCallback } from "react";
 import {
   Search, X, RefreshCw, Calendar, ArrowDown, ArrowUp,
-  Repeat, Factory, Filter, ChevronLeft, ChevronRight, Eye,
+  Repeat, Factory, Filter, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useProductMovements } from "../../../hooks/useProductMovements";
 import { useProductMovementFilters, useProductMovementModals } from "../../../lib/zustand/productMovementStore";
 import { cn } from "../../../lib/utils";
 import ProductMovementDetail from "./ProductMovementDetail";
-
-const formatRupiah = (v) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(Number(v) || 0);
 
 const MOVEMENT_TYPES = [
   { value: "in", label: "IN", icon: ArrowDown, color: "text-green-700 bg-green-50 border-green-200" },
@@ -37,10 +35,6 @@ const MovementCard = ({ item, onClick }) => {
   const product = item.product || null;
   const place = item.place?.nama || "–";
   const isOut = item.tipe === "out" || item.tipe === "transfer";
-
-  const formattedDate = new Date(item.created_at).toLocaleString("id-ID", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-  });
 
   return (
     <div
@@ -106,9 +100,6 @@ const ProductMovementPage = () => {
   const movements = data?.movements || [];
   const meta = data?.meta || {};
   const lastPage = meta.last_page || 1;
-  const total = meta.total || 0;
-  const from = meta.from || 0;
-  const to = meta.to || 0;
   const isFilterActive = hasActiveFilters();
 
   const paginationNumbers = useMemo(() => {
@@ -167,8 +158,8 @@ const ProductMovementPage = () => {
 
       {/* CONTENT */}
       {isLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          {[...Array(12)].map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {[...Array(10)].map((_, i) => (
             <div key={i} className="bg-white border border-slate-200 rounded-xl p-3 animate-pulse">
               <div className="flex justify-between mb-2"><div className="h-5 w-16 bg-slate-200 rounded-full" /><div className="h-4 w-10 bg-slate-200 rounded" /></div>
               <div className="h-3 bg-slate-200 rounded w-3/4 mx-auto mb-2" />
@@ -186,8 +177,8 @@ const ProductMovementPage = () => {
         </div>
       ) : (
         <>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          {/* ✅ 5 CARD PER ROW di desktop */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             {movements.map((item) => (
               <MovementCard key={item.id} item={item} onClick={() => openDetailModal(item)} />
             ))}

@@ -29,7 +29,6 @@ const HargaProductPage = lazy(() => import("./pages/admin/hargaproduct/HargaProd
 const InventoryPage = lazy(() => import("./pages/admin/inventory/InventoryPage"));
 const ProductMovementPage = lazy(() => import("./pages/admin/productmovement/ProductMovementPage"));
 const PlacePage = lazy(() => import("./pages/admin/places/PlacePage"));
-const BarangKeluarPage = lazy(() => import("./pages/admin/BarangKeluar"));
 const JenisPage = lazy(() => import("./pages/admin/jenisproduct/JenisProduct"));
 const TypePage = lazy(() => import("./pages/admin/typeproduct/TypeProduct"));
 const BahanProductPage = lazy(() => import("./pages/admin/bahanproduct/BahanProduct"));
@@ -41,6 +40,10 @@ const RiwayatSOPage = lazy(() => import("./pages/admin/stokopname/RiwayatSOPage"
 const TransaksiPage = lazy(() => import("./pages/admin/transaksidaily/DaftarTransaksi"));
 const PesananPage = lazy(() => import("./pages/admin/pesanan/Pesanan"));
 const RiwayatTransaksi = lazy(() => import("./pages/admin/transaksidaily/RiwayatTransaksi"));
+
+// ✅ BARU: Lazy load BestSellerPage (konsisten dengan halaman lain)
+const BestSellerPage = lazy(() => import("./pages/admin/best-seller/BestSellerPage"));
+
 const ForbiddenPage = lazy(() => import("./pages/ForbiddenPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
@@ -107,7 +110,9 @@ function App() {
             <Route path="/product-movement" element={<ProtectedLayout><ProductMovementPage /></ProtectedLayout>} />
             <Route path="/stok-opname" element={<ProtectedLayout><StokOpnamePage /></ProtectedLayout>} />
             <Route path="/riwayat-stok-opname" element={<ProtectedLayout><RiwayatSOPage /></ProtectedLayout>} />
-            <Route path="/product-terlaris" element={<ProtectedLayout><BarangKeluarPage /></ProtectedLayout>} />
+            
+            {/* ✅ UPDATED: Route Product Terlaris sekarang pakai BestSellerPage */}
+            <Route path="/product-terlaris" element={<ProtectedLayout><BestSellerPage /></ProtectedLayout>} />
 
             <Route path="/production" element={<ProtectedLayout><ProductionPage /></ProtectedLayout>} />
             <Route path="/riwayat-production" element={<ProtectedLayout><RiwayatProductionPage /></ProtectedLayout>} />

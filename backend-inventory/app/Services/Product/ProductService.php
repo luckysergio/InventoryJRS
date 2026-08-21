@@ -9,6 +9,7 @@ use App\Models\JenisProduct;
 use App\Models\Place;
 use App\Models\Product;
 use App\Models\TypeProduct;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -24,6 +25,7 @@ class ProductService
     private const CACHE_AVAILABLE_KEY = 'products:available:v';
     private const CACHE_LOW_STOCK_KEY = 'products:low_stock:v';
     private const CACHE_BEST_SELLER_KEY = 'products:best_seller:v';
+    private const CACHE_DROPDOWN_KEY = 'products:dropdown:v';
 
     private const CACHE_VERSION_KEY = 'products:cache:version';
     private const CACHE_VERSION_LOCK = 'products:cache:version:lock';
@@ -33,10 +35,11 @@ class ProductService
     private const CACHE_TTL_AVAILABLE = 120;
     private const CACHE_TTL_LOW_STOCK = 300;
     private const CACHE_TTL_BEST_SELLER = 600;
+    private const CACHE_TTL_DROPDOWN = 600;
 
-    /**
-     * @return array{data: array, meta: array}
-     */
+    private const STATUS_SELESAI = 'Selesai';
+    private const STATUS_DIBATALKAN = 'Dibatalkan';
+
     public function getList(
         ?string $search = null,
         ?int $jenisId = null,
@@ -113,7 +116,6 @@ class ProductService
         $cacheKey = self::CACHE_DETAIL_PREFIX . $version . ':' . $id;
 
         return Cache::remember($cacheKey, self::CACHE_TTL_DETAIL, function () use ($id) {
-            /** @var Product|null $product */
             $product = Product::with([
                 'jenis' => fn($q) => $q->select('id', 'nama'),
                 'type' => fn($q) => $q->select('id', 'nama'),
@@ -185,35 +187,77 @@ class ProductService
         });
     }
 
-    public function getBestSellerProducts(int $limit = 10, ?string $dari = null, ?string $sampai = null): array
-    {
+    public function getBestSellerProducts(
+        int $limit = 10,
+        ?string $dari = null,
+        ?string $sampai = null,
+        ?string $jenis = null
+    ): array {
+        $limit = max(1, min(100, $limit));
+
+        $dari = $this->normalizeDate($dari, isStart: true);
+        $sampai = $this->normalizeDate($sampai, isStart: false);
+
+        $jenis = $jenis && in_array($jenis, ['daily', 'pesanan'], true) ? $jenis : null;
+
         $version = $this->getCacheVersion();
-        $paramsHash = md5("{$limit}:{$dari}:{$sampai}");
+        $paramsHash = md5("{$limit}:{$dari}:{$sampai}:{$jenis}");
         $cacheKey = self::CACHE_BEST_SELLER_KEY . $version . ':' . $paramsHash;
 
-        return Cache::remember($cacheKey, self::CACHE_TTL_BEST_SELLER, function () use ($limit, $dari, $sampai) {
+        return Cache::remember($cacheKey, self::CACHE_TTL_BEST_SELLER, function () use ($limit, $dari, $sampai, $jenis) {
+            $statusSelesaiId = DB::table('status_transaksis')
+                ->where('nama', self::STATUS_SELESAI)
+                ->value('id');
+
+            if (!$statusSelesaiId) {
+                Log::warning('Status Selesai tidak ditemukan di DB');
+                return [];
+            }
+
+            $statusDibatalkanId = DB::table('status_transaksis')
+                ->where('nama', self::STATUS_DIBATALKAN)
+                ->value('id');
+
             $query = DB::table('transaksi_details as td')
                 ->join('transaksis as t', 't.id', '=', 'td.transaksi_id')
-                ->join('status_transaksis as st', 'st.id', '=', 'td.status_transaksi_id')
-                ->where('st.nama', 'Selesai');
+                ->where('td.status_transaksi_id', $statusSelesaiId);
 
-            if ($dari) $query->whereDate('t.tanggal', '>=', $dari);
-            if ($sampai) $query->whereDate('t.tanggal', '<=', $sampai);
+            if ($statusDibatalkanId) {
+                $query->where('td.status_transaksi_id', '!=', $statusDibatalkanId);
+            }
+
+            if ($dari) {
+                $query->whereDate('t.tanggal', '>=', $dari);
+            }
+            if ($sampai) {
+                $query->whereDate('t.tanggal', '<=', $sampai);
+            }
+
+            if ($jenis) {
+                $query->where('t.jenis_transaksi', $jenis);
+            }
+
+            $query->where('td.qty', '>', 0);
 
             $aggregated = $query->select(
                 'td.product_id',
                 DB::raw('SUM(td.qty) as total_qty'),
+                DB::raw('SUM(td.subtotal) as total_omzet'),
+                DB::raw('COUNT(DISTINCT td.transaksi_id) as total_transaksi'),
                 DB::raw('MAX(t.tanggal) as transaksi_terakhir')
             )
                 ->groupBy('td.product_id')
                 ->orderByDesc('total_qty')
+                ->orderByDesc('transaksi_terakhir')
                 ->limit($limit)
                 ->get();
 
-            $productIds = $aggregated->pluck('product_id')->toArray();
-            if (empty($productIds)) return [];
+            if ($aggregated->isEmpty()) {
+                return [];
+            }
 
-            /** @var \Illuminate\Support\Collection<int, Product> $productsMap */
+            $productIds = $aggregated->pluck('product_id')->toArray();
+
             $productsMap = Product::with([
                 'jenis' => fn($q) => $q->select('id', 'nama'),
                 'type' => fn($q) => $q->select('id', 'nama'),
@@ -224,20 +268,49 @@ class ProductService
                 ->keyBy('id');
 
             $result = [];
+            $rank = 1;
+
             foreach ($aggregated as $item) {
                 $foundProduct = $productsMap->get($item->product_id);
 
-                if ($foundProduct instanceof Product) {
-                    $productArr = $foundProduct->toArray();
-                    $productArr['total_qty'] = (int) $item->total_qty;
-                    $productArr['transaksi_terakhir'] = $item->transaksi_terakhir;
-                    $result[] = $productArr;
+                if (!$foundProduct instanceof Product) {
+                    continue; // Skip orphan records
                 }
+
+                $productArr = $foundProduct->toArray();
+                $productArr['total_qty'] = (int) $item->total_qty;
+                $productArr['total_omzet'] = (float) ($item->total_omzet ?? 0);
+                $productArr['total_transaksi'] = (int) ($item->total_transaksi ?? 0);
+                $productArr['transaksi_terakhir'] = $item->transaksi_terakhir;
+                $productArr['rank'] = $rank++;
+
+                $productArr['foto_depan_url'] = $foundProduct->foto_depan
+                    ? asset('storage/' . $foundProduct->foto_depan)
+                    : null;
+
+                $result[] = $productArr;
             }
 
-            usort($result, fn($a, $b) => $b['total_qty'] <=> $a['total_qty']);
             return $result;
         });
+    }
+
+    private function normalizeDate(?string $date, bool $isStart = true): ?string
+    {
+        if (empty($date)) {
+            return null;
+        }
+
+        try {
+            $parsed = Carbon::parse($date);
+            return $parsed->format('Y-m-d');
+        } catch (\Throwable $e) {
+            Log::warning('Invalid date format for best seller filter', [
+                'date' => $date,
+                'isStart' => $isStart,
+            ]);
+            return null;
+        }
     }
 
     public function create(array $data): Product
@@ -263,7 +336,6 @@ class ProductService
             }
 
             $kode = $this->buildProductKode($jenis->id, $type->id, $bahanId, $data['ukuran']);
-
             $foto = $this->handleImageUpload($data, ['foto_depan', 'foto_samping', 'foto_atas']);
 
             $product = Product::create(array_merge([
@@ -291,17 +363,9 @@ class ProductService
                 );
             }
 
-            Log::info('Product created', [
-                'id' => $product->id,
-                'kode' => $product->kode,
-            ]);
+            Log::info('Product created', ['id' => $product->id, 'kode' => $product->kode]);
 
-            $product->load([
-                'jenis:id,nama',
-                'type:id,nama',
-                'bahan:id,nama',
-            ]);
-
+            $product->load(['jenis:id,nama', 'type:id,nama', 'bahan:id,nama']);
             return $product;
         });
     }
@@ -366,25 +430,12 @@ class ProductService
                 'keterangan' => 'Harga diperbarui',
             ]);
 
-            Log::info('Product updated', [
-                'id' => $product->id,
-                'kode_changed' => $isChanged,
-            ]);
+            Log::info('Product updated', ['id' => $product->id, 'kode_changed' => $isChanged]);
 
-            return $product->fresh()->load([
-                'jenis:id,nama',
-                'type:id,nama',
-                'bahan:id,nama',
-            ]);
+            return $product->fresh()->load(['jenis:id,nama', 'type:id,nama', 'bahan:id,nama']);
         });
     }
 
-    /**
-     * Delete product with relation protection.
-     * ❌ TIDAK memanggil invalidateCache() - dilakukan di controller
-     *
-     * @return array{success: bool, code?: int, message: string}
-     */
     public function delete(Product $product): array
     {
         $id = $product->id;
@@ -429,11 +480,12 @@ class ProductService
         ];
     }
 
-    /**
-     * @param  array<string, mixed>  $data
-     * @param  array<int, string>    $fields
-     * @return array<string, string>
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | HELPERS
+    |--------------------------------------------------------------------------
+    */
+
     private function handleImageUpload(array $data, array $fields, ?Product $product = null): array
     {
         $uploaded = [];
@@ -460,9 +512,6 @@ class ProductService
         return $uploaded;
     }
 
-    /**
-     * @param  array<int, string>  $fields
-     */
     private function deleteOldImages(Product $product, array $fields): void
     {
         foreach ($fields as $field) {

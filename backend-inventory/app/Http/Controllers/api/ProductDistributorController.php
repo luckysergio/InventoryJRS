@@ -7,6 +7,9 @@ use App\Http\Requests\ProductDistributor\StoreProductDistributorRequest;
 use App\Http\Requests\ProductDistributor\UpdateProductDistributorRequest;
 use App\Http\Resources\ProductDistributorResource;
 use App\Models\Product;
+use App\Services\HargaProduct\HargaProductService;
+use App\Services\Product\ProductService;
+use App\Services\ProductCustomer\ProductCustomerService;
 use App\Services\ProductDistributor\ProductDistributorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,8 +18,29 @@ use Illuminate\Support\Facades\Log;
 class ProductDistributorController extends Controller
 {
     public function __construct(
-        protected ProductDistributorService $productDistributorService
+        protected ProductDistributorService $productDistributorService,
+        protected ProductService $productService,
+        protected ProductCustomerService $productCustomerService,
+        protected HargaProductService $hargaProductService
     ) {}
+
+    /**
+     * Invalidate SEMUA cache dalam ekosistem produk.
+     * 
+     * Dipanggil setelah CRUD product distributor, karena perubahan akan mempengaruhi:
+     * - Product (master)
+     * - ProductCustomer (produk customer)
+     * - HargaProduct (daftar harga)
+     */
+    private function invalidateProductEcosystem(): void
+    {
+        $this->productService->invalidateCache();
+        $this->productCustomerService->invalidateCache();
+        $this->productDistributorService->invalidateCache();
+        $this->hargaProductService->invalidateCache();
+
+        Log::info('Product ecosystem cache invalidated (from ProductDistributor)');
+    }
 
     public function index(Request $request): JsonResponse
     {
@@ -84,7 +108,7 @@ class ProductDistributorController extends Controller
         try {
             $product = $this->productDistributorService->create($request->validated());
 
-            $this->productDistributorService->invalidateCache();
+            $this->invalidateProductEcosystem();
 
             return response()->json([
                 'status' => true,
@@ -109,7 +133,7 @@ class ProductDistributorController extends Controller
         try {
             $updated = $this->productDistributorService->update($product, $request->validated());
 
-            $this->productDistributorService->invalidateCache();
+            $this->invalidateProductEcosystem();
 
             return response()->json([
                 'status' => true,
@@ -135,7 +159,7 @@ class ProductDistributorController extends Controller
             $result = $this->productDistributorService->delete($product);
 
             if ($result['success']) {
-                $this->productDistributorService->invalidateCache();
+                $this->invalidateProductEcosystem();
             }
 
             return response()->json([

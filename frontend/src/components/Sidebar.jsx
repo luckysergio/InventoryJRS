@@ -21,6 +21,8 @@ import {
   X,
   Loader2,
   Star,
+  TrendingUp,    // ✅ BARU: untuk Product Terlaris
+  Flame,         // ✅ BARU: alternatif icon untuk Best Seller
 } from "lucide-react";
 import { useAuthStore } from "../lib/zustand/authStore";
 import { useAuth } from "../hooks/useAuth";
@@ -51,7 +53,6 @@ const buildNavItems = (userRole) => {
         { title: "Type Product", href: "/type", icon: Boxes },
         { title: "Bahan Product", href: "/bahan", icon: Boxes },
         { title: "Status Transaksi", href: "/status-transaksi", icon: Receipt },
-        // ✅ BARU: Place ditambahkan di Master Data
         { title: "Place", href: "/place", icon: Warehouse },
       ],
     });
@@ -73,7 +74,8 @@ const buildNavItems = (userRole) => {
       { title: "Product Customer", href: "/product-customer", icon: PersonStanding },
       { title: "Product Distributor", href: "/product-distributor", icon: Handshake },
       { title: "Harga Product", href: "/harga-product", icon: Star },
-      { title: "Product Terlaris", href: "/product-terlaris", icon: Star },
+      // ✅ UPDATED: Icon TrendingUp lebih tepat untuk "Terlaris"
+      { title: "Product Terlaris", href: "/product-terlaris", icon: TrendingUp },
     ],
   });
 
@@ -304,22 +306,20 @@ export default function Sidebar() {
     );
   };
 
-  // ✅ Sidebar Content dengan User Profile Header
+  // Sidebar Content dengan User Profile Header
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white">
-      {/* User Profile Header (Menggantikan Branding Lama) */}
+      {/* User Profile Header */}
       <div
         className={cn(
           "flex items-center gap-3 px-4 py-5 border-b border-gray-100",
           !isOpen && !isMobile && "justify-center px-2"
         )}
       >
-        {/* Avatar dengan Inisial */}
         <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 shrink-0 font-semibold text-sm">
           {getUserInitials()}
         </div>
         
-        {/* Nama & Role User */}
         {(isOpen || isMobile) && (
           <div className="min-w-0 flex-1">
             <h1 className="text-sm font-bold text-gray-900 truncate">
@@ -332,14 +332,12 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* Navigation & Logout (Scrollable bersama) */}
+      {/* Navigation & Logout */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin scrollbar-thumb-gray-200 flex flex-col">
-        {/* Menu Items */}
         <div className="space-y-1 flex-1">
           {navItems.map((item) => renderNavItem(item))}
         </div>
         
-        {/* Logout Button di bagian paling bawah area scroll */}
         <div className="mt-6 pt-4 border-t border-gray-100">
           <button
             onClick={handleLogout}
@@ -369,7 +367,6 @@ export default function Sidebar() {
   if (isMobile) {
     return (
       <>
-        {/* Mobile Toggle Button */}
         <button
           onClick={() => setIsMobileOpen(true)}
           className="fixed top-4 left-4 z-40 lg:hidden p-2 rounded-lg bg-white shadow-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200"
@@ -378,7 +375,6 @@ export default function Sidebar() {
           <Menu className="h-5 w-5 text-gray-600" />
         </button>
 
-        {/* Mobile Sidebar Overlay */}
         {isMobileOpen && (
           <div className="fixed inset-0 z-50 flex lg:hidden">
             <div
@@ -413,7 +409,6 @@ export default function Sidebar() {
     >
       {sidebarContent}
 
-      {/* Toggle Button for Desktop (Floating on sidebar edge) */}
       <button
         onClick={toggleSidebar}
         aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}

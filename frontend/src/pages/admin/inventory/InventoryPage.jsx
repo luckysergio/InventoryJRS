@@ -67,7 +67,7 @@ const InventoryCard = ({ item, isAdmin, onMovement }) => {
 };
 
 // ==========================================
-// MAIN PAGE (Pola IDENTIK dengan ProductCustomerPage)
+// MAIN PAGE
 // ==========================================
 const InventoryPage = () => {
   const { filters, currentPage, sortBy, setSearch, setPlaceFilter, setSortBy, setCurrentPage, resetFilters, hasActiveFilters, getQueryParams } = useInventoryFilters();
@@ -78,7 +78,7 @@ const InventoryPage = () => {
   const { data: placesOptions = [] } = usePlacesDropdown();
   const { data, isLoading, isFetching, isPlaceholderData, refetch } = useInventories(getQueryParams());
 
-  // Debounced search (identik dengan ProductCustomerPage)
+  // Debounced search
   const [debounceTimer, setDebounceTimer] = useState(null);
   const handleSearchChange = useCallback((val) => {
     setSearchInput(val);
@@ -91,11 +91,9 @@ const InventoryPage = () => {
   const meta = data?.meta || {};
   const lastPage = meta.last_page || 1;
   const total = meta.total || 0;
-  const from = meta.from || 0;
-  const to = meta.to || 0;
   const isFilterActive = hasActiveFilters();
 
-  // Client-side sorting (identik dengan ProductCustomerPage)
+  // Client-side sorting
   const sortedInventories = useMemo(() => {
     const result = [...inventories];
     result.sort((a, b) => {
@@ -162,8 +160,8 @@ const InventoryPage = () => {
 
       {/* CONTENT */}
       {isLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {[...Array(12)].map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {[...Array(10)].map((_, i) => (
             <div key={i} className="bg-white border border-slate-200 rounded-xl p-4 animate-pulse">
               <div className="flex flex-col items-center">
                 <div className="w-12 h-12 bg-slate-200 rounded-lg mb-3" />
@@ -183,8 +181,8 @@ const InventoryPage = () => {
         </div>
       ) : (
         <>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          {/* ✅ 5 CARD PER ROW di desktop */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             {sortedInventories.map((item) => (
               <InventoryCard key={item.id} item={item} isAdmin={isAdmin} onMovement={openMovementModal} />
             ))}

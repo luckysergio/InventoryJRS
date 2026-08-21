@@ -10,11 +10,6 @@ use Illuminate\Support\Facades\Log;
 
 class HargaProductService
 {
-    /*
-    |--------------------------------------------------------------------------
-    | Cache Configuration (Versioning Strategy)
-    |--------------------------------------------------------------------------
-    */
     private const CACHE_LIST_PREFIX = 'harga_products:list:v';
     private const CACHE_DETAIL_PREFIX = 'harga_products:detail:v';
     private const CACHE_BY_PRODUCT_KEY = 'harga_products:by_product:v';
@@ -192,6 +187,7 @@ class HargaProductService
                 'keterangan' => $data['keterangan'] ?? null,
             ]);
 
+            // Self-invalidation (internal)
             $this->invalidateCache();
 
             Log::info('HargaProduct created', [
@@ -226,6 +222,7 @@ class HargaProductService
                 'keterangan' => $data['keterangan'] ?? null,
             ]);
 
+            // Self-invalidation (internal)
             $this->invalidateCache();
 
             Log::info('HargaProduct updated', [
@@ -267,6 +264,7 @@ class HargaProductService
         return DB::transaction(function () use ($harga, $id, $productId) {
             $harga->delete();
 
+            // Self-invalidation (internal)
             $this->invalidateCache();
 
             Log::info('HargaProduct deleted', [
@@ -293,10 +291,17 @@ class HargaProductService
     }
 
     /**
+     * ✅ FIXED: Changed from `private` to `public`
+     * 
      * Invalidate semua cache harga product dengan increment version.
      * O(1) operation - hanya 1 file write untuk invalidasi semua cache.
+     * 
+     * Method ini dipanggil dari:
+     * - Internal: create/update/delete (self-invalidation)
+     * - External: ProductController, ProductCustomerController, 
+     *             ProductDistributorController (cross-invalidation)
      */
-    private function invalidateCache(): void
+    public function invalidateCache(): void
     {
         $lock = Cache::lock(self::CACHE_VERSION_LOCK, 10);
 

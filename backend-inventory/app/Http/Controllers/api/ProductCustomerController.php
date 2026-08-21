@@ -7,7 +7,10 @@ use App\Http\Requests\ProductCustomer\StoreProductCustomerRequest;
 use App\Http\Requests\ProductCustomer\UpdateProductCustomerRequest;
 use App\Http\Resources\ProductCustomerResource;
 use App\Models\Product;
+use App\Services\HargaProduct\HargaProductService;
+use App\Services\Product\ProductService;
 use App\Services\ProductCustomer\ProductCustomerService;
+use App\Services\ProductDistributor\ProductDistributorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -15,8 +18,29 @@ use Illuminate\Support\Facades\Log;
 class ProductCustomerController extends Controller
 {
     public function __construct(
-        protected ProductCustomerService $productCustomerService
+        protected ProductCustomerService $productCustomerService,
+        protected ProductService $productService,
+        protected ProductDistributorService $productDistributorService,
+        protected HargaProductService $hargaProductService
     ) {}
+
+    /**
+     * Invalidate SEMUA cache dalam ekosistem produk.
+     * 
+     * Dipanggil setelah CRUD product customer, karena perubahan akan mempengaruhi:
+     * - Product (master)
+     * - ProductDistributor (produk distributor)
+     * - HargaProduct (daftar harga)
+     */
+    private function invalidateProductEcosystem(): void
+    {
+        $this->productService->invalidateCache();
+        $this->productCustomerService->invalidateCache();
+        $this->productDistributorService->invalidateCache();
+        $this->hargaProductService->invalidateCache();
+
+        Log::info('Product ecosystem cache invalidated (from ProductCustomer)');
+    }
 
     public function index(Request $request): JsonResponse
     {
@@ -71,7 +95,7 @@ class ProductCustomerController extends Controller
         try {
             $product = $this->productCustomerService->create($request->validated());
 
-            $this->productCustomerService->invalidateCache();
+            $this->invalidateProductEcosystem();
 
             return response()->json([
                 'status' => true,
@@ -79,7 +103,10 @@ class ProductCustomerController extends Controller
                 'data' => new ProductCustomerResource($product),
             ], 201);
         } catch (\Throwable $e) {
-            Log::error('ProductCustomer store error', ['error' => $e->getMessage(), 'trace' => config('app.debug') ? $e->getTraceAsString() : null]);
+            Log::error('ProductCustomer store error', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal membuat produk customer.',
@@ -93,7 +120,7 @@ class ProductCustomerController extends Controller
         try {
             $updated = $this->productCustomerService->update($product, $request->validated());
 
-            $this->productCustomerService->invalidateCache();
+            $this->invalidateProductEcosystem();
 
             return response()->json([
                 'status' => true,
@@ -116,7 +143,7 @@ class ProductCustomerController extends Controller
             $result = $this->productCustomerService->delete($product);
 
             if ($result['success']) {
-                $this->productCustomerService->invalidateCache();
+                $this->invalidateProductEcosystem();
             }
 
             return response()->json([

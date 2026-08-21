@@ -7,7 +7,10 @@ use App\Http\Requests\Product\StoreProductRequest;
 use App\Http\Requests\Product\UpdateProductRequest;
 use App\Http\Resources\ProductResource;
 use App\Models\Product;
+use App\Services\HargaProduct\HargaProductService;
 use App\Services\Product\ProductService;
+use App\Services\ProductCustomer\ProductCustomerService;
+use App\Services\ProductDistributor\ProductDistributorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -15,12 +18,22 @@ use Illuminate\Support\Facades\Log;
 class ProductController extends Controller
 {
     public function __construct(
-        protected ProductService $productService
+        protected ProductService $productService,
+        protected ProductCustomerService $productCustomerService,
+        protected ProductDistributorService $productDistributorService,
+        protected HargaProductService $hargaProductService
     ) {}
 
-    /**
-     * GET /api/products
-     */
+    private function invalidateProductEcosystem(): void
+    {
+        $this->productService->invalidateCache();
+        $this->productCustomerService->invalidateCache();
+        $this->productDistributorService->invalidateCache();
+        $this->hargaProductService->invalidateCache();
+
+        Log::info('Product ecosystem cache invalidated');
+    }
+
     public function index(Request $request): JsonResponse
     {
         try {
@@ -50,11 +63,6 @@ class ProductController extends Controller
         }
     }
 
-    /**
-     * ✅ BARU: GET /api/products/dropdown
-     * Lightweight data untuk dropdown select.
-     * HARUS didefinisikan SEBELUM route {product} di routes/api.php
-     */
     public function dropdown(): JsonResponse
     {
         try {
@@ -88,9 +96,6 @@ class ProductController extends Controller
         }
     }
 
-    /**
-     * GET /api/products/{product}
-     */
     public function show(Product $product): JsonResponse
     {
         try {
@@ -116,16 +121,12 @@ class ProductController extends Controller
         }
     }
 
-    /**
-     * POST /api/products
-     */
     public function store(StoreProductRequest $request): JsonResponse
     {
         try {
             $product = $this->productService->create($request->validated());
 
-            // Invalidate cache SETELAH transaction commit
-            $this->productService->invalidateCache();
+            $this->invalidateProductEcosystem();
 
             return response()->json([
                 'status' => true,
@@ -146,16 +147,12 @@ class ProductController extends Controller
         }
     }
 
-    /**
-     * PUT /api/products/{product}
-     */
     public function update(UpdateProductRequest $request, Product $product): JsonResponse
     {
         try {
             $updated = $this->productService->update($product, $request->validated());
 
-            // Invalidate cache SETELAH transaction commit
-            $this->productService->invalidateCache();
+            $this->invalidateProductEcosystem();
 
             return response()->json([
                 'status' => true,
@@ -176,17 +173,13 @@ class ProductController extends Controller
         }
     }
 
-    /**
-     * DELETE /api/products/{product}
-     */
     public function destroy(Product $product): JsonResponse
     {
         try {
             $result = $this->productService->delete($product);
 
-            // Hanya invalidate jika delete berhasil
             if ($result['success']) {
-                $this->productService->invalidateCache();
+                $this->invalidateProductEcosystem();
             }
 
             return response()->json([
@@ -207,9 +200,6 @@ class ProductController extends Controller
         }
     }
 
-    /**
-     * GET /api/products/available
-     */
     public function available(): JsonResponse
     {
         try {
@@ -219,13 +209,13 @@ class ProductController extends Controller
             ]);
         } catch (\Throwable $e) {
             Log::error('Product available error', ['error' => $e->getMessage()]);
-            return response()->json(['status' => false, 'message' => 'Gagal memuat produk tersedia.'], 500);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat produk tersedia.',
+            ], 500);
         }
     }
 
-    /**
-     * GET /api/products/lowStok
-     */
     public function lowStock(): JsonResponse
     {
         try {
@@ -235,28 +225,81 @@ class ProductController extends Controller
             ]);
         } catch (\Throwable $e) {
             Log::error('Product lowStock error', ['error' => $e->getMessage()]);
-            return response()->json(['status' => false, 'message' => 'Gagal memuat produk stok rendah.'], 500);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat produk stok rendah.',
+            ], 500);
         }
     }
 
-    /**
-     * GET /api/products/best-seller
-     */
+
     public function bestSeller(Request $request): JsonResponse
     {
         try {
-            $limit = min((int) $request->input('limit', 10), 50);
+            $limit = (int) $request->input('limit', 10);
+            $limit = max(1, min(100, $limit));
+
+            $dari = $request->input('dari');
+            $sampai = $request->input('sampai');
+
+            if ($dari && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dari)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Format parameter "dari" harus YYYY-MM-DD.',
+                ], 422);
+            }
+
+            if ($sampai && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $sampai)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Format parameter "sampai" harus YYYY-MM-DD.',
+                ], 422);
+            }
+
+            if ($dari && $sampai && strcmp($sampai, $dari) < 0) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tanggal "sampai" harus >= tanggal "dari".',
+                ], 422);
+            }
+
+            $jenis = $request->input('jenis');
+            if ($jenis !== null && !in_array($jenis, ['daily', 'pesanan'], true)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Parameter "jenis" harus "daily" atau "pesanan".',
+                ], 422);
+            }
+
+            $data = $this->productService->getBestSellerProducts(
+                limit: $limit,
+                dari: $dari,
+                sampai: $sampai,
+                jenis: $jenis
+            );
+
             return response()->json([
                 'status' => true,
-                'data' => $this->productService->getBestSellerProducts(
-                    $limit,
-                    $request->input('dari'),
-                    $request->input('sampai')
-                ),
+                'data' => $data,
+                'meta' => [
+                    'total' => count($data),
+                    'limit' => $limit,
+                    'dari' => $dari,
+                    'sampai' => $sampai,
+                    'jenis' => $jenis,
+                ],
             ]);
         } catch (\Throwable $e) {
-            Log::error('Product bestSeller error', ['error' => $e->getMessage()]);
-            return response()->json(['status' => false, 'message' => 'Gagal memuat produk terlaris.'], 500);
+            Log::error('Product bestSeller error', [
+                'error' => $e->getMessage(),
+                'params' => $request->all(),
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat produk terlaris.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
     }
 }
