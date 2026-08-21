@@ -95,16 +95,16 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
     });
 
     Route::prefix('customers')->middleware('role:admin,admin_toko,kasir')->group(function () {
-    Route::get('/', [CustomerController::class, 'index']);
-    Route::get('/dropdown', [CustomerController::class, 'dropdown']); // jika ada
-    Route::post('/', [CustomerController::class, 'store']);
-    
-    Route::get('/{customer}/tagihan', [CustomerController::class, 'tagihan']);
-    
-    Route::get('/{customer}', [CustomerController::class, 'show']);
-    Route::put('/{customer}', [CustomerController::class, 'update'])->middleware('role:admin,admin_toko');
-    Route::delete('/{customer}', [CustomerController::class, 'destroy'])->middleware('role:admin,admin_toko');
-});
+        Route::get('/', [CustomerController::class, 'index']);
+        Route::get('/dropdown', [CustomerController::class, 'dropdown']); // jika ada
+        Route::post('/', [CustomerController::class, 'store']);
+
+        Route::get('/{customer}/tagihan', [CustomerController::class, 'tagihan']);
+
+        Route::get('/{customer}', [CustomerController::class, 'show']);
+        Route::put('/{customer}', [CustomerController::class, 'update'])->middleware('role:admin,admin_toko');
+        Route::delete('/{customer}', [CustomerController::class, 'destroy'])->middleware('role:admin,admin_toko');
+    });
 
     Route::prefix('distributors')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/dropdown', [DistributorController::class, 'dropdown']);
@@ -268,12 +268,12 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
     });
 
     Route::prefix('productions')->middleware('role:admin,admin_toko,operator')->group(function () {
-        Route::get('/pesanan', [ProductionController::class, 'pesananDipesan']);
+        Route::get('/pesanan/dipesan', [ProductionController::class, 'pesananDipesan']);
         Route::get('/', [ProductionController::class, 'index']);
-        Route::post('/', [ProductionController::class, 'store'])->middleware('role:admin,operator');
-        Route::get('/{id}', [ProductionController::class, 'show']);
-        Route::put('/{id}', [ProductionController::class, 'update'])->middleware('role:admin,operator');
-        Route::delete('/{id}', [ProductionController::class, 'destroy'])->middleware('role:admin');
+        Route::post('/', [ProductionController::class, 'store']);
+        Route::get('/{production}', [ProductionController::class, 'show']);
+        Route::put('/{production}', [ProductionController::class, 'update']);
+        Route::delete('/{production}', [ProductionController::class, 'destroy'])->middleware('role:admin');
     });
 
     Route::prefix('product-movements')->middleware('role:admin,admin_toko,operator')->group(function () {
