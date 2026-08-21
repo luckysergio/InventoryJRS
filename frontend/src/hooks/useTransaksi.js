@@ -2,14 +2,10 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import api from '../lib/api/axios';
 import { masterKeys, invalidateRelatedCaches } from './useMasterData';
 
-// ==========================================
-// READ HOOKS
-// ==========================================
-
 export const useTransaksis = (params = {}) => {
   const {
     mode = 'all',
-    jenis = 'daily',
+    jenis = '',
     search = '',
     customer_id = '',
     dari = '',
@@ -57,10 +53,6 @@ export const useTransaksiDetail = (id) => {
   });
 };
 
-// ==========================================
-// INVALIDATION HELPER
-// ==========================================
-
 const invalidateTransaksiCache = async (qc) => {
   await qc.cancelQueries({ queryKey: masterKeys.transaksi.all, exact: false });
   await qc.invalidateQueries({
@@ -70,7 +62,6 @@ const invalidateTransaksiCache = async (qc) => {
   });
   await invalidateRelatedCaches(qc, 'transaksi');
 
-  // Also invalidate inventory & movement (karena transaksi mengubah stok)
   await qc.cancelQueries({ queryKey: masterKeys.inventory.all, exact: false });
   await qc.invalidateQueries({
     queryKey: masterKeys.inventory.all,
@@ -84,10 +75,6 @@ const invalidateTransaksiCache = async (qc) => {
     refetchType: 'all',
   });
 };
-
-// ==========================================
-// MUTATION HOOKS
-// ==========================================
 
 export const useCreateTransaksi = () => {
   const qc = useQueryClient();
@@ -130,10 +117,6 @@ export const useCancelDetailTransaksi = () => {
   });
 };
 
-// ==========================================
-// PEMBAYARAN HOOKS (digunakan di transaksi context)
-// ==========================================
-
 export const useCreatePembayaran = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -141,10 +124,6 @@ export const useCreatePembayaran = () => {
     onSuccess: async () => await invalidateTransaksiCache(qc),
   });
 };
-
-// ==========================================
-// MASTER DATA HOOKS (dropdown)
-// ==========================================
 
 export const useStatusTransaksiList = () => {
   return useQuery({

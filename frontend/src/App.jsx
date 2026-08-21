@@ -39,7 +39,7 @@ const RiwayatProductionPage = lazy(() => import("./pages/admin/RiwayatProduction
 const StokOpnamePage = lazy(() => import("./pages/admin/stokopname/StokOpnamePage"));
 const RiwayatSOPage = lazy(() => import("./pages/admin/stokopname/RiwayatSOPage"));
 const TransaksiPage = lazy(() => import("./pages/admin/transaksidaily/DaftarTransaksi"));
-const PesananPage = lazy(() => import("./pages/admin/Pesanan"));
+const PesananPage = lazy(() => import("./pages/admin/pesanan/Pesanan"));
 const RiwayatTransaksi = lazy(() => import("./pages/admin/transaksidaily/RiwayatTransaksi"));
 const ForbiddenPage = lazy(() => import("./pages/ForbiddenPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));

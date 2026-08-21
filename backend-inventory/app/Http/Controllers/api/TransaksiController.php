@@ -27,9 +27,6 @@ class TransaksiController extends Controller
         protected PembayaranService $pembayaranService
     ) {}
 
-    /**
-     * Helper untuk invalidate semua cache terkait
-     */
     private function invalidateAll(): void
     {
         $this->transaksiService->invalidateCache();
@@ -38,10 +35,6 @@ class TransaksiController extends Controller
         $this->pembayaranService->invalidateCache();
     }
 
-    /**
-     * GET /api/transaksi
-     * Support mode: all | aktif | riwayat | riwayat_all
-     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -49,7 +42,7 @@ class TransaksiController extends Controller
             $page = max((int) $request->input('page', 1), 1);
 
             $filters = [
-                'jenis'       => $request->input('jenis', 'daily'),
+                'jenis'       => $request->input('jenis'),
                 'mode'        => $request->input('mode', 'all'),
                 'search'      => $request->input('search'),
                 'customer_id' => $request->input('customer_id'),
@@ -74,34 +67,21 @@ class TransaksiController extends Controller
         }
     }
 
-    /**
-     * GET /api/transaksi/aktif (shortcut)
-     */
     public function aktif(Request $request): JsonResponse
     {
         return $this->index($request->merge(['mode' => 'aktif']));
     }
 
-    /**
-     * GET /api/transaksi/riwayat (shortcut)
-     */
     public function riwayat(Request $request): JsonResponse
     {
         return $this->index($request->merge(['mode' => 'riwayat']));
     }
 
-    /**
-     * GET /api/transaksi/riwayat-all (shortcut)
-     */
     public function riwayatAll(Request $request): JsonResponse
     {
         return $this->index($request->merge(['mode' => 'riwayat_all']));
     }
 
-    /**
-     * GET /api/transaksi/customer/{customerId}/riwayat (shortcut)
-     * ✅ FIXED: Tambahkan type hint int untuk $customerId
-     */
     public function riwayatByCustomer(Request $request, int $customerId): JsonResponse
     {
         return $this->index($request->merge([
@@ -110,9 +90,6 @@ class TransaksiController extends Controller
         ]));
     }
 
-    /**
-     * POST /api/transaksi
-     */
     public function store(StoreTransaksiRequest $request): JsonResponse
     {
         try {
@@ -142,9 +119,6 @@ class TransaksiController extends Controller
         }
     }
 
-    /**
-     * GET /api/transaksi/{transaksi}
-     */
     public function show(Transaksi $transaksi): JsonResponse
     {
         try {
@@ -174,9 +148,6 @@ class TransaksiController extends Controller
         }
     }
 
-    /**
-     * PUT /api/transaksi/{transaksi}
-     */
     public function update(UpdateTransaksiRequest $request, Transaksi $transaksi): JsonResponse
     {
         try {
@@ -206,9 +177,6 @@ class TransaksiController extends Controller
         }
     }
 
-    /**
-     * DELETE /api/transaksi/{transaksi}
-     */
     public function destroy(Transaksi $transaksi): JsonResponse
     {
         try {
@@ -232,9 +200,6 @@ class TransaksiController extends Controller
         }
     }
 
-    /**
-     * PUT /api/transaksi/detail/{detail}/status
-     */
     public function updateStatus(Request $request, TransaksiDetail $detail): JsonResponse
     {
         try {
@@ -268,9 +233,6 @@ class TransaksiController extends Controller
         }
     }
 
-    /**
-     * POST /api/transaksi/detail/{detail}/cancel
-     */
     public function cancelDetail(TransaksiDetail $detail): JsonResponse
     {
         try {

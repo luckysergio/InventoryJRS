@@ -221,16 +221,30 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
     });
 
     Route::prefix('pesanan')->middleware('role:admin,admin_toko,operator')->group(function () {
+
         Route::get('/', [PesananTransaksiController::class, 'index']);
         Route::get('/aktif', [PesananTransaksiController::class, 'aktif']);
-        Route::get('/{id}', [PesananTransaksiController::class, 'show']);
-        Route::post('/', [PesananTransaksiController::class, 'store'])->middleware('role:admin,admin_toko');
-        Route::put('/{id}', [PesananTransaksiController::class, 'update'])->middleware('role:admin,admin_toko');
-        Route::delete('/{id}', [PesananTransaksiController::class, 'destroy'])->middleware('role:admin');
-        Route::post('/{id}/cancel', [PesananTransaksiController::class, 'cancel'])->middleware('role:admin');
-        Route::patch('/{id}/selesai', [PesananTransaksiController::class, 'selesai'])->middleware('role:admin,admin_toko');
-        Route::post('/detail/{id}/status', [PesananTransaksiController::class, 'updateStatus'])->middleware('role:admin');
-        Route::get('/{id}/print', [PesananTransaksiController::class, 'printNota'])->middleware('role:admin');
+
+        Route::put('/detail/{detail}/status', [PesananTransaksiController::class, 'updateStatus'])
+            ->middleware('role:admin,admin_toko');
+
+        Route::post('/detail/{detail}/cancel', [PesananTransaksiController::class, 'cancelDetail'])
+            ->middleware('role:admin,admin_toko');
+
+        Route::patch('/detail/{detail}/selesai', [PesananTransaksiController::class, 'selesai'])
+            ->middleware('role:admin,admin_toko');
+
+        Route::get('/{pesanan}', [PesananTransaksiController::class, 'show']);
+        Route::get('/{pesanan}/print', [PesananTransaksiController::class, 'printNota']);
+
+        Route::post('/', [PesananTransaksiController::class, 'store'])
+            ->middleware('role:admin,admin_toko');
+
+        Route::put('/{pesanan}', [PesananTransaksiController::class, 'update'])
+            ->middleware('role:admin,admin_toko');
+
+        Route::delete('/{pesanan}', [PesananTransaksiController::class, 'destroy'])
+            ->middleware('role:admin');
     });
 
     Route::prefix('pembayaran')->middleware('role:admin,admin_toko,kasir')->group(function () {

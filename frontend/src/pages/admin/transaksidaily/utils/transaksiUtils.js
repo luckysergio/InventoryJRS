@@ -15,20 +15,19 @@ export const unformatRupiah = (str) => {
   return clean === "" ? 0 : parseInt(clean, 10);
 };
 
-export const formatTanggal = (tgl, format = "short") => {
-  if (!tgl) return "-";
-  const date = new Date(tgl);
-  if (format === "short") {
-    return date.toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+export const formatTanggal = (date, style = 'long') => {
+  if (!date) return '-';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '-';
+
+  if (style === 'short') {
+    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
   }
-  return date.toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
+  return d.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
   });
 };
 
@@ -59,7 +58,7 @@ export const getStokToko = (product) => {
 // Status helpers
 export const STATUS_MAP = {
   PROSES: 1,
-  SELESAI: 2,
+  SELESAI: 5,
   DIBATALKAN: 6,
 };
 

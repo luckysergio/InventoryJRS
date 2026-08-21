@@ -47,6 +47,8 @@ export const masterKeys = {
     lowStock: () => [...masterKeys.product.all, 'low_stock'],
     bestSeller: (params) => [...masterKeys.product.all, 'best_seller', params],
     full: () => [...masterKeys.product.all, 'full'],
+    // ✅ NEW: Semua produk tanpa filter stok (untuk Pesanan)
+    allFull: () => [...masterKeys.product.all, 'all_full'],
   },
   distributorProduct: {
     all: ['distributor_products'],
@@ -102,6 +104,12 @@ export const masterKeys = {
     list: (filters) => [...masterKeys.transaksi.lists(), filters],
     detail: (id) => [...masterKeys.transaksi.all, 'detail', id],
   },
+  pesanan: {
+    all: ['pesanan'],
+    lists: () => [...masterKeys.pesanan.all, 'list'],
+    list: (filters) => [...masterKeys.pesanan.lists(), filters],
+    detail: (id) => [...masterKeys.pesanan.all, 'detail', id],
+  },
   pembayaran: {
     all: ['pembayaran'],
     lists: () => [...masterKeys.pembayaran.all, 'list'],
@@ -119,28 +127,16 @@ export const masterKeys = {
 // HELPER: Extract data dari berbagai format response
 // ==========================================
 
-/**
- * Robust data extractor untuk berbagai format response Laravel:
- * - { data: [...] }              → array langsung
- * - { data: { data: [...] } }    → nested (paginated)
- * - { status: true, data: [...] } → wrapped
- * - [...]                        → raw array
- */
 const extractArray = (response) => {
   if (!response) return [];
   const raw = response.data ?? response;
 
-  // Case 1: response.data.data (nested - common Laravel pattern)
   if (raw?.data && Array.isArray(raw.data)) {
     return raw.data;
   }
-
-  // Case 2: response.data (array langsung)
   if (Array.isArray(raw)) {
     return raw;
   }
-
-  // Case 3: response.data.data.data (paginated nested)
   if (raw?.data?.data && Array.isArray(raw.data.data)) {
     return raw.data.data;
   }
@@ -148,9 +144,6 @@ const extractArray = (response) => {
   return [];
 };
 
-/**
- * Extract single object dari response (untuk mutation result)
- */
 const extractObject = (response) => {
   if (!response) return null;
   const raw = response.data ?? response;
@@ -163,17 +156,12 @@ const extractObject = (response) => {
   return null;
 };
 
-/**
- * Extract dropdown data dan pastikan format { value, label }
- */
 const extractDropdown = (response) => {
   const arr = extractArray(response);
   return arr.map((item) => {
-    // Already { value, label } format
     if (item.value !== undefined && item.label !== undefined) {
       return item;
     }
-    // Object with id & name/nama
     if (item.id !== undefined) {
       return {
         value: item.id,
@@ -181,7 +169,6 @@ const extractDropdown = (response) => {
         ...item,
       };
     }
-    // Primitive
     return { value: item, label: String(item) };
   });
 };
@@ -238,23 +225,19 @@ export const useStatusTransaksiDropdown = () => useQuery({
   queryKey: masterKeys.statusTransaksi.dropdown(),
   queryFn: async () => {
     const res = await api.get('/status-transaksi');
-    // Status transaksi return full object, bukan {value, label}
     return extractArray(res);
   },
   staleTime: 15 * 60 * 1000,
 });
 
-// Alias untuk backward compatibility
 export const useStatusTransaksiList = useStatusTransaksiDropdown;
 
 // ==========================================
-// FULL DATA HOOKS (full object untuk form)
+// FULL DATA HOOKS
 // ==========================================
 
 /**
- * Fetch customers dengan full data (id, name, no_hp, email, dll)
- * Berbeda dengan useCustomersDropdown yang return {value, label}
- * Digunakan di TransaksiForm yang butuh akses field lengkap
+ * Fetch customers dengan full data (untuk form)
  */
 export const useCustomersFull = () => useQuery({
   queryKey: masterKeys.customer.full(),
@@ -266,8 +249,8 @@ export const useCustomersFull = () => useQuery({
 });
 
 /**
- * Fetch products dengan full data (termasuk inventories untuk cek stok TOKO)
- * Digunakan di TransaksiForm untuk filter jenis/type & cek stok
+ * Fetch products AVAILABLE (stok > 0) untuk TransaksiForm.
+ * Digunakan saat transaksi memotong stok TOKO.
  */
 export const useProductsFull = () => useQuery({
   queryKey: masterKeys.product.full(),
@@ -278,20 +261,26 @@ export const useProductsFull = () => useQuery({
   staleTime: 5 * 60 * 1000,
 });
 
+/**
+ * ✅ NEW: Fetch SEMUA products tanpa filter stok.
+ * Digunakan di PesananForm karena pesanan TIDAK memotong stok,
+ * jadi semua produk (termasuk stok 0) harus bisa dipilih.
+ */
+export const useProductsAll = () => useQuery({
+  queryKey: masterKeys.product.allFull(),
+  queryFn: async () => {
+    const res = await api.get('/products', { params: { per_page: 5000 } });
+    return extractArray(res);
+  },
+  staleTime: 5 * 60 * 1000,
+});
+
 // ==========================================
-// HARGA HOOKS (untuk TransaksiForm)
+// HARGA HOOKS
 // ==========================================
 
 /**
  * Fetch daftar harga untuk product tertentu (umum + khusus customer)
- *
- * Digunakan di HargaSelector component untuk menampilkan:
- * - Harga Umum (customer_id = null)
- * - Harga Khusus Customer (customer_id sesuai dengan customer yang dipilih)
- *
- * @param {number|string} productId - ID produk (required)
- * @param {number|string|null} customerId - ID customer (opsional, untuk filter harga khusus)
- * @returns {Query} data: array of harga objects
  */
 export const useHargaByProduct = (productId, customerId = null) => useQuery({
   queryKey: masterKeys.harga.byProduct(productId, customerId || 'all'),
@@ -306,10 +295,6 @@ export const useHargaByProduct = (productId, customerId = null) => useQuery({
 
 /**
  * Mutation untuk create harga baru
- *
- * Digunakan saat user memilih "Buat Harga Khusus Customer Baru" di TransaksiForm.
- * Backend akan auto-create harga_products baru dari payload transaksi,
- * tapi hook ini bisa dipakai untuk create harga manual jika diperlukan.
  */
 export const useCreateHarga = () => {
   const queryClient = useQueryClient();
@@ -319,17 +304,12 @@ export const useCreateHarga = () => {
       return extractObject(res);
     },
     onSuccess: async () => {
-      // Invalidate semua query harga
-      await queryClient.cancelQueries({
-        queryKey: masterKeys.harga.all,
-        exact: false,
-      });
+      await queryClient.cancelQueries({ queryKey: masterKeys.harga.all, exact: false });
       await queryClient.invalidateQueries({
         queryKey: masterKeys.harga.all,
         exact: false,
         refetchType: 'all',
       });
-      // Cross-invalidation ke entity terkait
       await invalidateRelatedCaches(queryClient, 'harga');
     },
   });
@@ -339,38 +319,7 @@ export const useCreateHarga = () => {
 // CROSS-INVALIDATION HELPER
 // ==========================================
 
-/**
- * Invalidate cache dari entity yang berubah + entity terkait
- *
- * PRINSIP:
- * - Entity utama di-handle TERPISAH oleh caller (useInventory.js, useCustomers.js, dll)
- * - Cross-invalidation HANYA untuk entity LAIN yang terdampak
- * - Jangan pernah memasukkan entity itu sendiri ke dalam array cross-invalidation
- *
- * @param {QueryClient} queryClient - React Query client
- * @param {string} changedEntity - Nama entity yang berubah (key dari crossInvalidation)
- */
 export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
-  const entityMap = {
-    jenis: masterKeys.jenis.all,
-    type: masterKeys.type.all,
-    bahan: masterKeys.bahan.all,
-    product: masterKeys.product.all,
-    distributorProduct: masterKeys.distributorProduct.all,
-    productCustomer: masterKeys.productCustomer.all,
-    harga: masterKeys.harga.all,
-    customer: masterKeys.customer.all,
-    distributor: masterKeys.distributor.all,
-    productMovement: masterKeys.productMovement.all,
-    place: masterKeys.place.all,
-    inventory: masterKeys.inventory.all,
-    stokOpname: masterKeys.stokOpname.all,
-    transaksi: masterKeys.transaksi.all,
-    pembayaran: masterKeys.pembayaran.all,
-    statusTransaksi: masterKeys.statusTransaksi.all,
-  };
-
-  // Cross-invalidation map: entity berubah → entity lain yang perlu di-refresh
   const crossInvalidation = {
     // ---------- MASTER DATA ----------
     jenis: [
@@ -381,6 +330,7 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.harga.all,
       masterKeys.inventory.all,
       masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
     ],
     type: [
       masterKeys.product.all,
@@ -389,6 +339,7 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.harga.all,
       masterKeys.inventory.all,
       masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
     ],
     bahan: [
       masterKeys.product.all,
@@ -397,6 +348,7 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.harga.all,
       masterKeys.inventory.all,
       masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
     ],
     product: [
       masterKeys.distributorProduct.all,
@@ -405,6 +357,7 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.productMovement.all,
       masterKeys.inventory.all,
       masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
     ],
     distributorProduct: [
       masterKeys.product.all,
@@ -424,6 +377,7 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.distributorProduct.all,
       masterKeys.productCustomer.all,
       masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
     ],
 
     // ---------- MASTER ENTITIES ----------
@@ -431,6 +385,7 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.harga.all,
       masterKeys.productCustomer.all,
       masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
       masterKeys.pembayaran.all,
     ],
     distributor: [
@@ -468,17 +423,29 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.pembayaran.all,
       masterKeys.customer.all,
       masterKeys.harga.all,
+      masterKeys.pesanan.all,
+    ],
+
+    // ---------- PESANAN ----------
+    pesanan: [
+      masterKeys.transaksi.all,
+      masterKeys.pembayaran.all,
+      masterKeys.customer.all,
+      masterKeys.harga.all,
+      masterKeys.product.all,
+      masterKeys.inventory.all,
     ],
 
     // ---------- PEMBAYARAN ----------
     pembayaran: [
       masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
     ],
   };
 
   const relatedKeys = crossInvalidation[changedEntity] || [];
 
-  // Deduplicate untuk menghindari invalidasi ganda
+  // Deduplicate
   const uniqueKeys = [
     ...new Set(relatedKeys.map((k) => JSON.stringify(k))),
   ].map((k) => JSON.parse(k));

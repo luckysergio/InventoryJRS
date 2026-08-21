@@ -8,6 +8,7 @@ use App\Http\Requests\Pembayaran\UpdatePembayaranRequest;
 use App\Http\Resources\PembayaranResource;
 use App\Models\Pembayaran;
 use App\Services\Pembayaran\PembayaranService;
+use App\Services\Transaksi\PesananTransaksiService; // ✅ NEW
 use App\Services\Transaksi\TransaksiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,8 +18,22 @@ class PembayaranController extends Controller
 {
     public function __construct(
         protected PembayaranService $pembayaranService,
-        protected TransaksiService $transaksiService
+        protected TransaksiService $transaksiService,
+        protected PesananTransaksiService $pesananService // ✅ NEW: inject service pesanan
     ) {}
+
+    /**
+     * ✅ HELPER: Invalidate semua cache yang terdampak.
+     * Dipanggil setelah create/update/delete pembayaran.
+     */
+    private function invalidateAll(): void
+    {
+        $this->pembayaranService->invalidateCache();
+        $this->transaksiService->invalidateCache();
+        $this->pesananService->invalidateCache();   // ✅ KUNCI PERBAIKAN
+
+        Log::info('All caches invalidated after pembayaran mutation');
+    }
 
     /**
      * GET /api/pembayaran
@@ -61,9 +76,8 @@ class PembayaranController extends Controller
         try {
             $pembayaran = $this->pembayaranService->create($request->validated());
 
-            // Invalidate cache pembayaran + transaksi
-            $this->pembayaranService->invalidateCache();
-            $this->transaksiService->invalidateCache();
+            // ✅ FIXED: Invalidate SEMUA cache yang terdampak (termasuk pesanan)
+            $this->invalidateAll();
 
             return response()->json([
                 'status'  => true,
@@ -84,7 +98,6 @@ class PembayaranController extends Controller
 
     /**
      * GET /api/pembayaran/{pembayaran}
-     * ✅ Gunakan route model binding
      */
     public function show(Pembayaran $pembayaran): JsonResponse
     {
@@ -104,7 +117,7 @@ class PembayaranController extends Controller
             ]);
         } catch (\Throwable $e) {
             Log::error('Pembayaran show error', [
-                'id' => $pembayaran->id,
+                'id'    => $pembayaran->id,
                 'error' => $e->getMessage(),
             ]);
             return response()->json([
@@ -123,8 +136,8 @@ class PembayaranController extends Controller
         try {
             $updatedPembayaran = $this->pembayaranService->update($pembayaran, $request->validated());
 
-            $this->pembayaranService->invalidateCache();
-            $this->transaksiService->invalidateCache();
+            // ✅ FIXED: Invalidate SEMUA cache
+            $this->invalidateAll();
 
             return response()->json([
                 'status'  => true,
@@ -133,7 +146,7 @@ class PembayaranController extends Controller
             ]);
         } catch (\Throwable $e) {
             Log::error('Pembayaran update error', [
-                'id' => $pembayaran->id,
+                'id'    => $pembayaran->id,
                 'error' => $e->getMessage(),
             ]);
             return response()->json([
@@ -151,8 +164,8 @@ class PembayaranController extends Controller
         try {
             $this->pembayaranService->delete($pembayaran);
 
-            $this->pembayaranService->invalidateCache();
-            $this->transaksiService->invalidateCache();
+            // ✅ FIXED: Invalidate SEMUA cache
+            $this->invalidateAll();
 
             return response()->json([
                 'status'  => true,
@@ -160,7 +173,7 @@ class PembayaranController extends Controller
             ]);
         } catch (\Throwable $e) {
             Log::error('Pembayaran destroy error', [
-                'id' => $pembayaran->id,
+                'id'    => $pembayaran->id,
                 'error' => $e->getMessage(),
             ]);
             return response()->json([

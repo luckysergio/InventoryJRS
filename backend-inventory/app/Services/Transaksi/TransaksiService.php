@@ -26,14 +26,8 @@ class TransaksiService
     private const CACHE_TTL = 300;
 
     private const STATUS_AKTIF = 1;
-    private const STATUS_SELESAI = 2;
+    private const STATUS_SELESAI = 5;
     private const STATUS_DIBATALKAN = 6;
-
-    /*
-    |--------------------------------------------------------------------------
-    | READ OPERATIONS
-    |--------------------------------------------------------------------------
-    */
 
     public function getList(array $filters = [], int $perPage = 20, int $page = 1): array
     {
@@ -54,37 +48,49 @@ class TransaksiService
                 'details.pembayarans:id,transaksi_detail_id,jumlah_bayar,tanggal_bayar',
             ]);
 
-            $jenis = $filters['jenis'] ?? 'daily';
+            $jenis = $filters['jenis'] ?? null;
             $mode = $filters['mode'] ?? 'all';
             $search = $filters['search'] ?? null;
             $customerId = $filters['customer_id'] ?? null;
             $dari = $filters['dari'] ?? null;
             $sampai = $filters['sampai'] ?? null;
 
-            $query->where('jenis_transaksi', $jenis);
+            if ($jenis && $jenis !== 'all') {
+                $query->where('jenis_transaksi', $jenis);
+            }
 
             switch ($mode) {
                 case 'aktif':
+                    if (!$jenis || $jenis === 'all') {
+                        $query->where('jenis_transaksi', 'daily');
+                    }
                     $query->whereHas('details', fn($q) => $q->where('status_transaksi_id', self::STATUS_AKTIF));
                     break;
+
                 case 'riwayat':
+                    if (!$jenis || $jenis === 'all') {
+                        $query->where('jenis_transaksi', 'daily');
+                    }
                     $query->whereHas('details', fn($q) => $q->where('status_transaksi_id', self::STATUS_SELESAI));
                     break;
+
                 case 'riwayat_all':
-                    $query->whereIn('jenis_transaksi', ['daily', 'pesanan'])
-                          ->whereHas('details', fn($q) => $q->whereIn('status_transaksi_id', [5, 6]));
+                    $query->whereHas(
+                        'details',
+                        fn($q) =>
+                        $q->whereIn('status_transaksi_id', [self::STATUS_SELESAI, self::STATUS_DIBATALKAN])
+                    );
                     break;
             }
 
-            // ✅ FIXED: Search HANYA by nama customer (tanpa kolom kode)
             $query->when($search, function ($q) use ($search) {
                 $q->whereHas('customer', fn($c) => $c->where('name', 'like', "%{$search}%"));
             });
 
             $query->when($customerId, fn($q) => $q->where('customer_id', $customerId))
-                  ->when($dari, fn($q) => $q->whereDate('tanggal', '>=', $dari))
-                  ->when($sampai, fn($q) => $q->whereDate('tanggal', '<=', $sampai))
-                  ->latest('id');
+                ->when($dari, fn($q) => $q->whereDate('tanggal', '>=', $dari))
+                ->when($sampai, fn($q) => $q->whereDate('tanggal', '<=', $sampai))
+                ->latest('id');
 
             return $query->paginate($perPage, ['*'], 'page', $page);
         });
