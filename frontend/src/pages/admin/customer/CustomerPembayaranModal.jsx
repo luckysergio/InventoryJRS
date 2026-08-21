@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useQueryClient } from '@tanstack/react-query'; // ✅ NEW
 import {
   X, Wallet, Loader2, AlertCircle, Receipt, CheckCircle2,
   Calendar, TrendingUp, Package, Sparkles,
@@ -7,13 +8,14 @@ import { useCustomerModals } from "../../../lib/zustand/customerStore";
 import { useCreatePembayaran, useUpdateDetailStatus } from "../../../hooks/useTransaksi";
 import { useCreatePembayaranPesanan, useCompletePesananDetail } from "../../../hooks/usePesanan";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
+import { masterKeys } from "../../../hooks/useMasterData"; // ✅ NEW
 
 import {
   formatRupiah,
-  unformatRupiah,         // ✅ TAMBAHKAN INI
+  unformatRupiah,
   formatTanggal,
   formatProductName,
-  STATUS_MAP,             // ✅ TAMBAHKAN INI
+  STATUS_MAP,
 } from "../transaksidaily/utils/transaksiUtils";
 
 import { cn } from "../../../lib/utils";
@@ -21,12 +23,13 @@ import { cn } from "../../../lib/utils";
 const CustomerPembayaranModal = () => {
   const { modals, bayarDetail, closePembayaranModal } = useCustomerModals();
   const { success, info } = useConfirmDialog();
+  const queryClient = useQueryClient(); // ✅ NEW
 
-  // ✅ Hook untuk daily
+  // Hook untuk daily
   const createDailyMut = useCreatePembayaran();
   const updateStatusDailyMut = useUpdateDetailStatus();
 
-  // ✅ Hook untuk pesanan
+  // Hook untuk pesanan
   const createPesananMut = useCreatePembayaranPesanan();
   const completePesananMut = useCompletePesananDetail();
 
@@ -59,15 +62,14 @@ const CustomerPembayaranModal = () => {
   const detail = bayarDetail;
   const isDaily = detail?.transaksi?.jenis_transaksi === "daily";
   const isPesanan = detail?.transaksi?.jenis_transaksi === "pesanan";
+  const customerId = detail?.transaksi?.customer_id; // ✅ NEW: ambil customer_id
 
-  const isSubmitting = createDailyMut.isPending || updateStatusDailyMut.isPending || 
-                       createPesananMut.isPending || completePesananMut.isPending;
+  const isSubmitting = createDailyMut.isPending || updateStatusDailyMut.isPending ||
+    createPesananMut.isPending || completePesananMut.isPending;
 
   const subtotal = detail ? Number(detail.subtotal) || 0 : 0;
   const totalBayar = detail ? Number(detail.total_bayar) || 0 : 0;
   const sisaTagihan = subtotal - totalBayar;
-  
-  // ✅ FIXED: unformatRupiah sekarang ter-import
   const jumlahBayarNum = unformatRupiah(jumlahBayar);
   const sisaSetelahBayar = sisaTagihan - jumlahBayarNum;
 
@@ -93,7 +95,25 @@ const CustomerPembayaranModal = () => {
     setErrors((er) => ({ ...er, jumlahBayar: undefined }));
   }, [subtotal, totalBayar]);
 
-  // ✅ Submit handler - auto switch antara daily & pesanan
+  // ✅ NEW: Helper untuk invalidate semua cache yang perlu di-refresh
+  const invalidateRelatedCaches = useCallback(async () => {
+    // 1. Invalidate customer_tagihan query (untuk modal list tagihan)
+    // Menggunakan exact: false agar invalidate semua variasi query (dengan/without filter jenis)
+    await queryClient.invalidateQueries({
+      queryKey: ['customer_tagihan'],
+      exact: false,
+      refetchType: 'active',
+    });
+
+    // 2. Invalidate list customer (untuk update badge summary di card customer)
+    await queryClient.invalidateQueries({
+      queryKey: masterKeys.customer.all,
+      exact: false,
+      refetchType: 'active',
+    });
+  }, [queryClient]);
+
+  // Submit handler - auto switch antara daily & pesanan
   const handleSubmit = useCallback(async () => {
     if (!detail) return;
 
@@ -120,12 +140,10 @@ const CustomerPembayaranModal = () => {
       };
 
       if (isDaily) {
-        // ✅ Flow untuk daily: create pembayaran + update status
         await createDailyMut.mutateAsync(payload);
 
         if (sisaSetelahBayar <= 0) {
           try {
-            // ✅ FIXED: STATUS_MAP sekarang ter-import
             await updateStatusDailyMut.mutateAsync({
               detailId: detail.id,
               status_transaksi_id: STATUS_MAP.SELESAI,
@@ -135,7 +153,6 @@ const CustomerPembayaranModal = () => {
           }
         }
       } else if (isPesanan) {
-        // ✅ Flow untuk pesanan: create pembayaran + complete
         await createPesananMut.mutateAsync(payload);
 
         if (sisaSetelahBayar <= 0) {
@@ -147,7 +164,11 @@ const CustomerPembayaranModal = () => {
         }
       }
 
-      // ✅ Auto-invalidation dari hook akan update card customer
+      // ✅ FIXED: Invalidate cache React Query agar data update real-time
+      // Backend cache sudah di-invalidate oleh PembayaranController,
+      // sekarang kita invalidate frontend cache agar React Query refetch data fresh
+      await invalidateRelatedCaches();
+
       setTimeout(() => {
         closePembayaranModal();
         success(
@@ -162,7 +183,7 @@ const CustomerPembayaranModal = () => {
   }, [
     detail, isDaily, isPesanan, jumlahBayarNum, sisaTagihan, sisaSetelahBayar, tanggalBayar,
     createDailyMut, updateStatusDailyMut, createPesananMut, completePesananMut,
-    closePembayaranModal, success, info
+    closePembayaranModal, success, info, invalidateRelatedCaches
   ]);
 
   // Keyboard shortcuts
@@ -338,7 +359,6 @@ const CustomerPembayaranModal = () => {
                 <div className="grid grid-cols-4 gap-1.5 pt-1">
                   {quickAmounts.map((qa) => {
                     const isActive = activeQuickPercent === qa.value;
-
                     return (
                       <button
                         key={qa.label}

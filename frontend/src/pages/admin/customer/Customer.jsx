@@ -1,12 +1,13 @@
 import { useState, useMemo, useCallback } from "react";
 import {
-  Plus, Pencil, Trash2, Search, CheckCircle, X, Printer, Phone, Mail,
+  Plus, Pencil, Trash2, Search, CheckCircle, X, Printer, Phone, Mail, Loader2,
 } from "lucide-react";
 import { useCustomers, useDeleteCustomer } from "../../../hooks/useCustomers";
 import { useCustomerFilters, useCustomerModals } from "../../../lib/zustand/customerStore";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import { useIsAdmin, useUserRole } from "../../../lib/zustand/authStore";
 import { cn } from "../../../lib/utils";
+import api from "../../../lib/api/axios";
 import CustomerForm from "./CustomerForm";
 import CustomerDetail from "./CustomerDetail";
 import CustomerTagihanModal from "./CustomerTagihanModal";
@@ -14,16 +15,10 @@ import CustomerTagihanDetailModal from "./CustomerTagihanDetailModal";
 import CustomerPembayaranModal from "./CustomerPembayaranModal";
 import { formatRupiah, formatTanggal, formatProductName } from "../transaksidaily/utils/transaksiUtils";
 
-// ==========================================
-// UTILITY FUNCTIONS
-// ==========================================
 const STATUS_DIBATALKAN_ID = 6;
 const canCreateCustomer = (role) => ["admin", "admin_toko", "operator"].includes(role);
 
-// ==========================================
-// CUSTOMER CARD COMPONENT
-// ==========================================
-const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHarian, onTagihanPesanan, onPrint }) => {
+const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHarian, onTagihanPesanan, onPrint, isPrinting }) => {
   const tH = Number(item.tagihan_harian_belum_lunas) || 0;
   const tP = Number(item.tagihan_pesanan_belum_lunas) || 0;
   const hasTag = tH > 0 || tP > 0;
@@ -90,11 +85,19 @@ const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHari
         <div className="mt-3 mx-4 pt-2 border-t border-slate-100">
           <button
             onClick={() => onPrint(item)}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 text-xs w-full transition active:scale-95"
+            disabled={isPrinting}
+            className={cn(
+              "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs w-full transition active:scale-95",
+              isPrinting
+                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+            )}
           >
-            <Printer size={14} />
-            <span className="hidden sm:inline">Cetak Tagihan</span>
-            <span className="sm:hidden">Print</span>
+            {isPrinting ? (
+              <><Loader2 size={14} className="animate-spin" /> <span>Memuat...</span></>
+            ) : (
+              <><Printer size={14} /> <span className="hidden sm:inline">Cetak Tagihan</span><span className="sm:hidden">Print</span></>
+            )}
           </button>
         </div>
       )}
@@ -120,9 +123,6 @@ const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHari
   );
 };
 
-// ==========================================
-// MAIN PAGE COMPONENT
-// ==========================================
 const CustomerPage = () => {
   const { filters, currentPage, setSearch, setCurrentPage, resetFilters, hasActiveSearch, getQueryParams } = useCustomerFilters();
   const {
@@ -135,6 +135,8 @@ const CustomerPage = () => {
   const canCreate = canCreateCustomer(role);
 
   const [searchInput, setSearchInput] = useState(filters.search);
+  const [printingCustomerId, setPrintingCustomerId] = useState(null);
+
   const { data, isLoading, isFetching, refetch } = useCustomers(getQueryParams());
   const deleteMut = useDeleteCustomer();
 
@@ -174,7 +176,6 @@ const CustomerPage = () => {
     return pages;
   }, [currentPage, lastPage]);
 
-  // DELETE HANDLER
   const handleDelete = async (customer) => {
     const confirmed = await danger("Hapus Customer?", `Apakah Anda yakin ingin menghapus "${customer.name}"? Tindakan ini tidak dapat dibatalkan.`);
     if (!confirmed) return;
@@ -187,31 +188,258 @@ const CustomerPage = () => {
     }
   };
 
-  // PRINT TAGIHAN
-  const handlePrintTagihan = (customer) => {
-    const details = (customer.transaksi_details || []).filter((d) => {
-      if (!d?.transaksi || !d?.product || d.status_transaksi_id === STATUS_DIBATALKAN_ID) return false;
-      const sub = Number(d.subtotal) || 0;
-      const paid = Number(d.total_bayar) || (d.pembayarans || []).reduce((s, p) => s + (Number(p.jumlah_bayar) || 0), 0);
-      return sub - paid > 0;
-    });
-    if (details.length === 0) { info("Info", "Tidak ada tagihan yang perlu dicetak"); return; }
+  const handlePrintTagihan = async (customer) => {
+    setPrintingCustomerId(customer.id);
 
-    let tSub = 0, tDisc = 0, tTag = 0, tPaid = 0;
-    const rows = details.map((d) => {
-      const sub = Number(d.subtotal) || 0, disc = Number(d.discount) || 0, subAsli = sub + disc;
-      const qty = d.qty != null ? Number(d.qty) : 1;
-      const paid = Number(d.total_bayar) || (d.pembayarans || []).reduce((s, p) => s + (Number(p.jumlah_bayar) || 0), 0);
-      const sisa = sub - paid;
-      tSub += subAsli; tDisc += disc; tTag += sub; tPaid += paid;
-      return `<tr><td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:center;font-size:10px">${formatTanggal(d.transaksi?.tanggal, "short")}</td><td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:10px;max-width:200px;word-wrap:break-word">${formatProductName(d.product)}</td><td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:center;font-size:10px">${qty}</td><td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:right;font-size:10px">Rp ${formatRupiah(subAsli)}</td><td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:right;font-size:10px">Rp ${formatRupiah(disc)}</td><td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:right;font-size:10px">Rp ${formatRupiah(paid)}</td><td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:right;color:#dc2626;font-weight:600;font-size:10px">Rp ${formatRupiah(sisa)}</td></tr>`;
-    }).join("");
+    try {
+      const response = await api.get(`/customers/${customer.id}/tagihan`);
+      const details = response.data?.data || [];
 
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Surat Tagihan - ${customer.name}</title><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');*{box-sizing:border-box}body{font-family:'Inter',sans-serif;padding:20mm;color:#1f2937;width:210mm;min-height:297mm;margin:0 auto;background:#fff;line-height:1.4;font-size:10px}@media print{body{padding:15mm}@page{margin:0;size:A4}}h1{text-align:center;color:#1e40af;margin:0 0 4px;font-size:20px;font-weight:700}.subtitle{text-align:center;color:#64748b;margin-bottom:16px;font-size:11px}.salutation{margin-bottom:16px;font-size:11px;line-height:1.5}table{width:100%;border-collapse:collapse;margin:16px 0;font-size:10px}th{background:#dbeafe;color:#1e40af;font-weight:600;padding:6px 8px;text-align:center;text-transform:uppercase;letter-spacing:.3px;border:1px solid #bfdbfe;font-size:9px;white-space:nowrap}td{padding:6px 8px;border:1px solid #e5e7eb;vertical-align:middle;font-size:10px}td:nth-child(1){text-align:center;width:12%}td:nth-child(2){text-align:left;width:35%;word-break:break-word}td:nth-child(3){text-align:center;width:8%}td:nth-child(4),td:nth-child(5),td:nth-child(6),td:nth-child(7){text-align:right;width:11.25%;white-space:nowrap}.summary{margin-top:16px;padding-top:12px;border-top:2px solid #cbd5e1}.total-due{font-size:13px;text-align:center;font-weight:700;color:#dc2626;margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb}.footer{margin-top:24px;text-align:center;color:#64748b;font-size:9px}.highlight{color:#1e40af;font-weight:600}</style></head><body><h1>SURAT TAGIHAN</h1><div class="subtitle">Jaya Rubber Seal</div><p class="salutation">Kepada Yth.<br><span class="highlight">${customer.name}</span><br><br>Bersama ini kami dari <strong>Jaya Rubber Seal</strong> ingin mengingatkan bahwa Bapak/Ibu masih memiliki tagihan yang belum dilunasi.</p><table><thead><tr><th>Tgl</th><th>Produk</th><th>Qty</th><th>Subtotal</th><th>Diskon</th><th>Dibayar</th><th>Sisa</th></tr></thead><tbody>${rows}</tbody></table><div class="summary"><div class="total-due">SISA TAGIHAN: Rp ${formatRupiah(tTag - tPaid)}</div></div><div class="footer"><p>Mohon segera melakukan pelunasan. Atas perhatiannya, terima kasih.</p><p>Dicetak: ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p></div></body></html>`;
+      if (details.length === 0) {
+        info("Info", "Tidak ada tagihan yang perlu dicetak");
+        setPrintingCustomerId(null);
+        return;
+      }
 
-    const w = window.open("", "_blank", "width=800,height=600");
-    if (w) { w.document.write(html); w.document.close(); setTimeout(() => { w.focus(); w.print(); }, 250); }
-    else info("Error", "Gagal membuka jendela cetak");
+      let tSub = 0, tDisc = 0, tTag = 0, tPaid = 0;
+      const rows = details.map((d) => {
+        const sub = Number(d.subtotal) || 0;
+        const disc = Number(d.discount) || 0;
+        const subAsli = sub + disc;
+        const qty = d.qty != null ? Number(d.qty) : 1;
+        const paid = Number(d.total_bayar) || 0;
+        const sisa = sub - paid;
+
+        tSub += subAsli;
+        tDisc += disc;
+        tTag += sub;
+        tPaid += paid;
+
+        const productName = d.product ? formatProductName(d.product) : "-";
+        const productCode = d.product?.kode || "-";
+        const tanggal = d.transaksi?.tanggal ? formatTanggal(d.transaksi.tanggal, "short") : "-";
+
+        return `
+          <tr>
+            <td style="padding:8px;border:1px solid #e5e7eb;text-align:center;font-size:10px">${tanggal}</td>
+            <td style="padding:8px;border:1px solid #e5e7eb;font-size:10px;">
+              <div style="font-weight:600;color:#1e40af;font-family:monospace;margin-bottom:2px">${productCode}</div>
+              <div style="word-wrap:break-word">${productName}</div>
+            </td>
+            <td style="padding:8px;border:1px solid #e5e7eb;text-align:center;font-size:10px">${qty}</td>
+            <td style="padding:8px;border:1px solid #e5e7eb;text-align:right;font-size:10px">Rp ${formatRupiah(subAsli)}</td>
+            <td style="padding:8px;border:1px solid #e5e7eb;text-align:right;font-size:10px">Rp ${formatRupiah(disc)}</td>
+            <td style="padding:8px;border:1px solid #e5e7eb;text-align:right;font-size:10px;color:#059669">Rp ${formatRupiah(paid)}</td>
+            <td style="padding:8px;border:1px solid #e5e7eb;text-align:right;color:#dc2626;font-weight:600;font-size:10px">Rp ${formatRupiah(sisa)}</td>
+          </tr>
+        `;
+      }).join("");
+
+      const harianDetails = details.filter(d => d.transaksi?.jenis_transaksi === "daily");
+      const pesananDetails = details.filter(d => d.transaksi?.jenis_transaksi === "pesanan");
+
+      const harianTotal = harianDetails.reduce((sum, d) => sum + (Number(d.sisa_tagihan) || 0), 0);
+      const pesananTotal = pesananDetails.reduce((sum, d) => sum + (Number(d.sisa_tagihan) || 0), 0);
+
+      let summaryHtml = "";
+      if (harianDetails.length > 0 && pesananDetails.length > 0) {
+        summaryHtml = `
+          <div style="margin-top:16px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px">
+              <span style="color:#ea580c;font-weight:600">• Tagihan Harian (${harianDetails.length} item):</span>
+              <span style="color:#ea580c;font-weight:700">Rp ${formatRupiah(harianTotal)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px">
+              <span style="color:#7c3aed;font-weight:600">• Tagihan Pesanan (${pesananDetails.length} item):</span>
+              <span style="color:#7c3aed;font-weight:700">Rp ${formatRupiah(pesananTotal)}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      // 4. Build full HTML
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Surat Tagihan - ${customer.name}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    padding: 20mm;
+    color: #1f2937;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    background: #fff;
+    line-height: 1.5;
+    font-size: 11px;
+  }
+  @media print {
+    body { padding: 15mm; }
+    @page { margin: 0; size: A4; }
+  }
+  h1 {
+    text-align: center;
+    color: #1e40af;
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #64748b;
+    margin-bottom: 20px;
+    font-size: 11px;
+  }
+  .salutation {
+    margin-bottom: 16px;
+    font-size: 11px;
+    line-height: 1.6;
+    padding: 12px;
+    background: #f8fafc;
+    border-left: 4px solid #1e40af;
+    border-radius: 4px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 10px;
+  }
+  th {
+    background: #1e40af;
+    color: white;
+    font-weight: 600;
+    padding: 8px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    font-size: 9px;
+    white-space: nowrap;
+  }
+  td {
+    padding: 8px;
+    border: 1px solid #e5e7eb;
+    vertical-align: middle;
+    font-size: 10px;
+  }
+  tr:nth-child(even) { background: #f8fafc; }
+  td:nth-child(1) { text-align: center; width: 12%; }
+  td:nth-child(2) { text-align: left; width: 35%; }
+  td:nth-child(3) { text-align: center; width: 6%; }
+  td:nth-child(4), td:nth-child(5), td:nth-child(6), td:nth-child(7) {
+    text-align: right;
+    width: 11.75%;
+    white-space: nowrap;
+  }
+  .total-due {
+    font-size: 14px;
+    text-align: center;
+    font-weight: 700;
+    color: #dc2626;
+    margin-top: 8px;
+    padding: 10px;
+    background: #fef2f2;
+    border: 2px dashed #dc2626;
+    border-radius: 6px;
+  }
+  .footer {
+    margin-top: 30px;
+    text-align: center;
+    color: #64748b;
+    font-size: 9px;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 12px;
+  }
+  .highlight { color: #1e40af; font-weight: 700; }
+  .info-box {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    font-size: 10px;
+    padding: 8px 12px;
+    background: #eff6ff;
+    border-radius: 6px;
+  }
+</style>
+</head>
+<body>
+  <h1>SURAT TAGIHAN</h1>
+  <div class="subtitle"><strong>JAYA RUBBER SEAL</strong> • Invoice Reminder</div>
+
+  <div class="info-box">
+    <div><strong>No. Invoice:</strong> TAGIHAN/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(customer.id).padStart(4, '0')}</div>
+    <div><strong>Tanggal:</strong> ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</div>
+  </div>
+
+  <p class="salutation">
+    Kepada Yth.<br>
+    <span class="highlight" style="font-size:13px">${customer.name}</span><br>
+    ${customer.phone ? `📞 ${customer.phone}` : ""} ${customer.email ? `• ✉ ${customer.email}` : ""}<br><br>
+    Bersama ini kami dari <strong>Jaya Rubber Seal</strong> ingin mengingatkan bahwa Bapak/Ibu masih memiliki tagihan yang belum dilunasi, dengan rincian sebagai berikut:
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Tanggal</th>
+        <th>Produk</th>
+        <th>Qty</th>
+        <th>Subtotal</th>
+        <th>Diskon</th>
+        <th>Dibayar</th>
+        <th>Sisa</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  ${summaryHtml}
+
+  <div class="total-due">
+    TOTAL SISA TAGIHAN: Rp ${formatRupiah(tTag - tPaid)}
+  </div>
+
+  <div class="footer">
+    <p><strong>Mohon segera melakukan pelunasan.</strong></p>
+    <p>Atas perhatian dan kerjasamanya, kami ucapkan terima kasih.</p>
+    <p style="margin-top:8px;color:#94a3b8">
+      Dicetak: ${new Date().toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      })}
+    </p>
+  </div>
+</body>
+</html>`;
+
+      const w = window.open("", "_blank", "width=900,height=700");
+      if (w) {
+        w.document.write(html);
+        w.document.close();
+        setTimeout(() => {
+          w.focus();
+          w.print();
+        }, 400);
+      } else {
+        info("Error", "Gagal membuka jendela cetak. Mohon izinkan popup di browser Anda.");
+      }
+    } catch (err) {
+      console.error('Print tagihan error:', err);
+      info(
+        "Gagal Mencetak",
+        err.response?.data?.message || "Terjadi kesalahan saat memuat data tagihan"
+      );
+    } finally {
+      setPrintingCustomerId(null);
+    }
   };
 
   return (
@@ -222,12 +450,37 @@ const CustomerPage = () => {
           <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="text" value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Cari nama, no HP, atau email..." className="w-full pl-10 pr-8 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all bg-white" />
-              {searchInput && <button onClick={() => { setSearchInput(""); resetFilters(); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition"><X size={14} /></button>}
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Cari nama, no HP, atau email..."
+                className="w-full pl-10 pr-8 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all bg-white"
+              />
+              {searchInput && (
+                <button
+                  onClick={() => { setSearchInput(""); resetFilters(); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
             <div className="flex gap-2 flex-shrink-0">
-              {isFilterActive && <button onClick={() => { setSearchInput(""); resetFilters(); }} className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"><X className="w-4 h-4" /> Reset</button>}
-              <button onClick={() => refetch()} disabled={isFetching} className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors disabled:opacity-50" title="Refresh">
+              {isFilterActive && (
+                <button
+                  onClick={() => { setSearchInput(""); resetFilters(); }}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+                >
+                  <X className="w-4 h-4" /> Reset
+                </button>
+              )}
+              <button
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors disabled:opacity-50"
+                title="Refresh"
+              >
                 <span className={cn("transition-transform", isFetching && "animate-spin")}>↻</span>
                 <span className="hidden sm:inline">Refresh</span>
               </button>
@@ -258,9 +511,20 @@ const CustomerPage = () => {
           <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
             <Search className="w-10 h-10 text-slate-400" />
           </div>
-          <p className="text-slate-900 font-semibold text-lg">{isFilterActive ? "Tidak ada customer yang cocok" : "Belum ada data customer"}</p>
-          <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">{isFilterActive ? "Coba ubah kata kunci pencarian atau reset filter" : "Mulai dengan menambahkan customer baru"}</p>
-          {isFilterActive && <button onClick={() => { setSearchInput(""); resetFilters(); }} className="mt-4 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">Reset Filter</button>}
+          <p className="text-slate-900 font-semibold text-lg">
+            {isFilterActive ? "Tidak ada customer yang cocok" : "Belum ada data customer"}
+          </p>
+          <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
+            {isFilterActive ? "Coba ubah kata kunci pencarian atau reset filter" : "Mulai dengan menambahkan customer baru"}
+          </p>
+          {isFilterActive && (
+            <button
+              onClick={() => { setSearchInput(""); resetFilters(); }}
+              className="mt-4 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            >
+              Reset Filter
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -276,19 +540,78 @@ const CustomerPage = () => {
                 onTagihanHarian={(c) => openTagihanModal(c, "daily")}
                 onTagihanPesanan={(c) => openTagihanModal(c, "pesanan")}
                 onPrint={handlePrintTagihan}
+                isPrinting={printingCustomerId === item.id} // ✅ NEW
               />
             ))}
           </div>
 
           {lastPage > 1 && (
             <div className="flex items-center justify-center gap-1.5 mt-6 pb-4 flex-wrap">
-              <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1 || isFetching} className={cn("px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition", currentPage === 1 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 active:scale-95")}>← Prev</button>
+              <button
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1 || isFetching}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition",
+                  currentPage === 1
+                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                    : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 active:scale-95"
+                )}
+              >
+                ← Prev
+              </button>
               <div className="flex items-center gap-1 flex-wrap justify-center">
-                {paginationNumbers[0] > 1 && <><button onClick={() => setCurrentPage(1)} className="w-8 h-8 rounded-lg text-xs sm:text-sm font-medium bg-white border border-slate-300 text-slate-700 hover:bg-slate-50">1</button>{paginationNumbers[0] > 2 && <span className="px-1 text-slate-400">…</span>}</>}
-                {paginationNumbers.map((p) => <button key={p} onClick={() => setCurrentPage(p)} disabled={isFetching} className={cn("w-8 h-8 rounded-lg text-xs sm:text-sm font-medium transition", currentPage === p ? "bg-indigo-600 text-white shadow-sm" : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50")}>{p}</button>)}
-                {paginationNumbers[paginationNumbers.length - 1] < lastPage && <>{paginationNumbers[paginationNumbers.length - 1] < lastPage - 1 && <span className="px-1 text-slate-400">…</span>}<button onClick={() => setCurrentPage(lastPage)} className="w-8 h-8 rounded-lg text-xs sm:text-sm font-medium bg-white border border-slate-300 text-slate-700 hover:bg-slate-50">{lastPage}</button></>}
+                {paginationNumbers[0] > 1 && (
+                  <>
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      className="w-8 h-8 rounded-lg text-xs sm:text-sm font-medium bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+                    >
+                      1
+                    </button>
+                    {paginationNumbers[0] > 2 && <span className="px-1 text-slate-400">…</span>}
+                  </>
+                )}
+                {paginationNumbers.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setCurrentPage(p)}
+                    disabled={isFetching}
+                    className={cn(
+                      "w-8 h-8 rounded-lg text-xs sm:text-sm font-medium transition",
+                      currentPage === p
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+                    )}
+                  >
+                    {p}
+                  </button>
+                ))}
+                {paginationNumbers[paginationNumbers.length - 1] < lastPage && (
+                  <>
+                    {paginationNumbers[paginationNumbers.length - 1] < lastPage - 1 && (
+                      <span className="px-1 text-slate-400">…</span>
+                    )}
+                    <button
+                      onClick={() => setCurrentPage(lastPage)}
+                      className="w-8 h-8 rounded-lg text-xs sm:text-sm font-medium bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+                    >
+                      {lastPage}
+                    </button>
+                  </>
+                )}
               </div>
-              <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === lastPage || isFetching} className={cn("px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition", currentPage === lastPage ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 active:scale-95")}>Next →</button>
+              <button
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === lastPage || isFetching}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition",
+                  currentPage === lastPage
+                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                    : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 active:scale-95"
+                )}
+              >
+                Next →
+              </button>
             </div>
           )}
         </>
@@ -296,14 +619,24 @@ const CustomerPage = () => {
 
       {/* FAB */}
       {canCreate && (
-        <button onClick={openCreateModal} className="fixed bottom-6 right-6 z-40 group" aria-label="Tambah Customer" title="Tambah Customer">
+        <button
+          onClick={openCreateModal}
+          className="fixed bottom-6 right-6 z-40 group"
+          aria-label="Tambah Customer"
+          title="Tambah Customer"
+        >
           <span className="absolute inset-0 rounded-full bg-blue-600 animate-ping opacity-20 group-hover:opacity-0 transition-opacity duration-500" />
-          <div className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all duration-300 active:scale-95 hover:scale-110"><Plus className="w-6 h-6" strokeWidth={2.5} /></div>
-          <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">Tambah Customer<div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-900" /></div>
+          <div className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all duration-300 active:scale-95 hover:scale-110">
+            <Plus className="w-6 h-6" strokeWidth={2.5} />
+          </div>
+          <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+            Tambah Customer
+            <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-900" />
+          </div>
         </button>
       )}
 
-      {/* ✅ Modals (clean - menggunakan component terpisah) */}
+      {/* Modals */}
       <CustomerForm />
       <CustomerDetail />
       <CustomerTagihanModal />

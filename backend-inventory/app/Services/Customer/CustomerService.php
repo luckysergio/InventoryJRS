@@ -4,6 +4,7 @@ namespace App\Services\Customer;
 
 use App\Models\Customer;
 use App\Models\Product;
+use App\Models\TransaksiDetail;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +14,7 @@ class CustomerService
     private const CACHE_LIST_PREFIX = 'customers:list:v';
     private const CACHE_DETAIL_PREFIX = 'customers:detail:v';
     private const CACHE_DROPDOWN_KEY = 'customers:dropdown:v';
+    private const CACHE_TAGIHAN_PREFIX = 'customers:tagihan:v';
 
     private const CACHE_VERSION_KEY = 'customers:cache:version';
     private const CACHE_VERSION_LOCK = 'customers:cache:version:lock';
@@ -20,12 +22,10 @@ class CustomerService
     private const CACHE_TTL_LIST = 300;
     private const CACHE_TTL_DETAIL = 900;
     private const CACHE_TTL_DROPDOWN = 7200;
+    private const CACHE_TTL_TAGIHAN = 300;
 
-    /**
-     * Get paginated customer list with tagihan calculation.
-     *
-     * @return array{data: array, meta: array}
-     */
+    private const STATUS_DIBATALKAN = 6;
+
     public function getList(?string $search = null, int $perPage = 20, int $page = 1): array
     {
         $version = $this->getCacheVersion();
@@ -73,7 +73,6 @@ class CustomerService
             return $query->paginate($perPage, ['*'], 'page', $page);
         });
 
-        // Transform setelah cache (ringan, hanya mapping)
         $items = collect($paginator->items())->map(function ($customer) {
             $arr = $customer->toArray();
             $arr['tagihan_harian_belum_lunas'] = (float) max(0, $arr['tagihan_harian_belum_lunas'] ?? 0);
@@ -96,11 +95,6 @@ class CustomerService
         ];
     }
 
-    /**
-     * Get customer detail by ID.
-     *
-     * @return array<string, mixed>|null
-     */
     public function getDetail(int $id): ?array
     {
         $version = $this->getCacheVersion();
@@ -151,10 +145,138 @@ class CustomerService
     }
 
     /**
-     * Lightweight dropdown data.
-     *
-     * @return array<int, array{value: int, label: string}>
+     * ✅ ROBUST VERSION: Get detail tagihan customer (transaksi_details yang belum lunas).
+     * 
+     * Perubahan utama dari versi sebelumnya:
+     * 1. HAPUS select specific columns (hindari "Column not found" error)
+     * 2. Biarkan model handle serialization (lebih flexible)
+     * 3. Tambah error handling per-item mapping
+     * 
+     * @param int $customerId
+     * @param string|null $jenis Filter: 'daily' | 'pesanan' | null (semua)
+     * @return array{details: array, summary: array}
      */
+    public function getTagihan(int $customerId, ?string $jenis = null): array
+    {
+        $version = $this->getCacheVersion();
+        $jenisKey = $jenis ?: 'all';
+        $cacheKey = self::CACHE_TAGIHAN_PREFIX . "{$version}:c{$customerId}:j{$jenisKey}";
+
+        return Cache::remember($cacheKey, self::CACHE_TTL_TAGIHAN, function () use ($customerId, $jenis) {
+            // ✅ ROBUST: Tanpa select specific columns
+            // Eager load semua field, biarkan model handle serialization
+            $query = TransaksiDetail::with([
+                'transaksi',
+                'product.jenis',
+                'product.type',
+                'product.bahan',
+                'pembayarans',
+            ])
+                ->whereHas('transaksi', function ($q) use ($customerId, $jenis) {
+                    $q->where('customer_id', $customerId);
+                    if ($jenis && in_array($jenis, ['daily', 'pesanan'], true)) {
+                        $q->where('jenis_transaksi', $jenis);
+                    }
+                })
+                ->where('status_transaksi_id', '!=', self::STATUS_DIBATALKAN)
+                ->orderBy('id', 'desc'); // ✅ Sederhana, tanpa prefix tabel
+
+            $details = $query->get()->map(function ($detail) {
+                try {
+                    $subtotal = (float) ($detail->subtotal ?? 0);
+                    $totalBayar = (float) $detail->pembayarans->sum('jumlah_bayar');
+                    $sisaTagihan = max($subtotal - $totalBayar, 0);
+
+                    // ✅ Manual serialization untuk hindari error pada field yang tidak ada
+                    $transaksiData = null;
+                    if ($detail->transaksi) {
+                        $transaksiData = [
+                            'id'              => $detail->transaksi->id,
+                            'jenis_transaksi' => $detail->transaksi->jenis_transaksi,
+                            'tanggal'         => $detail->transaksi->tanggal,
+                            'kode'            => $detail->transaksi->kode ?? null,
+                            'customer_id'     => $detail->transaksi->customer_id,
+                        ];
+                    }
+
+                    // ✅ Safe access untuk product (handle jika relasi tidak ada)
+                    $productData = null;
+                    if ($detail->product) {
+                        $productData = [
+                            'id'       => $detail->product->id,
+                            'kode'     => $detail->product->kode ?? null,
+                            'nama'     => $detail->product->nama ?? null,
+                            'ukuran'   => $detail->product->ukuran ?? null,
+                            'jenis'    => $detail->product->jenis ? [
+                                'id' => $detail->product->jenis->id,
+                                'nama' => $detail->product->jenis->nama,
+                            ] : null,
+                            'type'     => $detail->product->type ? [
+                                'id' => $detail->product->type->id,
+                                'nama' => $detail->product->type->nama,
+                            ] : null,
+                            'bahan'    => $detail->product->bahan ? [
+                                'id' => $detail->product->bahan->id,
+                                'nama' => $detail->product->bahan->nama,
+                            ] : null,
+                        ];
+                    }
+
+                    // ✅ Safe access untuk pembayarans
+                    $pembayaransData = $detail->pembayarans->map(function ($p) {
+                        return [
+                            'id'                  => $p->id,
+                            'transaksi_detail_id' => $p->transaksi_detail_id,
+                            'jumlah_bayar'        => (float) ($p->jumlah_bayar ?? 0),
+                            'tanggal_bayar'       => $p->tanggal_bayar,
+                        ];
+                    })->toArray();
+
+                    return [
+                        'id'                  => $detail->id,
+                        'transaksi_id'        => $detail->transaksi_id,
+                        'product_id'          => $detail->product_id,
+                        'qty'                 => (int) ($detail->qty ?? 0),
+                        'harga'               => (float) ($detail->harga ?? 0),
+                        'subtotal'            => $subtotal,
+                        'discount'            => (float) ($detail->discount ?? 0),
+                        'catatan'             => $detail->catatan,
+                        'status_transaksi_id' => (int) $detail->status_transaksi_id,
+                        'total_bayar'         => $totalBayar,
+                        'sisa_tagihan'        => $sisaTagihan,
+                        'transaksi'           => $transaksiData,
+                        'product'             => $productData,
+                        'pembayarans'         => $pembayaransData,
+                    ];
+                } catch (\Throwable $e) {
+                    // ✅ Log warning tapi lanjutkan ke item berikutnya
+                    Log::warning('Error mapping transaksi detail', [
+                        'detail_id' => $detail->id ?? null,
+                        'error' => $e->getMessage(),
+                    ]);
+                    return null;
+                }
+            })->filter(); // Hapus item yang null (error)
+
+            // Filter hanya yang BELUM LUNAS
+            $unpaidDetails = $details->filter(fn($d) => ($d['sisa_tagihan'] ?? 0) > 0)->values();
+
+            // Summary
+            $totalTagihan = (float) $unpaidDetails->sum('sisa_tagihan');
+            $totalSudahBayar = (float) $unpaidDetails->sum('total_bayar');
+            $jumlahItem = $unpaidDetails->count();
+
+            return [
+                'details' => $unpaidDetails->toArray(),
+                'summary' => [
+                    'total_tagihan'     => $totalTagihan,
+                    'total_sudah_bayar' => $totalSudahBayar,
+                    'jumlah_item'       => $jumlahItem,
+                ],
+            ];
+        });
+    }
+
     public function getForDropdown(): array
     {
         $version = $this->getCacheVersion();
@@ -212,11 +334,6 @@ class CustomerService
         });
     }
 
-    /**
-     * Delete customer with relation protection.
-     *
-     * @return array{success: bool, code?: int, message: string}
-     */
     public function delete(Customer $customer): array
     {
         $id = $customer->id;

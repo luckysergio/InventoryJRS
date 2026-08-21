@@ -25,6 +25,23 @@ export const useCustomers = (params = {}) => {
   });
 };
 
+export const useCustomerTagihan = (customerId, jenis = null, enabled = true) => {
+  return useQuery({
+    queryKey: ['customer_tagihan', customerId, jenis],
+    queryFn: async () => {
+      const response = await api.get(`/customers/${customerId}/tagihan`, {
+        params: { jenis: jenis || undefined },
+      });
+      return {
+        details: response.data.data || [],
+        summary: response.data.summary || {},
+      };
+    },
+    enabled: enabled && !!customerId,
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
 export const useCreateCustomer = () => {
   const queryClient = useQueryClient();
   return useMutation({

@@ -61,6 +61,55 @@ class CustomerController extends Controller
         }
     }
 
+    /**
+     * ✅ IMPROVED: Error handling lebih detail untuk debugging
+     */
+    public function tagihan(Request $request, Customer $customer): JsonResponse
+    {
+        try {
+            $jenis = $request->input('jenis');
+
+            if ($jenis !== null && !in_array($jenis, ['daily', 'pesanan'], true)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Parameter "jenis" harus "daily" atau "pesanan".',
+                ], 422);
+            }
+
+            $result = $this->customerService->getTagihan($customer->id, $jenis);
+
+            return response()->json([
+                'status'  => true,
+                'data'    => $result['details'],
+                'summary' => $result['summary'],
+            ]);
+        } catch (\Throwable $e) {
+            // ✅ Log lebih detail untuk debugging
+            Log::error('Customer tagihan error', [
+                'customer_id' => $customer->id,
+                'jenis'       => $request->input('jenis'),
+                'error'       => $e->getMessage(),
+                'file'        => $e->getFile(),
+                'line'        => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal memuat data tagihan: ' . $e->getMessage(),
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'debug'   => config('app.debug') ? [
+                    'file' => basename($e->getFile()),
+                    'line' => $e->getLine(),
+                    'trace' => collect($e->getTrace())->take(5)->map(fn($t) => [
+                        'file' => basename($t['file'] ?? ''),
+                        'line' => $t['line'] ?? null,
+                        'function' => $t['function'] ?? null,
+                    ])->toArray(),
+                ] : null,
+            ], 500);
+        }
+    }
+
     public function show(Customer $customer): JsonResponse
     {
         try {

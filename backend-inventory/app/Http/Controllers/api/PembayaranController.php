@@ -7,8 +7,9 @@ use App\Http\Requests\Pembayaran\StorePembayaranRequest;
 use App\Http\Requests\Pembayaran\UpdatePembayaranRequest;
 use App\Http\Resources\PembayaranResource;
 use App\Models\Pembayaran;
+use App\Services\Customer\CustomerService;
 use App\Services\Pembayaran\PembayaranService;
-use App\Services\Transaksi\PesananTransaksiService; // ✅ NEW
+use App\Services\Transaksi\PesananTransaksiService;
 use App\Services\Transaksi\TransaksiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,25 +20,20 @@ class PembayaranController extends Controller
     public function __construct(
         protected PembayaranService $pembayaranService,
         protected TransaksiService $transaksiService,
-        protected PesananTransaksiService $pesananService // ✅ NEW: inject service pesanan
+        protected PesananTransaksiService $pesananService,
+        protected CustomerService $customerService
     ) {}
 
-    /**
-     * ✅ HELPER: Invalidate semua cache yang terdampak.
-     * Dipanggil setelah create/update/delete pembayaran.
-     */
     private function invalidateAll(): void
     {
         $this->pembayaranService->invalidateCache();
         $this->transaksiService->invalidateCache();
-        $this->pesananService->invalidateCache();   // ✅ KUNCI PERBAIKAN
+        $this->pesananService->invalidateCache();
+        $this->customerService->invalidateCache();
 
         Log::info('All caches invalidated after pembayaran mutation');
     }
 
-    /**
-     * GET /api/pembayaran
-     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -68,15 +64,11 @@ class PembayaranController extends Controller
         }
     }
 
-    /**
-     * POST /api/pembayaran
-     */
     public function store(StorePembayaranRequest $request): JsonResponse
     {
         try {
             $pembayaran = $this->pembayaranService->create($request->validated());
 
-            // ✅ FIXED: Invalidate SEMUA cache yang terdampak (termasuk pesanan)
             $this->invalidateAll();
 
             return response()->json([
@@ -96,9 +88,6 @@ class PembayaranController extends Controller
         }
     }
 
-    /**
-     * GET /api/pembayaran/{pembayaran}
-     */
     public function show(Pembayaran $pembayaran): JsonResponse
     {
         try {
@@ -128,15 +117,11 @@ class PembayaranController extends Controller
         }
     }
 
-    /**
-     * PUT /api/pembayaran/{pembayaran}
-     */
     public function update(UpdatePembayaranRequest $request, Pembayaran $pembayaran): JsonResponse
     {
         try {
             $updatedPembayaran = $this->pembayaranService->update($pembayaran, $request->validated());
 
-            // ✅ FIXED: Invalidate SEMUA cache
             $this->invalidateAll();
 
             return response()->json([
@@ -156,15 +141,11 @@ class PembayaranController extends Controller
         }
     }
 
-    /**
-     * DELETE /api/pembayaran/{pembayaran}
-     */
     public function destroy(Pembayaran $pembayaran): JsonResponse
     {
         try {
             $this->pembayaranService->delete($pembayaran);
 
-            // ✅ FIXED: Invalidate SEMUA cache
             $this->invalidateAll();
 
             return response()->json([
