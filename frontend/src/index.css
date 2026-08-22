@@ -286,3 +286,9 @@ html {
   backface-visibility: hidden;
 }
 
+.grecaptcha-badge {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.3s ease !important;
+}

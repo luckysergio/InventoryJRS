@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Auth;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\RateLimiter;
 
 class LoginRequest extends FormRequest
 {
@@ -14,17 +15,19 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email'    => ['required', 'string', 'email'],
-            'password' => ['required', 'string'],
+            'email'                => ['required', 'string', 'email', 'max:255'],
+            'password'             => ['required', 'string'],
+            'g-recaptcha-response' => ['required', 'string'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'email.required'    => 'Email wajib diisi.',
-            'email.email'       => 'Format email tidak valid.',
-            'password.required' => 'Password wajib diisi.',
+            'email.required'                => 'Email wajib diisi.',
+            'email.email'                   => 'Format email tidak valid.',
+            'password.required'             => 'Password wajib diisi.',
+            'g-recaptcha-response.required' => 'Verifikasi keamanan diperlukan.',
         ];
     }
 
@@ -37,6 +40,11 @@ class LoginRequest extends FormRequest
 
     public function rateLimiterKey(): string
     {
-        return strtolower($this->input('email')) . '|' . $this->ip();
+        return 'login:' . strtolower($this->input('email')) . '|' . $this->ip();
+    }
+
+    public function getRecaptchaToken(): ?string
+    {
+        return $this->input('g-recaptcha-response');
     }
 }

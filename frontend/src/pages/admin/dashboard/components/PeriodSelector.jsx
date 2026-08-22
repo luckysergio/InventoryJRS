@@ -19,7 +19,6 @@ const PeriodSelector = () => {
     customTo,
     setCustomRange,
     realtime,
-    toggleRealtime,
   } = useDashboardFilters();
 
   const [showCustomPicker, setShowCustomPicker] = useState(false);
@@ -111,49 +110,8 @@ const PeriodSelector = () => {
               </span>
             </div>
           )}
-
-          {/* Toggle Control */}
-          <div className="flex items-center gap-2.5 px-3 py-2 bg-blue-50/50 rounded-xl ring-1 ring-blue-100/50 transition-all duration-300">
-            <Zap className={cn(
-              "w-4 h-4 transition-all duration-300",
-              realtime ? "text-emerald-500 drop-shadow-[0_0_4px_rgba(16,185,129,0.5)]" : "text-slate-400"
-            )} />
-            <label className="flex items-center gap-2.5 cursor-pointer select-none">
-              <span className={cn(
-                "text-xs font-semibold transition-colors whitespace-nowrap",
-                realtime ? "text-emerald-700" : "text-slate-600"
-              )}>
-                Real-time
-              </span>
-              <button
-                onClick={toggleRealtime}
-                aria-label="Toggle real-time mode"
-                className={cn(
-                  "relative w-11 h-6 rounded-full transition-all duration-300",
-                  realtime 
-                    ? "bg-gradient-to-r from-emerald-500 to-teal-500 shadow-md shadow-emerald-200" 
-                    : "bg-slate-300"
-                )}
-              >
-                <span className={cn(
-                  "absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-300",
-                  realtime ? "translate-x-[22px]" : "translate-x-0.5"
-                )} />
-              </button>
-            </label>
-          </div>
         </div>
       </div>
-
-      {/* ✅ Real-time Info Banner */}
-      {realtime && (
-        <div className="mt-4 flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-50/60 to-teal-50/60 rounded-lg border border-emerald-100 animate-fadeIn">
-          <Radio className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-          <p className="text-[11px] text-emerald-700 font-medium">
-            <span className="font-bold">Auto-refresh</span> setiap 30 detik untuk data terbaru
-          </p>
-        </div>
-      )}
 
       {/* Custom Date Picker */}
       {period === "custom" && showCustomPicker && (
