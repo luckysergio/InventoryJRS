@@ -14,6 +14,7 @@ use App\Services\ProductDistributor\ProductDistributorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
@@ -200,6 +201,69 @@ class ProductController extends Controller
         }
     }
 
+    public function uploadFoto(Request $request, Product $product): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'foto_depan'   => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
+                'foto_samping' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
+                'foto_atas'    => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
+            ], [
+                'foto_depan.image'   => 'Foto depan harus berupa gambar.',
+                'foto_depan.mimes'   => 'Format foto depan harus JPG, PNG, atau WebP.',
+                'foto_depan.max'     => 'Foto depan maksimal 10MB.',
+                'foto_samping.image' => 'Foto samping harus berupa gambar.',
+                'foto_samping.mimes' => 'Format foto samping harus JPG, PNG, atau WebP.',
+                'foto_samping.max'   => 'Foto samping maksimal 10MB.',
+                'foto_atas.image'    => 'Foto atas harus berupa gambar.',
+                'foto_atas.mimes'    => 'Format foto atas harus JPG, PNG, atau WebP.',
+                'foto_atas.max'      => 'Foto atas maksimal 10MB.',
+            ]);
+
+            if (
+                !$request->hasFile('foto_depan') &&
+                !$request->hasFile('foto_samping') &&
+                !$request->hasFile('foto_atas')
+            ) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Pilih minimal 1 foto untuk diupload.',
+                ], 422);
+            }
+
+            $updated = $this->productService->updatePhotos($product, [
+                'foto_depan'   => $request->file('foto_depan'),
+                'foto_samping' => $request->file('foto_samping'),
+                'foto_atas'    => $request->file('foto_atas'),
+            ]);
+
+            $this->invalidateProductEcosystem();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Foto produk berhasil diupload.',
+                'data'    => new ProductResource($updated),
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Validasi gagal.',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Product uploadFoto error', [
+                'id'    => $product->id,
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal mengupload foto: ' . $e->getMessage(),
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     public function available(): JsonResponse
     {
         try {
@@ -231,7 +295,6 @@ class ProductController extends Controller
             ], 500);
         }
     }
-
 
     public function bestSeller(Request $request): JsonResponse
     {

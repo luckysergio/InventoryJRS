@@ -9,6 +9,7 @@ use App\Models\JenisProduct;
 use App\Models\Place;
 use App\Models\Product;
 use App\Models\TypeProduct;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,16 @@ class ProductService
 
     private const STATUS_SELESAI = 'Selesai';
     private const STATUS_DIBATALKAN = 'Dibatalkan';
+
+    private const IMAGE_MAX_DIMENSION = 1200;
+    private const IMAGE_QUALITY = 80;
+    private const IMAGE_FORMAT = 'webp';
+
+    /*
+    |--------------------------------------------------------------------------
+    | READ OPERATIONS
+    |--------------------------------------------------------------------------
+    */
 
     public function getList(
         ?string $search = null,
@@ -274,7 +285,7 @@ class ProductService
                 $foundProduct = $productsMap->get($item->product_id);
 
                 if (!$foundProduct instanceof Product) {
-                    continue; // Skip orphan records
+                    continue;
                 }
 
                 $productArr = $foundProduct->toArray();
@@ -312,6 +323,12 @@ class ProductService
             return null;
         }
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | WRITE OPERATIONS
+    |--------------------------------------------------------------------------
+    */
 
     public function create(array $data): Product
     {
@@ -480,11 +497,30 @@ class ProductService
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | HELPERS
-    |--------------------------------------------------------------------------
-    */
+    public function updatePhotos(Product $product, array $data): Product
+    {
+        return DB::transaction(function () use ($product, $data): Product {
+            if (!$product->exists) {
+                throw new \Exception("Data product tidak valid.");
+            }
+
+            $this->handleProductPhotoUpload($product, $data);
+
+            $this->invalidateCache();
+
+            Log::info('Product photos updated independently', [
+                'product_id' => $product->id,
+                'kode' => $product->kode,
+                'fields_updated' => array_filter([
+                    'foto_depan'   => isset($data['foto_depan']) && $data['foto_depan'] instanceof UploadedFile,
+                    'foto_samping' => isset($data['foto_samping']) && $data['foto_samping'] instanceof UploadedFile,
+                    'foto_atas'    => isset($data['foto_atas']) && $data['foto_atas'] instanceof UploadedFile,
+                ]),
+            ]);
+
+            return $product->fresh(['jenis:id,nama', 'type:id,nama', 'bahan:id,nama']);
+        });
+    }
 
     private function handleImageUpload(array $data, array $fields, ?Product $product = null): array
     {
@@ -492,7 +528,7 @@ class ProductService
         $manager = new ImageManager(new Driver());
 
         foreach ($fields as $field) {
-            if (isset($data[$field]) && $data[$field] instanceof \Illuminate\Http\UploadedFile) {
+            if (isset($data[$field]) && $data[$field] instanceof UploadedFile) {
                 if ($product && $product->{$field}) {
                     Storage::disk('public')->delete($product->{$field});
                 }
@@ -510,6 +546,64 @@ class ProductService
         }
 
         return $uploaded;
+    }
+
+    private function handleProductPhotoUpload(Product $product, array $data): void
+    {
+        $manager = new ImageManager(new Driver());
+        $fields = ['foto_depan', 'foto_samping', 'foto_atas'];
+        $extension = self::IMAGE_FORMAT; // webp
+
+        foreach ($fields as $field) {
+            if (!isset($data[$field]) || !$data[$field] instanceof UploadedFile) {
+                continue;
+            }
+
+            try {
+                if ($product->{$field}) {
+                    Storage::disk('public')->delete($product->{$field});
+                }
+
+                $image = $manager->read($data[$field]);
+
+                if (method_exists($image, 'orient')) {
+                    $image->orient();
+                }
+
+                if ($image->width() > self::IMAGE_MAX_DIMENSION || $image->height() > self::IMAGE_MAX_DIMENSION) {
+                    $image->scaleDown(
+                        width: self::IMAGE_MAX_DIMENSION,
+                        height: self::IMAGE_MAX_DIMENSION
+                    );
+                }
+
+                $encoded = $image->toWebp(self::IMAGE_QUALITY);
+
+                $filename = 'products/' . Str::uuid() . '.' . $extension;
+                Storage::disk('public')->put($filename, (string) $encoded);
+
+                $product->{$field} = $filename;
+
+                Log::info('Product photo compressed & saved', [
+                    'field' => $field,
+                    'product_id' => $product->id,
+                    'filename' => $filename,
+                    'original_size' => $data[$field]->getSize(),
+                    'compressed_size' => strlen((string) $encoded),
+                    'dimension' => $image->width() . 'x' . $image->height(),
+                    'format' => $extension,
+                ]);
+            } catch (\Throwable $e) {
+                Log::error('Failed to process product photo', [
+                    'field' => $field,
+                    'product_id' => $product->id,
+                    'error' => $e->getMessage(),
+                ]);
+                throw new \Exception("Gagal memproses foto {$field}: " . $e->getMessage());
+            }
+        }
+
+        $product->save();
     }
 
     private function deleteOldImages(Product $product, array $fields): void
@@ -582,6 +676,12 @@ class ProductService
         $numbers = array_map(fn($n) => str_replace([',', '.'], '', $n), $matches[0]);
         return implode('', $numbers);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CACHE MANAGEMENT
+    |--------------------------------------------------------------------------
+    */
 
     public function getCacheVersion(): int
     {

@@ -9,6 +9,7 @@ use App\Http\Resources\PesananTransaksiDetailResource;
 use App\Http\Resources\PesananTransaksiResource;
 use App\Models\Transaksi;
 use App\Models\TransaksiDetail;
+use App\Services\Production\ProductionService;
 use App\Services\Transaksi\PesananTransaksiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,18 +19,22 @@ use Illuminate\Validation\ValidationException;
 class PesananTransaksiController extends Controller
 {
     public function __construct(
-        private PesananTransaksiService $service
+        private PesananTransaksiService $service,
+        private ProductionService $productionService
     ) {}
 
-    /*
-    |--------------------------------------------------------------------------
-    | READ OPERATIONS
-    |--------------------------------------------------------------------------
-    */
+    private function invalidateProductionCache(): void
+    {
+        try {
+            $this->productionService->invalidateCache();
+            Log::info('Production cache invalidated from PesananTransaksiController');
+        } catch (\Throwable $e) {
+            Log::warning('Failed to invalidate production cache', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
 
-    /**
-     * GET /pesanan
-     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -54,21 +59,14 @@ class PesananTransaksiController extends Controller
         }
     }
 
-    /**
-     * GET /pesanan/aktif (shortcut)
-     */
     public function aktif(Request $request): JsonResponse
     {
         return $this->index($request->merge(['mode' => 'aktif']));
     }
 
-    /**
-     * GET /pesanan/{pesanan} - Route Model Binding
-     */
     public function show(Transaksi $pesanan): JsonResponse
     {
         try {
-            // Pastikan hanya pesanan
             if ($pesanan->jenis_transaksi !== 'pesanan') {
                 return response()->json([
                     'status'  => false,
@@ -102,9 +100,6 @@ class PesananTransaksiController extends Controller
         }
     }
 
-    /**
-     * GET /pesanan/{pesanan}/print
-     */
     public function printNota(Transaksi $pesanan)
     {
         if ($pesanan->jenis_transaksi !== 'pesanan') {
@@ -128,19 +123,12 @@ class PesananTransaksiController extends Controller
         ]);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | WRITE OPERATIONS
-    |--------------------------------------------------------------------------
-    */
-
-    /**
-     * POST /pesanan
-     */
     public function store(StorePesananRequest $request): JsonResponse
     {
         try {
             $transaksi = $this->service->create($request->validated());
+
+            $this->invalidateProductionCache();
 
             return response()->json([
                 'status'  => true,
@@ -165,9 +153,6 @@ class PesananTransaksiController extends Controller
         }
     }
 
-    /**
-     * PUT /pesanan/{pesanan} - Route Model Binding
-     */
     public function update(UpdatePesananRequest $request, Transaksi $pesanan): JsonResponse
     {
         if ($pesanan->jenis_transaksi !== 'pesanan') {
@@ -179,6 +164,8 @@ class PesananTransaksiController extends Controller
 
         try {
             $updated = $this->service->update($pesanan, $request->validated());
+
+            $this->invalidateProductionCache();
 
             return response()->json([
                 'status'  => true,
@@ -203,9 +190,6 @@ class PesananTransaksiController extends Controller
         }
     }
 
-    /**
-     * DELETE /pesanan/{pesanan} - Route Model Binding
-     */
     public function destroy(Transaksi $pesanan): JsonResponse
     {
         if ($pesanan->jenis_transaksi !== 'pesanan') {
@@ -217,6 +201,8 @@ class PesananTransaksiController extends Controller
 
         try {
             $this->service->delete($pesanan);
+
+            $this->invalidateProductionCache();
 
             return response()->json([
                 'status'  => true,
@@ -234,15 +220,6 @@ class PesananTransaksiController extends Controller
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | DETAIL-LEVEL OPERATIONS (Route Model Binding)
-    |--------------------------------------------------------------------------
-    */
-
-    /**
-     * PUT /pesanan/detail/{detail}/status
-     */
     public function updateStatus(Request $request, TransaksiDetail $detail): JsonResponse
     {
         try {
@@ -258,6 +235,8 @@ class PesananTransaksiController extends Controller
             }
 
             $updated = $this->service->updateDetailStatus($detail, $validated['status_transaksi_id']);
+
+            $this->invalidateProductionCache();
 
             return response()->json([
                 'status'  => true,
@@ -282,9 +261,6 @@ class PesananTransaksiController extends Controller
         }
     }
 
-    /**
-     * POST /pesanan/detail/{detail}/cancel
-     */
     public function cancelDetail(TransaksiDetail $detail): JsonResponse
     {
         try {
@@ -296,6 +272,8 @@ class PesananTransaksiController extends Controller
             }
 
             $this->service->cancelDetail($detail);
+
+            $this->invalidateProductionCache();
 
             return response()->json([
                 'status'  => true,
@@ -313,9 +291,6 @@ class PesananTransaksiController extends Controller
         }
     }
 
-    /**
-     * PATCH /pesanan/detail/{detail}/selesai
-     */
     public function selesai(TransaksiDetail $detail): JsonResponse
     {
         try {
@@ -327,6 +302,8 @@ class PesananTransaksiController extends Controller
             }
 
             $this->service->completeDetail($detail);
+
+            $this->invalidateProductionCache();
 
             return response()->json([
                 'status'  => true,
