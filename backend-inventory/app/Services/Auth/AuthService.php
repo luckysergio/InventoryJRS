@@ -31,15 +31,7 @@ class AuthService
 
         $token = JWTAuth::fromUser($user);
 
-        $log = LoginLog::create([
-            'user_id'        => $user->id,
-            'email'          => $user->email,
-            'ip_address'     => request()->ip(),
-            'user_agent'     => request()->userAgent(),
-            'success'        => true,
-            'failure_reason' => 'Account registered',
-        ]);
-
+        $log = $this->createLoginLog($user->email, true, 'Account registered', $user->id);
         $this->broadcastLoginEvent($log);
 
         Log::info('User registered', ['id' => $user->id, 'email' => $user->email]);
@@ -53,20 +45,10 @@ class AuthService
     public function login(array $data, string $rateLimiterKey): array
     {
         $email = strtolower(trim($data['email']));
+        $password = $data['password'];
         $recaptchaToken = $data['g-recaptcha-response'] ?? null;
 
-        $recaptchaResult = $this->verifyRecaptcha($recaptchaToken);
-        if (!$recaptchaResult['success']) {
-            $log = $this->createLoginLog($email, false, 'reCAPTCHA failed: ' . $recaptchaResult['reason']);
-            $this->broadcastLoginEvent($log);
-            
-            return [
-                'success' => false,
-                'code'    => 400,
-                'message' => 'Verifikasi keamanan gagal. Silakan refresh halaman dan coba lagi.',
-            ];
-        }
-
+        // ✅ STEP 1: Check Rate Limiter
         if (RateLimiter::tooManyAttempts($rateLimiterKey, 5)) {
             $seconds = RateLimiter::availableIn($rateLimiterKey);
             $log = $this->createLoginLog($email, false, 'Rate limit exceeded');
@@ -79,16 +61,15 @@ class AuthService
             ];
         }
 
-        $credentials = [
-            'email'    => $email,
-            'password' => $data['password'],
-        ];
-
-        if (!$token = JWTAuth::attempt($credentials)) {
+        // ✅ STEP 2: Check credentials DULU (agar user dapat pesan yang jelas)
+        $user = User::where('email', $email)->first();
+        
+        if (!$user || !Hash::check($password, $user->password)) {
             RateLimiter::hit($rateLimiterKey, 600);
             $log = $this->createLoginLog($email, false, 'Invalid credentials');
             $this->broadcastLoginEvent($log);
             
+            // Random delay untuk prevent timing attacks
             usleep(random_int(300000, 700000));
 
             return [
@@ -98,9 +79,37 @@ class AuthService
             ];
         }
 
-        RateLimiter::clear($rateLimiterKey);
-        $user = JWTAuth::user();
+        // ✅ STEP 3: Check user active status
+        if (isset($user->is_active) && !$user->is_active) {
+            $log = $this->createLoginLog($email, false, 'Account inactive');
+            $this->broadcastLoginEvent($log);
+            
+            return [
+                'success' => false,
+                'code'    => 403,
+                'message' => 'Akun Anda tidak aktif. Hubungi administrator.',
+            ];
+        }
 
+        // ✅ STEP 4: Verify reCAPTCHA (skip di local/development)
+        if ($this->shouldVerifyRecaptcha()) {
+            $recaptchaResult = $this->verifyRecaptcha($recaptchaToken);
+            
+            if (!$recaptchaResult['success']) {
+                $log = $this->createLoginLog($email, false, 'reCAPTCHA failed: ' . $recaptchaResult['reason']);
+                $this->broadcastLoginEvent($log);
+                
+                return [
+                    'success' => false,
+                    'code'    => 400,
+                    'message' => 'Verifikasi keamanan gagal. Silakan refresh halaman dan coba lagi.',
+                ];
+            }
+        }
+
+        RateLimiter::clear($rateLimiterKey);
+        $token = JWTAuth::fromUser($user);
+        
         $log = $this->createLoginLog($email, true, null, $user->id);
         $this->broadcastLoginEvent($log);
         
@@ -117,6 +126,50 @@ class AuthService
             'user'    => $this->formatUser($user),
             'token'   => $token,
         ];
+    }
+
+    public function logout(): void
+    {
+        try {
+            $user = JWTAuth::user();
+            
+            if ($user) {
+                Log::info('User logged out', [
+                    'user_id' => $user->id,
+                    'email'   => $user->email,
+                    'ip'      => request()->ip(),
+                ]);
+
+                $this->clearUserCache($user->id);
+            }
+
+            $token = JWTAuth::getToken();
+            if ($token) {
+                try {
+                    JWTAuth::invalidate($token);
+                } catch (\Throwable $e) {
+                    Log::info('Token already invalid during logout', [
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('JWT invalidate failed during logout', ['error' => $e->getMessage()]);
+        }
+    }
+
+    private function shouldVerifyRecaptcha(): bool
+    {
+        if (app()->environment('local', 'development', 'testing')) {
+            return false;
+        }
+
+        if (empty(config('services.recaptcha.secret_key'))) {
+            Log::warning('reCAPTCHA not configured, skipping verification');
+            return false;
+        }
+
+        return true;
     }
 
     private function createLoginLog(
@@ -148,23 +201,22 @@ class AuthService
     }
 
     private function broadcastLoginEvent(LoginLog $log): void
-{
-    try {
-        broadcast(new LoginLogged($log));
-        
-        app(\App\Services\Dashboard\DashboardService::class)->invalidateLoginStats();
-        
-        Log::info('Login event broadcasted', [
-            'email' => $log->email,
-            'success' => $log->success,
-        ]);
-    } catch (\Throwable $e) {
-        Log::warning('Failed to broadcast login event', [
-            'email' => $log->email,
-            'error' => $e->getMessage(),
-        ]);
+    {
+        try {
+            broadcast(new LoginLogged($log));
+            app(\App\Services\Dashboard\DashboardService::class)->invalidateLoginStats();
+            
+            Log::info('Login event broadcasted', [
+                'email' => $log->email,
+                'success' => $log->success,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to broadcast login event', [
+                'email' => $log->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
-}
 
     private function verifyRecaptcha(?string $token): array
     {
@@ -174,7 +226,6 @@ class AuthService
 
         try {
             $recaptcha = new ReCaptcha(config('services.recaptcha.secret_key'));
-
             $response = $recaptcha->setExpectedAction('login')
                                   ->verify($token, request()->ip());
 
@@ -194,7 +245,6 @@ class AuthService
             }
 
             return ['success' => true, 'score' => $score];
-            
         } catch (\Exception $e) {
             Log::error('reCAPTCHA verification error', ['error' => $e->getMessage()]);
             return ['success' => false, 'reason' => 'reCAPTCHA service connection error'];
@@ -218,28 +268,6 @@ class AuthService
         $this->cacheUserData($user);
 
         return $formattedUser;
-    }
-
-    public function logout(): void
-    {
-        try {
-            $user = JWTAuth::user();
-            
-            if ($user) {
-                Log::info('User logged out', [
-                    'user_id' => $user->id,
-                    'email'   => $user->email,
-                    'ip'      => request()->ip(),
-                ]);
-
-                $this->clearUserCache($user->id);
-            }
-
-            JWTAuth::invalidate(JWTAuth::getToken());
-            
-        } catch (\Throwable $e) {
-            Log::warning('JWT invalidate failed during logout', ['error' => $e->getMessage()]);
-        }
     }
 
     public function refresh(): string
@@ -278,7 +306,11 @@ class AuthService
         $cacheKey = self::CACHE_PREFIX . $userId;
         
         if (in_array(config('cache.default'), ['redis', 'memcached'])) {
-            Cache::tags(["user:{$userId}"])->flush();
+            try {
+                Cache::tags(["user:{$userId}"])->flush();
+            } catch (\Throwable $e) {
+                Cache::forget($cacheKey);
+            }
         } else {
             Cache::forget($cacheKey);
         }
@@ -287,7 +319,11 @@ class AuthService
     public static function invalidateAllUserCaches(): void
     {
         if (in_array(config('cache.default'), ['redis', 'memcached'])) {
-            Cache::tags(['user_data'])->flush();
+            try {
+                Cache::tags(['user_data'])->flush();
+            } catch (\Throwable $e) {
+                // Ignore
+            }
         }
     }
 

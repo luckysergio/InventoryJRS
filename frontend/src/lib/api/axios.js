@@ -10,10 +10,6 @@ const api = axios.create({
   },
 });
 
-// ==========================================
-// REFRESH TOKEN QUEUE
-// ==========================================
-
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -28,30 +24,24 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-// Paths yang tidak perlu auth / refresh
 const SKIP_AUTH_PATHS = [
   '/auth/login',
-  '/auth/logout', 
+  '/auth/logout',
   '/auth/refresh',
   '/auth/forgot-password',
   '/auth/reset-password',
   '/auth/register',
   '/public/',
   '/master/',
-  '/broadcasting/auth', // Broadcasting auth handle sendiri
+  '/broadcasting/auth',
 ];
-
-// ==========================================
-// REQUEST INTERCEPTOR
-// ==========================================
 
 api.interceptors.request.use(
   (config) => {
-    // Skip auth untuk public endpoints
-    const shouldSkipAuth = SKIP_AUTH_PATHS.some((p) => 
+    const shouldSkipAuth = SKIP_AUTH_PATHS.some((p) =>
       config.url?.includes(p)
     );
-    
+
     if (shouldSkipAuth) return config;
 
     const token = useAuthStore.getState().token;
@@ -63,13 +53,8 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ==========================================
-// RESPONSE INTERCEPTOR
-// ==========================================
-
 api.interceptors.response.use(
   (response) => {
-    // Auto-update token jika backend mengirim token baru (via header)
     const newToken = response.headers['authorization'];
     const isRefreshed = response.headers['x-token-refreshed'] === 'true';
 
@@ -82,23 +67,19 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    const url = originalRequest.url || '';
 
-    // Skip refresh untuk auth endpoints
-    const shouldSkip = SKIP_AUTH_PATHS.some((p) => 
-      originalRequest.url?.includes(p)
-    );
+    const shouldSkip = SKIP_AUTH_PATHS.some((p) => url.includes(p));
     if (shouldSkip) {
       return Promise.reject(error);
     }
 
-    // Force relogin jika backend minta
     if (error.response?.data?.requires_relogin) {
-      await useAuthStore.getState().clearAuth();
+      useAuthStore.getState().clearAuth();
       window.dispatchEvent(new CustomEvent('auth:logout'));
       return Promise.reject(error);
     }
 
-    // Handle 401 - try refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -116,7 +97,7 @@ api.interceptors.response.use(
 
       try {
         const currentToken = useAuthStore.getState().token;
-        
+
         if (!currentToken) {
           throw new Error('No token available');
         }
@@ -127,16 +108,15 @@ api.interceptors.response.use(
         if (newToken) {
           useAuthStore.getState().updateToken(newToken);
           processQueue(null, newToken);
-          
+
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return api(originalRequest);
         }
 
         throw new Error('Invalid refresh response');
-
       } catch (refreshError) {
         processQueue(refreshError, null);
-        await useAuthStore.getState().clearAuth();
+        useAuthStore.getState().clearAuth();
         window.dispatchEvent(new CustomEvent('auth:logout'));
         return Promise.reject(refreshError);
       } finally {

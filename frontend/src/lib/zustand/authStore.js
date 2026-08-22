@@ -8,51 +8,61 @@ export const useAuthStore = create(
       user: null,
       token: null,
       isAuthenticated: false,
+      isLoggingOut: false,
 
       setAuth: (user, token) => {
-        set({ user, token, isAuthenticated: true });
-        
-        // Notify websocket module bahwa auth sudah ready
+        set({ user, token, isAuthenticated: true, isLoggingOut: false });
+
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:login', { 
-            detail: { user, token } 
+          window.dispatchEvent(new CustomEvent('auth:login', {
+            detail: { user, token },
           }));
         }
       },
 
-      clearAuth: async () => {
-        // ✅ Destroy Echo instance SEBELUM clear state
-        try {
-          const { destroyEcho } = await import('../websocket');
-          destroyEcho();
-        } catch (e) {
-          console.warn('Failed to destroy Echo:', e);
-        }
-        
-        set({ user: null, token: null, isAuthenticated: false });
-        
-        // Notify websocket module
+      clearAuth: () => {
+        const state = get();
+        if (state.isLoggingOut) return;
+
+        // ✅ Set flag DULU sebagai guard
+        set({ isLoggingOut: true });
+
+        // Destroy Echo via dynamic import (avoid circular dependency)
+        import('../websocket')
+          .then(({ destroyEcho }) => {
+            try {
+              destroyEcho();
+            } catch (e) {
+              // ignore
+            }
+          })
+          .catch(() => {
+            // module not found - ignore
+          });
+
+        // Clear auth state (jangan reset isLoggingOut di sini!)
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+        });
+
+        // ✅ Reset flag di next tick agar tidak block future logout
+        setTimeout(() => {
+          set({ isLoggingOut: false });
+        }, 100);
+
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('auth:logout'));
         }
       },
 
-      updateToken: (token) => {
-        set({ token });
-        
-        // Notify websocket untuk re-init dengan token baru
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:token-refreshed', { 
-            detail: { token } 
-          }));
-        }
-      },
+      updateToken: (token) => set({ token }),
 
-      updateUser: (user) =>
-        set({ user }),
+      updateUser: (user) => set({ user }),
 
       hasRole: (role) => get().user?.role === role,
-      
+
       hasAnyRole: (roles) => {
         const userRole = get().user?.role;
         return roles.includes(userRole);
@@ -64,6 +74,7 @@ export const useAuthStore = create(
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
+        // ❌ JANGAN persist isLoggingOut
       }),
     }
   )
@@ -74,6 +85,7 @@ export const useAuthState = () =>
     user: s.user,
     token: s.token,
     isAuthenticated: s.isAuthenticated,
+    isLoggingOut: s.isLoggingOut,
     setAuth: s.setAuth,
     clearAuth: s.clearAuth,
     updateToken: s.updateToken,

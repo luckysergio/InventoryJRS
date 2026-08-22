@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -96,11 +98,12 @@ class AuthController extends Controller
                 'message' => 'Logout berhasil.',
             ]);
         } catch (\Throwable $e) {
-            Log::error('Logout error', ['error' => $e->getMessage()]);
+            Log::warning('Logout endpoint error (ignored)', ['error' => $e->getMessage()]);
+            
             return response()->json([
-                'status'  => false,
-                'message' => 'Gagal melakukan logout.',
-            ], 500);
+                'status'  => true,
+                'message' => 'Logout berhasil.',
+            ]);
         }
     }
 

@@ -30,12 +30,6 @@ use App\Http\Controllers\api\TransaksiController;
 use App\Http\Controllers\api\TypeProductController;
 use App\Http\Controllers\api\UserController;
 
-/*
-|--------------------------------------------------------------------------
-| Public Routes
-|--------------------------------------------------------------------------
-*/
-
 Route::prefix('public')->group(function () {
     Route::get('/products', [PublicProductController::class, 'index']);
     Route::get('/products/available', [PublicProductController::class, 'available']);
@@ -51,30 +45,18 @@ Route::prefix('master')->group(function () {
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/refresh', [AuthController::class, 'refresh']);
     Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
     Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
 });
 
-/*
-|--------------------------------------------------------------------------
-| Protected Routes (JWT Auth)
-|--------------------------------------------------------------------------
-*/
-
 Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
 
-    /*
-    |----------------------------------------------------------------------
-    | Broadcasting Auth Endpoint (MUST be inside JWT auth middleware)
-    | Endpoint untuk Laravel Echo subscribe ke PrivateChannel
-    |----------------------------------------------------------------------
-    */
     Route::post('/broadcasting/auth', [BroadcastingController::class, 'auth']);
 
     Route::prefix('auth')->middleware('auth:api')->group(function () {
         Route::get('/profile', [AuthController::class, 'profile']);
-        Route::post('/logout', [AuthController::class, 'logout']);
     });
 
     Route::prefix('dashboard')
