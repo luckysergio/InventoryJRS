@@ -160,14 +160,6 @@ const Login = () => {
                 <Factory className="w-10 h-10 text-white" />
               </div>
             </div>
-            
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight mb-1">
-              Welcome Back
-            </h1>
-            <p className="text-slate-500 text-sm flex items-center justify-center gap-2 font-medium">
-              <ShieldCheck className="w-4 h-4 text-blue-500" /> 
-              Secured by reCAPTCHA
-            </p>
           </div>
 
           {/* Form Section (Compact spacing to prevent laptop scroll) */}
