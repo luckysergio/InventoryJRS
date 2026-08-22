@@ -26,7 +26,6 @@ class StorePesananRequest extends FormRequest
                 }
             }
 
-            // ✅ Hapus harga_product_id dari request (tidak digunakan)
             unset($detail['harga_product_id']);
 
             return $detail;
@@ -61,7 +60,6 @@ class StorePesananRequest extends FormRequest
             'details.*.status_transaksi_id'        => 'required|exists:status_transaksis,id',
             'details.*.catatan'                    => 'nullable|string|max:500',
 
-            // ✅ Hanya harga_baru, tanpa harga_product_id
             'details.*.harga_baru.harga'           => 'nullable|integer|min:0',
             'details.*.harga_baru.keterangan'      => 'nullable|string|max:255',
             'details.*.harga_baru.tanggal_berlaku' => 'nullable|date',

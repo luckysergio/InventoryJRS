@@ -40,12 +40,6 @@ class PesananTransaksiService
         self::STATUS_SIAP_KIRIM,
     ];
 
-    /*
-    |--------------------------------------------------------------------------
-    | READ OPERATIONS
-    |--------------------------------------------------------------------------
-    */
-
     public function getList(array $filters = [], int $perPage = 20, int $page = 1): array
     {
         $version = $this->getCacheVersion();
@@ -121,12 +115,6 @@ class PesananTransaksiService
         ->find($id);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | WRITE OPERATIONS
-    |--------------------------------------------------------------------------
-    */
-
     public function create(array $data): Transaksi
     {
         return DB::transaction(function () use ($data) {
@@ -152,7 +140,6 @@ class PesananTransaksiService
                 $subtotal = max(($harga * $qty) - $discount, 0);
                 $totalTransaksi += $subtotal;
 
-                // ✅ Hanya simpan nilai harga, BUKAN harga_product_id
                 TransaksiDetail::create([
                     'transaksi_id'        => $transaksi->id,
                     'product_id'          => $product->id,
@@ -205,7 +192,6 @@ class PesananTransaksiService
             $incomingDetailIds = collect($details)->pluck('id')->filter()->toArray();
             $deletedIds = array_diff($existingDetailIds, $incomingDetailIds);
 
-            // Tandai detail yang dihapus sebagai dibatalkan
             foreach ($deletedIds as $detailId) {
                 $detail = $transaksi->details->firstWhere('id', $detailId);
                 if ($detail) {
@@ -286,7 +272,6 @@ class PesananTransaksiService
 
             $detail->update(['status_transaksi_id' => $statusId]);
 
-            // Recalculate total jika detail dibatalkan
             if ($statusId === self::STATUS_DIBATALKAN) {
                 $totalBaru = $detail->transaksi->details()
                     ->where('id', '!=', $detail->id)
@@ -396,12 +381,6 @@ class PesananTransaksiService
         });
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | PRIVATE HELPERS
-    |--------------------------------------------------------------------------
-    */
-
     private function resolveCustomer(array $data): Customer
     {
         if (!empty($data['customer_id'])) {
@@ -475,12 +454,10 @@ class PesananTransaksiService
 
         $pb = $d['product_baru'];
 
-        // Resolve Jenis
         $jenis = !empty($pb['jenis_id'])
             ? JenisProduct::findOrFail($pb['jenis_id'])
             : JenisProduct::firstOrCreate(['nama' => trim($pb['jenis_nama'])]);
 
-        // Resolve Type
         $type = null;
         if (!empty($pb['type_id']) && is_numeric($pb['type_id'])) {
             $type = TypeProduct::findOrFail($pb['type_id']);
@@ -491,7 +468,6 @@ class PesananTransaksiService
             ]);
         }
 
-        // Resolve Bahan
         $bahan = null;
         if (!empty($pb['bahan_id'])) {
             $bahan = BahanProduct::findOrFail($pb['bahan_id']);
@@ -499,7 +475,6 @@ class PesananTransaksiService
             $bahan = BahanProduct::firstOrCreate(['nama' => trim($pb['bahan_nama'])]);
         }
 
-        // Create Product
         $product = Product::create([
             'kode'        => $this->makeUniqueKode(
                 $this->generatePesananProductKode(
@@ -519,7 +494,6 @@ class PesananTransaksiService
             'keterangan'  => $pb['keterangan'] ?? null,
         ]);
 
-        // Create inventory placeholders
         $places = Place::whereIn('kode', ['BENGKEL', 'TOKO'])->get();
         foreach ($places as $place) {
             Inventory::firstOrCreate(
@@ -537,15 +511,9 @@ class PesananTransaksiService
         return $product;
     }
 
-    /**
-     * ✅ Return nilai HARGA saja (int), bukan object HargaProduct
-     * Konsisten dengan modul Transaksi yang hanya menyimpan nilai harga.
-     */
     private function resolveHargaValue(int $productId, ?int $customerId, array $data): int
     {
-        // 1. Harga baru dari request
         if (!empty($data['harga_baru']['harga'])) {
-            // Opsional: tetap simpan ke harga_products untuk history
             HargaProduct::create([
                 'product_id'      => $productId,
                 'customer_id'     => $customerId,
@@ -557,7 +525,6 @@ class PesananTransaksiService
             return (int) $data['harga_baru']['harga'];
         }
 
-        // 2. Harga customer-specific (latest active)
         if ($customerId) {
             $hp = HargaProduct::where('product_id', $productId)
                 ->where('customer_id', $customerId)
@@ -569,7 +536,6 @@ class PesananTransaksiService
             if ($hp) return (int) $hp->harga;
         }
 
-        // 3. Harga umum (fallback)
         $hp = HargaProduct::where('product_id', $productId)
             ->whereNull('customer_id')
             ->where('tanggal_berlaku', '<=', now())
@@ -583,12 +549,6 @@ class PesananTransaksiService
 
         return (int) $hp->harga;
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | KODE GENERATION HELPERS
-    |--------------------------------------------------------------------------
-    */
 
     private function generateCustomerPrefix(string $customerName, ?string $customerPhone): string
     {
@@ -681,12 +641,6 @@ class PesananTransaksiService
         }
         return $kode;
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CACHE MANAGEMENT
-    |--------------------------------------------------------------------------
-    */
 
     public function getCacheVersion(): int
     {

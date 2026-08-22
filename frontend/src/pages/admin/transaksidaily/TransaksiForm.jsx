@@ -4,6 +4,7 @@ import {
   X, Plus, Trash2, Search, ChevronDown, ChevronUp,
   Package, Loader2, User, Calendar, CheckCircle2, DollarSign,
   Tag, AlertCircle, Sparkles, TrendingUp, Lock, Unlock, Pencil,
+  Crown, Info, Save, RefreshCw,
 } from "lucide-react";
 import { useTransaksiModals } from "../../../lib/zustand/transaksiStore";
 import {
@@ -17,6 +18,7 @@ import {
   useJenisDropdown,
   useTypesDropdown,
   useHargaByProduct,
+  useCreateHarga,
 } from "../../../hooks/useMasterData";
 import { useInventories } from "../../../hooks/useInventory";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
@@ -30,7 +32,7 @@ import {
 import { cn } from "../../../lib/utils";
 
 // ==========================================
-// SAFE KEY GENERATOR
+// HELPERS
 // ==========================================
 const getSafeKey = (item, index, prefix = "item") => {
   if (!item) return `${prefix}-fallback-${index}`;
@@ -41,16 +43,13 @@ const getSafeKey = (item, index, prefix = "item") => {
   return `${prefix}-index-${index}`;
 };
 
-// ==========================================
-// GET STOK TOKO DARI INVENTORY MAP
-// ==========================================
 const getStokFromMap = (productId, stokMap) => {
   if (!productId || !stokMap) return 0;
   return stokMap.get(Number(productId)) ?? 0;
 };
 
 // ==========================================
-// ✅ DROPDOWN POSITIONING (Portal-based, anti-clip)
+// DROPDOWN POSITIONING
 // ==========================================
 const useDropdownPosition = (open) => {
   const triggerRef = useRef(null);
@@ -65,7 +64,6 @@ const useDropdownPosition = (open) => {
     const spaceBelow = window.innerHeight - rect.bottom - 12;
     const spaceAbove = rect.top - 12;
 
-    // Buka ke bawah jika ruang cukup,否则 buka ke atas
     if (spaceBelow >= 260 || spaceBelow >= spaceAbove) {
       setStyle({
         top: rect.bottom + 6,
@@ -89,7 +87,6 @@ const useDropdownPosition = (open) => {
       return;
     }
     update();
-    // Reposition saat scroll (capture = termasuk scroll container) & resize
     window.addEventListener("scroll", update, true);
     window.addEventListener("resize", update);
     return () => {
@@ -101,17 +98,12 @@ const useDropdownPosition = (open) => {
   return { triggerRef, style };
 };
 
-// ==========================================
-// ✅ DROPDOWN PORTAL (render ke body, tidak ter-clip)
-// ==========================================
 const DropdownPortal = ({ open, style, onClose, children }) => {
   if (!open || !style) return null;
 
   return createPortal(
     <>
-      {/* Overlay untuk close saat klik luar */}
       <div className="fixed inset-0 z-[80]" onClick={onClose} />
-      {/* Panel fixed - tidak ter-clip container manapun */}
       <div
         style={style}
         className="fixed z-[85] bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-fadeIn"
@@ -123,9 +115,6 @@ const DropdownPortal = ({ open, style, onClose, children }) => {
   );
 };
 
-// ==========================================
-// INITIAL DETAIL SHAPE
-// ==========================================
 const createEmptyDetail = (statusProsesId) => ({
   product_id: "",
   qty: 1,
@@ -138,32 +127,84 @@ const createEmptyDetail = (statusProsesId) => ({
   harga_label: "",
 });
 
-// ==========================================
-// HARGA SELECTOR COMPONENT
-// ==========================================
+/* ==========================================
+   ✅ HARGA SELECTOR — FRESH CACHE GUARANTEE
+   ========================================== */
 const HargaSelector = ({
   detailIndex,
   detail,
   productId,
   customerId,
+  customerName,
   onUpdateHarga,
   disabled,
 }) => {
-  const { data: hargaList = [], isLoading } = useHargaByProduct(productId, customerId);
+  const { 
+    data: hargaList = [], 
+    isLoading, 
+    isFetching,
+    refetch,
+    dataUpdatedAt,
+  } = useHargaByProduct(productId, customerId);
+  
+  const createHargaMut = useCreateHarga();
   const [showNewForm, setShowNewForm] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  // Filter harga berdasarkan customer
+  const hargaUmum = useMemo(
+    () => hargaList.filter((h) => !h.customer_id),
+    [hargaList]
+  );
+  const hargaKhusus = useMemo(
+    () => hargaList.filter((h) => h.customer_id && String(h.customer_id) === String(customerId)),
+    [hargaList, customerId]
+  );
+
+  // ✅ NEW: Force refetch setiap kali productId ATAU customerId berubah
+  useEffect(() => {
+    if (productId) {
+      refetch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, customerId]);
+
+  // Auto-reset saat customer berubah
+  const prevCustomerIdRef = useRef(customerId);
+  useEffect(() => {
+    const prevId = String(prevCustomerIdRef.current || "");
+    const currId = String(customerId || "");
+
+    if (prevId !== currId && detail.harga_product_id) {
+      const selectedHarga = hargaList.find((h) => String(h.id) === String(detail.harga_product_id));
+
+      if (selectedHarga?.customer_id && String(selectedHarga.customer_id) !== currId) {
+        onUpdateHarga(detailIndex, {
+          harga_product_id: "",
+          harga_baru: { harga: "", keterangan: "", tanggal_berlaku: new Date().toISOString().split("T")[0] },
+          selected_harga: 0,
+          harga_label: "",
+        });
+        setShowNewForm(false);
+      }
+    }
+    prevCustomerIdRef.current = customerId;
+  }, [customerId, hargaList, detail.harga_product_id, detailIndex, onUpdateHarga]);
+
+  // Auto-show new form jika sudah ada draft
   useEffect(() => {
     if (!detail.harga_product_id && detail.harga_baru?.harga) {
       setShowNewForm(true);
     }
   }, [detail.harga_product_id, detail.harga_baru?.harga]);
 
-  const hargaUmum = hargaList.filter((h) => !h.customer_id);
-  const hargaKhusus = hargaList.filter((h) => h.customer_id);
-
-  const selectedHargaObj = detail.harga_product_id
-    ? hargaList.find((h) => String(h.id) === String(detail.harga_product_id))
-    : null;
+  // ✅ Auto-refetch saat dropdown dibuka
+  useEffect(() => {
+    if (isDropdownOpen && productId && !isLoading) {
+      refetch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDropdownOpen, productId]);
 
   const currentSelection = detail.harga_product_id
     ? String(detail.harga_product_id)
@@ -184,18 +225,19 @@ const HargaSelector = ({
         selected_harga: Number(detail.harga_baru?.harga) || 0,
         harga_label: "",
       });
-    } else {
-      setShowNewForm(false);
-      const selected = hargaList.find((h) => String(h.id) === String(value));
-      onUpdateHarga(detailIndex, {
-        harga_product_id: value,
-        harga_baru: { harga: "", keterangan: "", tanggal_berlaku: "" },
-        selected_harga: Number(selected?.harga) || 0,
-        harga_label: selected
-          ? `Rp ${formatRupiah(selected.harga)} • ${selected.keterangan || (selected.customer_id ? "Harga Khusus" : "Harga Umum")}`
-          : "",
-      });
+      return;
     }
+
+    setShowNewForm(false);
+    const selected = hargaList.find((h) => String(h.id) === String(value));
+    onUpdateHarga(detailIndex, {
+      harga_product_id: value,
+      harga_baru: { harga: "", keterangan: "", tanggal_berlaku: "" },
+      selected_harga: Number(selected?.harga) || 0,
+      harga_label: selected
+        ? `Rp ${formatRupiah(selected.harga)} • ${selected.keterangan || (selected.customer_id ? `Harga Khusus ${customerName || "Customer"}` : "Harga Umum")}`
+        : "",
+    });
   };
 
   const handleNewHargaChange = (field, value) => {
@@ -214,9 +256,58 @@ const HargaSelector = ({
     });
   };
 
+  // ✅ Submit harga baru ke backend
+  const handleSubmitNewHarga = async () => {
+    if (!detail.harga_baru?.harga) return;
+
+    try {
+      const payload = {
+        product_id: Number(productId),
+        customer_id: customerId ? Number(customerId) : null,
+        harga: Number(detail.harga_baru.harga),
+        keterangan: detail.harga_baru.keterangan?.trim() || (customerId ? `Harga khusus ${customerName}` : 'Harga baru'),
+        tanggal_berlaku: detail.harga_baru.tanggal_berlaku || new Date().toISOString().split("T")[0],
+      };
+
+      // Create ke backend (auto force-fresh cache via hook)
+      const newHarga = await createHargaMut.mutateAsync(payload);
+      
+      // ✅ Manual refetch setelah success (double-safety)
+      await refetch();
+      
+      // ✅ Small delay untuk pastikan cache sudah ter-update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Refetch sekali lagi untuk memastikan
+      await refetch();
+
+      // Auto-select harga yang baru dibuat
+      onUpdateHarga(detailIndex, {
+        harga_product_id: String(newHarga.id),
+        harga_baru: { harga: "", keterangan: "", tanggal_berlaku: "" },
+        selected_harga: Number(newHarga.harga),
+        harga_label: `Rp ${formatRupiah(newHarga.harga)} • ${newHarga.keterangan || 'Harga baru dibuat'}`,
+      });
+      
+      setShowNewForm(false);
+    } catch (err) {
+      console.error('[HargaSelector] Gagal buat harga:', err);
+    }
+  };
+
+  const handleCancelNewHarga = () => {
+    setShowNewForm(false);
+    onUpdateHarga(detailIndex, {
+      harga_product_id: "",
+      harga_baru: { harga: "", keterangan: "", tanggal_berlaku: "" },
+      selected_harga: 0,
+      harga_label: "",
+    });
+  };
+
   if (!productId) return null;
 
-  if (isLoading) {
+  if (isLoading && !dataUpdatedAt) {
     return (
       <div className="flex items-center gap-2 text-xs text-slate-500 py-3 px-4 bg-slate-50 rounded-lg border border-slate-200">
         <Loader2 size={14} className="animate-spin text-indigo-600" />
@@ -225,52 +316,105 @@ const HargaSelector = ({
     );
   }
 
+  const hasCustomerPrice = hargaKhusus.length > 0 && customerId;
   const hasAnyHarga = hargaList.length > 0;
+  const isSubmittingNew = createHargaMut.isPending;
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
           <Tag size={13} className="text-indigo-600" />
           Pilih Harga
         </label>
-        {detail.selected_harga > 0 && (
-          <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-            Rp {formatRupiah(detail.selected_harga)}
-          </span>
-        )}
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {hasCustomerPrice && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+              <Crown size={10} />
+              Harga Khusus {customerName || "Customer"}
+            </span>
+          )}
+          
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching || disabled}
+            className="p-1.5 hover:bg-slate-100 rounded-lg transition disabled:opacity-50"
+            title="Refresh daftar harga"
+          >
+            <RefreshCw size={12} className={isFetching ? "animate-spin text-indigo-600" : "text-slate-500"} />
+          </button>
+
+          {detail.selected_harga > 0 && (
+            <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+              Rp {formatRupiah(detail.selected_harga)}
+            </span>
+          )}
+        </div>
       </div>
+
+      {!customerId && hargaUmum.length > 0 && (
+        <div className="flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-800">
+          <Info size={12} className="flex-shrink-0 mt-0.5" />
+          <p>Pilih customer untuk menampilkan harga khusus. Saat ini hanya <strong>Harga Umum</strong>.</p>
+        </div>
+      )}
 
       <select
         className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-200 focus:outline-none focus:border-indigo-400 disabled:bg-slate-100 disabled:cursor-not-allowed transition"
         value={currentSelection}
         onChange={(e) => handleSelect(e.target.value)}
-        disabled={disabled}
+        onFocus={() => setIsDropdownOpen(true)}
+        onBlur={() => setIsDropdownOpen(false)}
+        disabled={disabled || isSubmittingNew}
       >
         <option value="">-- Pilih Harga --</option>
 
-        {hargaUmum.length > 0 && (
-          <optgroup label="💰 Harga Umum">
-            {hargaUmum.map((h) => (
-              <option key={`umum-${h.id}`} value={String(h.id)}>
-                Rp {formatRupiah(h.harga)} {h.keterangan ? `• ${h.keterangan}` : ""} ({formatTanggal(h.tanggal_berlaku, "short")})
-              </option>
-            ))}
-          </optgroup>
-        )}
-
         {hargaKhusus.length > 0 && (
-          <optgroup label="⭐ Harga Khusus Customer">
+          <optgroup label={`💎 Harga Khusus ${customerName || "Customer"}`}>
             {hargaKhusus.map((h) => (
               <option key={`khusus-${h.id}`} value={String(h.id)}>
-                Rp {formatRupiah(h.harga)} {h.keterangan ? `• ${h.keterangan}` : "• Khusus"} ({formatTanggal(h.tanggal_berlaku, "short")})
+                Rp {formatRupiah(h.harga)}
+                {h.keterangan ? ` • ${h.keterangan}` : ""}
+                {" "}✨ Khusus
               </option>
             ))}
           </optgroup>
         )}
 
-        <option value="tambah_harga_khusus">✨ Buat Harga Khusus Baru</option>
+        {hargaUmum.length > 0 && (
+          <optgroup label="💲 Harga Umum">
+            {hargaUmum.map((h) => (
+              <option key={`umum-${h.id}`} value={String(h.id)}>
+                Rp {formatRupiah(h.harga)}
+                {h.keterangan ? ` • ${h.keterangan}` : ""}
+                {" "}({formatTanggal(h.tanggal_berlaku, "short")})
+              </option>
+            ))}
+          </optgroup>
+        )}
+
+        {hargaUmum.length === 0 && hargaKhusus.length === 0 && (
+          <option value="" disabled>
+            Belum ada harga untuk produk ini
+          </option>
+        )}
+
+        <option value="tambah_harga_khusus">
+          {customerId ? `+ Buat Harga Khusus untuk ${customerName || "Customer"}` : "+ Buat Harga Baru"}
+        </option>
       </select>
+
+      {customerId && hargaKhusus.length === 0 && hargaUmum.length > 0 && !detail.harga_product_id && !showNewForm && (
+        <div className="flex items-start gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-600">
+          <Info size={12} className="flex-shrink-0 mt-0.5 text-slate-400" />
+          <p>
+            <strong>{customerName}</strong> belum memiliki harga khusus untuk produk ini.
+            Gunakan harga umum atau <strong>buat harga khusus baru</strong>.
+          </p>
+        </div>
+      )}
 
       {!hasAnyHarga && !showNewForm && !disabled && (
         <div className="flex items-start gap-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -282,58 +426,33 @@ const HargaSelector = ({
         </div>
       )}
 
-      {selectedHargaObj && !showNewForm && (
-        <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg animate-fadeIn">
-          <div className="p-2 bg-white rounded-lg shadow-sm">
-            <DollarSign size={16} className="text-indigo-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-              Harga Terpilih
-            </p>
-            <p className="text-sm font-bold text-slate-900">
-              Rp {formatRupiah(selectedHargaObj.harga)}
-            </p>
-            <p className="text-[10px] text-slate-600 truncate">
-              {selectedHargaObj.keterangan || (selectedHargaObj.customer_id ? "Harga Khusus Customer" : "Harga Umum")}
-              {" • "}Berlaku {formatTanggal(selectedHargaObj.tanggal_berlaku, "short")}
-            </p>
-          </div>
-          <CheckCircle2 size={18} className="text-green-600 flex-shrink-0" />
-        </div>
-      )}
-
-      {detail.harga_product_id && !selectedHargaObj && !isLoading && detail.selected_harga > 0 && (
-        <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-          <div className="p-2 bg-white rounded-lg shadow-sm">
-            <DollarSign size={16} className="text-slate-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-              Harga Tersimpan
-            </p>
-            <p className="text-sm font-bold text-slate-900">
-              Rp {formatRupiah(detail.selected_harga)}
-            </p>
-            <p className="text-[10px] text-slate-600">
-              Harga dari transaksi sebelumnya
-            </p>
-          </div>
-        </div>
-      )}
-
       {showNewForm && (
-        <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 space-y-3 animate-fadeIn">
-          <div className="flex items-center gap-2 pb-2 border-b border-blue-200">
+        <div className={cn(
+          "p-4 rounded-xl border space-y-3 animate-fadeIn",
+          customerId
+            ? "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200"
+            : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
+        )}>
+          <div className={cn(
+            "flex items-center gap-2 pb-2 border-b",
+            customerId ? "border-amber-200" : "border-blue-200"
+          )}>
             <div className="p-1.5 bg-white rounded-lg shadow-sm">
-              <Sparkles size={14} className="text-blue-600" />
+              {customerId ? <Crown size={14} className="text-amber-600" /> : <Sparkles size={14} className="text-blue-600" />}
             </div>
-            <p className="text-sm font-semibold text-blue-900">Harga Khusus Baru</p>
+            <div className="flex-1">
+              <p className={cn("text-sm font-semibold", customerId ? "text-amber-900" : "text-blue-900")}>
+                {customerId ? `Harga Khusus: ${customerName || "Customer"}` : "Harga Baru"}
+              </p>
+              {customerId && (
+                <p className="text-[10px] text-amber-700">Harga ini akan tersimpan untuk customer ini</p>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-1">
-              <label className="block text-[10px] font-medium text-slate-600 mb-1 uppercase tracking-wide">
+            <div>
+              <label className="block text-[10px] font-medium text-slate-600 mb-1 uppercase">
                 Harga (Rp) <span className="text-red-500">*</span>
               </label>
               <input
@@ -343,45 +462,77 @@ const HargaSelector = ({
                 className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-blue-200 focus:outline-none focus:border-blue-400 transition"
                 value={detail.harga_baru?.harga ? formatRupiah(detail.harga_baru.harga) : ""}
                 onChange={(e) => handleNewHargaChange("harga", unformatRupiah(e.target.value))}
-                disabled={disabled}
+                disabled={disabled || isSubmittingNew}
                 autoFocus
               />
             </div>
+
             <div>
-              <label className="block text-[10px] font-medium text-slate-600 mb-1 uppercase tracking-wide">
-                Keterangan
-              </label>
+              <label className="block text-[10px] font-medium text-slate-600 mb-1 uppercase">Keterangan</label>
               <input
                 type="text"
-                placeholder="Harga khusus..."
+                placeholder={customerId ? "Harga khusus..." : "Keterangan..."}
                 className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none focus:border-blue-400 transition"
                 value={detail.harga_baru?.keterangan || ""}
                 onChange={(e) => handleNewHargaChange("keterangan", e.target.value)}
-                disabled={disabled}
+                disabled={disabled || isSubmittingNew}
               />
             </div>
+
             <div>
-              <label className="block text-[10px] font-medium text-slate-600 mb-1 uppercase tracking-wide">
-                Berlaku Mulai
-              </label>
+              <label className="block text-[10px] font-medium text-slate-600 mb-1 uppercase">Berlaku Mulai</label>
               <input
                 type="date"
                 className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none focus:border-blue-400 transition"
                 value={detail.harga_baru?.tanggal_berlaku || new Date().toISOString().split("T")[0]}
                 onChange={(e) => handleNewHargaChange("tanggal_berlaku", e.target.value)}
-                disabled={disabled}
+                disabled={disabled || isSubmittingNew}
               />
             </div>
           </div>
 
-          {detail.harga_baru?.harga > 0 && (
-            <div className="pt-2 border-t border-blue-200 flex items-center justify-between">
-              <span className="text-xs text-slate-600">Harga akan dibuat:</span>
-              <span className="text-sm font-bold text-blue-900">
+          {detail.harga_baru?.harga > 0 && !isSubmittingNew && (
+            <div className={cn(
+              "pt-2 border-t flex items-center justify-between text-xs",
+              customerId ? "border-amber-200" : "border-blue-200"
+            )}>
+              <span className="text-slate-600">Preview:</span>
+              <span className={cn("font-bold", customerId ? "text-amber-900" : "text-blue-900")}>
                 Rp {formatRupiah(detail.harga_baru.harga)}
               </span>
             </div>
           )}
+
+          <div className={cn(
+            "pt-3 border-t flex gap-2",
+            customerId ? "border-amber-200" : "border-blue-200"
+          )}>
+            <button
+              type="button"
+              onClick={handleCancelNewHarga}
+              disabled={isSubmittingNew}
+              className="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmitNewHarga}
+              disabled={disabled || isSubmittingNew || !detail.harga_baru?.harga}
+              className={cn(
+                "flex-1 px-4 py-2 text-sm font-bold text-white rounded-lg transition shadow-sm disabled:opacity-50 flex items-center justify-center gap-2",
+                customerId
+                  ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                  : "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
+              )}
+            >
+              {isSubmittingNew ? (
+                <><Loader2 size={14} className="animate-spin" /> Menyimpan...</>
+              ) : (
+                <><Save size={14} /> Simpan Harga</>
+              )}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -389,7 +540,7 @@ const HargaSelector = ({
 };
 
 // ==========================================
-// SEARCHABLE CUSTOMER DROPDOWN (PORTAL)
+// CUSTOMER DROPDOWN
 // ==========================================
 const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabled }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -451,9 +602,7 @@ const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabl
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "w-full flex items-center justify-between px-4 py-3 border rounded-xl bg-white text-left transition-all",
-          isOpen
-            ? "border-indigo-400 ring-2 ring-indigo-100"
-            : "border-slate-200 hover:border-indigo-300"
+          isOpen ? "border-indigo-400 ring-2 ring-indigo-100" : "border-slate-200 hover:border-indigo-300"
         )}
       >
         <span className="truncate flex items-center gap-2">
@@ -481,7 +630,6 @@ const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabl
         {isOpen ? <ChevronUp size={16} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={16} className="text-slate-400 flex-shrink-0" />}
       </button>
 
-      {/* ✅ Portal - tidak ter-clip container */}
       <DropdownPortal open={isOpen} style={style} onClose={() => { setIsOpen(false); setSearch(""); }}>
         <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex-shrink-0">
           <div className="relative">
@@ -557,7 +705,7 @@ const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabl
 };
 
 // ==========================================
-// SEARCHABLE PRODUCT DROPDOWN (PORTAL)
+// PRODUCT DROPDOWN
 // ==========================================
 const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, stokMap, disabled = false }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -672,9 +820,7 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "w-full flex items-center justify-between px-4 py-3 border rounded-xl bg-white text-left transition-all",
-          isOpen
-            ? "border-indigo-400 ring-2 ring-indigo-100"
-            : "border-slate-200 hover:border-indigo-300"
+          isOpen ? "border-indigo-400 ring-2 ring-indigo-100" : "border-slate-200 hover:border-indigo-300"
         )}
       >
         <span className="truncate flex items-center gap-2 min-w-0">
@@ -710,7 +856,6 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
         {isOpen ? <ChevronUp size={16} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={16} className="text-slate-400 flex-shrink-0" />}
       </button>
 
-      {/* ✅ Portal - tidak ter-clip container, scrollable, auto-flip */}
       <DropdownPortal open={isOpen} style={style} onClose={() => setIsOpen(false)}>
         <div className="p-3 border-b border-slate-100 bg-slate-50/50 space-y-2 flex-shrink-0">
           <div className="relative">
@@ -878,6 +1023,21 @@ const TransaksiForm = () => {
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [editableIndices, setEditableIndices] = useState(new Set());
 
+  const selectedCustomerInfo = useMemo(() => {
+    if (isCreatingCustomer && form.customer_baru.name) {
+      return { id: null, name: form.customer_baru.name, phone: form.customer_baru.phone || "" };
+    }
+    if (form.customer_id) {
+      const c = customers.find((c) => String(c.id ?? c.value) === String(form.customer_id));
+      return {
+        id: c?.id ?? c?.value,
+        name: c?.name || c?.label || c?.nama || "",
+        phone: c?.no_hp || c?.phone || "",
+      };
+    }
+    return { id: null, name: "", phone: "" };
+  }, [form.customer_id, form.customer_baru, isCreatingCustomer, customers]);
+
   useEffect(() => {
     if (isOpen) {
       if (isEdit && selectedTransaksi) {
@@ -904,9 +1064,7 @@ const TransaksiForm = () => {
             email: "",
           },
           tanggal: selectedTransaksi.tanggal || new Date().toISOString().split("T")[0],
-          details: activeDetails.length > 0
-            ? activeDetails
-            : [createEmptyDetail(statusProsesId)],
+          details: activeDetails.length > 0 ? activeDetails : [createEmptyDetail(statusProsesId)],
         });
         setIsCreatingCustomer(!selectedTransaksi.customer_id && !!selectedTransaksi.customer);
         setEditableIndices(new Set());
@@ -926,29 +1084,20 @@ const TransaksiForm = () => {
   const toggleEditDetail = (index) => {
     setEditableIndices((prev) => {
       const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
       return next;
     });
   };
 
   const addDetailRow = () => {
     const newIndex = form.details.length;
-    setForm((f) => ({
-      ...f,
-      details: [...f.details, createEmptyDetail(statusProsesId)],
-    }));
+    setForm((f) => ({ ...f, details: [...f.details, createEmptyDetail(statusProsesId)] }));
     setEditableIndices((prev) => new Set([...prev, newIndex]));
   };
 
   const removeDetailRow = (index) => {
-    setForm((f) => ({
-      ...f,
-      details: f.details.filter((_, i) => i !== index),
-    }));
+    setForm((f) => ({ ...f, details: f.details.filter((_, i) => i !== index) }));
     setEditableIndices((prev) => {
       const next = new Set();
       prev.forEach((i) => {
@@ -1144,7 +1293,7 @@ const TransaksiForm = () => {
               </div>
             )}
 
-            {/* Customer & Tanggal Section */}
+            {/* Customer & Tanggal */}
             <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
                 <div className="p-1.5 bg-indigo-100 rounded-lg">
@@ -1236,7 +1385,7 @@ const TransaksiForm = () => {
               </div>
             </div>
 
-            {/* Details Section */}
+            {/* Details */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -1250,15 +1399,12 @@ const TransaksiForm = () => {
                   {isEdit && (
                     <span className="text-[10px] font-medium px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full flex items-center gap-1">
                       <Lock size={9} />
-                      {editableIndices.size > 0
-                        ? `${editableIndices.size} diedit`
-                        : "Semua terkunci"}
+                      {editableIndices.size > 0 ? `${editableIndices.size} diedit` : "Semua terkunci"}
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Items List */}
               <div className="space-y-4">
                 {form.details.map((detail, index) => {
                   const product = products.find((p) => String(p.id) === String(detail.product_id));
@@ -1284,7 +1430,6 @@ const TransaksiForm = () => {
                             : "border-slate-200 hover:shadow-md hover:border-slate-300"
                       )}
                     >
-                      {/* Item Header */}
                       <div className={cn(
                         "flex items-center justify-between px-4 py-2.5 rounded-t-2xl",
                         exceedsStok && isEditable ? "bg-red-50"
@@ -1346,11 +1491,7 @@ const TransaksiForm = () => {
                         </div>
                       </div>
 
-                      {/* Item Body */}
-                      <div className={cn(
-                        "p-4 space-y-3 transition-opacity",
-                        isLocked && "opacity-80"
-                      )}>
+                      <div className={cn("p-4 space-y-3 transition-opacity", isLocked && "opacity-80")}>
                         <ProductDropdown
                           products={products}
                           selectedId={detail.product_id}
@@ -1366,13 +1507,13 @@ const TransaksiForm = () => {
                             detailIndex={index}
                             detail={detail}
                             productId={detail.product_id}
-                            customerId={form.customer_id}
+                            customerId={selectedCustomerInfo.id}
+                            customerName={selectedCustomerInfo.name}
                             onUpdateHarga={updateHarga}
                             disabled={isLocked || isSubmitting}
                           />
                         )}
 
-                        {/* Qty, Stok, Diskon, Subtotal */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           <div>
                             <label className={cn(
@@ -1445,7 +1586,6 @@ const TransaksiForm = () => {
                           </div>
                         </div>
 
-                        {/* Catatan */}
                         <div>
                           <label className="block text-[10px] font-semibold text-slate-600 mb-1 uppercase tracking-wide">
                             Catatan (opsional)
@@ -1467,7 +1607,6 @@ const TransaksiForm = () => {
                           />
                         </div>
 
-                        {/* Action bar khusus locked item */}
                         {isLocked && detail.product_id && (
                           <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
                             <p className="text-[11px] text-slate-500 italic flex items-center gap-1">
@@ -1490,7 +1629,6 @@ const TransaksiForm = () => {
                 })}
               </div>
 
-              {/* Button "Tambah Item" di Bawah */}
               <button
                 type="button"
                 onClick={addDetailRow}
@@ -1530,7 +1668,7 @@ const TransaksiForm = () => {
           </div>
         </form>
 
-        {/* Sticky Footer with Summary */}
+        {/* Footer */}
         <div className="border-t border-slate-200 bg-white flex-shrink-0">
           <div className="px-5 sm:px-6 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
             <div className="grid grid-cols-3 gap-3">

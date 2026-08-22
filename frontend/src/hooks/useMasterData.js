@@ -1,9 +1,7 @@
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api/axios';
 
-// ==========================================
-// MASTER KEYS - Query Key Factories
-// ==========================================
 export const masterKeys = {
   jenis: {
     all: ['jenis_products'],
@@ -47,7 +45,6 @@ export const masterKeys = {
     lowStock: () => [...masterKeys.product.all, 'low_stock'],
     bestSeller: (params) => [...masterKeys.product.all, 'best_seller', params],
     full: () => [...masterKeys.product.all, 'full'],
-    // ✅ NEW: Semua produk tanpa filter stok (untuk Pesanan)
     allFull: () => [...masterKeys.product.all, 'all_full'],
   },
   distributorProduct: {
@@ -65,8 +62,9 @@ export const masterKeys = {
     lists: () => [...masterKeys.harga.all, 'list'],
     list: (filters) => [...masterKeys.harga.lists(), filters],
     detail: (id) => [...masterKeys.harga.all, 'detail', id],
-    byProduct: (productId, customerId = 'all') => [
-      ...masterKeys.harga.all, 'by_product', productId, customerId,
+    byProductBase: () => [...masterKeys.harga.all, 'by_product'],
+    byProduct: (productId, customerId = null) => [
+      ...masterKeys.harga.all, 'by_product', productId, customerId ?? 'all',
     ],
   },
   customer: {
@@ -123,23 +121,13 @@ export const masterKeys = {
   },
 };
 
-// ==========================================
-// HELPER: Extract data dari berbagai format response
-// ==========================================
-
 const extractArray = (response) => {
   if (!response) return [];
   const raw = response.data ?? response;
 
-  if (raw?.data && Array.isArray(raw.data)) {
-    return raw.data;
-  }
-  if (Array.isArray(raw)) {
-    return raw;
-  }
-  if (raw?.data?.data && Array.isArray(raw.data.data)) {
-    return raw.data.data;
-  }
+  if (raw?.data && Array.isArray(raw.data)) return raw.data;
+  if (Array.isArray(raw)) return raw;
+  if (raw?.data?.data && Array.isArray(raw.data.data)) return raw.data.data;
 
   return [];
 };
@@ -147,21 +135,15 @@ const extractArray = (response) => {
 const extractObject = (response) => {
   if (!response) return null;
   const raw = response.data ?? response;
-  if (raw?.data && typeof raw.data === 'object' && !Array.isArray(raw.data)) {
-    return raw.data;
-  }
-  if (typeof raw === 'object' && !Array.isArray(raw)) {
-    return raw;
-  }
+  if (raw?.data && typeof raw.data === 'object' && !Array.isArray(raw.data)) return raw.data;
+  if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
   return null;
 };
 
 const extractDropdown = (response) => {
   const arr = extractArray(response);
   return arr.map((item) => {
-    if (item.value !== undefined && item.label !== undefined) {
-      return item;
-    }
+    if (item.value !== undefined && item.label !== undefined) return item;
     if (item.id !== undefined) {
       return {
         value: item.id,
@@ -173,9 +155,17 @@ const extractDropdown = (response) => {
   });
 };
 
-// ==========================================
-// DROPDOWN HOOKS (format { value, label })
-// ==========================================
+const forceFreshCache = async (queryClient, queryKey) => {
+  await queryClient.cancelQueries({ queryKey, exact: false });
+  
+  queryClient.removeQueries({ queryKey, exact: false });
+  
+  await queryClient.invalidateQueries({
+    queryKey,
+    exact: false,
+    refetchType: 'active',
+  });
+};
 
 export const useJenisDropdown = () => useQuery({
   queryKey: masterKeys.jenis.dropdown(),
@@ -232,13 +222,6 @@ export const useStatusTransaksiDropdown = () => useQuery({
 
 export const useStatusTransaksiList = useStatusTransaksiDropdown;
 
-// ==========================================
-// FULL DATA HOOKS
-// ==========================================
-
-/**
- * Fetch customers dengan full data (untuk form)
- */
 export const useCustomersFull = () => useQuery({
   queryKey: masterKeys.customer.full(),
   queryFn: async () => {
@@ -246,12 +229,9 @@ export const useCustomersFull = () => useQuery({
     return extractArray(res);
   },
   staleTime: 5 * 60 * 1000,
+  gcTime: 10 * 60 * 1000,
 });
 
-/**
- * Fetch products AVAILABLE (stok > 0) untuk TransaksiForm.
- * Digunakan saat transaksi memotong stok TOKO.
- */
 export const useProductsFull = () => useQuery({
   queryKey: masterKeys.product.full(),
   queryFn: async () => {
@@ -259,13 +239,9 @@ export const useProductsFull = () => useQuery({
     return extractArray(res);
   },
   staleTime: 5 * 60 * 1000,
+  gcTime: 10 * 60 * 1000,
 });
 
-/**
- * ✅ NEW: Fetch SEMUA products tanpa filter stok.
- * Digunakan di PesananForm karena pesanan TIDAK memotong stok,
- * jadi semua produk (termasuk stok 0) harus bisa dipilih.
- */
 export const useProductsAll = () => useQuery({
   queryKey: masterKeys.product.allFull(),
   queryFn: async () => {
@@ -273,190 +249,113 @@ export const useProductsAll = () => useQuery({
     return extractArray(res);
   },
   staleTime: 5 * 60 * 1000,
+  gcTime: 10 * 60 * 1000,
 });
 
-// ==========================================
-// HARGA HOOKS
-// ==========================================
-
-/**
- * Fetch daftar harga untuk product tertentu (umum + khusus customer)
- */
 export const useHargaByProduct = (productId, customerId = null) => useQuery({
-  queryKey: masterKeys.harga.byProduct(productId, customerId || 'all'),
+  queryKey: masterKeys.harga.byProduct(productId, customerId),
   queryFn: async () => {
     const params = customerId ? { customer_id: customerId } : {};
     const res = await api.get(`/harga/by-product/${productId}`, { params });
     return extractArray(res);
   },
   enabled: !!productId,
-  staleTime: 5 * 60 * 1000,
+  staleTime: 15 * 1000,
+  gcTime: 60 * 1000,
+  refetchOnMount: 'always',
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
 });
 
-/**
- * Mutation untuk create harga baru
- */
 export const useCreateHarga = () => {
   const queryClient = useQueryClient();
+  
   return useMutation({
     mutationFn: async (data) => {
       const res = await api.post('/harga', data);
       return extractObject(res);
     },
-    onSuccess: async () => {
-      await queryClient.cancelQueries({ queryKey: masterKeys.harga.all, exact: false });
-      await queryClient.invalidateQueries({
-        queryKey: masterKeys.harga.all,
-        exact: false,
-        refetchType: 'all',
-      });
-      await invalidateRelatedCaches(queryClient, 'harga');
+    onSuccess: async (newHarga, variables) => {
+      await forceFreshCache(queryClient, masterKeys.harga.all);
+      
+      if (variables?.product_id) {
+        await forceFreshCache(
+          queryClient, 
+          [...masterKeys.harga.byProductBase(), variables.product_id]
+        );
+      }
+      
+      await forceFreshCache(queryClient, masterKeys.product.all);
+      
+      console.log('[useCreateHarga] Cache FORCE FRESH for product:', variables?.product_id);
     },
   });
 };
 
-// ==========================================
-// CROSS-INVALIDATION HELPER
-// ==========================================
+export const useUpdateHarga = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, data }) => {
+      const res = await api.put(`/harga/${id}`, data);
+      return extractObject(res);
+    },
+    onSuccess: async () => {
+      await forceFreshCache(queryClient, masterKeys.harga.all);
+      await forceFreshCache(queryClient, masterKeys.product.all);
+      console.log('[useUpdateHarga] Cache FORCE FRESH');
+    },
+  });
+};
+
+export const useDeleteHarga = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id) => {
+      const res = await api.delete(`/harga/${id}`);
+      return extractObject(res);
+    },
+    onSuccess: async () => {
+      await forceFreshCache(queryClient, masterKeys.harga.all);
+      await forceFreshCache(queryClient, masterKeys.product.all);
+      console.log('[useDeleteHarga] Cache FORCE FRESH');
+    },
+  });
+};
+
+export const useInvalidateHarga = () => {
+  const queryClient = useQueryClient();
+  
+  return useCallback(async (productId = null) => {
+    if (productId) {
+      await forceFreshCache(
+        queryClient, 
+        [...masterKeys.harga.byProductBase(), productId]
+      );
+    } else {
+      await forceFreshCache(queryClient, masterKeys.harga.all);
+    }
+    console.log('[useInvalidateHarga] Manual fresh cache', { productId });
+  }, [queryClient]);
+};
 
 export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
   const crossInvalidation = {
-    // ---------- MASTER DATA ----------
-    jenis: [
-      masterKeys.type.all,
-      masterKeys.product.all,
-      masterKeys.distributorProduct.all,
-      masterKeys.productCustomer.all,
-      masterKeys.harga.all,
-      masterKeys.inventory.all,
-      masterKeys.transaksi.all,
-      masterKeys.pesanan.all,
-    ],
-    type: [
-      masterKeys.product.all,
-      masterKeys.distributorProduct.all,
-      masterKeys.productCustomer.all,
-      masterKeys.harga.all,
-      masterKeys.inventory.all,
-      masterKeys.transaksi.all,
-      masterKeys.pesanan.all,
-    ],
-    bahan: [
-      masterKeys.product.all,
-      masterKeys.distributorProduct.all,
-      masterKeys.productCustomer.all,
-      masterKeys.harga.all,
-      masterKeys.inventory.all,
-      masterKeys.transaksi.all,
-      masterKeys.pesanan.all,
-    ],
-    product: [
-      masterKeys.distributorProduct.all,
-      masterKeys.productCustomer.all,
-      masterKeys.harga.all,
-      masterKeys.productMovement.all,
-      masterKeys.inventory.all,
-      masterKeys.transaksi.all,
-      masterKeys.pesanan.all,
-    ],
-    distributorProduct: [
-      masterKeys.product.all,
-      masterKeys.productCustomer.all,
-      masterKeys.harga.all,
-      masterKeys.inventory.all,
-    ],
-    productCustomer: [
-      masterKeys.product.all,
-      masterKeys.distributorProduct.all,
-      masterKeys.harga.all,
-      masterKeys.customer.all,
-      masterKeys.inventory.all,
-    ],
-    harga: [
-      masterKeys.product.all,
-      masterKeys.distributorProduct.all,
-      masterKeys.productCustomer.all,
-      masterKeys.transaksi.all,
-      masterKeys.pesanan.all,
-    ],
-
-    // ---------- MASTER ENTITIES ----------
-    customer: [
-      masterKeys.harga.all,
-      masterKeys.productCustomer.all,
-      masterKeys.transaksi.all,
-      masterKeys.pesanan.all,
-      masterKeys.pembayaran.all,
-    ],
-    distributor: [
-      masterKeys.product.all,
-      masterKeys.distributorProduct.all,
-      masterKeys.productCustomer.all,
-      masterKeys.harga.all,
-      masterKeys.distributor.all,
-      masterKeys.inventory.all,
-    ],
-    productMovement: [
-      masterKeys.product.all,
-      masterKeys.place.all,
-      masterKeys.inventory.all,
-    ],
-    place: [
-      masterKeys.productMovement.all,
-      masterKeys.inventory.all,
-    ],
-    inventory: [
-      masterKeys.product.all,
-      masterKeys.productMovement.all,
-    ],
-
-    // ---------- STOK OPNAME ----------
-    stokOpname: [
-      masterKeys.inventory.all,
-      masterKeys.productMovement.all,
-    ],
-
-    // ---------- TRANSAKSI ----------
-    transaksi: [
-      masterKeys.inventory.all,
-      masterKeys.productMovement.all,
-      masterKeys.pembayaran.all,
-      masterKeys.customer.all,
-      masterKeys.harga.all,
-      masterKeys.pesanan.all,
-    ],
-
-    // ---------- PESANAN ----------
-    pesanan: [
-      masterKeys.transaksi.all,
-      masterKeys.pembayaran.all,
-      masterKeys.customer.all,
-      masterKeys.harga.all,
-      masterKeys.product.all,
-      masterKeys.inventory.all,
-    ],
-
-    // ---------- PEMBAYARAN ----------
-    pembayaran: [
-      masterKeys.transaksi.all,
-      masterKeys.pesanan.all,
-    ],
+    jenis: [masterKeys.type.all, masterKeys.product.all, masterKeys.harga.all, masterKeys.transaksi.all, masterKeys.pesanan.all],
+    type: [masterKeys.product.all, masterKeys.harga.all, masterKeys.transaksi.all, masterKeys.pesanan.all],
+    bahan: [masterKeys.product.all, masterKeys.harga.all, masterKeys.transaksi.all, masterKeys.pesanan.all],
+    product: [masterKeys.harga.all, masterKeys.inventory.all, masterKeys.transaksi.all, masterKeys.pesanan.all],
+    harga: [masterKeys.product.all, masterKeys.transaksi.all, masterKeys.pesanan.all],
+    customer: [masterKeys.harga.all, masterKeys.transaksi.all, masterKeys.pesanan.all, masterKeys.pembayaran.all],
+    transaksi: [masterKeys.inventory.all, masterKeys.pembayaran.all, masterKeys.customer.all],
+    pesanan: [masterKeys.transaksi.all, masterKeys.pembayaran.all, masterKeys.product.all],
+    pembayaran: [masterKeys.transaksi.all, masterKeys.pesanan.all],
   };
 
   const relatedKeys = crossInvalidation[changedEntity] || [];
 
-  // Deduplicate
-  const uniqueKeys = [
-    ...new Set(relatedKeys.map((k) => JSON.stringify(k))),
-  ].map((k) => JSON.parse(k));
-
-  for (const key of uniqueKeys) {
-    await queryClient.cancelQueries({ queryKey: key, exact: false });
-    queryClient.removeQueries({ queryKey: key, exact: false });
-    await queryClient.invalidateQueries({
-      queryKey: key,
-      exact: false,
-      refetchType: 'all',
-    });
+  for (const key of relatedKeys) {
+    await forceFreshCache(queryClient, key);
   }
 };

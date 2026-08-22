@@ -1,27 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
-  X,
-  Plus,
-  Trash2,
-  Search,
-  ChevronDown,
-  ChevronUp,
-  Package,
-  Loader2,
-  User,
-  Calendar,
-  CheckCircle2,
-  DollarSign,
-  Tag,
-  Sparkles,
-  TrendingUp,
-  Lock,
-  Unlock,
-  Pencil,
-  Layers,
-  Hash,
-  AlertCircle,
+  X, Plus, Trash2, Search, ChevronDown, ChevronUp,
+  Package, Loader2, User, Calendar, CheckCircle2,
+  DollarSign, Tag, Sparkles, TrendingUp, Lock, Unlock,
+  Pencil, Layers, Hash, AlertCircle, Crown, Info,
+  Save, RefreshCw, // ✅ NEW: untuk tombol submit & refresh
 } from "lucide-react";
 
 import { usePesananModals } from "../../../lib/zustand/pesananStore";
@@ -33,6 +17,7 @@ import {
   useTypesDropdown,
   useBahansDropdown,
   useHargaByProduct,
+  useCreateHarga, // ✅ NEW: hook untuk create harga ke backend
 } from "../../../hooks/useMasterData";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import {
@@ -44,7 +29,7 @@ import {
 import { cn } from "../../../lib/utils";
 
 /* ==========================================
-   HELPER: KODE GENERATION (sama dengan ProductCustomer)
+   HELPER: KODE GENERATION
    ========================================== */
 
 const jenisKode = (t) => {
@@ -78,23 +63,13 @@ const ukuranKode = (t) => {
 
 const customerPrefix = (name, phone) => {
   if (!name) return "";
-  const init = name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0]?.toUpperCase())
-    .join("")
-    .slice(0, 4);
+  const init = name.trim().split(/\s+/).map((w) => w[0]?.toUpperCase()).join("").slice(0, 4);
   const hp = (phone || "").replace(/\D/g, "");
   return init + hp.slice(-4);
 };
 
 const generateKodePreview = (jenisNama, typeNama, bahanNama, ukuran, custName, custPhone) => {
-  const base = (
-    jenisKode(jenisNama) +
-    typeKode(typeNama) +
-    bahanKode(bahanNama) +
-    ukuranKode(ukuran)
-  ).toUpperCase();
+  const base = (jenisKode(jenisNama) + typeKode(typeNama) + bahanKode(bahanNama) + ukuranKode(ukuran)).toUpperCase();
   const prefix = customerPrefix(custName, custPhone);
   return prefix ? `${prefix}-${base}` : base || "—";
 };
@@ -106,9 +81,7 @@ const generateKodePreview = (jenisNama, typeNama, bahanNama, ukuran, custName, c
 const getSafeKey = (item, index, prefix = "item") => {
   if (!item) return `${prefix}-fallback-${index}`;
   const id = item.id ?? item.value ?? item._id;
-  return id !== undefined && id !== null && id !== ""
-    ? `${prefix}-${id}`
-    : `${prefix}-index-${index}`;
+  return id !== undefined && id !== null && id !== "" ? `${prefix}-${id}` : `${prefix}-index-${index}`;
 };
 
 const createEmptyDetail = () => ({
@@ -127,14 +100,10 @@ const createEmptyDetail = () => ({
   harga_label: "",
   use_new_product: false,
   product_baru: {
-    jenis_id: "",
-    jenis_nama: "",
-    type_id: "",
-    type_nama: "",
-    bahan_id: "",
-    bahan_nama: "",
-    ukuran: "",
-    keterangan: "",
+    jenis_id: "", jenis_nama: "",
+    type_id: "", type_nama: "",
+    bahan_id: "", bahan_nama: "",
+    ukuran: "", keterangan: "",
   },
 });
 
@@ -147,11 +116,7 @@ const useDropdownPosition = (open) => {
   const [style, setStyle] = useState(null);
 
   useEffect(() => {
-    if (!open) {
-      setStyle(null);
-      return;
-    }
-
+    if (!open) { setStyle(null); return; }
     const el = triggerRef.current;
     if (!el) return;
 
@@ -163,16 +128,12 @@ const useDropdownPosition = (open) => {
 
       if (spaceBelow >= 260 || spaceBelow >= spaceAbove) {
         setStyle({
-          top: rect.bottom + 6,
-          left: rect.left,
-          width: rect.width,
+          top: rect.bottom + 6, left: rect.left, width: rect.width,
           maxHeight: Math.max(200, Math.min(maxHeight, spaceBelow)),
         });
       } else {
         setStyle({
-          bottom: window.innerHeight - rect.top + 6,
-          left: rect.left,
-          width: rect.width,
+          bottom: window.innerHeight - rect.top + 6, left: rect.left, width: rect.width,
           maxHeight: Math.max(200, Math.min(maxHeight, spaceAbove)),
         });
       }
@@ -181,7 +142,6 @@ const useDropdownPosition = (open) => {
     update();
     window.addEventListener("scroll", update, true);
     window.addEventListener("resize", update);
-
     return () => {
       window.removeEventListener("scroll", update, true);
       window.removeEventListener("resize", update);
@@ -193,7 +153,6 @@ const useDropdownPosition = (open) => {
 
 const DropdownPortal = ({ open, style, onClose, children }) => {
   if (!open || !style) return null;
-
   return createPortal(
     <>
       <div className="fixed inset-0 z-[80]" onClick={onClose} />
@@ -219,30 +178,25 @@ const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabl
   const { triggerRef, style } = useDropdownPosition(isOpen);
 
   const normalized = useMemo(
-    () =>
-      (customers || []).map((c, i) => ({
-        _key: getSafeKey(c, i, "customer"),
-        id: c.id ?? c.value,
-        name: c.name ?? c.label ?? "Unnamed",
-        phone: c.phone ?? c.no_hp ?? "",
-      })),
+    () => (customers || []).map((c, i) => ({
+      _key: getSafeKey(c, i, "customer"),
+      id: c.id ?? c.value,
+      name: c.name ?? c.label ?? "Unnamed",
+      phone: c.phone ?? c.no_hp ?? "",
+    })),
     [customers]
   );
 
   const filtered = useMemo(() => {
     if (!search.trim()) return normalized;
     const s = search.toLowerCase();
-    return normalized.filter(
-      (c) => c.name?.toLowerCase().includes(s) || c.phone?.toLowerCase().includes(s)
-    );
+    return normalized.filter((c) => c.name?.toLowerCase().includes(s) || c.phone?.toLowerCase().includes(s));
   }, [normalized, search]);
 
   const selected = normalized.find((c) => String(c.id) === String(selectedId));
 
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    if (isOpen && inputRef.current) setTimeout(() => inputRef.current?.focus(), 100);
   }, [isOpen]);
 
   return (
@@ -334,11 +288,7 @@ const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabl
         {onCreateNew && (
           <button
             type="button"
-            onClick={() => {
-              onCreateNew();
-              setIsOpen(false);
-              setSearch("");
-            }}
+            onClick={() => { onCreateNew(); setIsOpen(false); setSearch(""); }}
             className="p-3 border-t border-slate-100 text-sm text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-2 font-medium flex-shrink-0"
           >
             <Plus size={14} /> Buat Customer Baru
@@ -350,22 +300,13 @@ const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabl
 };
 
 /* ==========================================
-   PESANAN PRODUCT SELECTOR (FIXED - REACTIVE TYPES)
+   PESANAN PRODUCT SELECTOR
    ========================================== */
 
 const PesananProductSelector = ({
-  products,
-  selectedId,
-  onSelect,
-  jenisList,
-  bahanList,
-  onToggleNewProduct,
-  useNewProduct,
-  productBaru,
-  onUpdateProductBaru,
-  disabled = false,
-  customerName = "",
-  customerPhone = "",
+  products, selectedId, onSelect, jenisList, bahanList,
+  onToggleNewProduct, useNewProduct, productBaru, onUpdateProductBaru,
+  disabled = false, customerName = "", customerPhone = "",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -374,7 +315,6 @@ const PesananProductSelector = ({
   const inputRef = useRef(null);
   const { triggerRef, style } = useDropdownPosition(isOpen && !useNewProduct);
 
-  // ✅ REACTIVE: Fetch types berdasarkan jenis yang dipilih (existing)
   const isNewJenis = productBaru.jenis_id === "new";
   const isNewType = productBaru.type_id === "new";
   const isNewBahan = productBaru.bahan_id === "new";
@@ -382,15 +322,10 @@ const PesananProductSelector = ({
   const activeJenisId = isNewJenis || !productBaru.jenis_id ? null : productBaru.jenis_id;
   const { data: reactiveTypes = [], isLoading: loadingTypes } = useTypesDropdown(activeJenisId);
 
-  // ✅ Auto-reset type_id saat jenis berubah ke nilai yang tidak cocok
   useEffect(() => {
-    if (isNewJenis || isNewType || !productBaru.jenis_id) return;
-    if (loadingTypes) return;
-
+    if (isNewJenis || isNewType || !productBaru.jenis_id || loadingTypes) return;
     if (productBaru.type_id) {
-      const isValid = reactiveTypes.some(
-        (t) => String(t.value ?? t.id) === String(productBaru.type_id)
-      );
+      const isValid = reactiveTypes.some((t) => String(t.value ?? t.id) === String(productBaru.type_id));
       if (!isValid) {
         onUpdateProductBaru("type_id", "");
         onUpdateProductBaru("type_nama", "");
@@ -398,7 +333,6 @@ const PesananProductSelector = ({
     }
   }, [productBaru.jenis_id, productBaru.type_id, reactiveTypes, loadingTypes, isNewJenis, isNewType, onUpdateProductBaru]);
 
-  // Preview kode real-time
   const kodePreview = useMemo(() => {
     const jNama = isNewJenis
       ? productBaru.jenis_nama
@@ -410,40 +344,20 @@ const PesananProductSelector = ({
       ? productBaru.bahan_nama
       : bahanList.find((b) => String(b.value ?? b.id) === String(productBaru.bahan_id))?.label ?? "";
     return generateKodePreview(jNama, tNama, bNama, productBaru.ukuran, customerName, customerPhone);
-  }, [
-    productBaru.jenis_id,
-    productBaru.jenis_nama,
-    productBaru.type_id,
-    productBaru.type_nama,
-    productBaru.bahan_id,
-    productBaru.bahan_nama,
-    productBaru.ukuran,
-    isNewJenis,
-    isNewType,
-    isNewBahan,
-    jenisList,
-    reactiveTypes,
-    bahanList,
-    customerName,
-    customerPhone,
-  ]);
+  }, [productBaru, isNewJenis, isNewType, isNewBahan, jenisList, reactiveTypes, bahanList, customerName, customerPhone]);
 
-  // Normalize products untuk dropdown existing
   const normalized = useMemo(
-    () =>
-      (products || []).map((p, i) => ({
-        _key: getSafeKey(p, i, "product"),
-        id: p.id ?? p.value,
-        kode: p.kode ?? "",
-        jenis_id: p.jenis_id ?? p.jenis?.id,
-        type_id: p.type_id ?? p.type?.id,
-        bahan_id: p.bahan_id ?? p.bahan?.id,
-        jenis: p.jenis,
-        type: p.type,
-        bahan: p.bahan,
-        ukuran: p.ukuran ?? "",
-        _raw: p,
-      })),
+    () => (products || []).map((p, i) => ({
+      _key: getSafeKey(p, i, "product"),
+      id: p.id ?? p.value,
+      kode: p.kode ?? "",
+      jenis_id: p.jenis_id ?? p.jenis?.id,
+      type_id: p.type_id ?? p.type?.id,
+      bahan_id: p.bahan_id ?? p.bahan?.id,
+      jenis: p.jenis, type: p.type, bahan: p.bahan,
+      ukuran: p.ukuran ?? "",
+      _raw: p,
+    })),
     [products]
   );
 
@@ -451,10 +365,8 @@ const PesananProductSelector = ({
     let result = normalized;
     if (search.trim()) {
       const s = search.toLowerCase();
-      result = result.filter(
-        (p) =>
-          (p.kode || "").toLowerCase().includes(s) ||
-          formatProductName(p._raw).toLowerCase().includes(s)
+      result = result.filter((p) =>
+        (p.kode || "").toLowerCase().includes(s) || formatProductName(p._raw).toLowerCase().includes(s)
       );
     }
     if (filterJenis) result = result.filter((p) => String(p.jenis_id) === String(filterJenis));
@@ -464,24 +376,10 @@ const PesananProductSelector = ({
 
   const selected = normalized.find((p) => String(p.id) === String(selectedId));
 
-  const dropdownFilteredTypes = useMemo(() => {
-    if (!filterJenis) return [];
-    return (jenisList || [])
-      .filter((j) => String(j.value ?? j.id) === String(filterJenis))
-      .length > 0
-      ? [] // Types di dropdown filter ditangani terpisah
-      : [];
-  }, [filterJenis, jenisList]);
-
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    if (isOpen && inputRef.current) setTimeout(() => inputRef.current?.focus(), 100);
   }, [isOpen]);
 
-  /* ==========================================
-     FORM PRODUK BARU (FIXED)
-     ========================================== */
   if (useNewProduct) {
     return (
       <div className="space-y-4 p-4 bg-gradient-to-br from-purple-50 via-pink-50 to-white rounded-xl border-2 border-purple-200 animate-fadeIn">
@@ -505,7 +403,6 @@ const PesananProductSelector = ({
           </button>
         </div>
 
-        {/* Kode Preview */}
         <div>
           <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase items-center gap-1">
             <Hash size={10} /> Kode Produk (Auto-generated)
@@ -513,9 +410,7 @@ const PesananProductSelector = ({
           <div
             className={cn(
               "w-full px-3 py-2.5 border rounded-lg font-mono font-semibold text-sm text-center transition-colors",
-              kodePreview !== "—"
-                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                : "bg-slate-100 border-slate-200 text-slate-400"
+              kodePreview !== "—" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-slate-100 border-slate-200 text-slate-400"
             )}
           >
             {kodePreview}
@@ -523,13 +418,10 @@ const PesananProductSelector = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Jenis */}
           <div>
-            <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">
-              Jenis <span className="text-red-500">*</span>
-            </label>
+            <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">Jenis <span className="text-red-500">*</span></label>
             <select
-              className="w-full px-3 py-2.5 border border-purple-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-200 focus:border-purple-400"
+              className="w-full px-3 py-2.5 border border-purple-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-200"
               value={productBaru.jenis_id}
               onChange={(e) => {
                 onUpdateProductBaru("jenis_id", e.target.value);
@@ -541,13 +433,10 @@ const PesananProductSelector = ({
             >
               <option value="">Pilih Jenis</option>
               {(jenisList || []).map((j, idx) => (
-                <option key={getSafeKey(j, idx, "jenis")} value={j.value ?? j.id}>
-                  {j.label ?? j.nama}
-                </option>
+                <option key={getSafeKey(j, idx, "jenis")} value={j.value ?? j.id}>{j.label ?? j.nama}</option>
               ))}
               <option value="new">➕ Buat Jenis Baru</option>
             </select>
-
             {isNewJenis && (
               <input
                 type="text"
@@ -560,12 +449,8 @@ const PesananProductSelector = ({
             )}
           </div>
 
-          {/* Type - FIXED: REACTIVE */}
           <div>
-            <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">
-              Type {isNewJenis ? "*" : ""}
-            </label>
-
+            <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">Type {isNewJenis ? "*" : ""}</label>
             {isNewJenis ? (
               <div className="space-y-1.5">
                 <input
@@ -585,27 +470,15 @@ const PesananProductSelector = ({
                 <select
                   className="w-full px-3 py-2.5 border border-purple-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-200 disabled:bg-slate-50 disabled:cursor-not-allowed"
                   value={productBaru.type_id}
-                  onChange={(e) => {
-                    onUpdateProductBaru("type_id", e.target.value);
-                    onUpdateProductBaru("type_nama", "");
-                  }}
+                  onChange={(e) => { onUpdateProductBaru("type_id", e.target.value); onUpdateProductBaru("type_nama", ""); }}
                   disabled={disabled || !productBaru.jenis_id || loadingTypes}
                 >
-                  <option value="">
-                    {loadingTypes
-                      ? "Memuat..."
-                      : productBaru.jenis_id
-                        ? `Pilih Tipe (${reactiveTypes.length})`
-                        : "Pilih Jenis dulu"}
-                  </option>
+                  <option value="">{loadingTypes ? "Memuat..." : productBaru.jenis_id ? `Pilih Tipe (${reactiveTypes.length})` : "Pilih Jenis dulu"}</option>
                   {reactiveTypes.map((t, idx) => (
-                    <option key={getSafeKey(t, idx, "type")} value={t.value ?? t.id}>
-                      {t.label ?? t.nama}
-                    </option>
+                    <option key={getSafeKey(t, idx, "type")} value={t.value ?? t.id}>{t.label ?? t.nama}</option>
                   ))}
                   <option value="new">➕ Buat Tipe Baru</option>
                 </select>
-
                 {isNewType && (
                   <input
                     type="text"
@@ -616,7 +489,6 @@ const PesananProductSelector = ({
                     disabled={disabled}
                   />
                 )}
-
                 {productBaru.jenis_id && !isNewJenis && reactiveTypes.length === 0 && !loadingTypes && (
                   <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
                     <AlertCircle size={9} /> Belum ada tipe untuk jenis ini, silakan buat baru
@@ -626,27 +498,20 @@ const PesananProductSelector = ({
             )}
           </div>
 
-          {/* Bahan */}
           <div>
             <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">Bahan</label>
             <select
               className="w-full px-3 py-2.5 border border-purple-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-200"
               value={productBaru.bahan_id}
-              onChange={(e) => {
-                onUpdateProductBaru("bahan_id", e.target.value);
-                onUpdateProductBaru("bahan_nama", "");
-              }}
+              onChange={(e) => { onUpdateProductBaru("bahan_id", e.target.value); onUpdateProductBaru("bahan_nama", ""); }}
               disabled={disabled}
             >
               <option value="">Pilih Bahan (opsional)</option>
               {(bahanList || []).map((b, idx) => (
-                <option key={getSafeKey(b, idx, "bahan")} value={b.value ?? b.id}>
-                  {b.label ?? b.nama}
-                </option>
+                <option key={getSafeKey(b, idx, "bahan")} value={b.value ?? b.id}>{b.label ?? b.nama}</option>
               ))}
               <option value="new">➕ Buat Bahan Baru</option>
             </select>
-
             {isNewBahan && (
               <input
                 type="text"
@@ -659,11 +524,8 @@ const PesananProductSelector = ({
             )}
           </div>
 
-          {/* Ukuran */}
           <div>
-            <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">
-              Ukuran <span className="text-red-500">*</span>
-            </label>
+            <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">Ukuran <span className="text-red-500">*</span></label>
             <input
               type="text"
               placeholder="Contoh: 200x100"
@@ -675,7 +537,6 @@ const PesananProductSelector = ({
           </div>
         </div>
 
-        {/* Keterangan */}
         <div>
           <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">Keterangan</label>
           <textarea
@@ -691,9 +552,6 @@ const PesananProductSelector = ({
     );
   }
 
-  /* ==========================================
-     DROPDOWN PRODUK EXISTING
-     ========================================== */
   return (
     <div ref={triggerRef}>
       <div className="flex gap-2">
@@ -760,16 +618,11 @@ const PesananProductSelector = ({
             <select
               className="flex-1 py-1.5 px-2 text-xs border border-slate-200 rounded-lg bg-white"
               value={filterJenis}
-              onChange={(e) => {
-                setFilterJenis(e.target.value);
-                setFilterType("");
-              }}
+              onChange={(e) => { setFilterJenis(e.target.value); setFilterType(""); }}
             >
               <option value="">Semua Jenis</option>
               {(jenisList || []).map((j, idx) => (
-                <option key={getSafeKey(j, idx, "filter-jenis")} value={j.value ?? j.id}>
-                  {j.label ?? j.nama}
-                </option>
+                <option key={getSafeKey(j, idx, "filter-jenis")} value={j.value ?? j.id}>{j.label ?? j.nama}</option>
               ))}
             </select>
 
@@ -780,21 +633,16 @@ const PesananProductSelector = ({
               disabled={!filterJenis}
             >
               <option value="">Semua Type</option>
-              {!filterJenis
-                ? []
-                : normalized
-                    .filter((p) => String(p.jenis_id) === String(filterJenis) && p.type)
-                    .reduce((acc, p) => {
-                      if (!acc.find((t) => t.id === p.type_id)) {
-                        acc.push({ id: p.type_id, nama: p.type?.nama || "-" });
-                      }
-                      return acc;
-                    }, [])
-                    .map((t, idx) => (
-                      <option key={getSafeKey(t, idx, "filter-type")} value={t.id}>
-                        {t.nama}
-                      </option>
-                    ))}
+              {!filterJenis ? [] : normalized
+                .filter((p) => String(p.jenis_id) === String(filterJenis) && p.type)
+                .reduce((acc, p) => {
+                  if (!acc.find((t) => t.id === p.type_id)) acc.push({ id: p.type_id, nama: p.type?.nama || "-" });
+                  return acc;
+                }, [])
+                .map((t, idx) => (
+                  <option key={getSafeKey(t, idx, "filter-type")} value={t.id}>{t.nama}</option>
+                ))
+              }
             </select>
           </div>
         </div>
@@ -812,10 +660,7 @@ const PesananProductSelector = ({
                 <button
                   key={p._key}
                   type="button"
-                  onClick={() => {
-                    onSelect(p.id);
-                    setTimeout(() => setIsOpen(false), 150);
-                  }}
+                  onClick={() => { onSelect(p.id); setTimeout(() => setIsOpen(false), 150); }}
                   className={cn(
                     "w-full px-3 py-2.5 text-left hover:bg-indigo-50 flex items-center gap-3 border-b border-slate-100 last:border-0 transition",
                     isSelected && "bg-indigo-50"
@@ -840,21 +685,80 @@ const PesananProductSelector = ({
 };
 
 /* ==========================================
-   HARGA SELECTOR EXISTING PRODUCT
+   ✅ HARGA SELECTOR — FRESH CACHE GUARANTEE
+   Dengan submit ke backend + auto-refetch
    ========================================== */
 
-const HargaSelector = ({ detailIndex, detail, productId, customerId, onUpdateHarga, disabled }) => {
-  const { data: hargaList = [], isLoading } = useHargaByProduct(productId, customerId);
+const HargaSelector = ({
+  detailIndex, detail, productId, customerId,
+  customerName, onUpdateHarga, disabled
+}) => {
+  const { 
+    data: hargaList = [], 
+    isLoading, 
+    isFetching,
+    refetch,
+    dataUpdatedAt,
+  } = useHargaByProduct(productId, customerId);
+  
+  const createHargaMut = useCreateHarga(); // ✅ Hook untuk create harga
   const [showNewForm, setShowNewForm] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  // Filter harga berdasarkan customer
+  const hargaUmum = useMemo(
+    () => hargaList.filter((h) => !h.customer_id),
+    [hargaList]
+  );
+  const hargaKhusus = useMemo(
+    () => hargaList.filter((h) => h.customer_id && String(h.customer_id) === String(customerId)),
+    [hargaList, customerId]
+  );
+
+  // ✅ Force refetch setiap kali productId ATAU customerId berubah
+  useEffect(() => {
+    if (productId) {
+      refetch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, customerId]);
+
+  // Auto-reset saat customer berubah
+  const prevCustomerIdRef = useRef(customerId);
+  useEffect(() => {
+    const prevId = String(prevCustomerIdRef.current || "");
+    const currId = String(customerId || "");
+
+    if (prevId !== currId && detail.harga_product_id) {
+      const selectedHarga = hargaList.find((h) => String(h.id) === String(detail.harga_product_id));
+
+      if (selectedHarga?.customer_id && String(selectedHarga.customer_id) !== currId) {
+        onUpdateHarga(detailIndex, {
+          harga_product_id: "",
+          harga_baru: { harga: "", keterangan: "", tanggal_berlaku: new Date().toISOString().split("T")[0] },
+          selected_harga: 0,
+          harga_label: "",
+        });
+        setShowNewForm(false);
+      }
+    }
+    prevCustomerIdRef.current = customerId;
+  }, [customerId, hargaList, detail.harga_product_id, detailIndex, onUpdateHarga]);
+
+  // Auto-show new form jika sudah ada draft
   useEffect(() => {
     if (!detail.harga_product_id && detail.harga_baru?.harga) {
       setShowNewForm(true);
     }
   }, [detail.harga_product_id, detail.harga_baru?.harga]);
 
-  const hargaUmum = hargaList.filter((h) => !h.customer_id);
-  const hargaKhusus = hargaList.filter((h) => h.customer_id);
+  // ✅ Auto-refetch saat dropdown dibuka
+  useEffect(() => {
+    if (isDropdownOpen && productId && !isLoading) {
+      refetch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDropdownOpen, productId]);
 
   const currentSelection = detail.harga_product_id
     ? String(detail.harga_product_id)
@@ -885,14 +789,79 @@ const HargaSelector = ({ detailIndex, detail, productId, customerId, onUpdateHar
       harga_baru: { harga: "", keterangan: "", tanggal_berlaku: "" },
       selected_harga: Number(selected?.harga) || 0,
       harga_label: selected
-        ? `Rp ${formatRupiah(selected.harga)} • ${selected.keterangan || (selected.customer_id ? "Harga Khusus" : "Harga Umum")}`
+        ? `Rp ${formatRupiah(selected.harga)} • ${selected.keterangan || (selected.customer_id ? `Harga Khusus ${customerName || "Customer"}` : "Harga Umum")}`
         : "",
+    });
+  };
+
+  const handleNewHargaChange = (field, value) => {
+    const updated = {
+      harga: detail.harga_baru?.harga || "",
+      keterangan: detail.harga_baru?.keterangan || "",
+      tanggal_berlaku: detail.harga_baru?.tanggal_berlaku || new Date().toISOString().split("T")[0],
+      [field]: value,
+    };
+
+    onUpdateHarga(detailIndex, {
+      harga_product_id: "",
+      harga_baru: updated,
+      selected_harga: field === "harga" ? Number(value) : Number(detail.harga_baru?.harga) || 0,
+      harga_label: updated.harga ? `Rp ${formatRupiah(updated.harga)} • ${updated.keterangan || "Harga Baru"}` : "",
+    });
+  };
+
+  // ✅ Submit harga baru ke backend
+  const handleSubmitNewHarga = async () => {
+    if (!detail.harga_baru?.harga) return;
+
+    try {
+      const payload = {
+        product_id: Number(productId),
+        customer_id: customerId ? Number(customerId) : null,
+        harga: Number(detail.harga_baru.harga),
+        keterangan: detail.harga_baru.keterangan?.trim() || (customerId ? `Harga khusus ${customerName}` : 'Harga baru'),
+        tanggal_berlaku: detail.harga_baru.tanggal_berlaku || new Date().toISOString().split("T")[0],
+      };
+
+      // Create ke backend (auto force-fresh cache via hook)
+      const newHarga = await createHargaMut.mutateAsync(payload);
+      
+      // ✅ Manual refetch setelah success (double-safety)
+      await refetch();
+      
+      // ✅ Small delay untuk pastikan cache sudah ter-update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Refetch sekali lagi untuk memastikan
+      await refetch();
+
+      // Auto-select harga yang baru dibuat
+      onUpdateHarga(detailIndex, {
+        harga_product_id: String(newHarga.id),
+        harga_baru: { harga: "", keterangan: "", tanggal_berlaku: "" },
+        selected_harga: Number(newHarga.harga),
+        harga_label: `Rp ${formatRupiah(newHarga.harga)} • ${newHarga.keterangan || 'Harga baru dibuat'}`,
+      });
+      
+      setShowNewForm(false);
+    } catch (err) {
+      console.error('[HargaSelector] Gagal buat harga:', err);
+    }
+  };
+
+  const handleCancelNewHarga = () => {
+    setShowNewForm(false);
+    onUpdateHarga(detailIndex, {
+      harga_product_id: "",
+      harga_baru: { harga: "", keterangan: "", tanggal_berlaku: "" },
+      selected_harga: 0,
+      harga_label: "",
     });
   };
 
   if (!productId) return null;
 
-  if (isLoading) {
+  if (isLoading && !dataUpdatedAt) {
     return (
       <div className="flex items-center gap-2 text-xs text-slate-500 py-3 px-4 bg-slate-50 rounded-lg border border-slate-200">
         <Loader2 size={14} className="animate-spin text-indigo-600" />
@@ -901,29 +870,79 @@ const HargaSelector = ({ detailIndex, detail, productId, customerId, onUpdateHar
     );
   }
 
+  const hasCustomerPrice = hargaKhusus.length > 0 && customerId;
+  const hasAnyHarga = hargaList.length > 0;
+  const isSubmittingNew = createHargaMut.isPending;
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
           <Tag size={13} className="text-indigo-600" />
           Pilih Harga
         </label>
-        {detail.selected_harga > 0 && (
-          <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-            Rp {formatRupiah(detail.selected_harga)}
-          </span>
-        )}
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {hasCustomerPrice && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+              <Crown size={10} />
+              Harga Khusus {customerName || "Customer"}
+            </span>
+          )}
+          
+          {/* ✅ Tombol Refresh Manual */}
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching || disabled}
+            className="p-1.5 hover:bg-slate-100 rounded-lg transition disabled:opacity-50"
+            title="Refresh daftar harga"
+          >
+            <RefreshCw size={12} className={isFetching ? "animate-spin text-indigo-600" : "text-slate-500"} />
+          </button>
+
+          {detail.selected_harga > 0 && (
+            <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+              Rp {formatRupiah(detail.selected_harga)}
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* Info box: Customer belum dipilih */}
+      {!customerId && hargaUmum.length > 0 && (
+        <div className="flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-800">
+          <Info size={12} className="flex-shrink-0 mt-0.5" />
+          <p>Pilih customer untuk menampilkan harga khusus (jika ada). Saat ini hanya menampilkan <strong>Harga Umum</strong>.</p>
+        </div>
+      )}
 
       <select
         className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-200 disabled:bg-slate-100"
         value={currentSelection}
         onChange={(e) => handleSelect(e.target.value)}
-        disabled={disabled}
+        onFocus={() => setIsDropdownOpen(true)}
+        onBlur={() => setIsDropdownOpen(false)}
+        disabled={disabled || isSubmittingNew}
       >
         <option value="">-- Pilih Harga --</option>
+
+        {/* Harga khusus customer (hanya tampil jika customer punya) */}
+        {hargaKhusus.length > 0 && (
+          <optgroup label={`💎 Harga Khusus ${customerName || "Customer"}`}>
+            {hargaKhusus.map((h) => (
+              <option key={`khusus-${h.id}`} value={String(h.id)}>
+                Rp {formatRupiah(h.harga)}
+                {h.keterangan ? ` • ${h.keterangan}` : ""}
+                {" "}✨ Khusus
+              </option>
+            ))}
+          </optgroup>
+        )}
+
+        {/* Harga umum (selalu tampil jika ada) */}
         {hargaUmum.length > 0 && (
-          <optgroup label="Harga Umum">
+          <optgroup label="💲 Harga Umum">
             {hargaUmum.map((h) => (
               <option key={`umum-${h.id}`} value={String(h.id)}>
                 Rp {formatRupiah(h.harga)}
@@ -932,47 +951,85 @@ const HargaSelector = ({ detailIndex, detail, productId, customerId, onUpdateHar
             ))}
           </optgroup>
         )}
-        {hargaKhusus.length > 0 && (
-          <optgroup label="Harga Khusus Customer">
-            {hargaKhusus.map((h) => (
-              <option key={`khusus-${h.id}`} value={String(h.id)}>
-                Rp {formatRupiah(h.harga)}
-                {h.keterangan ? ` • ${h.keterangan}` : ""}
-              </option>
-            ))}
-          </optgroup>
+
+        {/* Empty state jika tidak ada harga sama sekali */}
+        {hargaUmum.length === 0 && hargaKhusus.length === 0 && (
+          <option value="" disabled>
+            Belum ada harga untuk produk ini
+          </option>
         )}
-        <option value="tambah_harga_khusus">+ Buat Harga Khusus Baru</option>
+
+        <option value="tambah_harga_khusus">
+          {customerId ? `+ Buat Harga Khusus untuk ${customerName || "Customer"}` : "+ Buat Harga Baru"}
+        </option>
       </select>
 
+      {/* Info saat customer dipilih tapi tidak punya harga khusus */}
+      {customerId && hargaKhusus.length === 0 && hargaUmum.length > 0 && !detail.harga_product_id && !showNewForm && (
+        <div className="flex items-start gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-600">
+          <Info size={12} className="flex-shrink-0 mt-0.5 text-slate-400" />
+          <p>
+            <strong>{customerName}</strong> belum memiliki harga khusus untuk produk ini.
+            Anda bisa menggunakan harga umum atau <strong>membuat harga khusus baru</strong>.
+          </p>
+        </div>
+      )}
+
+      {/* Warning jika tidak ada harga sama sekali */}
+      {!hasAnyHarga && !showNewForm && !disabled && (
+        <div className="flex items-start gap-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Belum ada harga untuk produk ini</p>
+            <p className="text-amber-600 mt-0.5">Silakan buat harga baru untuk melanjutkan</p>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Form Harga Baru dengan Tombol Submit */}
       {showNewForm && (
-        <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 space-y-3 animate-fadeIn">
-          <div className="flex items-center gap-2 pb-2 border-b border-blue-200">
+        <div className={cn(
+          "p-4 rounded-xl border space-y-3 animate-fadeIn",
+          customerId
+            ? "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200"
+            : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
+        )}>
+          <div className={cn(
+            "flex items-center gap-2 pb-2 border-b",
+            customerId ? "border-amber-200" : "border-blue-200"
+          )}>
             <div className="p-1.5 bg-white rounded-lg shadow-sm">
-              <Sparkles size={14} className="text-blue-600" />
+              {customerId ? <Crown size={14} className="text-amber-600" /> : <Sparkles size={14} className="text-blue-600" />}
             </div>
-            <p className="text-sm font-semibold text-blue-900">Harga Khusus Baru</p>
+            <div className="flex-1">
+              <p className={cn(
+                "text-sm font-semibold",
+                customerId ? "text-amber-900" : "text-blue-900"
+              )}>
+                {customerId ? `Harga Khusus: ${customerName || "Customer"}` : "Harga Baru"}
+              </p>
+              {customerId && (
+                <p className="text-[10px] text-amber-700">
+                  Harga ini akan tersimpan untuk customer ini
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-[10px] font-medium text-slate-600 mb-1 uppercase">
-                Harga <span className="text-red-500">*</span>
+                Harga (Rp) <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 inputMode="numeric"
                 placeholder="0"
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold"
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-blue-200 focus:outline-none focus:border-blue-400 transition"
                 value={detail.harga_baru?.harga ? formatRupiah(detail.harga_baru.harga) : ""}
-                onChange={(e) =>
-                  onUpdateHarga(detailIndex, {
-                    harga_product_id: "",
-                    harga_baru: { ...detail.harga_baru, harga: unformatRupiah(e.target.value) },
-                    selected_harga: unformatRupiah(e.target.value),
-                  })
-                }
-                disabled={disabled}
+                onChange={(e) => handleNewHargaChange("harga", unformatRupiah(e.target.value))}
+                disabled={disabled || isSubmittingNew}
+                autoFocus
               />
             </div>
 
@@ -980,16 +1037,11 @@ const HargaSelector = ({ detailIndex, detail, productId, customerId, onUpdateHar
               <label className="block text-[10px] font-medium text-slate-600 mb-1 uppercase">Keterangan</label>
               <input
                 type="text"
-                placeholder="Harga khusus..."
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm"
+                placeholder={customerId ? "Harga khusus..." : "Keterangan..."}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none focus:border-blue-400 transition"
                 value={detail.harga_baru?.keterangan || ""}
-                onChange={(e) =>
-                  onUpdateHarga(detailIndex, {
-                    harga_product_id: "",
-                    harga_baru: { ...detail.harga_baru, keterangan: e.target.value },
-                  })
-                }
-                disabled={disabled}
+                onChange={(e) => handleNewHargaChange("keterangan", e.target.value)}
+                disabled={disabled || isSubmittingNew}
               />
             </div>
 
@@ -997,17 +1049,57 @@ const HargaSelector = ({ detailIndex, detail, productId, customerId, onUpdateHar
               <label className="block text-[10px] font-medium text-slate-600 mb-1 uppercase">Berlaku Mulai</label>
               <input
                 type="date"
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm"
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none focus:border-blue-400 transition"
                 value={detail.harga_baru?.tanggal_berlaku || new Date().toISOString().split("T")[0]}
-                onChange={(e) =>
-                  onUpdateHarga(detailIndex, {
-                    harga_product_id: "",
-                    harga_baru: { ...detail.harga_baru, tanggal_berlaku: e.target.value },
-                  })
-                }
-                disabled={disabled}
+                onChange={(e) => handleNewHargaChange("tanggal_berlaku", e.target.value)}
+                disabled={disabled || isSubmittingNew}
               />
             </div>
+          </div>
+
+          {/* Preview */}
+          {detail.harga_baru?.harga > 0 && !isSubmittingNew && (
+            <div className={cn(
+              "pt-2 border-t flex items-center justify-between text-xs",
+              customerId ? "border-amber-200" : "border-blue-200"
+            )}>
+              <span className="text-slate-600">Preview:</span>
+              <span className={cn("font-bold", customerId ? "text-amber-900" : "text-blue-900")}>
+                Rp {formatRupiah(detail.harga_baru.harga)}
+              </span>
+            </div>
+          )}
+
+          {/* ✅ Tombol Aksi: Batal + Simpan */}
+          <div className={cn(
+            "pt-3 border-t flex gap-2",
+            customerId ? "border-amber-200" : "border-blue-200"
+          )}>
+            <button
+              type="button"
+              onClick={handleCancelNewHarga}
+              disabled={isSubmittingNew}
+              className="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmitNewHarga}
+              disabled={disabled || isSubmittingNew || !detail.harga_baru?.harga}
+              className={cn(
+                "flex-1 px-4 py-2 text-sm font-bold text-white rounded-lg transition shadow-sm disabled:opacity-50 flex items-center justify-center gap-2",
+                customerId
+                  ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                  : "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
+              )}
+            >
+              {isSubmittingNew ? (
+                <><Loader2 size={14} className="animate-spin" /> Menyimpan...</>
+              ) : (
+                <><Save size={14} /> Simpan Harga</>
+              )}
+            </button>
           </div>
         </div>
       )}
@@ -1017,6 +1109,7 @@ const HargaSelector = ({ detailIndex, detail, productId, customerId, onUpdateHar
 
 /* ==========================================
    HARGA MANUAL PRODUCT BARU
+   (Tetap sama - ini untuk produk baru yang dibuat di form pesanan)
    ========================================== */
 
 const HargaManualProdukBaru = ({ detail, detailIndex, onUpdateHarga, disabled }) => {
@@ -1025,12 +1118,13 @@ const HargaManualProdukBaru = ({ detail, detailIndex, onUpdateHarga, disabled })
       <p className="text-sm font-semibold text-blue-900 flex items-center gap-2">
         <DollarSign size={14} /> Harga Produk Pesanan
       </p>
+      <p className="text-[10px] text-blue-700 italic">
+        Harga ini akan digunakan untuk pesanan ini dan TIDAK disimpan ke database harga.
+      </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
-          <label className="block text-[10px] font-medium text-slate-600 mb-1 uppercase">
-            Harga <span className="text-red-500">*</span>
-          </label>
+          <label className="block text-[10px] font-medium text-slate-600 mb-1 uppercase">Harga <span className="text-red-500">*</span></label>
           <input
             type="text"
             inputMode="numeric"
@@ -1118,16 +1212,20 @@ const PesananForm = () => {
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [editableIndices, setEditableIndices] = useState(new Set());
 
-  // Info customer terpilih (untuk kode preview)
+  // Info customer terpilih
   const selectedCustomerInfo = useMemo(() => {
     if (isCreatingCustomer && form.customer_baru.name) {
-      return { name: form.customer_baru.name, phone: form.customer_baru.phone || "" };
+      return { id: null, name: form.customer_baru.name, phone: form.customer_baru.phone || "" };
     }
     if (form.customer_id) {
       const c = customers.find((c) => String(c.id ?? c.value) === String(form.customer_id));
-      return { name: c?.name || c?.label || "", phone: c?.phone || c?.no_hp || "" };
+      return {
+        id: c?.id ?? c?.value,
+        name: c?.name || c?.label || "",
+        phone: c?.phone || c?.no_hp || "",
+      };
     }
-    return { name: "", phone: "" };
+    return { id: null, name: "", phone: "" };
   }, [form.customer_id, form.customer_baru, isCreatingCustomer, customers]);
 
   useEffect(() => {
@@ -1149,14 +1247,10 @@ const PesananForm = () => {
           harga_label: d.harga ? `Rp ${formatRupiah(d.harga)} (tersimpan)` : "",
           use_new_product: false,
           product_baru: {
-            jenis_id: "",
-            jenis_nama: "",
-            type_id: "",
-            type_nama: "",
-            bahan_id: "",
-            bahan_nama: "",
-            ukuran: "",
-            keterangan: "",
+            jenis_id: "", jenis_nama: "",
+            type_id: "", type_nama: "",
+            bahan_id: "", bahan_nama: "",
+            ukuran: "", keterangan: "",
           },
         }));
 
@@ -1222,8 +1316,7 @@ const PesananForm = () => {
         updated[index].use_new_product = false;
         updated[index].harga_product_id = "";
         updated[index].harga_baru = {
-          harga: "",
-          keterangan: "",
+          harga: "", keterangan: "",
           tanggal_berlaku: new Date().toISOString().split("T")[0],
         };
         updated[index].selected_harga = 0;
@@ -1262,8 +1355,7 @@ const PesananForm = () => {
         updated[index].product_id = "";
         updated[index].harga_product_id = "";
         updated[index].harga_baru = {
-          harga: "",
-          keterangan: "",
+          harga: "", keterangan: "",
           tanggal_berlaku: new Date().toISOString().split("T")[0],
         };
         updated[index].selected_harga = 0;
@@ -1322,7 +1414,6 @@ const PesananForm = () => {
           errors.push(`${label}: Nama jenis baru wajib diisi.`);
         }
 
-        // ✅ Type wajib diisi (baik existing maupun baru)
         if (!d.product_baru.type_id && !d.product_baru.type_nama) {
           errors.push(`${label}: Type wajib diisi.`);
         } else if (d.product_baru.type_id === "new" && !d.product_baru.type_nama.trim()) {
@@ -1374,30 +1465,12 @@ const PesananForm = () => {
 
         if (d.use_new_product) {
           base.product_baru = {
-            jenis_id:
-              d.product_baru.jenis_id === "new"
-                ? null
-                : d.product_baru.jenis_id
-                  ? Number(d.product_baru.jenis_id)
-                  : null,
+            jenis_id: d.product_baru.jenis_id === "new" ? null : d.product_baru.jenis_id ? Number(d.product_baru.jenis_id) : null,
             jenis_nama: d.product_baru.jenis_id === "new" ? d.product_baru.jenis_nama.trim() : undefined,
-
-            type_id:
-              d.product_baru.type_id === "new"
-                ? null
-                : d.product_baru.type_id
-                  ? Number(d.product_baru.type_id)
-                  : null,
+            type_id: d.product_baru.type_id === "new" ? null : d.product_baru.type_id ? Number(d.product_baru.type_id) : null,
             type_nama: d.product_baru.type_id === "new" ? d.product_baru.type_nama.trim() : undefined,
-
-            bahan_id:
-              d.product_baru.bahan_id === "new"
-                ? null
-                : d.product_baru.bahan_id
-                  ? Number(d.product_baru.bahan_id)
-                  : null,
+            bahan_id: d.product_baru.bahan_id === "new" ? null : d.product_baru.bahan_id ? Number(d.product_baru.bahan_id) : null,
             bahan_nama: d.product_baru.bahan_id === "new" ? d.product_baru.bahan_nama.trim() : undefined,
-
             ukuran: d.product_baru.ukuran.trim(),
             keterangan: d.product_baru.keterangan?.trim() || undefined,
           };
@@ -1521,9 +1594,7 @@ const PesananForm = () => {
                     placeholder="Nama Customer *"
                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm"
                     value={form.customer_baru.name}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, customer_baru: { ...f.customer_baru, name: e.target.value } }))
-                    }
+                    onChange={(e) => setForm((f) => ({ ...f, customer_baru: { ...f.customer_baru, name: e.target.value } }))}
                     disabled={isSubmitting}
                     autoFocus
                   />
@@ -1533,9 +1604,7 @@ const PesananForm = () => {
                       placeholder="No HP"
                       className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm"
                       value={form.customer_baru.phone}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, customer_baru: { ...f.customer_baru, phone: e.target.value } }))
-                      }
+                      onChange={(e) => setForm((f) => ({ ...f, customer_baru: { ...f.customer_baru, phone: e.target.value } }))}
                       disabled={isSubmitting}
                     />
                     <input
@@ -1543,9 +1612,7 @@ const PesananForm = () => {
                       placeholder="Email"
                       className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm"
                       value={form.customer_baru.email}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, customer_baru: { ...f.customer_baru, email: e.target.value } }))
-                      }
+                      onChange={(e) => setForm((f) => ({ ...f, customer_baru: { ...f.customer_baru, email: e.target.value } }))}
                       disabled={isSubmitting}
                     />
                   </div>
@@ -1669,7 +1736,8 @@ const PesananForm = () => {
                             detailIndex={index}
                             detail={detail}
                             productId={detail.product_id}
-                            customerId={form.customer_id}
+                            customerId={selectedCustomerInfo.id}
+                            customerName={selectedCustomerInfo.name}
                             onUpdateHarga={updateHarga}
                             disabled={isLocked || isSubmitting}
                           />
@@ -1692,9 +1760,7 @@ const PesananForm = () => {
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           <div>
-                            <label className="block text-[10px] font-semibold mb-1 uppercase">
-                              Qty <span className="text-red-500">*</span>
-                            </label>
+                            <label className="block text-[10px] font-semibold mb-1 uppercase">Qty <span className="text-red-500">*</span></label>
                             <input
                               type="number"
                               min="1"
@@ -1797,18 +1863,10 @@ const PesananForm = () => {
                     : "border-purple-300 hover:border-purple-500 bg-gradient-to-br from-purple-50/50 to-pink-50/50 hover:from-purple-50 hover:to-pink-50 hover:shadow-md"
                 )}
               >
-                <div
-                  className={cn(
-                    "p-2 rounded-full",
-                    isSubmitting ? "bg-slate-200" : "bg-purple-100 group-hover:bg-purple-200"
-                  )}
-                >
+                <div className={cn("p-2 rounded-full", isSubmitting ? "bg-slate-200" : "bg-purple-100 group-hover:bg-purple-200")}>
                   <Plus
                     size={18}
-                    className={cn(
-                      "transition-transform",
-                      isSubmitting ? "text-slate-400" : "text-purple-600 group-hover:scale-110"
-                    )}
+                    className={cn("transition-transform", isSubmitting ? "text-slate-400" : "text-purple-600 group-hover:scale-110")}
                   />
                 </div>
                 <div className="text-left">
