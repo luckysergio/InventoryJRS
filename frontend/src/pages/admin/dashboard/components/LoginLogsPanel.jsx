@@ -48,9 +48,6 @@ const LoginLogsPanel = ({ logs, isConnected, stats }) => {
                 </span>
               )}
             </h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              {(logs || []).length} aktivitas login • {todayStats.total_attempts} hari ini
-            </p>
           </div>
         </div>
 
