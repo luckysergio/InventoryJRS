@@ -57,10 +57,22 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
     });
 
-    Route::prefix('dashboard')->middleware('role:admin,admin_toko,operator')->group(function () {
+    Route::prefix('dashboard')
+    ->middleware('role:admin,admin_toko,operator')
+    ->group(function () {
         Route::get('/', [DashboardController::class, 'index']);
-        Route::get('/stats', [DashboardController::class, 'dashboardStats']);
-        Route::get('/summary', [DashboardController::class, 'summary']);
+        
+        Route::get('/stats', [DashboardController::class, 'stats']);
+        
+        Route::get('/chart', [DashboardController::class, 'chart']);
+        
+        Route::get('/realtime', [DashboardController::class, 'realtime']);
+        
+        Route::middleware('role:admin')
+            ->prefix('cache')
+            ->group(function () {
+                Route::post('/invalidate', [DashboardController::class, 'invalidate']);
+            });
     });
 
     Route::prefix('users')->middleware('role:admin')->group(function () {

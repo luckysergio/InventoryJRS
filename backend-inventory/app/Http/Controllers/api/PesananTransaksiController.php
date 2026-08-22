@@ -9,6 +9,7 @@ use App\Http\Resources\PesananTransaksiDetailResource;
 use App\Http\Resources\PesananTransaksiResource;
 use App\Models\Transaksi;
 use App\Models\TransaksiDetail;
+use App\Services\Dashboard\DashboardService;
 use App\Services\Production\ProductionService;
 use App\Services\Transaksi\PesananTransaksiService;
 use Illuminate\Http\JsonResponse;
@@ -20,8 +21,15 @@ class PesananTransaksiController extends Controller
 {
     public function __construct(
         private PesananTransaksiService $service,
-        private ProductionService $productionService
+        private ProductionService $productionService,
+        private DashboardService $dashboardService
     ) {}
+
+    private function invalidateAll(): void
+    {
+        $this->invalidateProductionCache();
+        $this->invalidateDashboard();
+    }
 
     private function invalidateProductionCache(): void
     {
@@ -30,6 +38,18 @@ class PesananTransaksiController extends Controller
             Log::info('Production cache invalidated from PesananTransaksiController');
         } catch (\Throwable $e) {
             Log::warning('Failed to invalidate production cache', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function invalidateDashboard(): void
+    {
+        try {
+            $this->dashboardService->invalidateAll();
+            Log::info('Dashboard cache invalidated from PesananTransaksiController');
+        } catch (\Throwable $e) {
+            Log::warning('Failed to invalidate dashboard cache from PesananTransaksiController', [
                 'error' => $e->getMessage(),
             ]);
         }
@@ -128,7 +148,7 @@ class PesananTransaksiController extends Controller
         try {
             $transaksi = $this->service->create($request->validated());
 
-            $this->invalidateProductionCache();
+            $this->invalidateAll();
 
             return response()->json([
                 'status'  => true,
@@ -165,7 +185,7 @@ class PesananTransaksiController extends Controller
         try {
             $updated = $this->service->update($pesanan, $request->validated());
 
-            $this->invalidateProductionCache();
+            $this->invalidateAll();
 
             return response()->json([
                 'status'  => true,
@@ -202,7 +222,7 @@ class PesananTransaksiController extends Controller
         try {
             $this->service->delete($pesanan);
 
-            $this->invalidateProductionCache();
+            $this->invalidateAll();
 
             return response()->json([
                 'status'  => true,
@@ -236,7 +256,7 @@ class PesananTransaksiController extends Controller
 
             $updated = $this->service->updateDetailStatus($detail, $validated['status_transaksi_id']);
 
-            $this->invalidateProductionCache();
+            $this->invalidateAll();
 
             return response()->json([
                 'status'  => true,
@@ -273,7 +293,7 @@ class PesananTransaksiController extends Controller
 
             $this->service->cancelDetail($detail);
 
-            $this->invalidateProductionCache();
+            $this->invalidateAll();
 
             return response()->json([
                 'status'  => true,
@@ -303,7 +323,7 @@ class PesananTransaksiController extends Controller
 
             $this->service->completeDetail($detail);
 
-            $this->invalidateProductionCache();
+            $this->invalidateAll();
 
             return response()->json([
                 'status'  => true,

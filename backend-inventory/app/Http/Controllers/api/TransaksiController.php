@@ -9,6 +9,7 @@ use App\Http\Resources\TransaksiDetailResource;
 use App\Http\Resources\TransaksiResource;
 use App\Models\Transaksi;
 use App\Models\TransaksiDetail;
+use App\Services\Dashboard\DashboardService;
 use App\Services\Inventory\InventoryService;
 use App\Services\Pembayaran\PembayaranService;
 use App\Services\ProductMovement\ProductMovementService;
@@ -24,7 +25,8 @@ class TransaksiController extends Controller
         protected TransaksiService $transaksiService,
         protected InventoryService $inventoryService,
         protected ProductMovementService $productMovementService,
-        protected PembayaranService $pembayaranService
+        protected PembayaranService $pembayaranService,
+        protected DashboardService $dashboardService
     ) {}
 
     private function invalidateAll(): void
@@ -33,6 +35,19 @@ class TransaksiController extends Controller
         $this->inventoryService->invalidateCache();
         $this->productMovementService->invalidateCache();
         $this->pembayaranService->invalidateCache();
+        $this->invalidateDashboard();
+    }
+
+    private function invalidateDashboard(): void
+    {
+        try {
+            $this->dashboardService->invalidateAll();
+            Log::info('Dashboard cache invalidated from TransaksiController');
+        } catch (\Throwable $e) {
+            Log::warning('Failed to invalidate dashboard cache from TransaksiController', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function index(Request $request): JsonResponse

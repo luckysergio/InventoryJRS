@@ -34,7 +34,7 @@ const buildNavItems = (userRole) => {
   const items = [
     {
       title: "Dashboard",
-      href: "/home",
+      href: "/dashboard",
       icon: LayoutDashboard,
     },
   ];

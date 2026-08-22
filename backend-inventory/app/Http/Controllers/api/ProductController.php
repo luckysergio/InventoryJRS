@@ -7,6 +7,7 @@ use App\Http\Requests\Product\StoreProductRequest;
 use App\Http\Requests\Product\UpdateProductRequest;
 use App\Http\Resources\ProductResource;
 use App\Models\Product;
+use App\Services\Dashboard\DashboardService;
 use App\Services\HargaProduct\HargaProductService;
 use App\Services\Product\ProductService;
 use App\Services\ProductCustomer\ProductCustomerService;
@@ -22,7 +23,8 @@ class ProductController extends Controller
         protected ProductService $productService,
         protected ProductCustomerService $productCustomerService,
         protected ProductDistributorService $productDistributorService,
-        protected HargaProductService $hargaProductService
+        protected HargaProductService $hargaProductService,
+        protected DashboardService $dashboardService
     ) {}
 
     private function invalidateProductEcosystem(): void
@@ -31,8 +33,21 @@ class ProductController extends Controller
         $this->productCustomerService->invalidateCache();
         $this->productDistributorService->invalidateCache();
         $this->hargaProductService->invalidateCache();
+        $this->invalidateDashboard();
 
         Log::info('Product ecosystem cache invalidated');
+    }
+
+    private function invalidateDashboard(): void
+    {
+        try {
+            $this->dashboardService->invalidateAll();
+            Log::info('Dashboard cache invalidated from ProductController');
+        } catch (\Throwable $e) {
+            Log::warning('Failed to invalidate dashboard cache from ProductController', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function index(Request $request): JsonResponse

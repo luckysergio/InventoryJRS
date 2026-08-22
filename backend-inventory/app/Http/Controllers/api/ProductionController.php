@@ -7,6 +7,7 @@ use App\Http\Requests\Production\StoreProductionRequest;
 use App\Http\Requests\Production\UpdateProductionRequest;
 use App\Http\Resources\ProductionResource;
 use App\Models\Production;
+use App\Services\Dashboard\DashboardService;
 use App\Services\Inventory\InventoryService;
 use App\Services\Production\ProductionService;
 use App\Services\Product\ProductService;
@@ -20,7 +21,8 @@ class ProductionController extends Controller
         protected ProductionService $productionService,
         protected InventoryService $inventoryService,
         protected ProductService $productService,
-        protected TransaksiService $transaksiService
+        protected TransaksiService $transaksiService,
+        protected DashboardService $dashboardService
     ) {}
 
     /**
@@ -32,8 +34,21 @@ class ProductionController extends Controller
         $this->inventoryService->invalidateCache();
         $this->productService->invalidateCache();
         $this->transaksiService->invalidateCache();
+        $this->invalidateDashboard();
 
         Log::info('Production ecosystem cache invalidated');
+    }
+
+    private function invalidateDashboard(): void
+    {
+        try {
+            $this->dashboardService->invalidateAll();
+            Log::info('Dashboard cache invalidated from ProductionController');
+        } catch (\Throwable $e) {
+            Log::warning('Failed to invalidate dashboard cache from ProductionController', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
