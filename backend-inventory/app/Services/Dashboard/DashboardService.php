@@ -3,10 +3,10 @@
 namespace App\Services\Dashboard;
 
 use App\Models\Customer;
+use App\Models\LoginLog;
 use App\Models\Production;
 use App\Models\Transaksi;
 use Carbon\Carbon;
-use Carbon\CarbonPeriod;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -16,32 +16,29 @@ class DashboardService
     private const CACHE_PREFIX = 'dashboard:stats:';
     private const CACHE_CHART_PREFIX = 'dashboard:chart:';
     private const CACHE_LOWSTOCK = 'dashboard:lowstock';
+    private const CACHE_LOGIN_STATS = 'dashboard:login_stats';
 
     private const TTL = [
-        'daily'    => 60,      // 1 menit
-        'weekly'   => 300,     // 5 menit
-        'monthly'  => 1800,    // 30 menit
-        'yearly'   => 3600,    // 1 jam
-        'custom'   => 600,     // 10 menit
-        'all'      => 3600,    // 1 jam
-        'chart'    => 1800,    // 30 menit
-        'lowstock' => 600,     // 10 menit (data stabil)
+        'daily'       => 60,
+        'weekly'      => 300,
+        'monthly'     => 1800,
+        'yearly'      => 3600,
+        'custom'      => 600,
+        'all'         => 3600,
+        'chart'       => 1800,
+        'lowstock'    => 600,
+        'login_stats' => 60,  // ✅ 1 menit untuk login stats
     ];
 
-    // Status constants
     private const STATUS_SELESAI = 5;
     private const PESANAN_ACTIVE_STATUSES = [1, 2, 3, 4];
 
     /*
     |--------------------------------------------------------------------------
-    | PUBLIC API
+    | PUBLIC API (Existing)
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Get dashboard stats untuk period tertentu.
-     * Menggunakan consolidated queries untuk performa optimal.
-     */
     public function getStats(
         string $period = 'daily',
         ?Carbon $from = null,
@@ -66,10 +63,6 @@ class DashboardService
         return $cached;
     }
 
-    /**
-     * Get chart data (revenue & orders per month).
-     * Cache key includes version untuk proper invalidation.
-     */
     public function getChart(int $months = 6): array
     {
         $version = (int) Cache::get('dashboard:version', 1);
@@ -80,17 +73,13 @@ class DashboardService
         });
     }
 
-    /**
-     * Invalidate semua cache dashboard.
-     * Increment version untuk otomatis invalidate chart juga.
-     */
     public function invalidateAll(): void
     {
         $version = (int) Cache::get('dashboard:version', 1);
         Cache::forever('dashboard:version', $version + 1);
         
-        // Invalidate low stock cache juga (karena transaksi bisa pengaruhi stok)
         Cache::forget(self::CACHE_LOWSTOCK);
+        Cache::forget(self::CACHE_LOGIN_STATS); // ✅ Invalidate login stats juga
 
         Log::info('Dashboard cache invalidated', [
             'old_version' => $version,
@@ -100,7 +89,128 @@ class DashboardService
 
     /*
     |--------------------------------------------------------------------------
-    | DATE RANGE HELPERS
+    | ✅ NEW: LOGIN LOGS API
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Get recent login logs untuk dashboard real-time.
+     * 
+     * @param int $limit Jumlah logs (default 10, max 50)
+     * @return array Login logs dengan user info
+     */
+    public function getLoginLogs(int $limit = 10): array
+    {
+        $limit = min(max(1, $limit), 50);
+
+        try {
+            return LoginLog::with(['user:id,name,email,role'])
+                ->orderByDesc('created_at')
+                ->limit($limit)
+                ->get()
+                ->map(function (LoginLog $log) {
+                    return [
+                        'id' => $log->id,
+                        'type' => 'login',
+                        'success' => (bool) $log->success,
+                        'failure_reason' => $log->failure_reason,
+                        'email_attempted' => $log->email,
+                        'ip_address' => $log->ip_address,
+                        'user_agent' => $log->user_agent,
+                        'user' => $log->user ? [
+                            'id' => $log->user->id,
+                            'name' => $log->user->name,
+                            'email' => $log->user->email,
+                            'role' => $log->user->role ?? null,
+                        ] : null,
+                        'timestamp' => $log->created_at?->toIso8601String(),
+                        'time_ago' => $log->created_at?->diffForHumans() ?? 'Baru saja',
+                    ];
+                })
+                ->values()
+                ->all();
+        } catch (\Throwable $e) {
+            Log::error('Failed to fetch login logs', ['error' => $e->getMessage()]);
+            return [];
+        }
+    }
+
+    /**
+     * Get login stats summary (total hari ini, gagal, dll).
+     * Dengan cache 1 menit untuk performa.
+     */
+    public function getLoginStats(): array
+    {
+        return Cache::remember(self::CACHE_LOGIN_STATS, self::TTL['login_stats'], function () {
+            try {
+                $today = Carbon::today();
+                
+                $totalToday = LoginLog::whereDate('created_at', $today)->count();
+                $successToday = LoginLog::whereDate('created_at', $today)
+                    ->where('success', true)
+                    ->count();
+                $failedToday = $totalToday - $successToday;
+
+                // Unique IP addresses hari ini (indikator unique visitors)
+                $uniqueIpsToday = LoginLog::whereDate('created_at', $today)
+                    ->where('success', true)
+                    ->distinct('ip_address')
+                    ->count('ip_address');
+
+                // User unik yang login hari ini
+                $uniqueUsersToday = LoginLog::whereDate('created_at', $today)
+                    ->where('success', true)
+                    ->whereNotNull('user_id')
+                    ->distinct('user_id')
+                    ->count('user_id');
+
+                return [
+                    'today' => [
+                        'total_attempts' => $totalToday,
+                        'successful' => $successToday,
+                        'failed' => $failedToday,
+                        'success_rate' => $totalToday > 0 
+                            ? round(($successToday / $totalToday) * 100, 1) 
+                            : 0,
+                        'unique_ips' => $uniqueIpsToday,
+                        'unique_users' => $uniqueUsersToday,
+                    ],
+                    'last_activity' => LoginLog::latest('created_at')
+                        ->value('created_at')?->toIso8601String(),
+                    'cached_at' => now()->toIso8601String(),
+                ];
+            } catch (\Throwable $e) {
+                Log::error('Failed to fetch login stats', ['error' => $e->getMessage()]);
+                return [
+                    'today' => [
+                        'total_attempts' => 0,
+                        'successful' => 0,
+                        'failed' => 0,
+                        'success_rate' => 0,
+                        'unique_ips' => 0,
+                        'unique_users' => 0,
+                    ],
+                    'last_activity' => null,
+                    'cached_at' => now()->toIso8601String(),
+                ];
+            }
+        });
+    }
+
+    /**
+     * ✅ Invalidate login logs cache.
+     * Panggil ini setelah login event untuk update stats real-time.
+     */
+    public function invalidateLoginStats(): void
+    {
+        Cache::forget(self::CACHE_LOGIN_STATS);
+        
+        Log::info('Login stats cache invalidated');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DATE RANGE HELPERS (Existing - Unchanged)
     |--------------------------------------------------------------------------
     */
 
@@ -158,7 +268,7 @@ class DashboardService
 
     /*
     |--------------------------------------------------------------------------
-    | STATS COMPUTATION (OPTIMIZED - Consolidated Queries)
+    | STATS COMPUTATION (Existing - Updated with login_stats)
     |--------------------------------------------------------------------------
     */
 
@@ -169,28 +279,18 @@ class DashboardService
         Carbon $prevFrom,
         Carbon $prevTo
     ): array {
-        // ✅ OPTIMIZED: 1 query untuk current + previous metrics (revenue, orders, products sold)
         $metrics = $this->getConsolidatedMetrics($from, $to, $prevFrom, $prevTo);
-        
-        // ✅ OPTIMIZED: 1 query untuk semua customer stats
         $customerStats = $this->getConsolidatedCustomerStats($from, $to);
-        
-        // ✅ CACHED: Low stock count (data stabil, cache terpisah)
         $lowStock = $this->getLowStockCount();
-        
-        // ✅ OPTIMIZED: Top lists dengan proper array casting
         $topCustomers = $this->getTopCustomers($from, $to, 5);
         $topProducts = $this->getTopProducts($from, $to, 5);
-        
-        // ✅ OPTIMIZED: 1 query untuk transaction by type + sales analytics
         $transactionByType = $this->getTransactionByType($from, $to);
         $salesAnalytics = $this->getSalesAnalytics($from, $to);
-        
-        // ✅ OPTIMIZED: 1 query untuk semua production stats
         $production = $this->getConsolidatedProductionStats();
-        
-        // ✅ OPTIMIZED: 1 query untuk transaksi summary
         $summary = $this->getConsolidatedTransactionSummary();
+        
+        // ✅ NEW: Login stats untuk dashboard
+        $loginStats = $this->getLoginStats();
 
         return [
             'period' => $period,
@@ -237,29 +337,24 @@ class DashboardService
             'transaksi_harian_aktif' => $summary['harian_aktif'],
             'transaksi_pesanan_aktif' => $summary['pesanan_aktif'],
             'customer_belum_lunas' => $summary['belum_lunas'],
+            
+            // ✅ NEW: Login stats
+            'login_stats' => $loginStats,
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | CONSOLIDATED QUERIES (Performance Optimized)
+    | CONSOLIDATED QUERIES (Existing - Unchanged)
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * ✅ OPTIMIZED: Get revenue + orders + products sold untuk current & previous period
-     * dalam 1 query menggunakan conditional aggregation.
-     * 
-     * Before: 6 separate queries
-     * After: 1 consolidated query
-     */
     private function getConsolidatedMetrics(
         Carbon $currentFrom,
         Carbon $currentTo,
         Carbon $prevFrom,
         Carbon $prevTo
     ): array {
-        // Handle 'all' period (no previous)
         $isAllPeriod = $currentFrom->timestamp === 0;
         
         if ($isAllPeriod) {
@@ -275,7 +370,6 @@ class DashboardService
                 ')
                 ->first();
         } else {
-            // ✅ Single query dengan conditional aggregation
             $row = DB::table('transaksi_details as td')
                 ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
                 ->where('td.status_transaksi_id', self::STATUS_SELESAI)
@@ -325,28 +419,19 @@ class DashboardService
         ];
     }
 
-    /**
-     * ✅ OPTIMIZED: Get semua customer stats dalam 1 query batch.
-     * 
-     * Before: 3 queries (total, active, new)
-     * After: 1 consolidated query + 1 simple count
-     */
     private function getConsolidatedCustomerStats(Carbon $from, Carbon $to): array
     {
         $isAllPeriod = $from->timestamp === 0;
         
-        // Simple total count
         $total = (int) Customer::count();
         
         if ($isAllPeriod) {
-            // All-time: active = total unique customers, new = total
             $active = (int) DB::table('transaksis')
                 ->whereNotNull('customer_id')
                 ->distinct('customer_id')
                 ->count('customer_id');
             $new = $total;
         } else {
-            // ✅ Single query untuk active + new
             $row = DB::table('customers')
                 ->selectRaw('
                     COUNT(DISTINCT CASE 
@@ -371,15 +456,8 @@ class DashboardService
         ];
     }
 
-    /**
-     * ✅ OPTIMIZED: Get production stats dengan conditional aggregation.
-     * 
-     * Before: 3 queries (antri, produksi, belum_dibuat)
-     * After: 1 production query + 1 belum_dibuat query
-     */
     private function getConsolidatedProductionStats(): array
     {
-        // 1 query untuk antri + produksi
         $productionRow = DB::table('productions')
             ->where('jenis_pembuatan', 'pesanan')
             ->selectRaw("
@@ -388,7 +466,6 @@ class DashboardService
             ")
             ->first();
 
-        // 1 query untuk belum_dibuat
         $belumDibuat = DB::table('transaksi_details as td')
             ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
             ->where('t.jenis_transaksi', 'pesanan')
@@ -407,15 +484,8 @@ class DashboardService
         ];
     }
 
-    /**
-     * ✅ OPTIMIZED: Get transaksi summary dalam 1 consolidated query.
-     * 
-     * Before: 3 queries (harian aktif, pesanan aktif, belum lunas)
-     * After: 2 queries (belum lunas tetap separate karena kompleks)
-     */
     private function getConsolidatedTransactionSummary(): array
     {
-        // 1 query untuk harian + pesanan aktif
         $row = DB::table('transaksis as t')
             ->join('transaksi_details as td', 't.id', '=', 'td.transaksi_id')
             ->selectRaw("
@@ -431,7 +501,6 @@ class DashboardService
             ")
             ->first();
 
-        // Belum lunas tetap separate (subquery complex)
         $belumLunas = DB::table('customers as c')
             ->whereExists(function ($q) {
                 $q->select(DB::raw(1))
@@ -450,9 +519,6 @@ class DashboardService
         ];
     }
 
-    /**
-     * ✅ CACHED: Low stock count dengan separate cache (data stabil).
-     */
     private function getLowStockCount(): int
     {
         return Cache::remember(self::CACHE_LOWSTOCK, self::TTL['lowstock'], function () {
@@ -470,16 +536,6 @@ class DashboardService
         });
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | TOP LISTS (Fixed: Proper Array Casting)
-    |--------------------------------------------------------------------------
-    */
-
-    /**
-     * Top 5 customers berdasarkan total spent.
-     * ✅ Fixed: cast stdClass → array untuk resource compatibility.
-     */
     private function getTopCustomers(Carbon $from, Carbon $to, int $limit = 5): array
     {
         $isAllPeriod = $from->timestamp === 0;
@@ -518,10 +574,6 @@ class DashboardService
             ->all();
     }
 
-    /**
-     * Top 5 products berdasarkan qty terjual.
-     * ✅ Fixed: cast stdClass → array untuk resource compatibility.
-     */
     private function getTopProducts(Carbon $from, Carbon $to, int $limit = 5): array
     {
         $isAllPeriod = $from->timestamp === 0;
@@ -600,9 +652,6 @@ class DashboardService
             ->all();
     }
 
-    /**
-     * ✅ OPTIMIZED: Sales analytics dengan inline total count (hindari double query).
-     */
     private function getSalesAnalytics(Carbon $from, Carbon $to): array
     {
         $isAllPeriod = $from->timestamp === 0;
@@ -629,7 +678,6 @@ class DashboardService
             return [];
         }
 
-        // ✅ Calculate total in-memory (avoid extra DB query)
         $total = $results->sum('total');
 
         return $results->map(fn($row) => [
@@ -640,16 +688,6 @@ class DashboardService
         ])->values()->all();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CHART COMPUTATION
-    |--------------------------------------------------------------------------
-    */
-
-    /**
-     * Compute chart data untuk N bulan terakhir.
-     * ✅ Optimized: single query, fill missing months in-memory.
-     */
     private function computeChart(int $months): array
     {
         $endDate = Carbon::now()->endOfMonth();
@@ -668,7 +706,6 @@ class DashboardService
             ->get()
             ->keyBy('month_key');
 
-        // ✅ Pre-calculate dates untuk menghindari re-iterasi
         $chartData = [];
         $currentDate = $startDate->copy();
         
@@ -693,12 +730,6 @@ class DashboardService
             'cached_at' => Carbon::now()->toIso8601String(),
         ];
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | HELPERS
-    |--------------------------------------------------------------------------
-    */
 
     private function calculateGrowth(int|float $current, int|float $previous): float
     {

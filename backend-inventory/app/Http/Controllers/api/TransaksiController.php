@@ -14,6 +14,7 @@ use App\Services\Inventory\InventoryService;
 use App\Services\Pembayaran\PembayaranService;
 use App\Services\ProductMovement\ProductMovementService;
 use App\Services\Transaksi\TransaksiService;
+use App\Traits\BroadcastsDashboardEvents;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -21,6 +22,8 @@ use Illuminate\Validation\ValidationException;
 
 class TransaksiController extends Controller
 {
+    use BroadcastsDashboardEvents;
+
     public function __construct(
         protected TransaksiService $transaksiService,
         protected InventoryService $inventoryService,
@@ -112,6 +115,13 @@ class TransaksiController extends Controller
 
             $this->invalidateAll();
 
+            // ✅ Broadcast event untuk real-time
+            $this->broadcastTransaksiEvent('created', [
+                'id' => $transaksi->id,
+                'jenis' => $transaksi->jenis_transaksi,
+                'total' => $transaksi->total ?? 0,
+            ]);
+
             return response()->json([
                 'status'  => true,
                 'message' => 'Transaksi berhasil dibuat.',
@@ -170,6 +180,11 @@ class TransaksiController extends Controller
 
             $this->invalidateAll();
 
+            // ✅ Broadcast event
+            $this->broadcastTransaksiEvent('updated', [
+                'id' => $transaksi->id,
+            ]);
+
             return response()->json([
                 'status'  => true,
                 'message' => 'Transaksi berhasil diperbarui.',
@@ -199,6 +214,11 @@ class TransaksiController extends Controller
 
             $this->invalidateAll();
 
+            // ✅ Broadcast event
+            $this->broadcastTransaksiEvent('deleted', [
+                'id' => $transaksi->id,
+            ]);
+
             return response()->json([
                 'status'  => true,
                 'message' => 'Transaksi berhasil dihapus.',
@@ -225,6 +245,12 @@ class TransaksiController extends Controller
             $updated = $this->transaksiService->updateDetailStatus($detail, $validated['status_transaksi_id']);
 
             $this->invalidateAll();
+
+            // ✅ Broadcast event
+            $this->broadcastTransaksiEvent('status_changed', [
+                'detail_id' => $detail->id,
+                'new_status' => $validated['status_transaksi_id'],
+            ]);
 
             return response()->json([
                 'status'  => true,
@@ -254,6 +280,11 @@ class TransaksiController extends Controller
             $this->transaksiService->cancelDetail($detail);
 
             $this->invalidateAll();
+
+            // ✅ Broadcast event
+            $this->broadcastTransaksiEvent('detail_cancelled', [
+                'detail_id' => $detail->id,
+            ]);
 
             return response()->json([
                 'status'  => true,

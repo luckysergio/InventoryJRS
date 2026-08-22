@@ -12,6 +12,7 @@ use App\Services\HargaProduct\HargaProductService;
 use App\Services\Product\ProductService;
 use App\Services\ProductCustomer\ProductCustomerService;
 use App\Services\ProductDistributor\ProductDistributorService;
+use App\Traits\BroadcastsDashboardEvents;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -19,6 +20,8 @@ use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
+    use BroadcastsDashboardEvents;
+
     public function __construct(
         protected ProductService $productService,
         protected ProductCustomerService $productCustomerService,
@@ -144,6 +147,12 @@ class ProductController extends Controller
 
             $this->invalidateProductEcosystem();
 
+            // ✅ Broadcast event
+            $this->broadcastProductEvent('created', [
+                'id' => $product->id,
+                'kode' => $product->kode,
+            ]);
+
             return response()->json([
                 'status' => true,
                 'message' => 'Produk berhasil dibuat.',
@@ -169,6 +178,12 @@ class ProductController extends Controller
             $updated = $this->productService->update($product, $request->validated());
 
             $this->invalidateProductEcosystem();
+
+            // ✅ Broadcast event
+            $this->broadcastProductEvent('updated', [
+                'id' => $product->id,
+                'kode' => $product->kode,
+            ]);
 
             return response()->json([
                 'status' => true,
@@ -196,6 +211,12 @@ class ProductController extends Controller
 
             if ($result['success']) {
                 $this->invalidateProductEcosystem();
+
+                // ✅ Broadcast event
+                $this->broadcastProductEvent('deleted', [
+                    'id' => $product->id,
+                    'kode' => $product->kode,
+                ]);
             }
 
             return response()->json([

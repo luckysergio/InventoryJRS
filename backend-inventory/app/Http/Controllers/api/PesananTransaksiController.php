@@ -12,6 +12,7 @@ use App\Models\TransaksiDetail;
 use App\Services\Dashboard\DashboardService;
 use App\Services\Production\ProductionService;
 use App\Services\Transaksi\PesananTransaksiService;
+use App\Traits\BroadcastsDashboardEvents;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -19,6 +20,8 @@ use Illuminate\Validation\ValidationException;
 
 class PesananTransaksiController extends Controller
 {
+    use BroadcastsDashboardEvents;
+
     public function __construct(
         private PesananTransaksiService $service,
         private ProductionService $productionService,
@@ -150,6 +153,12 @@ class PesananTransaksiController extends Controller
 
             $this->invalidateAll();
 
+            // ✅ Broadcast event
+            $this->broadcastPesananEvent('created', [
+                'id' => $transaksi->id,
+                'customer_id' => $transaksi->customer_id,
+            ]);
+
             return response()->json([
                 'status'  => true,
                 'message' => 'Pesanan berhasil dibuat.',
@@ -186,6 +195,11 @@ class PesananTransaksiController extends Controller
             $updated = $this->service->update($pesanan, $request->validated());
 
             $this->invalidateAll();
+
+            // ✅ Broadcast event
+            $this->broadcastPesananEvent('updated', [
+                'id' => $pesanan->id,
+            ]);
 
             return response()->json([
                 'status'  => true,
@@ -224,6 +238,11 @@ class PesananTransaksiController extends Controller
 
             $this->invalidateAll();
 
+            // ✅ Broadcast event
+            $this->broadcastPesananEvent('deleted', [
+                'id' => $pesanan->id,
+            ]);
+
             return response()->json([
                 'status'  => true,
                 'message' => 'Pesanan berhasil dihapus.',
@@ -257,6 +276,12 @@ class PesananTransaksiController extends Controller
             $updated = $this->service->updateDetailStatus($detail, $validated['status_transaksi_id']);
 
             $this->invalidateAll();
+
+            // ✅ Broadcast event
+            $this->broadcastPesananEvent('status_changed', [
+                'detail_id' => $detail->id,
+                'new_status' => $validated['status_transaksi_id'],
+            ]);
 
             return response()->json([
                 'status'  => true,
@@ -295,6 +320,11 @@ class PesananTransaksiController extends Controller
 
             $this->invalidateAll();
 
+            // ✅ Broadcast event
+            $this->broadcastPesananEvent('detail_cancelled', [
+                'detail_id' => $detail->id,
+            ]);
+
             return response()->json([
                 'status'  => true,
                 'message' => 'Detail pesanan berhasil dibatalkan.',
@@ -324,6 +354,11 @@ class PesananTransaksiController extends Controller
             $this->service->completeDetail($detail);
 
             $this->invalidateAll();
+
+            // ✅ Broadcast event
+            $this->broadcastPesananEvent('completed', [
+                'detail_id' => $detail->id,
+            ]);
 
             return response()->json([
                 'status'  => true,

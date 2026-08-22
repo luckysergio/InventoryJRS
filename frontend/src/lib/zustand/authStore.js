@@ -9,14 +9,44 @@ export const useAuthStore = create(
       token: null,
       isAuthenticated: false,
 
-      setAuth: (user, token) =>
-        set({ user, token, isAuthenticated: true }),
+      setAuth: (user, token) => {
+        set({ user, token, isAuthenticated: true });
+        
+        // Notify websocket module bahwa auth sudah ready
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:login', { 
+            detail: { user, token } 
+          }));
+        }
+      },
 
-      clearAuth: () =>
-        set({ user: null, token: null, isAuthenticated: false }),
+      clearAuth: async () => {
+        // ✅ Destroy Echo instance SEBELUM clear state
+        try {
+          const { destroyEcho } = await import('../websocket');
+          destroyEcho();
+        } catch (e) {
+          console.warn('Failed to destroy Echo:', e);
+        }
+        
+        set({ user: null, token: null, isAuthenticated: false });
+        
+        // Notify websocket module
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:logout'));
+        }
+      },
 
-      updateToken: (token) =>
-        set({ token }),
+      updateToken: (token) => {
+        set({ token });
+        
+        // Notify websocket untuk re-init dengan token baru
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:token-refreshed', { 
+            detail: { token } 
+          }));
+        }
+      },
 
       updateUser: (user) =>
         set({ user }),

@@ -9,6 +9,7 @@ use App\Http\Resources\Dashboard\DashboardChartResource;
 use App\Services\Dashboard\DashboardService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
@@ -40,16 +41,6 @@ class DashboardController extends Controller
 
     /**
      * GET /api/dashboard/stats?period=daily|weekly|monthly|yearly|custom|all&from=&to=&realtime=1
-     * 
-     * Endpoint baru dengan multi-period support
-     * 
-     * @example
-     * - /api/dashboard/stats?period=daily
-     * - /api/dashboard/stats?period=weekly
-     * - /api/dashboard/stats?period=monthly
-     * - /api/dashboard/stats?period=yearly
-     * - /api/dashboard/stats?period=custom&from=2026-01-01&to=2026-08-22
-     * - /api/dashboard/stats?period=daily&realtime=1 (bypass cache)
      */
     public function stats(DashboardStatsRequest $request): JsonResponse
     {
@@ -62,7 +53,6 @@ class DashboardController extends Controller
 
             $data = $this->dashboardService->getStats($period, $from, $to, $realtime);
             
-            // Tambahkan chart data ke response
             $chart = $this->dashboardService->getChart($request->getChartMonths());
             $data['chart_months'] = $request->getChartMonths();
 
@@ -130,8 +120,70 @@ class DashboardController extends Controller
         }
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | ✅ NEW: LOGIN LOGS ENDPOINTS
+    |--------------------------------------------------------------------------
+    */
+
     /**
-     * POST /api/dashboard/invalidate
+     * GET /api/dashboard/login-logs?limit=10
+     * 
+     * Fetch recent login logs untuk initial load dashboard.
+     * Real-time updates akan datang via Pusher event 'login.logged'
+     * 
+     * @query limit int Jumlah logs (1-50, default 10)
+     */
+    public function loginLogs(Request $request): JsonResponse
+    {
+        try {
+            $limit = (int) $request->input('limit', 10);
+            $logs = $this->dashboardService->getLoginLogs($limit);
+
+            return response()->json([
+                'status' => true,
+                'data' => $logs,
+                'meta' => [
+                    'total' => count($logs),
+                    'limit' => min(max(1, $limit), 50),
+                    'cached_at' => now()->toIso8601String(),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('DashboardController@loginLogs error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat login logs',
+            ], 500);
+        }
+    }
+
+    /**
+     * GET /api/dashboard/login-stats
+     * 
+     * Fetch login stats summary (hari ini, success rate, dll).
+     * Data di-cache 1 menit.
+     */
+    public function loginStats(): JsonResponse
+    {
+        try {
+            $stats = $this->dashboardService->getLoginStats();
+
+            return response()->json([
+                'status' => true,
+                'data' => $stats,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('DashboardController@loginStats error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat login stats',
+            ], 500);
+        }
+    }
+
+    /**
+     * POST /api/dashboard/cache/invalidate
      * Manual invalidate cache (untuk admin)
      */
     public function invalidate(): JsonResponse

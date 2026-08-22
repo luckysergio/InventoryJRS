@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import api from '../lib/api/axios';
 import { useAuthStore } from '../lib/zustand/authStore';
 import { useConfirmDialog } from './useConfirmDialog';
+import { resetEcho, destroyEcho } from '../lib/websocket';
 
 const AUTH_KEYS = {
   all: ['auth'],
@@ -16,9 +17,14 @@ export const useAuth = () => {
   const { user, token, isAuthenticated, setAuth, clearAuth } = useAuthStore();
   const { info } = useConfirmDialog();
 
+  // ==========================================
+  // HANDLE LOGOUT EVENT
+  // ==========================================
+  
   useEffect(() => {
-    const handleLogout = () => {
-      clearAuth();
+    const handleLogout = async () => {
+      destroyEcho();
+      await clearAuth();
       queryClient.cancelQueries();
       queryClient.removeQueries();
       navigate('/jayarubberseallogin', { replace: true });
@@ -29,6 +35,10 @@ export const useAuth = () => {
     return () => window.removeEventListener('auth:logout', handleLogout);
   }, [navigate, clearAuth, queryClient, info]);
 
+  // ==========================================
+  // FETCH PROFILE (jika ada token)
+  // ==========================================
+  
   const { data: profileData, isLoading: isProfileLoading } = useQuery({
     queryKey: AUTH_KEYS.profile(),
     queryFn: async () => {
@@ -40,7 +50,7 @@ export const useAuth = () => {
     retry: 1,
     onError: () => {
       clearAuth();
-    }
+    },
   });
 
   useEffect(() => {
@@ -49,27 +59,44 @@ export const useAuth = () => {
     }
   }, [profileData]);
 
+  // ==========================================
+  // LOGIN MUTATION
+  // ==========================================
+  
   const loginMutation = useMutation({
     mutationFn: async (credentials) => {
       const res = await api.post('/auth/login', credentials);
-      return res.data.data; // { user, token }
+      return res.data.data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setAuth(data.user, data.token);
       queryClient.invalidateQueries({ queryKey: AUTH_KEYS.profile() });
+      
+      // Reset Echo instance dengan token baru
+      try {
+        resetEcho();
+      } catch (e) {
+        console.warn('Failed to reset Echo after login:', e);
+      }
     },
   });
 
+  // ==========================================
+  // LOGOUT MUTATION
+  // ==========================================
+  
   const logoutMutation = useMutation({
     mutationFn: () => api.post('/auth/logout'),
-    onSettled: () => {
-      clearAuth();
+    onSettled: async () => {
+      destroyEcho();
+      await clearAuth();
       queryClient.cancelQueries();
       queryClient.removeQueries();
       navigate('/jayarubberseallogin', { replace: true });
     },
-    onError: () => {
-      clearAuth();
+    onError: async () => {
+      destroyEcho();
+      await clearAuth();
       queryClient.cancelQueries();
       queryClient.removeQueries();
       navigate('/jayarubberseallogin', { replace: true });

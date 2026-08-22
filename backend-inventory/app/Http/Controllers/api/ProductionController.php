@@ -12,11 +12,14 @@ use App\Services\Inventory\InventoryService;
 use App\Services\Production\ProductionService;
 use App\Services\Product\ProductService;
 use App\Services\Transaksi\TransaksiService;
+use App\Traits\BroadcastsDashboardEvents;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 
 class ProductionController extends Controller
 {
+    use BroadcastsDashboardEvents;
+
     public function __construct(
         protected ProductionService $productionService,
         protected InventoryService $inventoryService,
@@ -25,9 +28,6 @@ class ProductionController extends Controller
         protected DashboardService $dashboardService
     ) {}
 
-    /**
-     * Invalidate semua cache yang terdampak operasi produksi.
-     */
     private function invalidateEcosystem(): void
     {
         $this->productionService->invalidateCache();
@@ -51,9 +51,6 @@ class ProductionController extends Controller
         }
     }
 
-    /**
-     * GET /api/productions
-     */
     public function index(): JsonResponse
     {
         try {
@@ -74,9 +71,6 @@ class ProductionController extends Controller
         }
     }
 
-    /**
-     * GET /api/productions/{production}
-     */
     public function show(Production $production): JsonResponse
     {
         try {
@@ -105,15 +99,18 @@ class ProductionController extends Controller
         }
     }
 
-    /**
-     * POST /api/productions
-     */
     public function store(StoreProductionRequest $request): JsonResponse
     {
         try {
             $production = $this->productionService->create($request->validated());
 
             $this->invalidateEcosystem();
+
+            // ✅ Broadcast event
+            $this->broadcastProductionEvent('created', [
+                'id' => $production->id,
+                'status' => $production->status,
+            ]);
 
             return response()->json([
                 'status'  => true,
@@ -133,15 +130,18 @@ class ProductionController extends Controller
         }
     }
 
-    /**
-     * PUT /api/productions/{production}
-     */
     public function update(UpdateProductionRequest $request, Production $production): JsonResponse
     {
         try {
             $updated = $this->productionService->updateStatus($production, $request->validated());
 
             $this->invalidateEcosystem();
+
+            // ✅ Broadcast event
+            $this->broadcastProductionEvent('updated', [
+                'id' => $production->id,
+                'status' => $updated->status,
+            ]);
 
             return response()->json([
                 'status'  => true,
@@ -160,9 +160,6 @@ class ProductionController extends Controller
         }
     }
 
-    /**
-     * DELETE /api/productions/{production}
-     */
     public function destroy(Production $production): JsonResponse
     {
         try {
@@ -170,6 +167,11 @@ class ProductionController extends Controller
 
             if ($result['success']) {
                 $this->invalidateEcosystem();
+
+                // ✅ Broadcast event
+                $this->broadcastProductionEvent('deleted', [
+                    'id' => $production->id,
+                ]);
             }
 
             return response()->json([
@@ -189,10 +191,6 @@ class ProductionController extends Controller
         }
     }
 
-    /**
-     * GET /api/productions/pesanan/dipesan
-     * Return transaksi details siap produksi (status "Di Pesan").
-     */
     public function pesananDipesan(): JsonResponse
     {
         try {
