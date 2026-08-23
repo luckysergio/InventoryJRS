@@ -145,7 +145,6 @@ const ProductPage = () => {
   );
 };
 
-// ✅ CARD DISERAGAMKAN - Layout identik dengan DistributorProductCard
 const ProductCard = ({ item, onDetail, onEdit, onDelete }) => {
   const qtyToko = Number(item.qty_toko) || 0;
   const qtyBengkel = Number(item.qty_bengkel) || 0;

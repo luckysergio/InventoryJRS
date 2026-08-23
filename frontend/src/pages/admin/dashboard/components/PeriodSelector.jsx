@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from "react";
-import { Calendar, X, Zap, Radio } from "lucide-react";
+import { Calendar, X } from "lucide-react";
 import { useDashboardFilters } from "../../../../lib/zustand/dashboardStore";
 import { cn } from "../../../../lib/utils";
 
+// ✅ Ditambah "all" — berlaku untuk stats utama DAN login logs
 const PERIODS = [
   { value: "daily", label: "Harian", icon: "📅" },
   { value: "weekly", label: "Mingguan", icon: "📆" },
   { value: "monthly", label: "Bulanan", icon: "🗓️" },
   { value: "yearly", label: "Tahunan", icon: "📊" },
   { value: "custom", label: "Custom", icon: "🎯" },
+  { value: "all", label: "Semua", icon: "📋" },
 ];
 
 const PeriodSelector = () => {
@@ -19,6 +21,7 @@ const PeriodSelector = () => {
     customTo,
     setCustomRange,
     realtime,
+    toggleRealtime, // ✅ FIX: sebelumnya tidak di-destructure tapi dipanggil
   } = useDashboardFilters();
 
   const [showCustomPicker, setShowCustomPicker] = useState(false);
@@ -26,7 +29,7 @@ const PeriodSelector = () => {
   const [tempTo, setTempTo] = useState(customTo || "");
   const pickerRef = useRef(null);
 
-  // ✅ Auto-enable realtime saat component mount
+  // Auto-enable realtime saat mount
   useEffect(() => {
     if (!realtime) {
       toggleRealtime();
@@ -45,11 +48,12 @@ const PeriodSelector = () => {
   }, []);
 
   useEffect(() => {
-    if (period === 'custom') {
+    if (period === "custom") {
       setShowCustomPicker(true);
       if (!tempFrom) setTempFrom(customFrom || "");
       if (!tempTo) setTempTo(customTo || "");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period]);
 
   const handleApplyCustom = () => {
@@ -69,7 +73,6 @@ const PeriodSelector = () => {
   return (
     <div className="bg-white rounded-2xl border border-blue-100/60 p-4 sm:p-5 shadow-sm shadow-blue-100/40">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        
         {/* Period Buttons */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
@@ -96,9 +99,8 @@ const PeriodSelector = () => {
           </div>
         </div>
 
-        {/* ✅ Real-time Toggle + LIVE Indicator */}
+        {/* LIVE Indicator */}
         <div className="flex items-center gap-3">
-          {/* LIVE Indicator (hanya muncul saat realtime aktif) */}
           {realtime && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full animate-fadeIn">
               <span className="relative flex h-2.5 w-2.5">
@@ -153,6 +155,7 @@ const PeriodSelector = () => {
               <button
                 onClick={() => setShowCustomPicker(false)}
                 className="p-2 bg-white text-slate-600 rounded-lg hover:bg-slate-50 ring-1 ring-slate-200 transition"
+                aria-label="Tutup date picker"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -165,8 +168,8 @@ const PeriodSelector = () => {
       {period === "custom" && customFrom && customTo && !showCustomPicker && (
         <div className="mt-3 flex items-center justify-between px-3 py-2 bg-blue-50/50 rounded-lg ring-1 ring-blue-100/50">
           <span className="text-xs text-slate-600 font-medium">
-            📅 {new Date(customFrom).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })} —{" "}
-            {new Date(customTo).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}
+            📅 {new Date(customFrom).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} —{" "}
+            {new Date(customTo).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
           </span>
           <button
             onClick={() => setShowCustomPicker(true)}

@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../lib/zustand/authStore';
 import api from '../lib/api/axios';
 
@@ -10,8 +10,9 @@ export const dashboardKeys = {
   stats: (params) => [...dashboardKeys.all, 'stats', params],
   chart: (months) => [...dashboardKeys.all, 'chart', months],
   realtime: (params) => [...dashboardKeys.all, 'realtime', params],
-  loginLogs: (limit = 10) => [...dashboardKeys.all, 'login-logs', limit],
-  loginStats: () => [...dashboardKeys.all, 'login-stats'],
+  loginLogs: (params) => [...dashboardKeys.all, 'login-logs', params],
+  loginLogDetail: (id) => [...dashboardKeys.all, 'login-logs', 'detail', id],
+  loginStats: (params) => [...dashboardKeys.all, 'login-stats', params],
 };
 
 // TTL cache berdasarkan period (ms)
@@ -28,10 +29,6 @@ const CACHE_TTL = {
 // DASHBOARD STATS HOOKS
 // ==========================================
 
-/**
- * Hook untuk fetch dashboard stats
- * Auto-disable jika user belum login
- */
 export const useDashboardStats = (params) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const period = params?.period || 'daily';
@@ -50,16 +47,13 @@ export const useDashboardStats = (params) => {
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+    retryDelay: (i) => Math.min(1000 * 2 ** i, 5000),
   });
 };
 
-/**
- * Hook untuk fetch chart data (lightweight)
- */
 export const useDashboardChart = (months = 6) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  
+
   return useQuery({
     queryKey: dashboardKeys.chart(months),
     queryFn: async () => {
@@ -73,12 +67,9 @@ export const useDashboardChart = (months = 6) => {
   });
 };
 
-/**
- * Hook untuk real-time data (bypass cache)
- */
 export const useDashboardRealtime = (params) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  
+
   return useQuery({
     queryKey: dashboardKeys.realtime(params),
     queryFn: async () => {
@@ -98,40 +89,87 @@ export const useDashboardRealtime = (params) => {
 // ==========================================
 
 /**
- * Hook untuk fetch recent login logs (initial load)
+ * List login logs. Period ikut parameter (dari PeriodSelector global).
  */
-export const useLoginLogs = (limit = 10) => {
+export const useLoginLogs = (params = {}) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  
+
+  const {
+    period = 'daily',
+    from = '',
+    to = '',
+    page = 1,
+    perPage = 10,
+    search = '',
+    success = '',
+    ip = '',
+  } = params;
+
+  const isCustomIncomplete = period === 'custom' && (!from || !to);
+
   return useQuery({
-    queryKey: dashboardKeys.loginLogs(limit),
+    queryKey: dashboardKeys.loginLogs({ period, from, to, page, perPage, search, success, ip }),
     queryFn: async () => {
-      const res = await api.get('/dashboard/login-logs', { 
-        params: { limit: Math.min(Math.max(1, limit), 50) } 
+      const res = await api.get('/dashboard/login-logs', {
+        params: {
+          period,
+          from: from || undefined,
+          to: to || undefined,
+          page,
+          per_page: perPage,
+          search: search || undefined,
+          success: success || undefined,
+          ip: ip || undefined,
+        },
       });
       return res.data;
     },
-    enabled: isAuthenticated,
-    staleTime: 60 * 1000,
+    enabled: isAuthenticated && !isCustomIncomplete,
+    staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
+    placeholderData: (prev) => prev,
+  });
+};
+
+export const useLoginLogDetail = (id) => {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  return useQuery({
+    queryKey: dashboardKeys.loginLogDetail(id),
+    queryFn: async () => {
+      const res = await api.get(`/dashboard/login-logs/${id}`);
+      return res.data;
+    },
+    enabled: isAuthenticated && !!id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 };
 
 /**
- * Hook untuk fetch login stats summary
+ * ✅ Login stats summary — SEKARANG IKUT PERIODE (sama seperti stats utama).
  */
-export const useLoginStats = () => {
+export const useLoginStats = (params = {}) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  
+
+  const { period = 'daily', from = '', to = '' } = params;
+  const isCustomIncomplete = period === 'custom' && (!from || !to);
+
   return useQuery({
-    queryKey: dashboardKeys.loginStats(),
+    queryKey: dashboardKeys.loginStats({ period, from, to }),
     queryFn: async () => {
-      const res = await api.get('/dashboard/login-stats');
+      const res = await api.get('/dashboard/login-stats', {
+        params: {
+          period,
+          from: from || undefined,
+          to: to || undefined,
+        },
+      });
       return res.data;
     },
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !isCustomIncomplete,
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -144,7 +182,7 @@ export const useLoginStats = () => {
 
 export const useInvalidateDashboard = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async () => {
       const res = await api.post('/dashboard/cache/invalidate');
@@ -161,7 +199,7 @@ export const useInvalidateDashboard = () => {
 
 export const useRefreshDashboard = () => {
   const queryClient = useQueryClient();
-  
+
   return async () => {
     await queryClient.invalidateQueries({
       queryKey: dashboardKeys.all,
@@ -172,21 +210,14 @@ export const useRefreshDashboard = () => {
 
 export const useRefreshLoginLogs = () => {
   const queryClient = useQueryClient();
-  
+
   return async () => {
     await queryClient.invalidateQueries({
-      queryKey: dashboardKeys.loginLogs(),
+      queryKey: [...dashboardKeys.all, 'login-logs'],
       exact: false,
     });
-  };
-};
-
-export const useRefreshLoginStats = () => {
-  const queryClient = useQueryClient();
-  
-  return async () => {
     await queryClient.invalidateQueries({
-      queryKey: dashboardKeys.loginStats(),
+      queryKey: [...dashboardKeys.all, 'login-stats'],
       exact: false,
     });
   };

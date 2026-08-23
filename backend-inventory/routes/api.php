@@ -68,6 +68,8 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::get('/realtime', [DashboardController::class, 'realtime']);
         
         Route::get('/login-logs', [DashboardController::class, 'loginLogs']);
+        Route::get('/login-logs/{id}', [DashboardController::class, 'loginLogDetail'])
+            ->whereNumber('id');  // ✅ WAJIB: hanya terima angka
         Route::get('/login-stats', [DashboardController::class, 'loginStats']);
         
         Route::middleware('role:admin')

@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from "react";
+import { useEffect, memo } from "react";
 import {
   DollarSign, ShoppingCart, Users, Package,
   Activity, Zap, AlertCircle,
@@ -8,11 +8,9 @@ import { useDashboardFilters } from "../../../lib/zustand/dashboardStore";
 import { useDashboardRealtimeState } from "../../../lib/zustand/dashboardStore";
 import {
   useDashboardStats,
-  useLoginLogs,
   useLoginStats,
 } from "../../../hooks/useDashboard";
 import { useDashboardRealtimeWebSocket } from "../../../hooks/useDashboardRealtime";
-import { useDashboardLoginLogs } from "../../../lib/zustand/dashboardStore";
 import { formatRupiah } from "../transaksidaily/utils/transaksiUtils";
 import { cn } from "../../../lib/utils";
 import PeriodSelector from "./components/PeriodSelector";
@@ -25,35 +23,31 @@ import DashboardSkeleton from "./components/DashboardSkeleton";
 import DashboardError from "./components/DashboardError";
 
 const DashboardPage = () => {
-  const { getQueryParams } = useDashboardFilters();
+  // ✅ Period global — dipakai stats utama DAN login logs
+  const { period, customFrom, customTo, getQueryParams } = useDashboardFilters();
 
-  // ✅ Initialize WebSocket
   useDashboardRealtimeWebSocket();
 
   const { connectionStatus, lastEvent, clearLastEvent } = useDashboardRealtimeState();
-  const { loginLogs, setLoginLogs } = useDashboardLoginLogs();
 
-  // ✅ Fetch dashboard data
   const { data, isLoading, error, refetch } = useDashboardStats(getQueryParams());
-  const { data: initialLogsData } = useLoginLogs(10);
-  const { data: loginStatsData } = useLoginStats();
+
+  // ✅ Login stats ikut period global (sama seperti stats utama)
+  const { data: loginStatsData } = useLoginStats({
+    period,
+    from: customFrom,
+    to: customTo,
+  });
 
   const stats = data?.data;
   const chart = data?.chart;
   const metrics = stats?.metrics;
 
-  const isConnected = connectionStatus === 'connected';
+  const isConnected = connectionStatus === "connected";
 
-  // ✅ Set initial login logs
+  // AUTO-REFETCH saat ada event dashboard.updated
   useEffect(() => {
-    if (initialLogsData?.data && initialLogsData.data.length > 0 && loginLogs.length === 0) {
-      setLoginLogs(initialLogsData.data);
-    }
-  }, [initialLogsData, loginLogs.length, setLoginLogs]);
-
-  // ✅ AUTO-REFETCH saat ada event dashboard.updated
-  useEffect(() => {
-    if (lastEvent?.type === 'dashboard.updated') {
+    if (lastEvent?.type === "dashboard.updated") {
       refetch();
 
       const timer = setTimeout(() => {
@@ -68,7 +62,6 @@ const DashboardPage = () => {
     <main className="min-h-screen bg-gradient-to-br from-blue-50/40 via-slate-50 to-sky-50/30 pb-20">
       <div className="space-y-5 animate-fadeIn">
 
-        {/* REAL-TIME EVENT NOTIFICATION */}
         {lastEvent && (
           <RealtimeNotification
             event={lastEvent}
@@ -78,7 +71,6 @@ const DashboardPage = () => {
 
         <PeriodSelector />
 
-        {/* CONTENT */}
         {isLoading ? (
           <DashboardSkeleton />
         ) : error ? (
@@ -120,28 +112,24 @@ const DashboardPage = () => {
               />
             </section>
 
-            {/* Login Logs Panel */}
+            {/* ✅ Login Logs Panel — period & count ikut PeriodSelector */}
             <LoginLogsPanel
-              logs={loginLogs}
               isConnected={isConnected}
               stats={loginStatsData?.data}
             />
 
-            {/* Revenue Chart */}
             {chart?.data && chart.data.length > 0 && (
               <section aria-label="Grafik Pendapatan">
                 <RevenueChart data={chart.data} months={chart.months} />
               </section>
             )}
 
-            {/* Production Summary */}
             {stats?.production && (
               <section aria-label="Ringkasan Produksi">
                 <ProductionSummary production={stats.production} />
               </section>
             )}
 
-            {/* Top Lists */}
             <section aria-label="Daftar Teratas" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <TopListCard
                 title="Top 5 Customers"
@@ -163,7 +151,6 @@ const DashboardPage = () => {
               />
             </section>
 
-            {/* Summary Cards */}
             <section aria-label="Ringkasan Transaksi" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <SummaryMiniCard
                 label="Transaksi Harian Aktif"
@@ -194,75 +181,39 @@ const DashboardPage = () => {
   );
 };
 
-// Connection Indicator (Memoized)
-const ConnectionIndicator = memo(({ status }) => {
-  const config = {
-    connected: {
-      icon: <Wifi className="w-3 h-3" aria-hidden="true" />,
-      text: 'Live',
-      color: 'text-emerald-600',
-    },
-    connecting: {
-      icon: <Wifi className="w-3 h-3 animate-pulse" aria-hidden="true" />,
-      text: 'Connecting...',
-      color: 'text-amber-600',
-    },
-    disconnected: {
-      icon: <WifiOff className="w-3 h-3" aria-hidden="true" />,
-      text: 'Offline',
-      color: 'text-slate-500',
-    },
-    error: {
-      icon: <WifiOff className="w-3 h-3" aria-hidden="true" />,
-      text: 'Error',
-      color: 'text-rose-600',
-    },
-  };
-
-  const c = config[status] || config.disconnected;
-
-  return (
-    <span className={cn("flex items-center gap-1.5", c.color)} role="status" aria-live="polite">
-      {c.icon}
-      <span>{c.text}</span>
-    </span>
-  );
-});
-
-ConnectionIndicator.displayName = 'ConnectionIndicator';
-
 // Real-time Notification (Memoized)
 const RealtimeNotification = memo(({ event, onDismiss }) => {
   const getMessage = () => {
-    if (event.type === 'login.logged') {
-      const { success, email, user } = event.data;
-      const name = user?.name || email || 'Unknown';
+    if (event.type === "login.logged") {
+      const { success, user } = event.data;
+      const email = event.data?.email_attempted || event.data?.email;
+      const name = user?.name || email || "Unknown";
       return success
         ? `✅ ${name} berhasil login`
         : `❌ Login gagal: ${email}`;
     }
 
-    if (event.type === 'dashboard.updated') {
+    if (event.type === "dashboard.updated") {
       const typeMap = {
-        'transaksi.created': 'Transaksi baru dibuat',
-        'transaksi.updated': 'Transaksi diperbarui',
-        'transaksi.deleted': 'Transaksi dihapus',
-        'transaksi.status_changed': 'Status transaksi berubah',
-        'pesanan.created': 'Pesanan baru masuk',
-        'pesanan.completed': 'Pesanan diselesaikan',
-        'production.created': 'Produksi baru dimulai',
-        'production.updated': 'Status produksi berubah',
-        'product.created': 'Produk baru ditambahkan',
-        'pembayaran.created': 'Pembayaran baru diterima',
+        "transaksi.created": "Transaksi baru dibuat",
+        "transaksi.updated": "Transaksi diperbarui",
+        "transaksi.deleted": "Transaksi dihapus",
+        "transaksi.status_changed": "Status transaksi berubah",
+        "pesanan.created": "Pesanan baru masuk",
+        "pesanan.completed": "Pesanan diselesaikan",
+        "production.created": "Produksi baru dimulai",
+        "production.updated": "Status produksi berubah",
+        "product.created": "Produk baru ditambahkan",
+        "pembayaran.created": "Pembayaran baru diterima",
       };
-      return typeMap[event.data?.type] || 'Data terupdate';
+      return typeMap[event.data?.type] || "Data terupdate";
     }
 
-    return 'Ada update baru';
+    return "Ada update baru";
   };
 
   const getIcon = () => {
-    if (event.type === 'login.logged') {
+    if (event.type === "login.logged") {
       return <Shield className="w-4 h-4" aria-hidden="true" />;
     }
     return <Activity className="w-4 h-4" aria-hidden="true" />;
@@ -293,7 +244,7 @@ const RealtimeNotification = memo(({ event, onDismiss }) => {
   );
 });
 
-RealtimeNotification.displayName = 'RealtimeNotification';
+RealtimeNotification.displayName = "RealtimeNotification";
 
 // TopCustomerItem (Memoized)
 const TopCustomerItem = memo(({ item, rank }) => (
@@ -319,7 +270,7 @@ const TopCustomerItem = memo(({ item, rank }) => (
   </div>
 ));
 
-TopCustomerItem.displayName = 'TopCustomerItem';
+TopCustomerItem.displayName = "TopCustomerItem";
 
 // TopProductItem (Memoized)
 const TopProductItem = memo(({ item, rank }) => (
@@ -346,7 +297,7 @@ const TopProductItem = memo(({ item, rank }) => (
   </div>
 ));
 
-TopProductItem.displayName = 'TopProductItem';
+TopProductItem.displayName = "TopProductItem";
 
 // SummaryMiniCard (Memoized)
 const SummaryMiniCard = memo(({ label, value, icon, badge, color }) => {
@@ -379,6 +330,6 @@ const SummaryMiniCard = memo(({ label, value, icon, badge, color }) => {
   );
 });
 
-SummaryMiniCard.displayName = 'SummaryMiniCard';
+SummaryMiniCard.displayName = "SummaryMiniCard";
 
 export default DashboardPage;

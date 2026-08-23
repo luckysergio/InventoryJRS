@@ -15,7 +15,6 @@ import CustomerTagihanDetailModal from "./CustomerTagihanDetailModal";
 import CustomerPembayaranModal from "./CustomerPembayaranModal";
 import { formatRupiah, formatTanggal, formatProductName } from "../transaksidaily/utils/transaksiUtils";
 
-const STATUS_DIBATALKAN_ID = 6;
 const canCreateCustomer = (role) => ["admin", "admin_toko", "operator"].includes(role);
 
 const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHarian, onTagihanPesanan, onPrint, isPrinting }) => {
@@ -27,54 +26,58 @@ const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHari
   return (
     <div className="group relative bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-blue-300 hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-300 flex flex-col h-full">
       {/* Top Section: Avatar + Name + Contact */}
-      <div className="flex flex-col items-center text-center pt-4 px-4 pb-3">
-        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white mb-3 group-hover:scale-105 transition-transform duration-300">
+      <div className="flex flex-col items-center text-center pt-3 px-2 pb-2">
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white mb-2 group-hover:scale-105 transition-transform duration-300">
           {initials}
         </div>
 
-        <h3 className="text-sm font-bold text-slate-900 truncate w-full" title={item.name}>
+        <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate w-full px-1" title={item.name}>
           {item.name}
         </h3>
 
         {isAdmin ? (
-          <div className="mt-1.5 space-y-0.5 w-full">
-            <div className="flex items-center justify-center gap-1 text-[11px] text-slate-500">
-              <Phone className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{item.phone || "-"}</span>
-            </div>
-            <div className="flex items-center justify-center gap-1 text-[11px] text-slate-500">
-              <Mail className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{item.email || "-"}</span>
-            </div>
+          <div className="mt-1 space-y-0.5 w-full">
+            {item.phone && (
+              <div className="flex items-center justify-center gap-1 text-[10px] sm:text-[11px] text-slate-500">
+                <Phone className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{item.phone}</span>
+              </div>
+            )}
+            {item.email && (
+              <div className="flex items-center justify-center gap-1 text-[10px] sm:text-[11px] text-slate-500">
+                <Mail className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{item.email}</span>
+              </div>
+            )}
           </div>
         ) : (
-          <p className="text-[11px] text-slate-400 mt-1">(kontak hanya admin)</p>
+          <p className="text-[10px] text-slate-400 mt-1">(kontak hanya admin)</p>
         )}
       </div>
 
       {/* Middle Section: Tagihan Badges */}
-      <div className="px-4 space-y-1 text-xs min-w-0 flex-1">
+      <div className="px-2 space-y-1 text-xs min-w-0 flex-1">
         {tH > 0 && (
           <div
-            className="flex justify-between pt-2 border-t border-slate-100 cursor-pointer hover:bg-orange-50 rounded p-1 gap-1 transition-colors"
+            className="flex justify-between items-center pt-2 border-t border-slate-100 cursor-pointer hover:bg-orange-50 rounded px-1 py-1 gap-1 transition-colors"
             onClick={() => onTagihanHarian(item)}
           >
-            <span className="text-orange-600 font-medium truncate">Harian:</span>
-            <span className="text-orange-600 font-bold shrink-0 whitespace-nowrap">{formatRupiah(tH)}</span>
+            <span className="text-orange-600 font-medium truncate text-[10px] sm:text-xs">Harian:</span>
+            <span className="text-orange-600 font-bold shrink-0 whitespace-nowrap text-[10px] sm:text-xs">{formatRupiah(tH)}</span>
           </div>
         )}
         {tP > 0 && (
           <div
-            className="flex justify-between pt-1 cursor-pointer hover:bg-purple-50 rounded p-1 gap-1 transition-colors"
+            className="flex justify-between items-center pt-1 cursor-pointer hover:bg-purple-50 rounded px-1 py-1 gap-1 transition-colors"
             onClick={() => onTagihanPesanan(item)}
           >
-            <span className="text-purple-600 font-medium truncate">Pesanan:</span>
-            <span className="text-purple-600 font-bold shrink-0 whitespace-nowrap">{formatRupiah(tP)}</span>
+            <span className="text-purple-600 font-medium truncate text-[10px] sm:text-xs">Pesanan:</span>
+            <span className="text-purple-600 font-bold shrink-0 whitespace-nowrap text-[10px] sm:text-xs">{formatRupiah(tP)}</span>
           </div>
         )}
         {!hasTag && (
-          <div className="flex justify-between pt-2 border-t border-slate-100">
-            <span className="text-emerald-600 font-medium">Lunas</span>
+          <div className="flex justify-between items-center pt-2 border-t border-slate-100 px-1 py-1">
+            <span className="text-emerald-600 font-medium text-[10px] sm:text-xs">Lunas</span>
             <CheckCircle size={14} className="text-emerald-600" />
           </div>
         )}
@@ -82,39 +85,39 @@ const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHari
 
       {/* Print Button */}
       {hasTag && (
-        <div className="mt-3 mx-4 pt-2 border-t border-slate-100">
+        <div className="mt-2 mx-2 pt-2 border-t border-slate-100">
           <button
             onClick={() => onPrint(item)}
             disabled={isPrinting}
             className={cn(
-              "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs w-full transition active:scale-95",
+              "flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] sm:text-xs w-full transition active:scale-95",
               isPrinting
                 ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                 : "bg-blue-50 text-blue-700 hover:bg-blue-100"
             )}
           >
             {isPrinting ? (
-              <><Loader2 size={14} className="animate-spin" /> <span>Memuat...</span></>
+              <><Loader2 size={12} className="animate-spin" /> <span className="hidden sm:inline">Memuat...</span></>
             ) : (
-              <><Printer size={14} /> <span className="hidden sm:inline">Cetak Tagihan</span><span className="sm:hidden">Print</span></>
+              <><Printer size={12} /> <span className="hidden sm:inline">Cetak Tagihan</span><span className="sm:hidden">Print</span></>
             )}
           </button>
         </div>
       )}
 
-      {/* Spacer */}
-      <div className="flex-1 min-h-[8px]" />
+      {/* Spacer to push actions to bottom */}
+      <div className="flex-1 min-h-[4px]" />
 
       {/* Action Buttons */}
       {isAdmin && (
-        <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <button onClick={() => onDetail(item)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Detail">
+        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/80 backdrop-blur-sm p-1 rounded-lg shadow-sm">
+          <button onClick={(e) => { e.stopPropagation(); onDetail(item); }} className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Detail">
             <Mail size={14} />
           </button>
-          <button onClick={() => onEdit(item)} className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+          <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="p-1 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Edit">
             <Pencil size={14} />
           </button>
-          <button onClick={() => onDelete(item)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
+          <button onClick={(e) => { e.stopPropagation(); onDelete(item); }} className="p-1 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Hapus">
             <Trash2 size={14} />
           </button>
         </div>
@@ -257,7 +260,6 @@ const CustomerPage = () => {
         `;
       }
 
-      // 4. Build full HTML
       const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -281,90 +283,21 @@ const CustomerPage = () => {
     body { padding: 15mm; }
     @page { margin: 0; size: A4; }
   }
-  h1 {
-    text-align: center;
-    color: #1e40af;
-    margin: 0 0 4px;
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: 1px;
-  }
-  .subtitle {
-    text-align: center;
-    color: #64748b;
-    margin-bottom: 20px;
-    font-size: 11px;
-  }
-  .salutation {
-    margin-bottom: 16px;
-    font-size: 11px;
-    line-height: 1.6;
-    padding: 12px;
-    background: #f8fafc;
-    border-left: 4px solid #1e40af;
-    border-radius: 4px;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 16px 0;
-    font-size: 10px;
-  }
-  th {
-    background: #1e40af;
-    color: white;
-    font-weight: 600;
-    padding: 8px;
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: .3px;
-    font-size: 9px;
-    white-space: nowrap;
-  }
-  td {
-    padding: 8px;
-    border: 1px solid #e5e7eb;
-    vertical-align: middle;
-    font-size: 10px;
-  }
+  h1 { text-align: center; color: #1e40af; margin: 0 0 4px; font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+  .subtitle { text-align: center; color: #64748b; margin-bottom: 20px; font-size: 11px; }
+  .salutation { margin-bottom: 16px; font-size: 11px; line-height: 1.6; padding: 12px; background: #f8fafc; border-left: 4px solid #1e40af; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 10px; }
+  th { background: #1e40af; color: white; font-weight: 600; padding: 8px; text-align: center; text-transform: uppercase; letter-spacing: .3px; font-size: 9px; white-space: nowrap; }
+  td { padding: 8px; border: 1px solid #e5e7eb; vertical-align: middle; font-size: 10px; }
   tr:nth-child(even) { background: #f8fafc; }
   td:nth-child(1) { text-align: center; width: 12%; }
   td:nth-child(2) { text-align: left; width: 35%; }
   td:nth-child(3) { text-align: center; width: 6%; }
-  td:nth-child(4), td:nth-child(5), td:nth-child(6), td:nth-child(7) {
-    text-align: right;
-    width: 11.75%;
-    white-space: nowrap;
-  }
-  .total-due {
-    font-size: 14px;
-    text-align: center;
-    font-weight: 700;
-    color: #dc2626;
-    margin-top: 8px;
-    padding: 10px;
-    background: #fef2f2;
-    border: 2px dashed #dc2626;
-    border-radius: 6px;
-  }
-  .footer {
-    margin-top: 30px;
-    text-align: center;
-    color: #64748b;
-    font-size: 9px;
-    border-top: 1px solid #e5e7eb;
-    padding-top: 12px;
-  }
+  td:nth-child(4), td:nth-child(5), td:nth-child(6), td:nth-child(7) { text-align: right; width: 11.75%; white-space: nowrap; }
+  .total-due { font-size: 14px; text-align: center; font-weight: 700; color: #dc2626; margin-top: 8px; padding: 10px; background: #fef2f2; border: 2px dashed #dc2626; border-radius: 6px; }
+  .footer { margin-top: 30px; text-align: center; color: #64748b; font-size: 9px; border-top: 1px solid #e5e7eb; padding-top: 12px; }
   .highlight { color: #1e40af; font-weight: 700; }
-  .info-box {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 16px;
-    font-size: 10px;
-    padding: 8px 12px;
-    background: #eff6ff;
-    border-radius: 6px;
-  }
+  .info-box { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 10px; padding: 8px 12px; background: #eff6ff; border-radius: 6px; }
 </style>
 </head>
 <body>
@@ -408,13 +341,7 @@ const CustomerPage = () => {
     <p><strong>Mohon segera melakukan pelunasan.</strong></p>
     <p>Atas perhatian dan kerjasamanya, kami ucapkan terima kasih.</p>
     <p style="margin-top:8px;color:#94a3b8">
-      Dicetak: ${new Date().toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      })}
+      Dicetak: ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
     </p>
   </div>
 </body>
@@ -433,10 +360,7 @@ const CustomerPage = () => {
       }
     } catch (err) {
       console.error('Print tagihan error:', err);
-      info(
-        "Gagal Mencetak",
-        err.response?.data?.message || "Terjadi kesalahan saat memuat data tagihan"
-      );
+      info("Gagal Mencetak", err.response?.data?.message || "Terjadi kesalahan saat memuat data tagihan");
     } finally {
       setPrintingCustomerId(null);
     }
@@ -491,17 +415,17 @@ const CustomerPage = () => {
 
       {/* CONTENT */}
       {isLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-          {[...Array(12)].map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+          {[...Array(10)].map((_, i) => (
             <div key={i} className="bg-white border border-slate-200 rounded-xl overflow-hidden animate-pulse">
-              <div className="flex flex-col items-center pt-4 px-4 pb-3">
-                <div className="w-14 h-14 bg-slate-200 rounded-full mb-3" />
-                <div className="h-4 bg-slate-200 rounded w-3/4 mb-2" />
-                <div className="h-3 bg-slate-200 rounded w-1/2" />
+              <div className="flex flex-col items-center pt-3 px-2 pb-2">
+                <div className="w-12 h-12 bg-slate-200 rounded-full mb-2" />
+                <div className="h-3 bg-slate-200 rounded w-3/4 mb-1" />
+                <div className="h-2 bg-slate-200 rounded w-1/2" />
               </div>
-              <div className="px-4 space-y-2 pb-4">
-                <div className="h-6 bg-slate-200 rounded-full w-full" />
-                <div className="h-6 bg-slate-200 rounded-full w-full" />
+              <div className="px-2 space-y-2 pb-3">
+                <div className="h-6 bg-slate-200 rounded w-full" />
+                <div className="h-6 bg-slate-200 rounded w-full" />
               </div>
             </div>
           ))}
@@ -528,7 +452,8 @@ const CustomerPage = () => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+          {/* ✅ GRID 5 KOLOM RESPONSIF */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
             {sortedCustomers.map((item) => (
               <CustomerCard
                 key={item.id}
@@ -540,7 +465,7 @@ const CustomerPage = () => {
                 onTagihanHarian={(c) => openTagihanModal(c, "daily")}
                 onTagihanPesanan={(c) => openTagihanModal(c, "pesanan")}
                 onPrint={handlePrintTagihan}
-                isPrinting={printingCustomerId === item.id} // ✅ NEW
+                isPrinting={printingCustomerId === item.id}
               />
             ))}
           </div>

@@ -89,7 +89,7 @@ const createEmptyDetail = () => ({
   qty: 1,
   discount: 0,
   catatan: "",
-  status_transaksi_id: String(PESANAN_STATUS_MAP.PROSES),
+  status_transaksi_id: String(PESANAN_STATUS_MAP.DI_PESAN),
   harga_product_id: "",
   harga_baru: {
     harga: "",
@@ -1240,7 +1240,7 @@ const PesananForm = () => {
           qty: d.qty || 1,
           discount: d.discount || 0,
           catatan: d.catatan || "",
-          status_transaksi_id: String(d.status_transaksi_id || PESANAN_STATUS_MAP.PROSES),
+          status_transaksi_id: String(d.status_transaksi_id || PESANAN_STATUS_MAP.DI_PESAN),
           harga_product_id: "",
           harga_baru: { harga: "", keterangan: "", tanggal_berlaku: "" },
           selected_harga: Number(d.harga) || 0,
@@ -1460,7 +1460,7 @@ const PesananForm = () => {
           qty: Number(d.qty) || 1,
           discount: Number(d.discount) || 0,
           catatan: d.catatan?.trim() || undefined,
-          status_transaksi_id: Number(d.status_transaksi_id || PESANAN_STATUS_MAP.PROSES),
+          status_transaksi_id: Number(d.status_transaksi_id || PESANAN_STATUS_MAP.DI_PESAN),
         };
 
         if (d.use_new_product) {

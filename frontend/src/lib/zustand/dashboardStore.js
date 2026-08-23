@@ -2,13 +2,13 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
 
-const MAX_LOGIN_LOGS = 20;
+const MAX_LOGIN_LOGS = 50;
 
 export const useDashboardStore = create(
   devtools(
     (set, get) => ({
       // ==========================================
-      // PERIOD FILTERS
+      // PERIOD FILTERS (GLOBAL: stats + login logs)
       // ==========================================
       period: 'daily',
       customFrom: null,
@@ -19,15 +19,17 @@ export const useDashboardStore = create(
       // ==========================================
       // REAL-TIME STATE
       // ==========================================
-      connectionStatus: 'disconnected', // 'connected' | 'connecting' | 'disconnected' | 'error'
+      connectionStatus: 'disconnected',
       lastEvent: null,
 
       // ==========================================
-      // LOGIN LOGS
+      // LOGIN LOGS (realtime buffer)
       // ==========================================
-      loginLogs: [], // Array of login log objects
+      loginLogs: [],
       loginStats: {
-        today: {
+        period: 'daily',
+        range: null,
+        summary: {
           total_attempts: 0,
           successful: 0,
           failed: 0,
@@ -35,18 +37,46 @@ export const useDashboardStore = create(
           unique_ips: 0,
           unique_users: 0,
         },
+        top_failed_ips: [],
         last_activity: null,
         cached_at: null,
       },
 
       // ==========================================
-      // PERIOD ACTIONS
+      // LOGIN LOGS FILTERS
+      // ✅ TANPA period/from/to — period ikut PeriodSelector global
+      // ==========================================
+      loginLogsFilter: {
+        page: 1,
+        perPage: 10,
+        search: '',
+        success: '',
+        ip: '',
+      },
+
+      // ==========================================
+      // PERIOD ACTIONS (reset page login logs saat period berubah)
       // ==========================================
       setPeriod: (period) =>
-        set({ period }, false, 'setPeriod'),
+        set(
+          (state) => ({
+            period,
+            loginLogsFilter: { ...state.loginLogsFilter, page: 1 },
+          }),
+          false,
+          'setPeriod'
+        ),
 
       setCustomRange: (from, to) =>
-        set({ customFrom: from, customTo: to }, false, 'setCustomRange'),
+        set(
+          (state) => ({
+            customFrom: from,
+            customTo: to,
+            loginLogsFilter: { ...state.loginLogsFilter, page: 1 },
+          }),
+          false,
+          'setCustomRange'
+        ),
 
       setChartMonths: (months) =>
         set({ chartMonths: months }, false, 'setChartMonths'),
@@ -58,13 +88,18 @@ export const useDashboardStore = create(
         set({ realtime: value }, false, 'setRealtime'),
 
       resetFilters: () =>
-        set({
-          period: 'daily',
-          customFrom: null,
-          customTo: null,
-          chartMonths: 6,
-          realtime: true,
-        }, false, 'resetFilters'),
+        set(
+          (state) => ({
+            period: 'daily',
+            customFrom: null,
+            customTo: null,
+            chartMonths: 6,
+            realtime: true,
+            loginLogsFilter: { ...state.loginLogsFilter, page: 1 },
+          }),
+          false,
+          'resetFilters'
+        ),
 
       // ==========================================
       // REAL-TIME ACTIONS
@@ -81,18 +116,9 @@ export const useDashboardStore = create(
       // ==========================================
       // LOGIN LOGS ACTIONS
       // ==========================================
-      
-      /**
-       * Set initial login logs dari API response
-       * @param {Array} logs - Array of login logs
-       */
       setLoginLogs: (logs) =>
         set({ loginLogs: Array.isArray(logs) ? logs : [] }, false, 'setLoginLogs'),
 
-      /**
-       * Prepend new login log ke array (untuk real-time event)
-       * @param {Object} log - New login log object
-       */
       addLoginLog: (log) =>
         set(
           (state) => ({
@@ -102,45 +128,75 @@ export const useDashboardStore = create(
           'addLoginLog'
         ),
 
-      /**
-       * Clear semua login logs
-       */
       clearLoginLogs: () =>
         set({ loginLogs: [] }, false, 'clearLoginLogs'),
 
-      /**
-       * Update login stats summary
-       * @param {Object} stats - New stats object
-       */
       setLoginStats: (stats) =>
         set({ loginStats: stats }, false, 'setLoginStats'),
 
-      /**
-       * Get formatted query params untuk API
-       */
+      setLoginLogsFilter: (updates) =>
+        set(
+          (state) => ({
+            loginLogsFilter: { ...state.loginLogsFilter, ...updates },
+          }),
+          false,
+          'setLoginLogsFilter'
+        ),
+
+      setLoginLogsPage: (page) =>
+        set(
+          (state) => ({
+            loginLogsFilter: { ...state.loginLogsFilter, page },
+          }),
+          false,
+          'setLoginLogsPage'
+        ),
+
+      setLoginLogsSearch: (search) =>
+        set(
+          (state) => ({
+            loginLogsFilter: { ...state.loginLogsFilter, search, page: 1 },
+          }),
+          false,
+          'setLoginLogsSearch'
+        ),
+
+      setLoginLogsSuccessFilter: (success) =>
+        set(
+          (state) => ({
+            loginLogsFilter: { ...state.loginLogsFilter, success, page: 1 },
+          }),
+          false,
+          'setLoginLogsSuccessFilter'
+        ),
+
+      resetLoginLogsFilter: () =>
+        set(
+          {
+            loginLogsFilter: { page: 1, perPage: 10, search: '', success: '', ip: '' },
+          },
+          false,
+          'resetLoginLogsFilter'
+        ),
+
+      // ==========================================
+      // HELPERS
+      // ==========================================
       getQueryParams: () => {
         const { period, customFrom, customTo, chartMonths, realtime } = get();
-        
-        const params = {
-          period,
-          months: chartMonths,
-        };
+
+        const params = { period, months: chartMonths };
 
         if (period === 'custom' && customFrom && customTo) {
           params.from = customFrom;
           params.to = customTo;
         }
 
-        if (realtime) {
-          params.realtime = 1;
-        }
+        if (realtime) params.realtime = 1;
 
         return params;
       },
 
-      /**
-       * Get period label dalam bahasa Indonesia
-       */
       getPeriodLabel: () => {
         const { period } = get();
         const labels = {
@@ -159,12 +215,9 @@ export const useDashboardStore = create(
 );
 
 // ==========================================
-// SELECTORS (Optimized with useShallow)
+// SELECTORS
 // ==========================================
 
-/**
- * Selector untuk period filters
- */
 export const useDashboardFilters = () =>
   useDashboardStore(useShallow((s) => ({
     period: s.period,
@@ -182,9 +235,6 @@ export const useDashboardFilters = () =>
     getPeriodLabel: s.getPeriodLabel,
   })));
 
-/**
- * Selector untuk real-time state
- */
 export const useDashboardRealtimeState = () =>
   useDashboardStore(useShallow((s) => ({
     connectionStatus: s.connectionStatus,
@@ -194,15 +244,18 @@ export const useDashboardRealtimeState = () =>
     clearLastEvent: s.clearLastEvent,
   })));
 
-/**
- * Selector untuk login logs
- */
 export const useDashboardLoginLogs = () =>
   useDashboardStore(useShallow((s) => ({
     loginLogs: s.loginLogs,
     loginStats: s.loginStats,
+    loginLogsFilter: s.loginLogsFilter,
     setLoginLogs: s.setLoginLogs,
     addLoginLog: s.addLoginLog,
     clearLoginLogs: s.clearLoginLogs,
     setLoginStats: s.setLoginStats,
+    setLoginLogsFilter: s.setLoginLogsFilter,
+    setLoginLogsPage: s.setLoginLogsPage,
+    setLoginLogsSearch: s.setLoginLogsSearch,
+    setLoginLogsSuccessFilter: s.setLoginLogsSuccessFilter,
+    resetLoginLogsFilter: s.resetLoginLogsFilter,
   })));

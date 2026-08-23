@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { subscribeToChannel, onConnectionChange } from '../lib/websocket';
 import {
@@ -20,6 +20,9 @@ export const useDashboardRealtimeWebSocket = () => {
   const { addLoginLog } = useDashboardLoginLogs();
   const { isAuthenticated, token } = useAuthStore();
 
+  /**
+   * Handler untuk event 'login.logged' dari WebSocket
+   */
   const handleLoginEvent = useCallback((event) => {
     const newLog = {
       id: event.id || Date.now(),
@@ -32,16 +35,39 @@ export const useDashboardRealtimeWebSocket = () => {
       timestamp: event.timestamp || new Date().toISOString(),
     };
 
+    // 1. Tambahkan ke buffer realtime di store
     addLoginLog(newLog);
+
+    // 2. Trigger notifikasi real-time
     setLastEvent({
       type: 'login.logged',
       data: newLog,
       timestamp: new Date().toISOString(),
     });
 
-    queryClient.invalidateQueries({ queryKey: dashboardKeys.loginStats() });
+    // 3. ✅ Invalidate SEMUA variasi cache login-stats (apapun period-nya)
+    //    Prefix match: ['dashboard', 'login-stats'] akan match ke:
+    //    ['dashboard', 'login-stats', { period: 'daily', ... }]
+    //    ['dashboard', 'login-stats', { period: 'monthly', ... }]
+    //    dst.
+    queryClient.invalidateQueries({
+      queryKey: [...dashboardKeys.all, 'login-stats'],
+      exact: false,
+      refetchType: 'active', // Hanya refetch query yang sedang aktif (mounted)
+    });
+
+    // 4. ✅ Invalidate list login logs juga (agar list terbaru muncul)
+    queryClient.invalidateQueries({
+      queryKey: [...dashboardKeys.all, 'login-logs'],
+      exact: false,
+      refetchType: 'active',
+    });
   }, [addLoginLog, setLastEvent, queryClient]);
 
+  /**
+   * Handler untuk event 'dashboard.updated' dari WebSocket
+   * Dipicu saat ada perubahan data (transaksi, produk, pembayaran, dll)
+   */
   const handleDashboardEvent = useCallback((event) => {
     setLastEvent({
       type: 'dashboard.updated',
@@ -49,11 +75,19 @@ export const useDashboardRealtimeWebSocket = () => {
       timestamp: event.timestamp || new Date().toISOString(),
     });
 
+    // ✅ Invalidate SEMUA cache dashboard:
+    // - stats (metrics utama)
+    // - chart
+    // - login-stats (semua variasi period)
+    // - login-logs
+    // - realtime
     queryClient.invalidateQueries({
       queryKey: dashboardKeys.all,
       exact: false,
+      refetchType: 'active',
     });
 
+    // Invalidate entity cache spesifik berdasarkan tipe event
     const eventType = event.type || '';
     const invalidateMap = {
       transaksi: ['transaksi'],
@@ -62,6 +96,12 @@ export const useDashboardRealtimeWebSocket = () => {
       product: ['product'],
       inventory: ['inventory'],
       pembayaran: ['pembayaran'],
+      customer: ['customer'],
+      harga: ['harga'],
+      distributor: ['distributor'],
+      jenis: ['jenis'],
+      type: ['type'],
+      bahan: ['bahan'],
     };
 
     const prefix = eventType.split('.')[0];
@@ -71,9 +111,16 @@ export const useDashboardRealtimeWebSocket = () => {
       queryClient.invalidateQueries({
         queryKey: cacheKey,
         exact: false,
+        refetchType: 'active',
       });
     }
   }, [setLastEvent, queryClient]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | SUBSCRIPTION LIFECYCLE
+  |--------------------------------------------------------------------------
+  */
 
   useEffect(() => {
     const shouldConnect = realtime && isAuthenticated && !!token;
@@ -125,9 +172,6 @@ export const useDashboardRealtimeWebSocket = () => {
       };
       setConnectionStatus(statusMap[state] || 'disconnected');
     });
-
-    // Cleanup tidak langsung dijalankan saat unmount (untuk React StrictMode)
-    // Cleanup hanya dijalankan saat shouldConnect berubah ke false
   }, [
     realtime,
     isAuthenticated,

@@ -4,7 +4,6 @@ namespace App\Services\Dashboard;
 
 use App\Models\Customer;
 use App\Models\LoginLog;
-use App\Models\Production;
 use App\Models\Transaksi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -13,10 +12,11 @@ use Illuminate\Support\Facades\Log;
 
 class DashboardService
 {
-    private const CACHE_PREFIX = 'dashboard:stats:';
-    private const CACHE_CHART_PREFIX = 'dashboard:chart:';
-    private const CACHE_LOWSTOCK = 'dashboard:lowstock';
-    private const CACHE_LOGIN_STATS = 'dashboard:login_stats';
+    private const CACHE_PREFIX        = 'dashboard:stats:';
+    private const CACHE_CHART_PREFIX  = 'dashboard:chart:';
+    private const CACHE_LOWSTOCK      = 'dashboard:lowstock';
+    private const CACHE_LOGIN_STATS   = 'dashboard:login_stats';
+    private const CACHE_LOGIN_LOGS    = 'dashboard:login_logs:';
 
     private const TTL = [
         'daily'       => 60,
@@ -27,15 +27,16 @@ class DashboardService
         'all'         => 3600,
         'chart'       => 1800,
         'lowstock'    => 600,
-        'login_stats' => 60,  // ✅ 1 menit untuk login stats
+        'login_stats' => 60,
+        'login_logs'  => 30,
     ];
 
-    private const STATUS_SELESAI = 5;
+    private const STATUS_SELESAI          = 5;
     private const PESANAN_ACTIVE_STATUSES = [1, 2, 3, 4];
 
     /*
     |--------------------------------------------------------------------------
-    | PUBLIC API (Existing)
+    | PUBLIC API — STATS & CHART
     |--------------------------------------------------------------------------
     */
 
@@ -45,18 +46,18 @@ class DashboardService
         ?Carbon $to = null,
         bool $realtime = false
     ): array {
-        [$rangeFrom, $rangeTo] = $this->getDateRange($period, $from, $to);
-        [$prevFrom, $prevTo] = $this->getPreviousDateRange($period, $from, $to);
+        [$rangeFrom, $rangeTo]   = $this->getDateRange($period, $from, $to);
+        [$prevFrom, $prevTo]     = $this->getPreviousDateRange($period, $from, $to);
 
         $cacheKey = $this->buildCacheKey($period, $rangeFrom, $rangeTo);
 
         if ($realtime || !$cached = Cache::get($cacheKey)) {
             $data = $this->computeStats($period, $rangeFrom, $rangeTo, $prevFrom, $prevTo);
-            
+
             if (!$realtime) {
                 Cache::put($cacheKey, $data, self::TTL[$period] ?? 300);
             }
-            
+
             return $data;
         }
 
@@ -65,7 +66,7 @@ class DashboardService
 
     public function getChart(int $months = 6): array
     {
-        $version = (int) Cache::get('dashboard:version', 1);
+        $version  = (int) Cache::get('dashboard:version', 1);
         $cacheKey = self::CACHE_CHART_PREFIX . "v{$version}:months_{$months}";
 
         return Cache::remember($cacheKey, self::TTL['chart'], function () use ($months) {
@@ -73,13 +74,17 @@ class DashboardService
         });
     }
 
+    /**
+     * ✅ UPDATED: Invalidate semua cache dashboard termasuk login stats/logs per period.
+     */
     public function invalidateAll(): void
     {
         $version = (int) Cache::get('dashboard:version', 1);
         Cache::forever('dashboard:version', $version + 1);
-        
-        Cache::forget(self::CACHE_LOWSTOCK);
-        Cache::forget(self::CACHE_LOGIN_STATS); // ✅ Invalidate login stats juga
+
+        $this->forgetCachePattern(self::CACHE_LOWSTOCK);
+        $this->forgetCachePattern(self::CACHE_LOGIN_STATS);
+        $this->forgetCachePattern(self::CACHE_LOGIN_LOGS);
 
         Log::info('Dashboard cache invalidated', [
             'old_version' => $version,
@@ -89,128 +94,164 @@ class DashboardService
 
     /*
     |--------------------------------------------------------------------------
-    | ✅ NEW: LOGIN LOGS API
+    | PUBLIC API — LOGIN LOGS (ENHANCED)
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Get recent login logs untuk dashboard real-time.
-     * 
-     * @param int $limit Jumlah logs (default 10, max 50)
-     * @return array Login logs dengan user info
-     */
-    public function getLoginLogs(int $limit = 10): array
+    public function getLoginLogs(array $filters = [], int $perPage = 15, int $page = 1): array
     {
-        $limit = min(max(1, $limit), 50);
+        $period  = $filters['period'] ?? 'daily';
+        $from    = $filters['from'] ?? null;
+        $to      = $filters['to'] ?? null;
+        $search  = $filters['search'] ?? null;
+        $success = $filters['success'] ?? null;
+        $ip      = $filters['ip'] ?? null;
 
-        try {
-            return LoginLog::with(['user:id,name,email,role'])
-                ->orderByDesc('created_at')
-                ->limit($limit)
-                ->get()
-                ->map(function (LoginLog $log) {
-                    return [
-                        'id' => $log->id,
-                        'type' => 'login',
-                        'success' => (bool) $log->success,
-                        'failure_reason' => $log->failure_reason,
-                        'email_attempted' => $log->email,
-                        'ip_address' => $log->ip_address,
-                        'user_agent' => $log->user_agent,
-                        'user' => $log->user ? [
-                            'id' => $log->user->id,
-                            'name' => $log->user->name,
-                            'email' => $log->user->email,
-                            'role' => $log->user->role ?? null,
-                        ] : null,
-                        'timestamp' => $log->created_at?->toIso8601String(),
-                        'time_ago' => $log->created_at?->diffForHumans() ?? 'Baru saja',
-                    ];
-                })
-                ->values()
-                ->all();
-        } catch (\Throwable $e) {
-            Log::error('Failed to fetch login logs', ['error' => $e->getMessage()]);
-            return [];
-        }
+        $cacheKey = self::CACHE_LOGIN_LOGS . md5(json_encode([
+            'period'   => $period,
+            'from'     => $from,
+            'to'       => $to,
+            'search'   => $search,
+            'success'  => $success,
+            'ip'       => $ip,
+            'per_page' => $perPage,
+            'page'     => $page,
+        ]));
+
+        return Cache::remember($cacheKey, self::TTL['login_logs'], function () use (
+            $period, $from, $to, $search, $success, $ip, $perPage, $page
+        ) {
+            try {
+                $query = LoginLog::with(['user:id,name,email,role'])
+                    ->period($period, $from, $to)
+                    ->when($search, fn($q) => $q->byEmail($search))
+                    ->when($success !== null, fn($q) => $q->bySuccess($success))
+                    ->when($ip, fn($q) => $q->byIp($ip))
+                    ->orderByDesc('created_at');
+
+                $paginator = $query->paginate($perPage, ['*'], 'page', $page);
+
+                return [
+                    'data' => $paginator->items(),
+                    'meta' => [
+                        'current_page' => $paginator->currentPage(),
+                        'from'         => $paginator->firstItem(),
+                        'last_page'    => $paginator->lastPage(),
+                        'per_page'     => $paginator->perPage(),
+                        'to'           => $paginator->lastItem(),
+                        'total'        => $paginator->total(),
+                    ],
+                ];
+            } catch (\Throwable $e) {
+                Log::error('Failed to fetch login logs', ['error' => $e->getMessage()]);
+                return ['data' => [], 'meta' => $this->emptyMeta($perPage, $page)];
+            }
+        });
+    }
+
+    public function getLoginLogDetail(int $id): ?LoginLog
+    {
+        return LoginLog::with(['user:id,name,email,role'])->findOrFail($id);
     }
 
     /**
-     * Get login stats summary (total hari ini, gagal, dll).
-     * Dengan cache 1 menit untuk performa.
+     * ✅ UPDATED: Login stats sekarang menerima period/from/to.
+     * Shape response baru: 'summary' (tetap backward-compatible: frontend fallback ke 'today' jika 'summary' tidak ada).
      */
-    public function getLoginStats(): array
-    {
-        return Cache::remember(self::CACHE_LOGIN_STATS, self::TTL['login_stats'], function () {
-            try {
-                $today = Carbon::today();
-                
-                $totalToday = LoginLog::whereDate('created_at', $today)->count();
-                $successToday = LoginLog::whereDate('created_at', $today)
-                    ->where('success', true)
-                    ->count();
-                $failedToday = $totalToday - $successToday;
+    public function getLoginStats(
+        string $period = 'daily',
+        ?Carbon $from = null,
+        ?Carbon $to = null
+    ): array {
+        [$start, $end] = $this->getDateRange($period, $from, $to);
 
-                // Unique IP addresses hari ini (indikator unique visitors)
-                $uniqueIpsToday = LoginLog::whereDate('created_at', $today)
-                    ->where('success', true)
+        $cacheKey = self::CACHE_LOGIN_STATS
+            . ":{$period}:{$start->format('Ymd')}:{$end->format('Ymd')}";
+
+        return Cache::remember($cacheKey, self::TTL['login_stats'], function () use ($period, $start, $end) {
+            try {
+                $total      = LoginLog::whereBetween('created_at', [$start, $end])->count();
+                $successful = LoginLog::whereBetween('created_at', [$start, $end])->successful()->count();
+                $failed     = $total - $successful;
+
+                $uniqueIps = LoginLog::whereBetween('created_at', [$start, $end])
+                    ->successful()
                     ->distinct('ip_address')
                     ->count('ip_address');
 
-                // User unik yang login hari ini
-                $uniqueUsersToday = LoginLog::whereDate('created_at', $today)
-                    ->where('success', true)
+                $uniqueUsers = LoginLog::whereBetween('created_at', [$start, $end])
+                    ->successful()
                     ->whereNotNull('user_id')
                     ->distinct('user_id')
                     ->count('user_id');
 
+                $topFailedIps = LoginLog::whereBetween('created_at', [$start, $end])
+                    ->failed()
+                    ->select('ip_address')
+                    ->selectRaw('COUNT(*) as attempts')
+                    ->groupBy('ip_address')
+                    ->orderByDesc('attempts')
+                    ->limit(5)
+                    ->get()
+                    ->map(fn($row) => [
+                        'ip'       => $row->ip_address,
+                        'attempts' => (int) $row->attempts,
+                    ])
+                    ->all();
+
                 return [
-                    'today' => [
-                        'total_attempts' => $totalToday,
-                        'successful' => $successToday,
-                        'failed' => $failedToday,
-                        'success_rate' => $totalToday > 0 
-                            ? round(($successToday / $totalToday) * 100, 1) 
-                            : 0,
-                        'unique_ips' => $uniqueIpsToday,
-                        'unique_users' => $uniqueUsersToday,
+                    'period' => $period,
+                    'range'  => [
+                        'from' => $start->toIso8601String(),
+                        'to'   => $end->toIso8601String(),
                     ],
-                    'last_activity' => LoginLog::latest('created_at')
+                    'summary' => [
+                        'total_attempts' => $total,
+                        'successful'     => $successful,
+                        'failed'         => $failed,
+                        'success_rate'   => $total > 0
+                            ? round(($successful / $total) * 100, 1)
+                            : 0,
+                        'unique_ips'   => $uniqueIps,
+                        'unique_users' => $uniqueUsers,
+                    ],
+                    // Backward compat: tambahkan key 'today' dengan isi sama agar frontend lama tetap jalan
+                    'today' => [
+                        'total_attempts' => $total,
+                        'successful'     => $successful,
+                        'failed'         => $failed,
+                        'success_rate'   => $total > 0
+                            ? round(($successful / $total) * 100, 1)
+                            : 0,
+                        'unique_ips'   => $uniqueIps,
+                        'unique_users' => $uniqueUsers,
+                    ],
+                    'top_failed_ips' => $topFailedIps,
+                    'last_activity'  => LoginLog::latest('created_at')
                         ->value('created_at')?->toIso8601String(),
                     'cached_at' => now()->toIso8601String(),
                 ];
             } catch (\Throwable $e) {
                 Log::error('Failed to fetch login stats', ['error' => $e->getMessage()]);
-                return [
-                    'today' => [
-                        'total_attempts' => 0,
-                        'successful' => 0,
-                        'failed' => 0,
-                        'success_rate' => 0,
-                        'unique_ips' => 0,
-                        'unique_users' => 0,
-                    ],
-                    'last_activity' => null,
-                    'cached_at' => now()->toIso8601String(),
-                ];
+                return $this->emptyLoginStats($period);
             }
         });
     }
 
     /**
-     * ✅ Invalidate login logs cache.
-     * Panggil ini setelah login event untuk update stats real-time.
+     * ✅ UPDATED: Invalidate login stats & logs dengan pattern (karena cache key sekarang per-period).
      */
     public function invalidateLoginStats(): void
     {
-        Cache::forget(self::CACHE_LOGIN_STATS);
-        
-        Log::info('Login stats cache invalidated');
+        $this->forgetCachePattern(self::CACHE_LOGIN_STATS);
+        $this->forgetCachePattern(self::CACHE_LOGIN_LOGS);
+
+        Log::info('Login caches invalidated');
     }
 
     /*
     |--------------------------------------------------------------------------
-    | DATE RANGE HELPERS (Existing - Unchanged)
+    | DATE RANGE HELPERS
     |--------------------------------------------------------------------------
     */
 
@@ -253,8 +294,8 @@ class DashboardService
             return [Carbon::now()->subMonth()->startOfMonth(), Carbon::now()->subMonth()->endOfMonth()];
         }
 
-        $diff = $from->diffInDays($to);
-        $prevTo = $from->copy()->subDay()->endOfDay();
+        $diff     = $from->diffInDays($to);
+        $prevTo   = $from->copy()->subDay()->endOfDay();
         $prevFrom = $prevTo->copy()->subDays($diff)->startOfDay();
 
         return [$prevFrom, $prevTo];
@@ -268,7 +309,7 @@ class DashboardService
 
     /*
     |--------------------------------------------------------------------------
-    | STATS COMPUTATION (Existing - Updated with login_stats)
+    | STATS COMPUTATION
     |--------------------------------------------------------------------------
     */
 
@@ -279,73 +320,72 @@ class DashboardService
         Carbon $prevFrom,
         Carbon $prevTo
     ): array {
-        $metrics = $this->getConsolidatedMetrics($from, $to, $prevFrom, $prevTo);
-        $customerStats = $this->getConsolidatedCustomerStats($from, $to);
-        $lowStock = $this->getLowStockCount();
-        $topCustomers = $this->getTopCustomers($from, $to, 5);
-        $topProducts = $this->getTopProducts($from, $to, 5);
-        $transactionByType = $this->getTransactionByType($from, $to);
+        $metrics        = $this->getConsolidatedMetrics($from, $to, $prevFrom, $prevTo);
+        $customerStats  = $this->getConsolidatedCustomerStats($from, $to);
+        $lowStock       = $this->getLowStockCount();
+        $topCustomers   = $this->getTopCustomers($from, $to, 5);
+        $topProducts    = $this->getTopProducts($from, $to, 5);
+        $txByType       = $this->getTransactionByType($from, $to);
         $salesAnalytics = $this->getSalesAnalytics($from, $to);
-        $production = $this->getConsolidatedProductionStats();
-        $summary = $this->getConsolidatedTransactionSummary();
-        
-        // ✅ NEW: Login stats untuk dashboard
-        $loginStats = $this->getLoginStats();
+        $production     = $this->getConsolidatedProductionStats();
+        $summary        = $this->getConsolidatedTransactionSummary();
+
+        // ✅ UPDATED: Login stats sekarang ikut period (sama seperti metrics utama)
+        $loginStats     = $this->getLoginStats($period, $from, $to);
 
         return [
-            'period' => $period,
-            'range' => [
+            'period'    => $period,
+            'range'     => [
                 'from' => $from->toIso8601String(),
-                'to' => $to->toIso8601String(),
+                'to'   => $to->toIso8601String(),
             ],
             'cached_at' => Carbon::now()->toIso8601String(),
 
             'metrics' => [
                 'revenue' => [
-                    'current' => $metrics['current_revenue'],
+                    'current'  => $metrics['current_revenue'],
                     'previous' => $metrics['previous_revenue'],
-                    'growth' => $this->calculateGrowth(
+                    'growth'   => $this->calculateGrowth(
                         $metrics['current_revenue'],
                         $metrics['previous_revenue']
                     ),
                 ],
                 'orders' => [
-                    'current' => $metrics['current_orders'],
+                    'current'  => $metrics['current_orders'],
                     'previous' => $metrics['previous_orders'],
-                    'growth' => $this->calculateGrowth(
+                    'growth'   => $this->calculateGrowth(
                         $metrics['current_orders'],
                         $metrics['previous_orders']
                     ),
                 ],
                 'customers' => [
-                    'total' => $customerStats['total'],
+                    'total'  => $customerStats['total'],
                     'active' => $customerStats['active'],
-                    'new' => $customerStats['new'],
+                    'new'    => $customerStats['new'],
                 ],
                 'products' => [
                     'total_sold' => $metrics['current_products_sold'],
-                    'low_stock' => $lowStock,
+                    'low_stock'  => $lowStock,
                 ],
             ],
 
-            'top_customers' => $topCustomers,
-            'top_products' => $topProducts,
-            'transaction_by_type' => $transactionByType,
-            'sales_analytics' => $salesAnalytics,
-            'production' => $production,
+            'top_customers'        => $topCustomers,
+            'top_products'         => $topProducts,
+            'transaction_by_type'  => $txByType,
+            'sales_analytics'      => $salesAnalytics,
+            'production'           => $production,
 
-            'transaksi_harian_aktif' => $summary['harian_aktif'],
+            'transaksi_harian_aktif'  => $summary['harian_aktif'],
             'transaksi_pesanan_aktif' => $summary['pesanan_aktif'],
-            'customer_belum_lunas' => $summary['belum_lunas'],
-            
-            // ✅ NEW: Login stats
+            'customer_belum_lunas'    => $summary['belum_lunas'],
+
             'login_stats' => $loginStats,
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | CONSOLIDATED QUERIES (Existing - Unchanged)
+    | CONSOLIDATED QUERIES
     |--------------------------------------------------------------------------
     */
 
@@ -356,7 +396,7 @@ class DashboardService
         Carbon $prevTo
     ): array {
         $isAllPeriod = $currentFrom->timestamp === 0;
-        
+
         if ($isAllPeriod) {
             $row = DB::table('transaksi_details as td')
                 ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
@@ -379,27 +419,15 @@ class DashboardService
                 })
                 ->selectRaw('
                     COALESCE(SUM(CASE 
-                        WHEN t.tanggal BETWEEN ? AND ? THEN td.subtotal 
-                        ELSE 0 
-                    END), 0) as current_revenue,
-                    
+                        WHEN t.tanggal BETWEEN ? AND ? THEN td.subtotal ELSE 0 END), 0) as current_revenue,
                     COUNT(DISTINCT CASE 
-                        WHEN t.tanggal BETWEEN ? AND ? THEN t.id 
-                    END) as current_orders,
-                    
+                        WHEN t.tanggal BETWEEN ? AND ? THEN t.id END) as current_orders,
                     COALESCE(SUM(CASE 
-                        WHEN t.tanggal BETWEEN ? AND ? THEN td.qty 
-                        ELSE 0 
-                    END), 0) as current_products_sold,
-                    
+                        WHEN t.tanggal BETWEEN ? AND ? THEN td.qty ELSE 0 END), 0) as current_products_sold,
                     COALESCE(SUM(CASE 
-                        WHEN t.tanggal BETWEEN ? AND ? THEN td.subtotal 
-                        ELSE 0 
-                    END), 0) as previous_revenue,
-                    
+                        WHEN t.tanggal BETWEEN ? AND ? THEN td.subtotal ELSE 0 END), 0) as previous_revenue,
                     COUNT(DISTINCT CASE 
-                        WHEN t.tanggal BETWEEN ? AND ? THEN t.id 
-                    END) as previous_orders
+                        WHEN t.tanggal BETWEEN ? AND ? THEN t.id END) as previous_orders
                 ', [
                     $currentFrom->toDateString(), $currentTo->toDateString(),
                     $currentFrom->toDateString(), $currentTo->toDateString(),
@@ -411,20 +439,19 @@ class DashboardService
         }
 
         return [
-            'current_revenue' => (int) ($row->current_revenue ?? 0),
-            'current_orders' => (int) ($row->current_orders ?? 0),
+            'current_revenue'       => (int) ($row->current_revenue ?? 0),
+            'current_orders'        => (int) ($row->current_orders ?? 0),
             'current_products_sold' => (int) ($row->current_products_sold ?? 0),
-            'previous_revenue' => (int) ($row->previous_revenue ?? 0),
-            'previous_orders' => (int) ($row->previous_orders ?? 0),
+            'previous_revenue'      => (int) ($row->previous_revenue ?? 0),
+            'previous_orders'       => (int) ($row->previous_orders ?? 0),
         ];
     }
 
     private function getConsolidatedCustomerStats(Carbon $from, Carbon $to): array
     {
         $isAllPeriod = $from->timestamp === 0;
-        
-        $total = (int) Customer::count();
-        
+        $total       = (int) Customer::count();
+
         if ($isAllPeriod) {
             $active = (int) DB::table('transaksis')
                 ->whereNotNull('customer_id')
@@ -435,25 +462,20 @@ class DashboardService
             $row = DB::table('customers')
                 ->selectRaw('
                     COUNT(DISTINCT CASE 
-                        WHEN created_at BETWEEN ? AND ? THEN id 
-                    END) as new_customers
+                        WHEN created_at BETWEEN ? AND ? THEN id END) as new_customers
                 ', [$from->toDateTimeString(), $to->toDateTimeString()])
                 ->first();
-            
+
             $active = (int) DB::table('transaksis')
                 ->whereBetween('tanggal', [$from->toDateString(), $to->toDateString()])
                 ->whereNotNull('customer_id')
                 ->distinct('customer_id')
                 ->count('customer_id');
-            
+
             $new = (int) ($row->new_customers ?? 0);
         }
 
-        return [
-            'total' => $total,
-            'active' => $active,
-            'new' => $new,
-        ];
+        return ['total' => $total, 'active' => $active, 'new' => $new];
     }
 
     private function getConsolidatedProductionStats(): array
@@ -478,8 +500,8 @@ class DashboardService
             ->count();
 
         return [
-            'antri' => (int) ($productionRow->antri ?? 0),
-            'produksi' => (int) ($productionRow->produksi ?? 0),
+            'antri'        => (int) ($productionRow->antri ?? 0),
+            'produksi'     => (int) ($productionRow->produksi ?? 0),
             'belum_dibuat' => (int) $belumDibuat,
         ];
     }
@@ -491,13 +513,11 @@ class DashboardService
             ->selectRaw("
                 COUNT(DISTINCT CASE 
                     WHEN t.jenis_transaksi = 'daily' AND td.status_transaksi_id = 1 
-                    THEN t.id 
-                END) as harian_aktif,
-                
+                    THEN t.id END) as harian_aktif,
                 COUNT(DISTINCT CASE 
-                    WHEN t.jenis_transaksi = 'pesanan' AND td.status_transaksi_id IN (" . implode(',', self::PESANAN_ACTIVE_STATUSES) . ")
-                    THEN t.id 
-                END) as pesanan_aktif
+                    WHEN t.jenis_transaksi = 'pesanan' 
+                    AND td.status_transaksi_id IN (" . implode(',', self::PESANAN_ACTIVE_STATUSES) . ")
+                    THEN t.id END) as pesanan_aktif
             ")
             ->first();
 
@@ -508,14 +528,16 @@ class DashboardService
                     ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
                     ->whereColumn('t.customer_id', 'c.id')
                     ->whereIn('td.status_transaksi_id', self::PESANAN_ACTIVE_STATUSES)
-                    ->whereRaw('td.subtotal > COALESCE((SELECT SUM(p.jumlah_bayar) FROM pembayarans p WHERE p.transaksi_detail_id = td.id), 0)');
+                    ->whereRaw('td.subtotal > COALESCE(
+                        (SELECT SUM(p.jumlah_bayar) FROM pembayarans p WHERE p.transaksi_detail_id = td.id), 0
+                    )');
             })
             ->count();
 
         return [
-            'harian_aktif' => (int) ($row->harian_aktif ?? 0),
+            'harian_aktif'  => (int) ($row->harian_aktif ?? 0),
             'pesanan_aktif' => (int) ($row->pesanan_aktif ?? 0),
-            'belum_lunas' => (int) $belumLunas,
+            'belum_lunas'   => (int) $belumLunas,
         ];
     }
 
@@ -539,12 +561,10 @@ class DashboardService
     private function getTopCustomers(Carbon $from, Carbon $to, int $limit = 5): array
     {
         $isAllPeriod = $from->timestamp === 0;
-        
+
         $query = DB::table('customers as c')
             ->select(
-                'c.id',
-                'c.name',
-                'c.phone',
+                'c.id', 'c.name', 'c.phone',
                 DB::raw('COUNT(DISTINCT t.id) as total_transactions'),
                 DB::raw('COALESCE(SUM(td.subtotal), 0) as total_spent')
             )
@@ -558,17 +578,16 @@ class DashboardService
             $query->whereBetween('t.tanggal', [$from->toDateString(), $to->toDateString()]);
         }
 
-        return $query
-            ->groupBy('c.id', 'c.name', 'c.phone')
+        return $query->groupBy('c.id', 'c.name', 'c.phone')
             ->orderByDesc('total_spent')
             ->limit($limit)
             ->get()
             ->map(fn($row) => [
-                'id' => $row->id,
-                'name' => $row->name,
-                'phone' => $row->phone,
+                'id'                 => $row->id,
+                'name'               => $row->name,
+                'phone'              => $row->phone,
                 'total_transactions' => (int) $row->total_transactions,
-                'total_spent' => (int) $row->total_spent,
+                'total_spent'        => (int) $row->total_spent,
             ])
             ->values()
             ->all();
@@ -580,12 +599,8 @@ class DashboardService
 
         $query = DB::table('transaksi_details as td')
             ->select(
-                'p.id',
-                'p.kode',
-                'jp.nama as jenis',
-                'tp.nama as type',
-                'bp.nama as bahan',
-                'p.ukuran',
+                'p.id', 'p.kode',
+                'jp.nama as jenis', 'tp.nama as type', 'bp.nama as bahan', 'p.ukuran',
                 DB::raw('SUM(td.qty) as total_qty'),
                 DB::raw('SUM(td.subtotal) as total_revenue')
             )
@@ -600,19 +615,18 @@ class DashboardService
             $query->whereBetween('t.tanggal', [$from->toDateString(), $to->toDateString()]);
         }
 
-        return $query
-            ->groupBy('p.id', 'p.kode', 'jp.nama', 'tp.nama', 'bp.nama', 'p.ukuran')
+        return $query->groupBy('p.id', 'p.kode', 'jp.nama', 'tp.nama', 'bp.nama', 'p.ukuran')
             ->orderByDesc('total_qty')
             ->limit($limit)
             ->get()
             ->map(fn($row) => [
-                'id' => $row->id,
-                'kode' => $row->kode,
-                'jenis' => $row->jenis,
-                'type' => $row->type,
-                'bahan' => $row->bahan,
-                'ukuran' => $row->ukuran,
-                'total_qty' => (int) $row->total_qty,
+                'id'            => $row->id,
+                'kode'          => $row->kode,
+                'jenis'         => $row->jenis,
+                'type'          => $row->type,
+                'bahan'         => $row->bahan,
+                'ukuran'        => $row->ukuran,
+                'total_qty'     => (int) $row->total_qty,
                 'total_revenue' => (int) $row->total_revenue,
             ])
             ->values()
@@ -639,14 +653,13 @@ class DashboardService
             $query->whereBetween('t.tanggal', [$from->toDateString(), $to->toDateString()]);
         }
 
-        return $query
-            ->groupBy('t.jenis_transaksi')
+        return $query->groupBy('t.jenis_transaksi')
             ->get()
             ->map(fn($row) => [
-                'type' => $row->jenis_transaksi,
+                'type'               => $row->jenis_transaksi,
                 'total_transactions' => (int) $row->total_transactions,
-                'total_amount' => (int) $row->total_amount,
-                'total_qty' => (int) $row->total_qty,
+                'total_amount'       => (int) $row->total_amount,
+                'total_qty'          => (int) $row->total_qty,
             ])
             ->values()
             ->all();
@@ -657,11 +670,7 @@ class DashboardService
         $isAllPeriod = $from->timestamp === 0;
 
         $query = DB::table('transaksi_details as td')
-            ->select(
-                'st.nama as status',
-                'td.status_transaksi_id as status_id',
-                DB::raw('COUNT(td.id) as total')
-            )
+            ->select('st.nama as status', 'td.status_transaksi_id as status_id', DB::raw('COUNT(td.id) as total'))
             ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
             ->join('status_transaksis as st', 'td.status_transaksi_id', '=', 'st.id');
 
@@ -669,28 +678,25 @@ class DashboardService
             $query->whereBetween('t.tanggal', [$from->toDateString(), $to->toDateString()]);
         }
 
-        $results = $query
-            ->groupBy('td.status_transaksi_id', 'st.nama')
+        $results = $query->groupBy('td.status_transaksi_id', 'st.nama')
             ->orderByDesc('total')
             ->get();
 
-        if ($results->isEmpty()) {
-            return [];
-        }
+        if ($results->isEmpty()) return [];
 
         $total = $results->sum('total');
 
         return $results->map(fn($row) => [
-            'status' => $row->status,
-            'status_id' => (int) $row->status_id,
-            'total' => (int) $row->total,
+            'status'     => $row->status,
+            'status_id'  => (int) $row->status_id,
+            'total'      => (int) $row->total,
             'percentage' => round(($row->total / $total) * 100, 1),
         ])->values()->all();
     }
 
     private function computeChart(int $months): array
     {
-        $endDate = Carbon::now()->endOfMonth();
+        $endDate   = Carbon::now()->endOfMonth();
         $startDate = Carbon::now()->subMonths($months - 1)->startOfMonth();
 
         $dbData = DB::table('transaksi_details as td')
@@ -706,37 +712,104 @@ class DashboardService
             ->get()
             ->keyBy('month_key');
 
-        $chartData = [];
+        $chartData   = [];
         $currentDate = $startDate->copy();
-        
+
         while ($currentDate->lte($endDate)) {
             $key = $currentDate->format('Y-m');
             $row = $dbData->get($key);
 
             $chartData[] = [
-                'label' => $currentDate->format('M Y'),
-                'date' => $key,
+                'label'   => $currentDate->format('M Y'),
+                'date'    => $key,
                 'revenue' => (int) ($row->total_revenue ?? 0),
-                'orders' => (int) ($row->total_orders ?? 0),
+                'orders'  => (int) ($row->total_orders ?? 0),
             ];
 
             $currentDate->addMonth();
         }
 
         return [
-            'period' => 'monthly_chart',
-            'months' => $months,
-            'data' => $chartData,
+            'period'    => 'monthly_chart',
+            'months'    => $months,
+            'data'      => $chartData,
             'cached_at' => Carbon::now()->toIso8601String(),
         ];
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PRIVATE HELPERS
+    |--------------------------------------------------------------------------
+    */
 
     private function calculateGrowth(int|float $current, int|float $previous): float
     {
         if ($previous == 0) {
             return $current > 0 ? 100.0 : 0.0;
         }
-
         return round((($current - $previous) / $previous) * 100, 1);
+    }
+
+    private function emptyMeta(int $perPage, int $page): array
+    {
+        return [
+            'current_page' => $page,
+            'from'         => null,
+            'last_page'    => 1,
+            'per_page'     => $perPage,
+            'to'           => null,
+            'total'        => 0,
+        ];
+    }
+
+    /**
+     * ✅ UPDATED: Empty login stats dengan shape baru (summary) + backward compat (today).
+     */
+    private function emptyLoginStats(string $period = 'daily'): array
+    {
+        $empty = [
+            'total_attempts' => 0,
+            'successful'     => 0,
+            'failed'         => 0,
+            'success_rate'   => 0,
+            'unique_ips'     => 0,
+            'unique_users'   => 0,
+        ];
+
+        return [
+            'period'          => $period,
+            'range'           => null,
+            'summary'         => $empty,
+            'today'           => $empty,  // backward compat
+            'top_failed_ips'  => [],
+            'last_activity'   => null,
+            'cached_at'       => now()->toIso8601String(),
+        ];
+    }
+
+    /**
+     * ✅ NEW: Hapus semua cache file yang key-nya diawali prefix.
+     * Cocok untuk cache driver file dimana cache key punya suffix period.
+     */
+    private function forgetCachePattern(string $prefix): void
+    {
+        $cachePath = storage_path('framework/cache/data');
+
+        if (!is_dir($cachePath)) {
+            return;
+        }
+
+        $files = glob("{$cachePath}/{$prefix}*") ?: [];
+
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                Cache::forget(basename($file));
+                @unlink($file);
+            }
+        }
+
+        // Hapus juga key prefix itu sendiri (jika ada sebagai key langsung)
+        Cache::forget($prefix);
     }
 }

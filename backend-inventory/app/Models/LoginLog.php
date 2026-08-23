@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 class LoginLog extends Model
 {
@@ -18,7 +19,7 @@ class LoginLog extends Model
     ];
 
     protected $casts = [
-        'success' => 'boolean',
+        'success'    => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -40,7 +41,18 @@ class LoginLog extends Model
 
     public function scopeByEmail(Builder $query, string $email): Builder
     {
-        return $query->where('email', strtolower(trim($email)));
+        return $query->where('email', 'like', '%' . strtolower(trim($email)) . '%');
+    }
+
+    public function scopeByIp(Builder $query, string $ip): Builder
+    {
+        return $query->where('ip_address', $ip);
+    }
+
+    public function scopeBySuccess(Builder $query, ?string $success): Builder
+    {
+        return $query->when($success === 'true' || $success === '1', fn($q) => $q->where('success', true))
+                     ->when($success === 'false' || $success === '0', fn($q) => $q->where('success', false));
     }
 
     public function scopeDateRange(Builder $query, ?string $start = null, ?string $end = null): Builder
@@ -50,9 +62,24 @@ class LoginLog extends Model
             ->when($end, fn($q) => $q->where('created_at', '<=', $end));
     }
 
-    public function scopeByIp(Builder $query, string $ip): Builder
+    public function scopePeriod(Builder $query, string $period, ?string $from = null, ?string $to = null): Builder
     {
-        return $query->where('ip_address', $ip);
+        $now = Carbon::now();
+
+        [$start, $end] = match ($period) {
+            'daily'   => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
+            'weekly'  => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
+            'monthly' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+            'yearly'  => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
+            'custom'  => [
+                $from ? Carbon::parse($from)->startOfDay() : $now->copy()->startOfMonth(),
+                $to ? Carbon::parse($to)->endOfDay() : $now->copy()->endOfDay(),
+            ],
+            'all'     => [Carbon::createFromTimestamp(0), $now->copy()->endOfDay()],
+            default   => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
+        };
+
+        return $query->whereBetween('created_at', [$start, $end]);
     }
 
     public function scopeSuspiciousActivity(Builder $query, int $threshold = 5): Builder
@@ -80,5 +107,54 @@ class LoginLog extends Model
             'success'        => $success,
             'failure_reason' => $reason,
         ]);
+    }
+
+    public function getBrowserAttribute(): string
+    {
+        if (!$this->user_agent) return 'Unknown';
+
+        $ua = strtolower($this->user_agent);
+
+        return match (true) {
+            str_contains($ua, 'edg')     => 'Microsoft Edge',
+            str_contains($ua, 'chrome')  => 'Chrome',
+            str_contains($ua, 'firefox') => 'Firefox',
+            str_contains($ua, 'safari')  => 'Safari',
+            str_contains($ua, 'opera')   => 'Opera',
+            default                      => 'Other',
+        };
+    }
+
+    public function getOsAttribute(): string
+    {
+        if (!$this->user_agent) return 'Unknown';
+
+        $ua = strtolower($this->user_agent);
+
+        return match (true) {
+            str_contains($ua, 'windows') => 'Windows',
+            str_contains($ua, 'mac')     => 'macOS',
+            str_contains($ua, 'linux')   => 'Linux',
+            str_contains($ua, 'android') => 'Android',
+            str_contains($ua, 'iphone'),
+            str_contains($ua, 'ipad')    => 'iOS',
+            default                      => 'Other',
+        };
+    }
+
+    public function getDeviceAttribute(): string
+    {
+        if (!$this->user_agent) return 'Unknown';
+
+        $ua = strtolower($this->user_agent);
+
+        return match (true) {
+            str_contains($ua, 'mobile'),
+            str_contains($ua, 'android'),
+            str_contains($ua, 'iphone')  => 'Mobile',
+            str_contains($ua, 'ipad'),
+            str_contains($ua, 'tablet')  => 'Tablet',
+            default                      => 'Desktop',
+        };
     }
 }

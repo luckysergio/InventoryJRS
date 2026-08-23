@@ -1,5 +1,7 @@
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
-import { BarChart3, TrendingUp, TrendingDown, Minus, Sparkles, Activity } from "lucide-react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import {
+  BarChart3, TrendingUp, TrendingDown, Minus, Sparkles, Activity,
+} from "lucide-react";
 import {
   Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Line, ComposedChart, Legend, Area,
@@ -7,121 +9,155 @@ import {
 import { formatRupiah } from "../../transaksidaily/utils/transaksiUtils";
 import { cn } from "../../../../lib/utils";
 
+// ==========================================
+// RESPONSIVE BREAKPOINTS
+// ==========================================
+const BREAKPOINTS = {
+  MOBILE: 480,
+  TABLET: 768,
+  DESKTOP: 1024,
+};
+
+// Minimum dimensions untuk render chart (cegah Recharts warning)
+const MIN_CHART_WIDTH = 200;
+const MIN_CHART_HEIGHT = 200;
+
 const RevenueChart = ({ data, months }) => {
-  const [isReady, setIsReady] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [hasEverBeenVisible, setHasEverBeenVisible] = useState(false);
   const containerRef = useRef(null);
-  const rafRef = useRef(null);
+  const resizeObserverRef = useRef(null);
+  const rafIdRef = useRef(null);
 
-  // 🎯 Stabilize callback dengan useCallback
-  const measureContainer = useCallback(() => {
-    if (!containerRef.current) return;
-    
-    const rect = containerRef.current.getBoundingClientRect();
-    const w = Math.floor(rect.width);
-    const h = Math.floor(rect.height);
-    
-    // Only update if dimensions are actually valid (> 0)
-    if (w > 10 && h > 10) {
-      setDimensions({ width: w, height: h });
-      setIsReady(true);
-    }
-  }, []);
-
-  // 🔍 IntersectionObserver - detect when visible in viewport
+  // ==========================================
+  // DIMENSION MEASUREMENT (ResizeObserver only)
+  // ==========================================
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          // Use rAF to ensure DOM is painted before measuring
-          rafRef.current = requestAnimationFrame(() => {
-            measureContainer();
-          });
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1, rootMargin: '50px' }
-    );
-
-    observer.observe(el);
-    return () => {
-      observer.disconnect();
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    // Cleanup helper
+    const cleanup = () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
     };
-  }, [measureContainer]);
 
-  // 📐 ResizeObserver - track dimension changes
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el || !isReady) return;
+    // Throttled update via rAF
+    const handleResize = (entries) => {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
 
-    let debounceTimer;
-    const observer = new ResizeObserver((entries) => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        const rect = entries[0].contentRect;
-        if (rect.width > 10 && rect.height > 10) {
-          setDimensions({
-            width: Math.floor(rect.width),
-            height: Math.floor(rect.height),
+      rafIdRef.current = requestAnimationFrame(() => {
+        const entry = entries[0];
+        if (!entry) return;
+
+        // Use contentRect (more accurate than getBoundingClientRect for ResizeObserver)
+        const { width, height } = entry.contentRect;
+        const w = Math.floor(width);
+        const h = Math.floor(height);
+
+        // Only update when dimensions are meaningful (prevent -1 / 0 warnings)
+        if (w >= MIN_CHART_WIDTH && h >= MIN_CHART_HEIGHT) {
+          setDimensions((prev) => {
+            // Skip re-render if no significant change (< 2px)
+            if (Math.abs(prev.width - w) < 2 && Math.abs(prev.height - h) < 2) {
+              return prev;
+            }
+            return { width: w, height: h };
           });
+
+          if (!hasEverBeenVisible) {
+            setHasEverBeenVisible(true);
+          }
         }
-      }, 100); // Debounce 100ms untuk smooth resize
-    });
-
-    observer.observe(el);
-    return () => {
-      observer.disconnect();
-      clearTimeout(debounceTimer);
+      });
     };
-  }, [isReady]);
 
-  // 📊 Data processing
+    resizeObserverRef.current = new ResizeObserver(handleResize);
+    resizeObserverRef.current.observe(el);
+
+    return cleanup;
+  }, [hasEverBeenVisible]);
+
+  // ==========================================
+  // DATA PROCESSING
+  // ==========================================
   const chartData = useMemo(() => {
-    return (data || []).map((item) => ({
+    if (!data || data.length === 0) return [];
+    return data.map((item) => ({
       ...item,
       revenueFormatted: formatRupiah(item.revenue),
     }));
   }, [data]);
 
-  const totalRevenue = (data || []).reduce((sum, item) => sum + (item.revenue || 0), 0);
-  const totalOrders = (data || []).reduce((sum, item) => sum + (item.orders || 0), 0);
+  const totalRevenue = useMemo(
+    () => (data || []).reduce((sum, item) => sum + (item.revenue || 0), 0),
+    [data]
+  );
+
+  const totalOrders = useMemo(
+    () => (data || []).reduce((sum, item) => sum + (item.orders || 0), 0),
+    [data]
+  );
+
   const avgRevenue = chartData.length > 0 ? totalRevenue / chartData.length : 0;
 
   const trend = useMemo(() => {
-    if (chartData.length < 2) return { direction: 'neutral', value: 0, icon: Minus };
+    if (chartData.length < 2) {
+      return { direction: "neutral", value: 0, icon: Minus };
+    }
     const last = chartData[chartData.length - 1]?.revenue || 0;
     const prev = chartData[chartData.length - 2]?.revenue || 0;
-    
-    if (prev === 0) return { 
-      direction: last > 0 ? 'up' : 'neutral', 
-      value: last > 0 ? 100 : 0,
-      icon: last > 0 ? TrendingUp : Minus 
-    };
-    
+
+    if (prev === 0) {
+      return {
+        direction: last > 0 ? "up" : "neutral",
+        value: last > 0 ? 100 : 0,
+        icon: last > 0 ? TrendingUp : Minus,
+      };
+    }
+
     const change = ((last - prev) / prev) * 100;
     return {
-      direction: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
+      direction: change > 0 ? "up" : change < 0 ? "down" : "neutral",
       value: Math.abs(change),
       icon: change > 0 ? TrendingUp : change < 0 ? TrendingDown : Minus,
     };
   }, [chartData]);
 
-  const isMobile = dimensions.width < 640;
+  // ==========================================
+  // RESPONSIVE FLAGS
+  // ==========================================
+  const isMobile = dimensions.width < BREAKPOINTS.MOBILE;
+  const isTablet = dimensions.width >= BREAKPOINTS.MOBILE && dimensions.width < BREAKPOINTS.TABLET;
   const isSmallMobile = dimensions.width < 400;
+
+  // Chart height based on device
+  const chartHeight = isMobile ? 280 : isTablet ? 320 : 360;
+
+  // Strict guard: hanya render chart jika dimensi valid
+  const canRenderChart =
+    hasEverBeenVisible &&
+    dimensions.width >= MIN_CHART_WIDTH &&
+    dimensions.height >= MIN_CHART_HEIGHT &&
+    chartData.length > 0;
+
   const TrendIcon = trend.icon;
+  const isEmptyData = !data || chartData.length === 0;
 
   return (
     <div className="bg-white rounded-2xl sm:rounded-3xl border border-blue-100/60 shadow-sm shadow-blue-100/40 overflow-hidden hover:shadow-lg hover:shadow-blue-100/60 transition-all duration-500 group">
-      
-      {/* Header */}
+      {/* ========================================== */}
+      {/* HEADER */}
+      {/* ========================================== */}
       <div className="relative px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-blue-50/80">
-        {/* Decorative blur */}
         <div className="absolute top-0 right-0 w-32 h-32 sm:w-40 sm:h-40 bg-gradient-to-br from-blue-100/40 to-sky-100/40 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-        
+
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
           <div className="flex items-center gap-2.5 sm:gap-3">
             <div className="relative flex-shrink-0">
@@ -145,12 +181,14 @@ const RevenueChart = ({ data, months }) => {
           </div>
 
           {chartData.length >= 2 && (
-            <div className={cn(
-              "flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold transition-all ring-1 w-fit",
-              trend.direction === 'up' && "bg-emerald-50 text-emerald-700 ring-emerald-200",
-              trend.direction === 'down' && "bg-rose-50 text-rose-700 ring-rose-200",
-              trend.direction === 'neutral' && "bg-slate-50 text-slate-600 ring-slate-200"
-            )}>
+            <div
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold transition-all ring-1 w-fit",
+                trend.direction === "up" && "bg-emerald-50 text-emerald-700 ring-emerald-200",
+                trend.direction === "down" && "bg-rose-50 text-rose-700 ring-rose-200",
+                trend.direction === "neutral" && "bg-slate-50 text-slate-600 ring-slate-200"
+              )}
+            >
               <TrendIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
               <span className="whitespace-nowrap">{trend.value.toFixed(1)}% vs bulan lalu</span>
             </div>
@@ -158,43 +196,45 @@ const RevenueChart = ({ data, months }) => {
         </div>
       </div>
 
-      {/* Chart Area */}
+      {/* ========================================== */}
+      {/* CHART AREA */}
+      {/* ========================================== */}
       <div className="px-2 sm:px-6 py-4 sm:py-5">
-        {!data || chartData.length === 0 ? (
+        {isEmptyData ? (
           <EmptyChartState />
         ) : (
           <div
             ref={containerRef}
             className="w-full relative"
-            style={{ 
-              height: isMobile ? '260px' : '340px',
-              minHeight: '240px',
+            style={{
+              height: `${chartHeight}px`,
+              minHeight: `${MIN_CHART_HEIGHT}px`,
             }}
           >
-            {/* Skeleton loader saat belum ready */}
-            {!isReady && <ChartSkeleton />}
-            
-            {/* Chart container dengan fade-in */}
-            <div 
+            {/* Skeleton: tampilkan saat belum pernah dapat dimensi valid */}
+            {!hasEverBeenVisible && <ChartSkeleton />}
+
+            {/* Chart: hanya render jika dimensi valid */}
+            <div
               className={cn(
-                "absolute inset-0 transition-opacity duration-500",
-                isReady ? "opacity-100" : "opacity-0 pointer-events-none"
+                "absolute inset-0 transition-all duration-500 ease-out",
+                canRenderChart
+                  ? "opacity-100 scale-100"
+                  : "opacity-0 scale-95 pointer-events-none"
               )}
             >
-              {isReady && dimensions.width > 100 && dimensions.height > 100 && (
-                <ResponsiveContainer 
-                  width="100%" 
+              {canRenderChart && (
+                <ResponsiveContainer
+                  key={`chart-${dimensions.width}-${dimensions.height}`}
+                  width="100%"
                   height="100%"
-                  minWidth={200}
-                  minHeight={200}
-                  debounce={200}
                 >
-                  <ComposedChart 
+                  <ComposedChart
                     data={chartData}
-                    margin={{ 
-                      top: 10, 
-                      right: isMobile ? 5 : 15, 
-                      left: isMobile ? -10 : 0, 
+                    margin={{
+                      top: 10,
+                      right: isMobile ? 5 : 15,
+                      left: isMobile ? -10 : 0,
                       bottom: 5,
                     }}
                   >
@@ -209,22 +249,28 @@ const RevenueChart = ({ data, months }) => {
                         <stop offset="100%" stopColor="#f43f5e" stopOpacity={0.02} />
                       </linearGradient>
                       <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#3b82f6" floodOpacity="0.2" />
+                        <feDropShadow
+                          dx="0"
+                          dy="2"
+                          stdDeviation="2"
+                          floodColor="#3b82f6"
+                          floodOpacity="0.2"
+                        />
                       </filter>
                     </defs>
-                    
-                    <CartesianGrid 
-                      strokeDasharray="3 3" 
+
+                    <CartesianGrid
+                      strokeDasharray="3 3"
                       stroke="#f1f5f9"
                       vertical={false}
                     />
-                    
+
                     <XAxis
                       dataKey="label"
-                      tick={{ 
-                        fontSize: isSmallMobile ? 9 : 11, 
-                        fill: "#64748b", 
-                        fontWeight: 500 
+                      tick={{
+                        fontSize: isSmallMobile ? 9 : 11,
+                        fill: "#64748b",
+                        fontWeight: 500,
                       }}
                       tickLine={false}
                       axisLine={{ stroke: "#e2e8f0", strokeWidth: 1 }}
@@ -232,7 +278,7 @@ const RevenueChart = ({ data, months }) => {
                       tickMargin={8}
                       height={30}
                     />
-                    
+
                     <YAxis
                       yAxisId="left"
                       tickFormatter={(value) => {
@@ -245,7 +291,7 @@ const RevenueChart = ({ data, months }) => {
                       axisLine={false}
                       width={isMobile ? 35 : 50}
                     />
-                    
+
                     <YAxis
                       yAxisId="right"
                       orientation="right"
@@ -254,22 +300,19 @@ const RevenueChart = ({ data, months }) => {
                       axisLine={false}
                       width={isMobile ? 20 : 30}
                     />
-                    
-                    <Tooltip
-                      content={<CustomTooltip />}
-                      cursor={{ fill: "rgba(59, 130, 246, 0.04)", radius: 4 }}
-                    />
-                    
+
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(59, 130, 246, 0.04)" }} />
+
                     <Legend
-                      wrapperStyle={{ 
-                        fontSize: isSmallMobile ? "10px" : "11px", 
+                      wrapperStyle={{
+                        fontSize: isSmallMobile ? "10px" : "11px",
                         paddingTop: "12px",
                         fontWeight: 500,
                       }}
                       iconType="circle"
                       iconSize={8}
                     />
-                    
+
                     <Area
                       yAxisId="right"
                       type="monotone"
@@ -280,7 +323,7 @@ const RevenueChart = ({ data, months }) => {
                       animationDuration={1200}
                       animationEasing="ease-out"
                     />
-                    
+
                     <Bar
                       yAxisId="left"
                       dataKey="revenue"
@@ -293,7 +336,7 @@ const RevenueChart = ({ data, months }) => {
                       animationEasing="ease-out"
                       filter="url(#barShadow)"
                     />
-                    
+
                     <Line
                       yAxisId="right"
                       type="monotone"
@@ -301,13 +344,13 @@ const RevenueChart = ({ data, months }) => {
                       name="Jumlah Order"
                       stroke="#f43f5e"
                       strokeWidth={2.5}
-                      dot={{ 
+                      dot={{
                         fill: "#ffffff",
                         stroke: "#f43f5e",
                         strokeWidth: 2,
                         r: isSmallMobile ? 2.5 : 3.5,
                       }}
-                      activeDot={{ 
+                      activeDot={{
                         r: isSmallMobile ? 4 : 5.5,
                         fill: "#f43f5e",
                         stroke: "#ffffff",
@@ -325,7 +368,9 @@ const RevenueChart = ({ data, months }) => {
         )}
       </div>
 
-      {/* Summary Stats */}
+      {/* ========================================== */}
+      {/* SUMMARY STATS */}
+      {/* ========================================== */}
       {chartData.length > 0 && (
         <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-blue-50/50 to-sky-50/50 border-t border-blue-50/80">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
@@ -337,7 +382,7 @@ const RevenueChart = ({ data, months }) => {
             />
             <ChartStat
               label="Total Order"
-              value={totalOrders.toLocaleString('id-ID')}
+              value={totalOrders.toLocaleString("id-ID")}
               color="rose"
               icon={<BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
             />
@@ -354,7 +399,9 @@ const RevenueChart = ({ data, months }) => {
   );
 };
 
-// 📊 Chart Stat Component
+// ==========================================
+// CHART STAT COMPONENT
+// ==========================================
 const ChartStat = ({ label, value, color, icon }) => {
   const colors = {
     blue: { icon: "bg-blue-100 text-blue-600", value: "text-blue-700" },
@@ -365,26 +412,25 @@ const ChartStat = ({ label, value, color, icon }) => {
 
   return (
     <div className="text-center group">
-      <div className={cn(
-        "w-7 h-7 sm:w-8 sm:h-8 mx-auto mb-1.5 sm:mb-2 rounded-lg flex items-center justify-center transition-all duration-300 group-hover:scale-110",
-        c.icon
-      )}>
+      <div
+        className={cn(
+          "w-7 h-7 sm:w-8 sm:h-8 mx-auto mb-1.5 sm:mb-2 rounded-lg flex items-center justify-center transition-all duration-300 group-hover:scale-110",
+          c.icon
+        )}
+      >
         {icon}
       </div>
       <p className="text-[8px] sm:text-[10px] text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1 leading-tight px-1 truncate">
         {label}
       </p>
-      <p className={cn(
-        "text-xs sm:text-base font-bold truncate", 
-        c.value
-      )}>
-        {value}
-      </p>
+      <p className={cn("text-xs sm:text-base font-bold truncate", c.value)}>{value}</p>
     </div>
   );
 };
 
-// 📭 Empty State
+// ==========================================
+// EMPTY STATE
+// ==========================================
 const EmptyChartState = () => (
   <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-slate-400">
     <div className="relative">
@@ -392,24 +438,28 @@ const EmptyChartState = () => (
       <BarChart3 className="relative w-12 h-12 sm:w-14 sm:h-14 text-blue-300" />
     </div>
     <p className="mt-4 text-sm font-semibold text-slate-600">Belum ada data chart</p>
-    <p className="text-xs text-slate-400 mt-1 text-center px-4">Data akan muncul setelah ada transaksi selesai</p>
+    <p className="text-xs text-slate-400 mt-1 text-center px-4">
+      Data akan muncul setelah ada transaksi selesai
+    </p>
   </div>
 );
 
-// 💀 Skeleton Loader - Modern shimmer effect
+// ==========================================
+// SKELETON LOADER
+// ==========================================
 const ChartSkeleton = () => (
   <div className="w-full h-full flex items-end justify-around gap-1.5 sm:gap-3 p-3 sm:p-4">
     {[...Array(6)].map((_, i) => (
       <div
         key={i}
         className="flex-1 relative overflow-hidden rounded-t-lg"
-        style={{ 
-          height: `${30 + (i * 15) % 55}%`,
-          animationDelay: `${i * 100}ms`
+        style={{
+          height: `${30 + ((i * 15) % 55)}%`,
+          animationDelay: `${i * 100}ms`,
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-blue-100 via-sky-50 to-blue-50" />
-        <div 
+        <div
           className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer"
           style={{ animationDelay: `${i * 150}ms` }}
         />
@@ -418,7 +468,9 @@ const ChartSkeleton = () => (
   </div>
 );
 
-// 💬 Custom Tooltip
+// ==========================================
+// CUSTOM TOOLTIP
+// ==========================================
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload || !payload.length) return null;
 
@@ -434,7 +486,7 @@ const CustomTooltip = ({ active, payload, label }) => {
             <div className="flex items-center gap-1.5 sm:gap-2">
               <div
                 className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ring-2 ring-offset-1 ring-offset-white flex-shrink-0"
-                style={{ 
+                style={{
                   backgroundColor: entry.color,
                   boxShadow: `0 0 0 1px ${entry.color}30`,
                 }}
