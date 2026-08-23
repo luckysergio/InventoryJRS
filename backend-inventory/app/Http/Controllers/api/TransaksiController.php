@@ -9,6 +9,7 @@ use App\Http\Resources\TransaksiDetailResource;
 use App\Http\Resources\TransaksiResource;
 use App\Models\Transaksi;
 use App\Models\TransaksiDetail;
+use App\Services\Customer\CustomerService;
 use App\Services\Dashboard\DashboardService;
 use App\Services\Inventory\InventoryService;
 use App\Services\Pembayaran\PembayaranService;
@@ -29,15 +30,23 @@ class TransaksiController extends Controller
         protected InventoryService $inventoryService,
         protected ProductMovementService $productMovementService,
         protected PembayaranService $pembayaranService,
-        protected DashboardService $dashboardService
+        protected DashboardService $dashboardService,
+        protected CustomerService $customerService // ✅ NEW: untuk invalidate cache customer (tagihan)
     ) {}
 
+    /**
+     * Invalidate semua cache yang terpengaruh oleh perubahan transaksi.
+     * - Transaksi, Inventory, ProductMovement, Pembayaran: data inti
+     * - Dashboard: metrics, chart, login stats
+     * - Customer: ✅ tagihan/outstanding balance berubah saat transaksi berubah
+     */
     private function invalidateAll(): void
     {
         $this->transaksiService->invalidateCache();
         $this->inventoryService->invalidateCache();
         $this->productMovementService->invalidateCache();
         $this->pembayaranService->invalidateCache();
+        $this->customerService->invalidateCache(); // ✅ NEW
         $this->invalidateDashboard();
     }
 
@@ -115,11 +124,11 @@ class TransaksiController extends Controller
 
             $this->invalidateAll();
 
-            // ✅ Broadcast event untuk real-time
             $this->broadcastTransaksiEvent('created', [
                 'id' => $transaksi->id,
                 'jenis' => $transaksi->jenis_transaksi,
                 'total' => $transaksi->total ?? 0,
+                'customer_id' => $transaksi->customer_id,
             ]);
 
             return response()->json([
@@ -180,9 +189,9 @@ class TransaksiController extends Controller
 
             $this->invalidateAll();
 
-            // ✅ Broadcast event
             $this->broadcastTransaksiEvent('updated', [
                 'id' => $transaksi->id,
+                'customer_id' => $transaksi->customer_id,
             ]);
 
             return response()->json([
@@ -210,13 +219,14 @@ class TransaksiController extends Controller
     public function destroy(Transaksi $transaksi): JsonResponse
     {
         try {
+            $customerId = $transaksi->customer_id;
             $this->transaksiService->delete($transaksi);
 
             $this->invalidateAll();
 
-            // ✅ Broadcast event
             $this->broadcastTransaksiEvent('deleted', [
                 'id' => $transaksi->id,
+                'customer_id' => $customerId,
             ]);
 
             return response()->json([
@@ -246,10 +256,10 @@ class TransaksiController extends Controller
 
             $this->invalidateAll();
 
-            // ✅ Broadcast event
             $this->broadcastTransaksiEvent('status_changed', [
                 'detail_id' => $detail->id,
                 'new_status' => $validated['status_transaksi_id'],
+                'customer_id' => $detail->transaksi?->customer_id,
             ]);
 
             return response()->json([
@@ -277,13 +287,14 @@ class TransaksiController extends Controller
     public function cancelDetail(TransaksiDetail $detail): JsonResponse
     {
         try {
+            $customerId = $detail->transaksi?->customer_id;
             $this->transaksiService->cancelDetail($detail);
 
             $this->invalidateAll();
 
-            // ✅ Broadcast event
             $this->broadcastTransaksiEvent('detail_cancelled', [
                 'detail_id' => $detail->id,
+                'customer_id' => $customerId,
             ]);
 
             return response()->json([

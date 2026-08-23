@@ -4,7 +4,8 @@ namespace App\Services\Customer;
 
 use App\Models\Customer;
 use App\Models\Product;
-use App\Models\TransaksiDetail;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -26,59 +27,117 @@ class CustomerService
 
     private const STATUS_DIBATALKAN = 6;
 
+    /*
+    |--------------------------------------------------------------------------
+    | LIST CUSTOMERS (Sorted: Outstanding First → Alphabetical)
+    |--------------------------------------------------------------------------
+    | FIX: Gunakan fromSub() + manual pagination untuk hindari binding error
+    |      saat paginate() membangun count query dari subquery.
+    */
     public function getList(?string $search = null, int $perPage = 20, int $page = 1): array
     {
         $version = $this->getCacheVersion();
         $cacheKey = $this->buildListCacheKey($version, $search, $perPage, $page);
 
         $paginator = Cache::remember($cacheKey, self::CACHE_TTL_LIST, function () use ($search, $perPage, $page) {
-            $statusDibatalkan = DB::table('status_transaksis')->where('nama', 'Dibatalkan')->value('id');
+            $statusDibatalkan = DB::table('status_transaksis')
+                ->where('nama', 'Dibatalkan')
+                ->value('id');
 
-            $pembayaranSubquery = DB::table('pembayarans')
-                ->select('transaksi_detail_id', DB::raw('SUM(jumlah_bayar) as total_bayar'))
-                ->groupBy('transaksi_detail_id');
+            // ============================================
+            // Builder Factory — dipanggil 2x (count + data)
+            // Menghasilkan Builder baru setiap kali → bindings fresh
+            // ============================================
+            $buildInnerQuery = function () use ($search, $statusDibatalkan) {
+                $pembayaranSubquery = DB::table('pembayarans')
+                    ->select('transaksi_detail_id', DB::raw('SUM(jumlah_bayar) as total_bayar'))
+                    ->groupBy('transaksi_detail_id');
 
-            $tagihanHarian = DB::table('transaksi_details as td')
-                ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-                ->leftJoinSub($pembayaranSubquery, 'p', fn($join) => $join->on('td.id', '=', 'p.transaksi_detail_id'))
-                ->where('t.jenis_transaksi', 'daily')
-                ->whereRaw('t.customer_id = customers.id')
-                ->when($statusDibatalkan, fn($q) => $q->where('td.status_transaksi_id', '!=', $statusDibatalkan))
-                ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal')
-                ->selectRaw('COALESCE(SUM(td.subtotal - COALESCE(p.total_bayar, 0)), 0)');
+                $tagihanHarian = DB::table('transaksi_details as td')
+                    ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
+                    ->leftJoinSub($pembayaranSubquery, 'p', fn($join) => $join->on('td.id', '=', 'p.transaksi_detail_id'))
+                    ->where('t.jenis_transaksi', 'daily')
+                    ->whereRaw('t.customer_id = customers.id')
+                    ->when($statusDibatalkan, fn($q) => $q->where('td.status_transaksi_id', '!=', $statusDibatalkan))
+                    ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal')
+                    ->selectRaw('COALESCE(SUM(td.subtotal - COALESCE(p.total_bayar, 0)), 0)');
 
-            $tagihanPesanan = DB::table('transaksi_details as td')
-                ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
-                ->leftJoinSub($pembayaranSubquery, 'p', fn($join) => $join->on('td.id', '=', 'p.transaksi_detail_id'))
-                ->where('t.jenis_transaksi', 'pesanan')
-                ->whereRaw('t.customer_id = customers.id')
-                ->when($statusDibatalkan, fn($q) => $q->where('td.status_transaksi_id', '!=', $statusDibatalkan))
-                ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal')
-                ->selectRaw('COALESCE(SUM(td.subtotal - COALESCE(p.total_bayar, 0)), 0)');
+                $tagihanPesanan = DB::table('transaksi_details as td')
+                    ->join('transaksis as t', 'td.transaksi_id', '=', 't.id')
+                    ->leftJoinSub($pembayaranSubquery, 'p', fn($join) => $join->on('td.id', '=', 'p.transaksi_detail_id'))
+                    ->where('t.jenis_transaksi', 'pesanan')
+                    ->whereRaw('t.customer_id = customers.id')
+                    ->when($statusDibatalkan, fn($q) => $q->where('td.status_transaksi_id', '!=', $statusDibatalkan))
+                    ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal')
+                    ->selectRaw('COALESCE(SUM(td.subtotal - COALESCE(p.total_bayar, 0)), 0)');
 
-            $query = Customer::select(['customers.id', 'customers.name', 'customers.phone', 'customers.email', 'customers.created_at', 'customers.updated_at'])
-                ->addSelect([
-                    'tagihan_harian_belum_lunas' => $tagihanHarian,
-                    'tagihan_pesanan_belum_lunas' => $tagihanPesanan,
-                ])
-                ->when($search, function ($q) use ($search) {
-                    $q->where(function ($sub) use ($search) {
-                        $sub->where('customers.name', 'like', "%{$search}%")
-                            ->orWhere('customers.phone', 'like', "%{$search}%")
-                            ->orWhere('customers.email', 'like', "%{$search}%");
+                return Customer::query()
+                    ->select([
+                        'customers.id',
+                        'customers.name',
+                        'customers.phone',
+                        'customers.email',
+                        'customers.created_at',
+                        'customers.updated_at',
+                    ])
+                    ->addSelect([
+                        'tagihan_harian_belum_lunas' => $tagihanHarian,
+                        'tagihan_pesanan_belum_lunas' => $tagihanPesanan,
+                    ])
+                    ->when($search, function ($q) use ($search) {
+                        $q->where(function ($sub) use ($search) {
+                            $sub->where('customers.name', 'like', "%{$search}%")
+                                ->orWhere('customers.phone', 'like', "%{$search}%")
+                                ->orWhere('customers.email', 'like', "%{$search}%");
+                        });
                     });
-                })
-                ->orderBy('customers.name', 'asc');
+            };
 
-            return $query->paginate($perPage, ['*'], 'page', $page);
+            // ============================================
+            // ✅ STEP 1: Count query (tanpa order, tanpa limit)
+            // fromSub() adalah API resmi Laravel — handle bindings dengan benar
+            // ============================================
+            $total = (int) DB::query()
+                ->fromSub($buildInnerQuery(), 'count_c')
+                ->count();
+
+            // ============================================
+            // ✅ STEP 2: Data query dengan order (outstanding first, then alphabetical)
+            // ============================================
+            $items = DB::query()
+                ->fromSub($buildInnerQuery(), 'c')
+                ->orderByRaw(
+                    'CASE WHEN (c.tagihan_harian_belum_lunas + c.tagihan_pesanan_belum_lunas) > 0 THEN 1 ELSE 0 END DESC'
+                )
+                ->orderBy('c.name', 'asc')
+                ->skip(($page - 1) * $perPage)
+                ->take($perPage)
+                ->get();
+
+            // ============================================
+            // ✅ STEP 3: Manual LengthAwarePaginator (100% reliable, no binding issue)
+            // ============================================
+            return new LengthAwarePaginator(
+                $items,
+                $total,
+                $perPage,
+                $page,
+                [
+                    'path'  => Paginator::resolveCurrentPath(),
+                    'query' => request()->query(),
+                ]
+            );
         });
 
+        // Transform hasil
         $items = collect($paginator->items())->map(function ($customer) {
-            $arr = $customer->toArray();
+            $arr = is_array($customer) ? $customer : (array) $customer;
+
             $arr['tagihan_harian_belum_lunas'] = (float) max(0, $arr['tagihan_harian_belum_lunas'] ?? 0);
             $arr['tagihan_pesanan_belum_lunas'] = (float) max(0, $arr['tagihan_pesanan_belum_lunas'] ?? 0);
             $arr['total_tagihan'] = $arr['tagihan_harian_belum_lunas'] + $arr['tagihan_pesanan_belum_lunas'];
             $arr['has_outstanding'] = $arr['total_tagihan'] > 0;
+
             return $arr;
         });
 
@@ -86,22 +145,29 @@ class CustomerService
             'data' => $items,
             'meta' => [
                 'current_page' => $paginator->currentPage(),
-                'from' => $paginator->firstItem(),
-                'last_page' => $paginator->lastPage(),
-                'per_page' => $paginator->perPage(),
-                'to' => $paginator->lastItem(),
-                'total' => $paginator->total(),
+                'from'         => $paginator->firstItem(),
+                'last_page'    => $paginator->lastPage(),
+                'per_page'     => $paginator->perPage(),
+                'to'           => $paginator->lastItem(),
+                'total'        => $paginator->total(),
             ],
         ];
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | DETAIL CUSTOMER
+    |--------------------------------------------------------------------------
+    */
     public function getDetail(int $id): ?array
     {
         $version = $this->getCacheVersion();
         $cacheKey = self::CACHE_DETAIL_PREFIX . $version . ':' . $id;
 
         return Cache::remember($cacheKey, self::CACHE_TTL_DETAIL, function () use ($id) {
-            $statusDibatalkan = DB::table('status_transaksis')->where('nama', 'Dibatalkan')->value('id');
+            $statusDibatalkan = DB::table('status_transaksis')
+                ->where('nama', 'Dibatalkan')
+                ->value('id');
 
             $pembayaranSubquery = DB::table('pembayarans')
                 ->select('transaksi_detail_id', DB::raw('SUM(jumlah_bayar) as total_bayar'))
@@ -125,7 +191,10 @@ class CustomerService
                 ->whereRaw('COALESCE(p.total_bayar, 0) < td.subtotal')
                 ->selectRaw('COALESCE(SUM(td.subtotal - COALESCE(p.total_bayar, 0)), 0)');
 
-            $customer = Customer::select(['customers.id', 'customers.name', 'customers.phone', 'customers.email', 'customers.created_at', 'customers.updated_at'])
+            $customer = Customer::select([
+                    'customers.id', 'customers.name', 'customers.phone', 'customers.email',
+                    'customers.created_at', 'customers.updated_at',
+                ])
                 ->addSelect([
                     'tagihan_harian_belum_lunas' => $tagihanHarian,
                     'tagihan_pesanan_belum_lunas' => $tagihanPesanan,
@@ -144,18 +213,11 @@ class CustomerService
         });
     }
 
-    /**
-     * ✅ ROBUST VERSION: Get detail tagihan customer (transaksi_details yang belum lunas).
-     * 
-     * Perubahan utama dari versi sebelumnya:
-     * 1. HAPUS select specific columns (hindari "Column not found" error)
-     * 2. Biarkan model handle serialization (lebih flexible)
-     * 3. Tambah error handling per-item mapping
-     * 
-     * @param int $customerId
-     * @param string|null $jenis Filter: 'daily' | 'pesanan' | null (semua)
-     * @return array{details: array, summary: array}
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | TAGIHAN DETAIL
+    |--------------------------------------------------------------------------
+    */
     public function getTagihan(int $customerId, ?string $jenis = null): array
     {
         $version = $this->getCacheVersion();
@@ -163,9 +225,7 @@ class CustomerService
         $cacheKey = self::CACHE_TAGIHAN_PREFIX . "{$version}:c{$customerId}:j{$jenisKey}";
 
         return Cache::remember($cacheKey, self::CACHE_TTL_TAGIHAN, function () use ($customerId, $jenis) {
-            // ✅ ROBUST: Tanpa select specific columns
-            // Eager load semua field, biarkan model handle serialization
-            $query = TransaksiDetail::with([
+            $query = \App\Models\TransaksiDetail::with([
                 'transaksi',
                 'product.jenis',
                 'product.type',
@@ -179,7 +239,7 @@ class CustomerService
                     }
                 })
                 ->where('status_transaksi_id', '!=', self::STATUS_DIBATALKAN)
-                ->orderBy('id', 'desc'); // ✅ Sederhana, tanpa prefix tabel
+                ->orderBy('id', 'desc');
 
             $details = $query->get()->map(function ($detail) {
                 try {
@@ -187,50 +247,39 @@ class CustomerService
                     $totalBayar = (float) $detail->pembayarans->sum('jumlah_bayar');
                     $sisaTagihan = max($subtotal - $totalBayar, 0);
 
-                    // ✅ Manual serialization untuk hindari error pada field yang tidak ada
-                    $transaksiData = null;
-                    if ($detail->transaksi) {
-                        $transaksiData = [
-                            'id'              => $detail->transaksi->id,
-                            'jenis_transaksi' => $detail->transaksi->jenis_transaksi,
-                            'tanggal'         => $detail->transaksi->tanggal,
-                            'kode'            => $detail->transaksi->kode ?? null,
-                            'customer_id'     => $detail->transaksi->customer_id,
-                        ];
-                    }
+                    $transaksiData = $detail->transaksi ? [
+                        'id'              => $detail->transaksi->id,
+                        'jenis_transaksi' => $detail->transaksi->jenis_transaksi,
+                        'tanggal'         => $detail->transaksi->tanggal,
+                        'kode'            => $detail->transaksi->kode ?? null,
+                        'customer_id'     => $detail->transaksi->customer_id,
+                    ] : null;
 
-                    // ✅ Safe access untuk product (handle jika relasi tidak ada)
-                    $productData = null;
-                    if ($detail->product) {
-                        $productData = [
-                            'id'       => $detail->product->id,
-                            'kode'     => $detail->product->kode ?? null,
-                            'nama'     => $detail->product->nama ?? null,
-                            'ukuran'   => $detail->product->ukuran ?? null,
-                            'jenis'    => $detail->product->jenis ? [
-                                'id' => $detail->product->jenis->id,
-                                'nama' => $detail->product->jenis->nama,
-                            ] : null,
-                            'type'     => $detail->product->type ? [
-                                'id' => $detail->product->type->id,
-                                'nama' => $detail->product->type->nama,
-                            ] : null,
-                            'bahan'    => $detail->product->bahan ? [
-                                'id' => $detail->product->bahan->id,
-                                'nama' => $detail->product->bahan->nama,
-                            ] : null,
-                        ];
-                    }
+                    $productData = $detail->product ? [
+                        'id'     => $detail->product->id,
+                        'kode'   => $detail->product->kode ?? null,
+                        'nama'   => $detail->product->nama ?? null,
+                        'ukuran' => $detail->product->ukuran ?? null,
+                        'jenis'  => $detail->product->jenis ? [
+                            'id' => $detail->product->jenis->id,
+                            'nama' => $detail->product->jenis->nama,
+                        ] : null,
+                        'type'   => $detail->product->type ? [
+                            'id' => $detail->product->type->id,
+                            'nama' => $detail->product->type->nama,
+                        ] : null,
+                        'bahan'  => $detail->product->bahan ? [
+                            'id' => $detail->product->bahan->id,
+                            'nama' => $detail->product->bahan->nama,
+                        ] : null,
+                    ] : null;
 
-                    // ✅ Safe access untuk pembayarans
-                    $pembayaransData = $detail->pembayarans->map(function ($p) {
-                        return [
-                            'id'                  => $p->id,
-                            'transaksi_detail_id' => $p->transaksi_detail_id,
-                            'jumlah_bayar'        => (float) ($p->jumlah_bayar ?? 0),
-                            'tanggal_bayar'       => $p->tanggal_bayar,
-                        ];
-                    })->toArray();
+                    $pembayaransData = $detail->pembayarans->map(fn($p) => [
+                        'id'                  => $p->id,
+                        'transaksi_detail_id' => $p->transaksi_detail_id,
+                        'jumlah_bayar'        => (float) ($p->jumlah_bayar ?? 0),
+                        'tanggal_bayar'       => $p->tanggal_bayar,
+                    ])->toArray();
 
                     return [
                         'id'                  => $detail->id,
@@ -249,34 +298,35 @@ class CustomerService
                         'pembayarans'         => $pembayaransData,
                     ];
                 } catch (\Throwable $e) {
-                    // ✅ Log warning tapi lanjutkan ke item berikutnya
                     Log::warning('Error mapping transaksi detail', [
                         'detail_id' => $detail->id ?? null,
-                        'error' => $e->getMessage(),
+                        'error'     => $e->getMessage(),
                     ]);
                     return null;
                 }
-            })->filter(); // Hapus item yang null (error)
+            })->filter();
 
-            // Filter hanya yang BELUM LUNAS
-            $unpaidDetails = $details->filter(fn($d) => ($d['sisa_tagihan'] ?? 0) > 0)->values();
-
-            // Summary
-            $totalTagihan = (float) $unpaidDetails->sum('sisa_tagihan');
-            $totalSudahBayar = (float) $unpaidDetails->sum('total_bayar');
-            $jumlahItem = $unpaidDetails->count();
+            $unpaidDetails = $details
+                ->filter(fn($d) => ($d['sisa_tagihan'] ?? 0) > 0)
+                ->sortByDesc(fn($d) => $d['sisa_tagihan'])
+                ->values();
 
             return [
                 'details' => $unpaidDetails->toArray(),
                 'summary' => [
-                    'total_tagihan'     => $totalTagihan,
-                    'total_sudah_bayar' => $totalSudahBayar,
-                    'jumlah_item'       => $jumlahItem,
+                    'total_tagihan'     => (float) $unpaidDetails->sum('sisa_tagihan'),
+                    'total_sudah_bayar' => (float) $unpaidDetails->sum('total_bayar'),
+                    'jumlah_item'       => $unpaidDetails->count(),
                 ],
             ];
         });
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | DROPDOWN
+    |--------------------------------------------------------------------------
+    */
     public function getForDropdown(): array
     {
         $version = $this->getCacheVersion();
@@ -294,6 +344,11 @@ class CustomerService
         });
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | CRUD
+    |--------------------------------------------------------------------------
+    */
     public function create(array $data): Customer
     {
         return DB::transaction(function () use ($data) {
@@ -303,11 +358,7 @@ class CustomerService
                 'email' => $data['email'] ?? null,
             ]);
 
-            Log::info('Customer created', [
-                'id' => $customer->id,
-                'name' => $customer->name,
-            ]);
-
+            Log::info('Customer created', ['id' => $customer->id, 'name' => $customer->name]);
             return $customer;
         });
     }
@@ -325,11 +376,7 @@ class CustomerService
                 'email' => $data['email'] ?? null,
             ]);
 
-            Log::info('Customer updated', [
-                'id' => $customer->id,
-                'name' => $customer->name,
-            ]);
-
+            Log::info('Customer updated', ['id' => $customer->id, 'name' => $customer->name]);
             return $customer->fresh();
         });
     }
@@ -340,27 +387,21 @@ class CustomerService
         $name = $customer->name;
 
         if (!$id || !$customer->exists) {
-            return [
-                'success' => false,
-                'code' => 400,
-                'message' => 'Data customer tidak valid.',
-            ];
+            return ['success' => false, 'code' => 400, 'message' => 'Data customer tidak valid.'];
         }
 
-        $hasProduct = Product::where('customer_id', $id)->exists();
-        if ($hasProduct) {
+        if (Product::where('customer_id', $id)->exists()) {
             return [
                 'success' => false,
-                'code' => 422,
+                'code'    => 422,
                 'message' => "Customer '{$name}' tidak dapat dihapus karena masih memiliki product.",
             ];
         }
 
-        $hasTransaksi = DB::table('transaksis')->where('customer_id', $id)->exists();
-        if ($hasTransaksi) {
+        if (DB::table('transaksis')->where('customer_id', $id)->exists()) {
             return [
                 'success' => false,
-                'code' => 422,
+                'code'    => 422,
                 'message' => "Customer '{$name}' tidak dapat dihapus karena masih memiliki riwayat transaksi.",
             ];
         }
@@ -371,12 +412,14 @@ class CustomerService
 
         Log::info('Customer deleted', ['id' => $id, 'name' => $name]);
 
-        return [
-            'success' => true,
-            'message' => "Customer '{$name}' berhasil dihapus.",
-        ];
+        return ['success' => true, 'message' => "Customer '{$name}' berhasil dihapus."];
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | CACHE MANAGEMENT
+    |--------------------------------------------------------------------------
+    */
     public function getCacheVersion(): int
     {
         return (int) Cache::get(self::CACHE_VERSION_KEY, 1);
