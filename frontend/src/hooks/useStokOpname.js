@@ -2,10 +2,6 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import api from '../lib/api/axios';
 import { masterKeys, invalidateRelatedCaches } from './useMasterData';
 
-// ==========================================
-// READ HOOKS
-// ==========================================
-
 export const useStokOpnames = (params = {}) => {
   const { status = '', search = '', dari = '', sampai = '', exclude_draft = false, perPage = 20, page = 1 } = params;
 
@@ -45,9 +41,25 @@ export const useStokOpnameDetail = (id) => {
   });
 };
 
-// ==========================================
-// INVALIDATION HELPER
-// ==========================================
+export const useAvailableInventories = (placeKodes = ['TOKO', 'BENGKEL'], search = '') => {
+  return useQuery({
+    queryKey: masterKeys.stokOpname.availableInventories([...placeKodes].sort()),
+    queryFn: async () => {
+      const res = await api.get('/stok-opname/available-inventories', {
+        params: {
+          'places[]': placeKodes,
+          search: search || undefined,
+        },
+      });
+      return {
+        items: res.data.data || [],
+        summary: res.data.summary || { total_items: 0, by_place: [] },
+      };
+    },
+    enabled: placeKodes.length > 0,
+    staleTime: 2 * 60 * 1000,
+  });
+};
 
 const invalidateStokOpnameCache = async (qc, alsoInvalidateInventory = false) => {
   await qc.cancelQueries({ queryKey: masterKeys.stokOpname.all, exact: false });
@@ -58,7 +70,6 @@ const invalidateStokOpnameCache = async (qc, alsoInvalidateInventory = false) =>
   });
   await invalidateRelatedCaches(qc, 'stokOpname');
 
-  // Jika ada perubahan stok (selesai opname), invalidate inventory juga
   if (alsoInvalidateInventory) {
     await qc.cancelQueries({ queryKey: masterKeys.inventory.all, exact: false });
     await qc.invalidateQueries({
@@ -75,14 +86,18 @@ const invalidateStokOpnameCache = async (qc, alsoInvalidateInventory = false) =>
   }
 };
 
-// ==========================================
-// MUTATION HOOKS
-// ==========================================
-
 export const useCreateStokOpname = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data) => api.post('/stok-opname', data),
+    onSuccess: async () => await invalidateStokOpnameCache(qc, false),
+  });
+};
+
+export const useCreateForPlacesStokOpname = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => api.post('/stok-opname/create-for-places', data),
     onSuccess: async () => await invalidateStokOpnameCache(qc, false),
   });
 };
@@ -99,7 +114,7 @@ export const useSelesaiStokOpname = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id) => api.post(`/stok-opname/${id}/selesai`),
-    onSuccess: async () => await invalidateStokOpnameCache(qc, true), // ✅ Juga invalidate inventory + movement
+    onSuccess: async () => await invalidateStokOpnameCache(qc, true),
   });
 };
 

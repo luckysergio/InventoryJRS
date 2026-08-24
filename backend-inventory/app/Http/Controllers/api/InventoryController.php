@@ -5,6 +5,8 @@ namespace App\Http\Controllers\api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\InventoryResource;
 use App\Services\Inventory\InventoryService;
+use App\Services\StokOpname\StokOpnameService;
+use App\Services\Product\ProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -12,12 +14,11 @@ use Illuminate\Support\Facades\Log;
 class InventoryController extends Controller
 {
     public function __construct(
-        protected InventoryService $inventoryService
+        protected InventoryService $inventoryService,
+        protected StokOpnameService $stokOpnameService,
+        protected ProductService $productService
     ) {}
 
-    /**
-     * GET /api/inventory
-     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -46,9 +47,6 @@ class InventoryController extends Controller
         }
     }
 
-    /**
-     * GET /api/inventory/place/{placeId}
-     */
     public function byPlace(Request $request, int $placeId): JsonResponse
     {
         try {
@@ -72,9 +70,6 @@ class InventoryController extends Controller
         }
     }
 
-    /**
-     * GET /api/inventory/product/{productId}
-     */
     public function byProduct(Request $request, int $productId): JsonResponse
     {
         try {
@@ -98,9 +93,6 @@ class InventoryController extends Controller
         }
     }
 
-    /**
-     * GET /api/inventory/total/{productId}
-     */
     public function totalProduct(int $productId): JsonResponse
     {
         try {
@@ -123,9 +115,6 @@ class InventoryController extends Controller
         }
     }
 
-    /**
-     * GET /api/inventory/low-stock
-     */
     public function lowStock(Request $request): JsonResponse
     {
         try {
@@ -146,6 +135,29 @@ class InventoryController extends Controller
                 'status' => false,
                 'message' => 'Gagal memuat data stok rendah.',
                 'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function sync(): JsonResponse
+    {
+        try {
+            $this->inventoryService->invalidateCache();
+            $this->stokOpnameService->invalidateCache();
+            $this->productService->invalidateCache();
+
+            Log::info('Inventory cache force synced');
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Cache inventory berhasil disinkronisasi.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Inventory sync error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal sinkronisasi cache.',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }

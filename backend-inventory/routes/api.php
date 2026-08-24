@@ -60,24 +60,24 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
     });
 
     Route::prefix('dashboard')
-    ->middleware('role:admin,admin_toko,operator')
-    ->group(function () {
-        Route::get('/', [DashboardController::class, 'index']);
-        Route::get('/stats', [DashboardController::class, 'stats']);
-        Route::get('/chart', [DashboardController::class, 'chart']);
-        Route::get('/realtime', [DashboardController::class, 'realtime']);
-        
-        Route::get('/login-logs', [DashboardController::class, 'loginLogs']);
-        Route::get('/login-logs/{id}', [DashboardController::class, 'loginLogDetail'])
-            ->whereNumber('id');  // ✅ WAJIB: hanya terima angka
-        Route::get('/login-stats', [DashboardController::class, 'loginStats']);
-        
-        Route::middleware('role:admin')
-            ->prefix('cache')
-            ->group(function () {
-                Route::post('/invalidate', [DashboardController::class, 'invalidate']);
-            });
-    });
+        ->middleware('role:admin,admin_toko,operator')
+        ->group(function () {
+            Route::get('/', [DashboardController::class, 'index']);
+            Route::get('/stats', [DashboardController::class, 'stats']);
+            Route::get('/chart', [DashboardController::class, 'chart']);
+            Route::get('/realtime', [DashboardController::class, 'realtime']);
+
+            Route::get('/login-logs', [DashboardController::class, 'loginLogs']);
+            Route::get('/login-logs/{id}', [DashboardController::class, 'loginLogDetail'])
+                ->whereNumber('id');  // ✅ WAJIB: hanya terima angka
+            Route::get('/login-stats', [DashboardController::class, 'loginStats']);
+
+            Route::middleware('role:admin')
+                ->prefix('cache')
+                ->group(function () {
+                    Route::post('/invalidate', [DashboardController::class, 'invalidate']);
+                });
+        });
 
     /*
     |----------------------------------------------------------------------
@@ -305,11 +305,18 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
     });
 
     Route::prefix('stok-opname')->middleware('role:admin,admin_toko')->group(function () {
-        Route::post('/', [StokOpnameController::class, 'store'])->middleware('role:admin,admin_toko');
+        Route::get('/available-inventories', [StokOpnameController::class, 'availableInventories']);
+        Route::post('/create-for-places', [StokOpnameController::class, 'createForPlaces'])
+            ->middleware('role:admin,admin_toko');
+        Route::post('/', [StokOpnameController::class, 'store'])
+            ->middleware('role:admin,admin_toko');
         Route::get('/', [StokOpnameController::class, 'index']);
-        Route::post('/{stokOpname}/detail', [StokOpnameController::class, 'storeDetail']);
-        Route::post('/{stokOpname}/selesai', [StokOpnameController::class, 'selesai'])->middleware('role:admin,admin_toko');
-        Route::post('/{stokOpname}/batalkan', [StokOpnameController::class, 'batalkan'])->middleware('role:admin,admin_toko');
         Route::get('/{stokOpname}', [StokOpnameController::class, 'show']);
+        Route::post('/{stokOpname}/detail', [StokOpnameController::class, 'storeDetail'])
+            ->middleware('role:admin,admin_toko');
+        Route::post('/{stokOpname}/selesai', [StokOpnameController::class, 'selesai'])
+            ->middleware('role:admin,admin_toko');
+        Route::post('/{stokOpname}/batalkan', [StokOpnameController::class, 'batalkan'])
+            ->middleware('role:admin,admin_toko');
     });
 });

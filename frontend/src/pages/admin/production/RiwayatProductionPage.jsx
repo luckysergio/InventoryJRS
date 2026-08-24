@@ -268,21 +268,6 @@ const RiwayatProductionPage = () => {
         </div>
       )}
 
-      {/* PERIODE LABEL */}
-      {!isLoading && filteredProductions.length > 0 && (
-        <div className="flex items-center gap-2 px-1">
-          <div className="p-2 bg-gradient-to-br from-slate-600 to-slate-800 rounded-lg shadow-sm">
-            <History className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Riwayat Produksi</h2>
-            <p className="text-xs text-slate-500">
-              {filteredProductions.length} data • {getRiwayatPeriodeLabel()}
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* CONTENT */}
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">

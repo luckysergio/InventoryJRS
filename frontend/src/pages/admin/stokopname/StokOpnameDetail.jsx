@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   X, Printer, CheckCircle, XCircle, Loader2, AlertCircle,
-  Package, Calendar, User, Edit3, Warehouse,
+  Package, Calendar, User, Warehouse, Sparkles, Edit3,
 } from "lucide-react";
 import { useStokOpnameModals } from "../../../lib/zustand/stokOpnameStore";
 import {
@@ -13,29 +13,17 @@ import {
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import { useIsAdmin } from "../../../lib/zustand/authStore";
 import { printStokOpname } from "./utils/printStokOpname";
+// ✅ FIX: Import utility dari utils file, BUKAN dari store
+import {
+  normalizeDetails,
+  sortDetailsByPlace,
+  formatProductName,
+  getOpnameLabel,
+} from "./utils/stokOpnameUtils";
 import { cn } from "../../../lib/utils";
 
-const formatProductName = (p) => {
-  if (!p) return "-";
-  return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(Boolean).join(" • ") || "-";
-};
-
-// Sort BENGKEL first, then TOKO, then others
-const sortDetailsByPlace = (details) => {
-  const getPriority = (kode) => {
-    if (kode === "BENGKEL") return 0;
-    if (kode === "TOKO") return 1;
-    return 2;
-  };
-  return [...details].sort((a, b) => {
-    const prioA = getPriority(a.inventory?.place?.kode);
-    const prioB = getPriority(b.inventory?.place?.kode);
-    return prioA - prioB;
-  });
-};
-
 // ==========================================
-// INPUT STOK MODAL (sub-modal)
+// INPUT STOK MODAL
 // ==========================================
 const InputStokModal = ({ opnameId, detail, onClose, onUpdate }) => {
   const updateMut = useUpdateDetailStokOpname();
@@ -87,38 +75,54 @@ const InputStokModal = ({ opnameId, detail, onClose, onUpdate }) => {
     }
   };
 
+  // ✅ Normalize product & place
+  const product = detail.product || detail.inventory?.product;
+  const place = detail.place || detail.inventory?.place;
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[90vh] flex flex-col">
+        <div className="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Edit3 className="w-5 h-5 text-blue-600" />
+            <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md">
+              <Edit3 className="w-4 h-4 text-white" />
             </div>
-            <h2 className="text-lg font-semibold text-slate-900">Input Stok Fisik</h2>
+            <h2 className="text-base font-bold text-slate-900">Input Stok Fisik</h2>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors" disabled={updateMut.isPending}>
             <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
           {/* Product Info */}
-          <div className="bg-slate-50 rounded-xl p-4 text-center">
-            <p className="font-mono font-bold text-xs text-indigo-700 mb-1">{detail.product?.kode || "-"}</p>
-            <p className="text-sm font-medium text-slate-800 mb-1">{formatProductName(detail.product)}</p>
-            <p className="text-xs text-slate-500">📍 {detail.place?.nama || "-"}</p>
+          <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-4 border border-slate-200/60">
+            <p className="font-mono font-bold text-xs text-indigo-700 mb-1 tracking-wide">
+              {product?.kode || "-"}
+            </p>
+            <p className="text-sm font-semibold text-slate-800 mb-2 line-clamp-2">
+              {formatProductName(product)}
+            </p>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-full">
+              <Warehouse size={11} className="text-slate-500" />
+              <span className="text-[11px] font-medium text-slate-600">{place?.nama || "-"}</span>
+            </div>
           </div>
 
           {/* Stok Sistem */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between">
-            <span className="text-sm text-amber-800 font-medium">Stok Sistem</span>
-            <span className="text-lg font-bold text-amber-900">{detail.stok_sistem}</span>
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <Package className="w-4 h-4 text-amber-700" />
+              </div>
+              <span className="text-sm text-amber-900 font-semibold">Stok Sistem</span>
+            </div>
+            <span className="text-2xl font-bold text-amber-900">{detail.stok_sistem}</span>
           </div>
 
           {/* Stok Real Input */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
               Stok Fisik <span className="text-red-500">*</span>
             </label>
             <input
@@ -127,15 +131,15 @@ const InputStokModal = ({ opnameId, detail, onClose, onUpdate }) => {
               value={stokReal}
               onChange={(e) => { setStokReal(e.target.value); setErrors({}); }}
               className={cn(
-                "w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm font-medium",
-                errors.stokReal ? "border-red-300 focus:ring-red-500" : "border-slate-200 focus:ring-blue-500"
+                "w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 text-lg font-bold transition-all",
+                errors.stokReal ? "border-red-300 focus:ring-red-500" : "border-slate-200 focus:ring-blue-500 focus:border-transparent"
               )}
               placeholder="0"
               autoFocus
               disabled={updateMut.isPending}
             />
             {errors.stokReal && (
-              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+              <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />{errors.stokReal}
               </p>
             )}
@@ -144,14 +148,14 @@ const InputStokModal = ({ opnameId, detail, onClose, onUpdate }) => {
           {/* Selisih Preview */}
           {selisihPreview !== null && (
             <div className={cn(
-              "rounded-lg p-3 flex items-center justify-between border",
-              selisihPreview > 0 ? "bg-green-50 border-green-200" :
-              selisihPreview < 0 ? "bg-red-50 border-red-200" :
+              "rounded-xl p-4 flex items-center justify-between border transition-all",
+              selisihPreview > 0 ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200" :
+              selisihPreview < 0 ? "bg-gradient-to-r from-red-50 to-rose-50 border-red-200" :
               "bg-slate-50 border-slate-200"
             )}>
-              <span className="text-sm font-medium">Selisih</span>
+              <span className="text-sm font-semibold text-slate-700">Selisih</span>
               <span className={cn(
-                "text-lg font-bold",
+                "text-xl font-bold",
                 selisihPreview > 0 ? "text-green-700" :
                 selisihPreview < 0 ? "text-red-700" :
                 "text-slate-700"
@@ -163,29 +167,31 @@ const InputStokModal = ({ opnameId, detail, onClose, onUpdate }) => {
 
           {/* Keterangan */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Keterangan</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
+              Keterangan
+            </label>
             <textarea
               rows={2}
               value={keterangan}
               onChange={(e) => setKeterangan(e.target.value)}
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
-              placeholder="Opsional"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none transition-all"
+              placeholder="Opsional: rusak, hilang, dll"
               disabled={updateMut.isPending}
               maxLength={255}
             />
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-200 flex gap-3 bg-white">
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" disabled={updateMut.isPending}>
+        <div className="px-5 sm:px-6 py-4 border-t border-slate-100 flex gap-2.5 bg-white/95 backdrop-blur-sm flex-shrink-0">
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors" disabled={updateMut.isPending}>
             Batal
           </button>
           <button
             onClick={handleSubmit}
             disabled={updateMut.isPending}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="flex-[2] px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-blue-500/30 active:scale-[0.98]"
           >
-            {updateMut.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</> : "Simpan"}
+            {updateMut.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</> : <><CheckCircle className="w-4 h-4" /> Simpan</>}
           </button>
         </div>
       </div>
@@ -205,7 +211,6 @@ const StokOpnameDetail = () => {
 
   const isOpen = modals.detail && !!selectedOpname;
 
-  // Fetch detail untuk memastikan data fresh
   const { data: opnameDetail, refetch } = useStokOpnameDetail(selectedOpname?.id);
   const opname = opnameDetail || selectedOpname;
 
@@ -224,15 +229,15 @@ const StokOpnameDetail = () => {
     };
   }, [isOpen, handleEscKey]);
 
-  const sortedDetails = useMemo(
+  const details = useMemo(
     () => sortDetailsByPlace(opname?.details || []),
     [opname?.details]
   );
 
-  const totalItems = sortedDetails.length;
-  const filledItems = sortedDetails.filter((d) => d.stok_real !== null && d.stok_real !== undefined).length;
+  const totalItems = details.length;
+  const filledItems = details.filter((d) => d.stok_real !== null && d.stok_real !== undefined).length;
   const unfilledItems = totalItems - filledItems;
-  const totalSelisih = sortedDetails.reduce((sum, d) => sum + (Number(d.selisih) || 0), 0);
+  const progress = totalItems > 0 ? (filledItems / totalItems) * 100 : 0;
 
   const handleSelesai = async () => {
     if (unfilledItems > 0) {
@@ -287,25 +292,39 @@ const StokOpnameDetail = () => {
   if (!isOpen || !opname) return null;
 
   const isDraft = opname.status === "draft";
+  const statusConfig = {
+    draft: { bg: "bg-amber-100", text: "text-amber-700", ring: "ring-amber-200", label: "Draft" },
+    selesai: { bg: "bg-green-100", text: "text-green-700", ring: "ring-green-200", label: "Selesai" },
+    dibatalkan: { bg: "bg-red-100", text: "text-red-700", ring: "ring-red-200", label: "Dibatalkan" },
+  };
+  const statusCfg = statusConfig[opname.status] || statusConfig.draft;
 
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
         onClick={handleBackdropClick}
       >
-        <div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[92vh] flex flex-col">
+        <div className="bg-white w-full sm:max-w-6xl rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[92vh] sm:max-h-[85vh] flex flex-col">
           {/* Header */}
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-white flex-shrink-0">
+          <div className="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-50 via-purple-50 to-white flex-shrink-0">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-sm flex-shrink-0">
+              <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-md flex-shrink-0">
                 <Package className="w-5 h-5 text-white" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-slate-900 truncate">
-                  {opname.keterangan || `JRS/SO/${new Date(opname.tgl_opname).getFullYear()}/${String(new Date(opname.tgl_opname).getMonth() + 1).padStart(2, "0")}/${opname.id}`}
-                </h2>
-                <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                    {getOpnameLabel(opname)}
+                  </h2>
+                  <span className={cn(
+                    "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ring-1",
+                    statusCfg.bg, statusCfg.text, statusCfg.ring
+                  )}>
+                    {statusCfg.label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-slate-500 flex-wrap">
                   <span className="flex items-center gap-1">
                     <Calendar size={11} />
                     {new Date(opname.tgl_opname).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
@@ -314,52 +333,67 @@ const StokOpnameDetail = () => {
                     <User size={11} />
                     {opname.user?.name || "-"}
                   </span>
-                  <span className={cn(
-                    "px-2 py-0.5 rounded-full font-medium",
-                    opname.status === "draft" ? "bg-amber-100 text-amber-700" :
-                    opname.status === "selesai" ? "bg-green-100 text-green-700" :
-                    "bg-red-100 text-red-700"
-                  )}>
-                    {opname.status === "draft" ? "Draft" : opname.status === "selesai" ? "Selesai" : "Dibatalkan"}
-                  </span>
                 </div>
               </div>
             </div>
             <button onClick={closeAllModals} className="p-2 hover:bg-slate-100 rounded-lg transition-colors group flex-shrink-0">
-              <X className="w-5 h-5 text-slate-500 group-hover:text-slate-700 group-hover:rotate-90 transition-all duration-200" />
+              <X className="w-5 h-5 text-slate-500 group-hover:rotate-90 transition-all duration-200" />
             </button>
           </div>
 
           {/* Stats Bar (only for draft) */}
           {isDraft && (
-            <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-4 text-xs flex-wrap flex-shrink-0">
-              <div className="flex items-center gap-1.5">
-                <Package size={14} className="text-slate-400" />
-                <span className="text-slate-600">Total: <strong className="text-slate-900">{totalItems}</strong></span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle size={14} className="text-green-500" />
-                <span className="text-slate-600">Terisi: <strong className="text-green-700">{filledItems}</strong></span>
-              </div>
-              {unfilledItems > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <AlertCircle size={14} className="text-amber-500" />
-                  <span className="text-slate-600">Belum: <strong className="text-amber-700">{unfilledItems}</strong></span>
+            <div className="px-5 sm:px-6 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex-shrink-0">
+              <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+                <div className="flex items-center gap-3 text-xs flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <Package size={13} className="text-slate-400" />
+                    <span className="text-slate-600">Total: <strong className="text-slate-900">{totalItems}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle size={13} className="text-green-500" />
+                    <span className="text-slate-600">Terisi: <strong className="text-green-700">{filledItems}</strong></span>
+                  </div>
+                  {unfilledItems > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <AlertCircle size={13} className="text-amber-500" />
+                      <span className="text-slate-600">Belum: <strong className="text-amber-700">{unfilledItems}</strong></span>
+                    </div>
+                  )}
                 </div>
-              )}
+                <span className="text-[10px] font-bold text-slate-500">
+                  {Math.round(progress)}%
+                </span>
+              </div>
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-700",
+                    progress === 100 ? "bg-gradient-to-r from-green-400 to-emerald-500" : "bg-gradient-to-r from-indigo-500 to-purple-500"
+                  )}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
             </div>
           )}
 
           {/* Details Grid */}
-          <div className="flex-1 overflow-y-auto p-6">
-            {sortedDetails.length === 0 ? (
-              <div className="text-center py-12">
-                <Package className="w-16 h-16 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm text-slate-500">Tidak ada item dalam opname ini</p>
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6">
+            {details.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                  <Package className="w-10 h-10 text-slate-300" />
+                </div>
+                <p className="text-sm font-semibold text-slate-600">Tidak ada item dalam opname ini</p>
+                <p className="text-xs text-slate-400 mt-1">Data akan muncul setelah opname dibuat</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {sortedDetails.map((d) => {
+                {details.map((d) => {
+                  // ✅ Normalize product & place
+                  const product = d.product || d.inventory?.product;
+                  const place = d.place || d.inventory?.place;
+
                   const hasStokReal = d.stok_real !== null && d.stok_real !== undefined;
                   const selisih = Number(d.selisih) || 0;
                   const isClickable = isDraft;
@@ -367,53 +401,59 @@ const StokOpnameDetail = () => {
                   return (
                     <div
                       key={d.id}
-                      onClick={() => isClickable && openInputStokModal({
-                        ...d,
-                        product: d.product || d.inventory?.product,
-                        place: d.place || d.inventory?.place,
-                      })}
+                      onClick={() => isClickable && openInputStokModal({ ...d, product, place })}
                       className={cn(
-                        "border rounded-xl p-3 transition-all",
+                        "border rounded-2xl p-3.5 transition-all duration-300 relative overflow-hidden",
                         isClickable
-                          ? "bg-white hover:border-indigo-300 hover:shadow-md cursor-pointer group"
+                          ? "bg-white hover:border-indigo-300 hover:shadow-lg cursor-pointer group active:scale-[0.98]"
                           : "bg-slate-50"
                       )}
                     >
+                      {/* Progress indicator di top */}
+                      {hasStokReal && (
+                        <div className={cn(
+                          "absolute top-0 left-0 right-0 h-0.5",
+                          selisih === 0 ? "bg-slate-300" :
+                          selisih > 0 ? "bg-gradient-to-r from-green-400 to-emerald-500" :
+                          "bg-gradient-to-r from-red-400 to-rose-500"
+                        )} />
+                      )}
+
                       {/* Product Info */}
-                      <div className="text-center mb-2">
-                        <p className="font-mono font-bold text-[10px] text-indigo-600 truncate">
-                          {d.product?.kode || d.inventory?.product?.kode || "-"}
+                      <div className="mb-2.5">
+                        <p className="font-mono font-bold text-[10px] text-indigo-600 truncate tracking-wide">
+                          {product?.kode || "-"}
                         </p>
-                        <p className="text-xs font-medium text-slate-800 line-clamp-2 min-h-[32px] leading-tight mt-1">
-                          {formatProductName(d.product || d.inventory?.product)}
+                        <p className="text-xs font-semibold text-slate-800 line-clamp-2 min-h-[32px] leading-tight mt-1">
+                          {formatProductName(product)}
                         </p>
                         <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-full mt-1.5">
-                          <Warehouse size={10} className="text-slate-500" />
+                          <Warehouse size={9} className="text-slate-500" />
                           <span className="text-[10px] font-medium text-slate-600">
-                            {d.place?.nama || d.inventory?.place?.nama || "-"}
+                            {place?.nama || "-"}
                           </span>
                         </div>
                       </div>
 
                       {/* Stats */}
-                      <div className="space-y-1.5 mt-2 pt-2 border-t border-slate-100">
-                        <div className="flex justify-between text-xs">
+                      <div className="space-y-1.5 pt-2.5 border-t border-slate-100">
+                        <div className="flex justify-between text-[11px]">
                           <span className="text-slate-500">Sistem</span>
-                          <span className="font-medium text-slate-900">{d.stok_sistem}</span>
+                          <span className="font-semibold text-slate-900">{d.stok_sistem}</span>
                         </div>
-                        <div className="flex justify-between items-center text-xs">
+                        <div className="flex justify-between items-center text-[11px]">
                           <span className="text-slate-500">Fisik</span>
                           <span className={cn(
-                            "font-semibold",
+                            "font-bold",
                             hasStokReal ? "text-indigo-700" : "text-slate-400 italic"
                           )}>
                             {hasStokReal ? d.stok_real : "—"}
                           </span>
                         </div>
-                        <div className="flex justify-between text-xs">
+                        <div className="flex justify-between text-[11px]">
                           <span className="text-slate-500">Selisih</span>
                           <span className={cn(
-                            "font-semibold",
+                            "font-bold",
                             !hasStokReal ? "text-slate-400" :
                             selisih > 0 ? "text-green-600" :
                             selisih < 0 ? "text-red-600" :
@@ -425,7 +465,7 @@ const StokOpnameDetail = () => {
                       </div>
 
                       {d.keterangan && (
-                        <div className="mt-2 pt-2 border-t border-slate-100">
+                        <div className="mt-2.5 pt-2.5 border-t border-slate-100">
                           <p className="text-[10px] text-slate-500 italic line-clamp-2 text-center">
                             "{d.keterangan}"
                           </p>
@@ -433,9 +473,10 @@ const StokOpnameDetail = () => {
                       )}
 
                       {isClickable && !hasStokReal && (
-                        <div className="mt-2 pt-2 border-t border-dashed border-slate-200 text-center">
-                          <span className="text-[10px] text-indigo-600 font-medium group-hover:underline">
-                            + Input Stok Fisik
+                        <div className="mt-2.5 pt-2.5 border-t border-dashed border-indigo-200 text-center group-hover:bg-indigo-50/50 transition-colors -mx-3.5 px-3.5 -mb-3.5 pb-3 rounded-b-2xl">
+                          <span className="text-[11px] text-indigo-600 font-bold group-hover:underline flex items-center justify-center gap-1">
+                            <Sparkles className="w-3 h-3" />
+                            Input Stok Fisik
                           </span>
                         </div>
                       )}
@@ -447,14 +488,14 @@ const StokOpnameDetail = () => {
           </div>
 
           {/* Footer Actions */}
-          <div className="px-6 py-4 border-t border-slate-200 flex flex-wrap gap-2 bg-white flex-shrink-0">
+          <div className="px-5 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 bg-white/95 backdrop-blur-sm flex-shrink-0">
             <button
-              onClick={() => printStokOpname(opname, "draft")}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              onClick={() => printStokOpname(opname, isDraft ? "draft" : "riwayat")}
+              className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
             >
               <Printer className="w-4 h-4" /> Cetak
             </button>
-            <button onClick={closeAllModals} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+            <button onClick={closeAllModals} className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
               Tutup
             </button>
 
@@ -464,7 +505,7 @@ const StokOpnameDetail = () => {
                 <button
                   onClick={handleBatalkan}
                   disabled={batalMut.isPending || selesaiMut.isPending}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors disabled:opacity-50 border border-red-200"
                 >
                   {batalMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
                   Batalkan
@@ -472,7 +513,7 @@ const StokOpnameDetail = () => {
                 <button
                   onClick={handleSelesai}
                   disabled={selesaiMut.isPending || batalMut.isPending}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-lg transition-all shadow-sm disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl transition-all shadow-lg shadow-green-500/30 disabled:opacity-50 active:scale-[0.98]"
                 >
                   {selesaiMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                   Selesaikan

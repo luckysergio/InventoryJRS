@@ -90,12 +90,13 @@ export const masterKeys = {
     lists: () => [...masterKeys.inventory.all, 'list'],
     list: (filters) => [...masterKeys.inventory.lists(), filters],
   },
-  stokOpname: {
-    all: ['stok_opname'],
-    lists: () => [...masterKeys.stokOpname.all, 'list'],
-    list: (filters) => [...masterKeys.stokOpname.lists(), filters],
-    detail: (id) => [...masterKeys.stokOpname.all, 'detail', id],
-  },
+stokOpname: {
+  all: ['stok_opname'],
+  lists: () => [...masterKeys.stokOpname.all, 'list'],
+  list: (filters) => [...masterKeys.stokOpname.lists(), filters],
+  detail: (id) => [...masterKeys.stokOpname.all, 'detail', id],
+  availableInventories: (places) => [...masterKeys.stokOpname.all, 'available', places?.sort().join(',') || 'all'],
+},
   transaksi: {
     all: ['transaksi'],
     lists: () => [...masterKeys.transaksi.all, 'list'],

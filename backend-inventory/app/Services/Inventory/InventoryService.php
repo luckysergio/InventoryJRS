@@ -15,7 +15,7 @@ class InventoryService
     private const CACHE_TOTAL_PREFIX = 'inventory:total:v';
     private const CACHE_VERSION_KEY = 'inventory:cache:version';
     private const CACHE_VERSION_LOCK = 'inventory:cache:version:lock';
-    private const CACHE_TTL = 300; // 5 menit (stok berubah sering)
+    private const CACHE_TTL = 300;
 
     /*
     |--------------------------------------------------------------------------
@@ -169,6 +169,10 @@ class InventoryService
         return (int) Cache::get(self::CACHE_VERSION_KEY, 1);
     }
 
+    /**
+     * ✅ Invalidate semua cache Inventory.
+     * Dipanggil saat stok berubah (transaksi, produksi, stok opname selesai).
+     */
     public function invalidateCache(): void
     {
         $lock = Cache::lock(self::CACHE_VERSION_LOCK, 10);

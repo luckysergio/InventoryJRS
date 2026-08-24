@@ -1,23 +1,42 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
-  X, Search, CheckCircle2, Square, CheckSquare,
-  Package, Calendar, Loader2, Warehouse,
+  X, Calendar, Loader2, Warehouse, Package, CheckCircle2,
+  Store, Wrench, AlertCircle, Sparkles,
 } from "lucide-react";
 import { useStokOpnameModals } from "../../../lib/zustand/stokOpnameStore";
-import { useCreateStokOpname } from "../../../hooks/useStokOpname";
-import { useInventories } from "../../../hooks/useInventory";
-import { usePlacesDropdown } from "../../../hooks/useMasterData";
+import { useCreateForPlacesStokOpname } from "../../../hooks/useStokOpname";
+import { useAvailableInventories } from "../../../hooks/useStokOpname";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import { cn } from "../../../lib/utils";
 
-const formatProductName = (p) => {
-  if (!p) return "-";
-  return [p.jenis?.nama, p.type?.nama, p.bahan?.nama, p.ukuran].filter(Boolean).join(" • ") || "-";
-};
+const PLACE_OPTIONS = [
+  {
+    kode: "TOKO",
+    label: "Toko",
+    description: "Produk yang dipajang di area toko",
+    icon: Store,
+    gradient: "from-blue-500 to-cyan-500",
+    bg: "bg-blue-50",
+    border: "border-blue-300",
+    ring: "ring-blue-500",
+    text: "text-blue-700",
+  },
+  {
+    kode: "BENGKEL",
+    label: "Bengkel",
+    description: "Produk yang ada di area bengkel/produksi",
+    icon: Wrench,
+    gradient: "from-purple-500 to-indigo-500",
+    bg: "bg-purple-50",
+    border: "border-purple-300",
+    ring: "ring-purple-500",
+    text: "text-purple-700",
+  },
+];
 
 const StokOpnameForm = () => {
   const { modals, closeAllModals } = useStokOpnameModals();
-  const createMut = useCreateStokOpname();
+  const createMut = useCreateForPlacesStokOpname();
   const { success, info, warning } = useConfirmDialog();
 
   const isOpen = modals.create;
@@ -27,85 +46,78 @@ const StokOpnameForm = () => {
     tgl_opname: new Date().toISOString().split("T")[0],
     keterangan: "",
   });
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [placeFilter, setPlaceFilter] = useState("");
-  const [searchInput, setSearchInput] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedPlaces, setSelectedPlaces] = useState(new Set(["TOKO", "BENGKEL"]));
 
-  const { data: placesOptions = [] } = usePlacesDropdown();
-
-  // Fetch inventories (all, no pagination for selection)
-  const { data: invData, isLoading: loadingInv } = useInventories({ perPage: 500 });
-  const allInventories = invData?.inventories || [];
-
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchInput), 300);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  // Fetch inventory count berdasarkan place yang dipilih
+  const placeArray = useMemo(() => Array.from(selectedPlaces), [selectedPlaces]);
+  const { data: availableData, isLoading: loadingCount } = useAvailableInventories(placeArray);
+  const summary = availableData?.summary || { total_items: 0, by_place: [] };
 
   // Reset form saat modal terbuka
   useEffect(() => {
     if (isOpen) {
-      setForm({ tgl_opname: new Date().toISOString().split("T")[0], keterangan: "" });
-      setSelectedIds(new Set());
-      setPlaceFilter("");
-      setSearchInput("");
-      setDebouncedSearch("");
+      setForm({
+        tgl_opname: new Date().toISOString().split("T")[0],
+        keterangan: "",
+      });
+      setSelectedPlaces(new Set(["TOKO", "BENGKEL"]));
     }
   }, [isOpen]);
 
-  // Filter inventories client-side
-  const filteredInventories = useMemo(() => {
-    let result = [...allInventories];
-    if (placeFilter) {
-      result = result.filter((inv) => String(inv.place_id) === String(placeFilter));
+  const togglePlace = (kode) => {
+    const newSet = new Set(selectedPlaces);
+    if (newSet.has(kode)) {
+      if (newSet.size === 1) {
+        info("Peringatan", "Pilih minimal satu tempat untuk di-opname");
+        return;
+      }
+      newSet.delete(kode);
+    } else {
+      newSet.add(kode);
     }
-    if (debouncedSearch) {
-      const term = debouncedSearch.toLowerCase();
-      result = result.filter((inv) => {
-        const p = inv.product;
-        if (!p) return false;
-        return (
-          p.kode?.toLowerCase().includes(term) ||
-          formatProductName(p).toLowerCase().includes(term)
-        );
-      });
-    }
-    return result;
-  }, [allInventories, placeFilter, debouncedSearch]);
-
-  const toggleSelect = (id) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
-    setSelectedIds(newSet);
+    setSelectedPlaces(newSet);
   };
 
-  const toggleSelectAll = () => {
-    if (selectedIds.size === filteredInventories.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredInventories.map((inv) => inv.id)));
-    }
+  const selectAllPlaces = () => setSelectedPlaces(new Set(["TOKO", "BENGKEL"]));
+
+  const getPlaceCount = (kode) => {
+    const placeData = summary.by_place?.find((p) => p.kode === kode);
+    return placeData?.count || 0;
   };
 
   const handleSubmit = async () => {
-    if (selectedIds.size === 0) {
-      await warning("Peringatan", "Pilih minimal satu inventory untuk opname");
+    if (selectedPlaces.size === 0) {
+      await warning("Peringatan", "Pilih minimal satu tempat untuk di-opname");
       return;
     }
+
+    if (summary.total_items === 0) {
+      await warning("Tidak Ada Inventory", "Tidak ada inventory yang tersedia di tempat yang dipilih");
+      return;
+    }
+
+    const confirmed = await warning(
+      "Buat Stok Opname?",
+      `Akan dibuat stok opname untuk ${summary.total_items} inventory dari ${selectedPlaces.size} tempat. Lanjutkan?`,
+      "Ya, Buat",
+      "Batal"
+    );
+
+    if (!confirmed) return;
 
     const payload = {
       tgl_opname: form.tgl_opname,
       keterangan: form.keterangan.trim() || undefined,
-      inventory_ids: Array.from(selectedIds),
+      place_kodes: Array.from(selectedPlaces),
     };
 
     try {
       await createMut.mutateAsync(payload);
       closeAllModals();
-      await success("Berhasil!", `Stok opname dengan ${selectedIds.size} item berhasil dibuat`);
+      await success(
+        "Berhasil! 🎉",
+        `Stok opname dengan ${summary.total_items} item berhasil dibuat. Silakan lanjutkan pengisian stok fisik.`
+      );
     } catch (err) {
       await info("Gagal", err.response?.data?.message || "Terjadi kesalahan");
     }
@@ -114,50 +126,60 @@ const StokOpnameForm = () => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white w-full sm:max-w-2xl rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[92vh] sm:max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-white flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 rounded-lg">
-              <Package className="w-5 h-5 text-indigo-600" />
+        <div className="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0 bg-gradient-to-r from-indigo-50 via-purple-50 to-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative">
+              <div className="absolute inset-0 bg-indigo-400 blur-md opacity-30 rounded-xl" />
+              <div className="relative p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-200">
+                <Package className="w-5 h-5 text-white" />
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">Buat Stok Opname Baru</h2>
-              <p className="text-xs text-slate-500">Pilih item untuk dicocokkan stok fisik dengan sistem</p>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">Buat Stok Opname</h2>
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate">Pilih tempat untuk di-opname</p>
             </div>
           </div>
-          <button onClick={closeAllModals} className="p-2 hover:bg-slate-100 rounded-lg transition-colors" disabled={isSubmitting}>
-            <X className="w-5 h-5 text-slate-500" />
+          <button
+            onClick={closeAllModals}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors group flex-shrink-0"
+            disabled={isSubmitting}
+          >
+            <X className="w-5 h-5 text-slate-500 group-hover:rotate-90 transition-all duration-200" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Header Form */}
-          <div className="bg-slate-50 rounded-xl p-4 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6 space-y-5">
+          {/* Form */}
+          <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-4 sm:p-5 border border-slate-200/60 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5 items-center gap-1.5">
-                  <Calendar size={14} /> Tanggal Opname
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
+                  <Calendar size={12} className="text-indigo-500" />
+                  Tanggal Opname
                 </label>
                 <input
                   type="date"
                   value={form.tgl_opname}
                   onChange={(e) => setForm({ ...form, tgl_opname: e.target.value })}
                   max={new Date().toISOString().split("T")[0]}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white transition-all"
                   disabled={isSubmitting}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Keterangan</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
+                  Keterangan
+                </label>
                 <input
                   type="text"
                   value={form.keterangan}
                   onChange={(e) => setForm({ ...form, keterangan: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  placeholder="Opsional"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white transition-all"
+                  placeholder="Opsional: SO bulanan, dll"
                   disabled={isSubmitting}
                   maxLength={500}
                 />
@@ -165,133 +187,203 @@ const StokOpnameForm = () => {
             </div>
           </div>
 
-          {/* Filter Bar */}
-          <div className="sticky top-0 bg-white z-10 pb-2 pt-1">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Cari kode atau nama produk..."
-                  className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  disabled={isSubmitting}
-                />
-              </div>
-              <div className="relative flex-shrink-0 min-w-[160px]">
-                <Warehouse className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                <select
-                  value={placeFilter}
-                  onChange={(e) => setPlaceFilter(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  disabled={isSubmitting}
-                >
-                  <option value="">Semua Tempat</option>
-                  {placesOptions.map((p) => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
+          {/* Pilih Tempat */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                <Warehouse size={12} className="text-indigo-500" />
+                Pilih Tempat Opname
+              </label>
               <button
                 type="button"
-                onClick={toggleSelectAll}
-                className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium transition"
-                disabled={isSubmitting || filteredInventories.length === 0}
+                onClick={selectAllPlaces}
+                className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
               >
-                {selectedIds.size === filteredInventories.length && filteredInventories.length > 0 ? (
-                  <><CheckSquare size={14} /> Batalkan Semua</>
-                ) : (
-                  <><Square size={14} /> Pilih Semua ({filteredInventories.length})</>
-                )}
+                Pilih Semua
               </button>
-              <span className="font-medium">
-                Terpilih: <span className="text-indigo-600">{selectedIds.size}</span>
-              </span>
             </div>
-          </div>
 
-          {/* Inventory Grid */}
-          {loadingInv ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="border border-slate-200 rounded-xl p-3 animate-pulse">
-                  <div className="h-3 bg-slate-200 rounded w-3/4 mb-2" />
-                  <div className="h-3 bg-slate-200 rounded w-1/2 mb-3" />
-                  <div className="h-8 bg-slate-200 rounded w-1/2 mx-auto" />
-                </div>
-              ))}
-            </div>
-          ) : filteredInventories.length === 0 ? (
-            <div className="text-center py-8">
-              <Package className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-              <p className="text-sm text-slate-500">Tidak ada inventory ditemukan</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {filteredInventories.map((inv) => {
-                const isSelected = selectedIds.has(inv.id);
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {PLACE_OPTIONS.map((place) => {
+                const Icon = place.icon;
+                const isSelected = selectedPlaces.has(place.kode);
+                const count = getPlaceCount(place.kode);
+
                 return (
                   <div
-                    key={inv.id}
-                    onClick={() => !isSubmitting && toggleSelect(inv.id)}
+                    key={place.kode}
+                    onClick={() => !isSubmitting && togglePlace(place.kode)}
                     className={cn(
-                      "relative border-2 rounded-xl p-3 cursor-pointer transition-all duration-200 hover:shadow-md",
+                      "relative border-2 rounded-2xl p-4 cursor-pointer transition-all duration-300 overflow-hidden group",
                       isSelected
-                        ? "border-indigo-500 bg-indigo-50 shadow-sm"
-                        : "border-slate-200 hover:border-slate-300 bg-white"
+                        ? `${place.border} ${place.bg} shadow-md`
+                        : "border-slate-200 hover:border-slate-300 bg-white hover:shadow-sm"
                     )}
                   >
+                    {/* Background gradient saat selected */}
                     {isSelected && (
-                      <div className="absolute top-2 right-2 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center shadow-sm">
-                        <CheckCircle2 className="text-white w-3 h-3" />
-                      </div>
+                      <div className={cn(
+                        "absolute -top-8 -right-8 w-24 h-24 rounded-full opacity-20 blur-2xl bg-gradient-to-br",
+                        place.gradient
+                      )} />
                     )}
-                    <div className="text-center">
-                      <p className="font-mono font-bold text-[10px] text-indigo-600 mb-1 truncate">
-                        {inv.product?.kode || "-"}
-                      </p>
-                      <p className="text-xs text-slate-700 font-medium line-clamp-2 min-h-[32px] leading-tight mb-2">
-                        {formatProductName(inv.product)}
-                      </p>
-                      <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-full mb-2">
-                        <Warehouse size={10} className="text-slate-500" />
-                        <span className="text-[10px] font-medium text-slate-600">{inv.place?.nama || "-"}</span>
+
+                    {/* Checkbox indicator */}
+                    <div className={cn(
+                      "absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center transition-all",
+                      isSelected
+                        ? `bg-gradient-to-br ${place.gradient} shadow-md scale-100`
+                        : "bg-slate-100 scale-90 group-hover:scale-100"
+                    )}>
+                      {isSelected ? (
+                        <CheckCircle2 className="w-4 h-4 text-white" />
+                      ) : (
+                        <div className="w-2 h-2 rounded-full bg-slate-300" />
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="relative flex items-start gap-3">
+                      <div className={cn(
+                        "p-2.5 rounded-xl flex-shrink-0 transition-all",
+                        isSelected
+                          ? `bg-gradient-to-br ${place.gradient} shadow-md`
+                          : "bg-slate-100 group-hover:bg-slate-200"
+                      )}>
+                        <Icon className={cn(
+                          "w-5 h-5 transition-colors",
+                          isSelected ? "text-white" : "text-slate-500"
+                        )} />
                       </div>
-                      <div className="pt-2 border-t border-slate-100">
-                        <p className="text-xl font-bold text-slate-900">{inv.qty}</p>
-                        <p className="text-[10px] text-slate-500">Stok Sistem</p>
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <h3 className={cn(
+                            "font-bold text-sm",
+                            isSelected ? place.text : "text-slate-900"
+                          )}>
+                            {place.label}
+                          </h3>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed mb-2 line-clamp-2">
+                          {place.description}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          {loadingCount ? (
+                            <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>Menghitung...</span>
+                            </div>
+                          ) : (
+                            <div className={cn(
+                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold",
+                              isSelected
+                                ? `bg-white ${place.text} shadow-sm`
+                                : "bg-slate-100 text-slate-600"
+                            )}>
+                              <Package size={10} />
+                              <span>{count.toLocaleString("id-ID")}</span>
+                              <span className="font-normal">item</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 );
               })}
             </div>
+          </div>
+
+          {/* Summary Card */}
+          {selectedPlaces.size > 0 && (
+            <div className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl p-4 sm:p-5 text-white relative overflow-hidden">
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+              <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+
+              <div className="relative flex items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Sparkles className="w-4 h-4" />
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-white/90">
+                      Total Inventory
+                    </p>
+                  </div>
+                  {loadingCount ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span className="text-sm">Menghitung...</span>
+                    </div>
+                  ) : (
+                    <p className="text-3xl sm:text-4xl font-bold">
+                      {summary.total_items.toLocaleString("id-ID")}
+                      <span className="text-lg font-medium text-white/80 ml-1">item</span>
+                    </p>
+                  )}
+                </div>
+
+                {!loadingCount && summary.by_place?.length > 0 && (
+                  <div className="flex flex-col gap-1.5 text-right">
+                    {summary.by_place.map((p) => (
+                      <div key={p.kode} className="text-[11px] text-white/90">
+                        <span className="font-bold">{p.count.toLocaleString("id-ID")}</span>
+                        <span className="text-white/70 ml-1">{p.kode}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {!loadingCount && summary.total_items === 0 && (
+                <div className="relative mt-3 pt-3 border-t border-white/20 flex items-center gap-2 text-[11px] text-white/90">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>Tidak ada inventory di tempat yang dipilih</span>
+                </div>
+              )}
+            </div>
           )}
+
+          {/* Info Card */}
+          <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-3 flex gap-2.5">
+            <div className="flex-shrink-0 p-1.5 bg-blue-100 rounded-lg h-fit">
+              <AlertCircle className="w-3.5 h-3.5 text-blue-600" />
+            </div>
+            <div className="text-[11px] text-blue-900/80 leading-relaxed">
+              <p className="font-semibold mb-0.5 text-blue-900">Cara Kerja:</p>
+              <p>
+                Stok opname akan otomatis dibuat untuk <strong>semua inventory</strong> di tempat yang Anda pilih.
+                Selanjutnya, Anda hanya perlu mengisi stok fisik di halaman detail opname.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 flex gap-3 flex-shrink-0 bg-white">
+        <div className="px-5 sm:px-6 py-4 border-t border-slate-100 flex gap-2.5 flex-shrink-0 bg-white/95 backdrop-blur-sm">
           <button
             type="button"
             onClick={closeAllModals}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-50"
             disabled={isSubmitting}
           >
             Batal
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting || selectedIds.size === 0}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            disabled={isSubmitting || selectedPlaces.size === 0 || summary.total_items === 0}
+            className="flex-[2] px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/30 active:scale-[0.98]"
           >
             {isSubmitting ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Memproses...</>
+              <><Loader2 className="w-4 h-4 animate-spin" /> Membuat Opname...</>
             ) : (
-              <>Buat Opname ({selectedIds.size} item)</>
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>Buat Opname</span>
+                {summary.total_items > 0 && !loadingCount && (
+                  <span className="px-2 py-0.5 bg-white/20 rounded-full text-[11px]">
+                    {summary.total_items.toLocaleString("id-ID")}
+                  </span>
+                )}
+              </>
             )}
           </button>
         </div>

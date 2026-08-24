@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StokOpname\StoreDetailStokOpnameRequest;
+use App\Http\Requests\StokOpname\StoreStokOpnameForPlacesRequest;
 use App\Http\Requests\StokOpname\StoreStokOpnameRequest;
 use App\Http\Resources\DetailStokOpnameResource;
 use App\Http\Resources\StokOpnameResource;
@@ -11,6 +12,7 @@ use App\Models\StokOpname;
 use App\Services\Inventory\InventoryService;
 use App\Services\ProductMovement\ProductMovementService;
 use App\Services\StokOpname\StokOpnameService;
+use App\Services\Product\ProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +22,8 @@ class StokOpnameController extends Controller
     public function __construct(
         protected StokOpnameService $stokOpnameService,
         protected InventoryService $inventoryService,
-        protected ProductMovementService $productMovementService
+        protected ProductMovementService $productMovementService,
+        protected ProductService $productService
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -33,47 +36,22 @@ class StokOpnameController extends Controller
                 status: $request->input('status'),
                 dari: $request->input('dari'),
                 sampai: $request->input('sampai'),
-                excludeDraft: $request->boolean('exclude_draft'),  // ✅ BARU
+                excludeDraft: $request->boolean('exclude_draft'),
                 perPage: $perPage,
                 page: $page
             );
 
             return response()->json([
                 'status' => true,
-                'data' => StokOpnameResource::collection($result['data']),
-                'meta' => $result['meta'],
+                'data'   => StokOpnameResource::collection($result['data']),
+                'meta'   => $result['meta'],
             ]);
         } catch (\Throwable $e) {
             Log::error('StokOpname index error', ['error' => $e->getMessage()]);
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'Gagal memuat data stok opname.',
-                'error' => config('app.debug') ? $e->getMessage() : null,
-            ], 500);
-        }
-    }
-
-    public function store(StoreStokOpnameRequest $request): JsonResponse
-    {
-        try {
-            $stokOpname = $this->stokOpnameService->create($request->validated());
-
-            $this->stokOpnameService->invalidateCache();
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Stok opname berhasil dibuat.',
-                'data' => new StokOpnameResource($stokOpname),
-            ], 201);
-        } catch (\Throwable $e) {
-            Log::error('StokOpname store error', [
-                'error' => $e->getMessage(),
-                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
-            ]);
-            return response()->json([
-                'status' => false,
-                'message' => 'Gagal membuat stok opname.',
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -85,25 +63,112 @@ class StokOpnameController extends Controller
 
             if (!$detail) {
                 return response()->json([
-                    'status' => false,
+                    'status'  => false,
                     'message' => 'Stok opname tidak ditemukan.',
                 ], 404);
             }
 
             return response()->json([
                 'status' => true,
-                'data' => new StokOpnameResource($detail),
+                'data'   => new StokOpnameResource($detail),
             ]);
         } catch (\Throwable $e) {
             Log::error('StokOpname show error', [
-                'id' => $stokOpname->id,
+                'id'    => $stokOpname->id,
                 'error' => $e->getMessage(),
             ]);
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'Gagal memuat detail stok opname.',
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
+        }
+    }
+
+    public function availableInventories(Request $request): JsonResponse
+    {
+        try {
+            $placeKodes = $request->input('places', ['TOKO', 'BENGKEL']);
+            $search = $request->input('search');
+
+            if (!is_array($placeKodes)) {
+                $placeKodes = [$placeKodes];
+            }
+
+            $invalidPlaces = array_diff($placeKodes, ['TOKO', 'BENGKEL']);
+            if (!empty($invalidPlaces)) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Place hanya boleh TOKO atau BENGKEL.',
+                ], 422);
+            }
+
+            $result = $this->stokOpnameService->getAvailableInventories($placeKodes, $search);
+
+            return response()->json([
+                'status'  => true,
+                'data'    => $result['items'],
+                'summary' => $result['summary'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('StokOpname availableInventories error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal memuat daftar inventory.',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function createForPlaces(StoreStokOpnameForPlacesRequest $request): JsonResponse
+    {
+        try {
+            $stokOpname = $this->stokOpnameService->createForPlaces($request->validated());
+
+            $this->stokOpnameService->invalidateCache();
+            $this->inventoryService->invalidateCache();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Stok opname berhasil dibuat untuk semua inventory.',
+                'data'    => new StokOpnameResource($stokOpname),
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('StokOpname createForPlaces error', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal membuat stok opname: ' . $e->getMessage(),
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 422);
+        }
+    }
+
+    public function store(StoreStokOpnameRequest $request): JsonResponse
+    {
+        try {
+            $stokOpname = $this->stokOpnameService->create($request->validated());
+
+            $this->stokOpnameService->invalidateCache();
+            $this->inventoryService->invalidateCache();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Stok opname berhasil dibuat.',
+                'data'    => new StokOpnameResource($stokOpname),
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('StokOpname store error', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal membuat stok opname: ' . $e->getMessage(),
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 422);
         }
     }
 
@@ -115,22 +180,22 @@ class StokOpnameController extends Controller
             $this->stokOpnameService->invalidateCache();
 
             return response()->json([
-                'status' => true,
+                'status'  => true,
                 'message' => 'Detail stok opname berhasil diperbarui.',
-                'data' => new DetailStokOpnameResource($detail),
+                'data'    => new DetailStokOpnameResource($detail),
             ]);
         } catch (\Throwable $e) {
             Log::error('StokOpname storeDetail error', [
-                'id' => $stokOpname->id,
+                'id'    => $stokOpname->id,
                 'error' => $e->getMessage(),
             ]);
 
             $statusCode = str_contains($e->getMessage(), 'dikunci') ? 422 : 500;
 
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => $e->getMessage(),
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], $statusCode);
         }
     }
@@ -143,22 +208,23 @@ class StokOpnameController extends Controller
             $this->stokOpnameService->invalidateCache();
             $this->inventoryService->invalidateCache();
             $this->productMovementService->invalidateCache();
+            $this->productService->invalidateCache();
 
             return response()->json([
-                'status' => true,
+                'status'  => true,
                 'message' => 'Stok opname berhasil diselesaikan dan stok disesuaikan.',
             ]);
         } catch (\Throwable $e) {
             Log::error('StokOpname selesai error', [
-                'id' => $stokOpname->id,
+                'id'    => $stokOpname->id,
                 'error' => $e->getMessage(),
                 'trace' => config('app.debug') ? $e->getTraceAsString() : null,
             ]);
 
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => $e->getMessage(),
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 422);
         }
     }
@@ -171,21 +237,21 @@ class StokOpnameController extends Controller
             $this->stokOpnameService->invalidateCache();
 
             return response()->json([
-                'status' => true,
+                'status'  => true,
                 'message' => 'Stok opname berhasil dibatalkan.',
             ]);
         } catch (\Throwable $e) {
             Log::error('StokOpname batalkan error', [
-                'id' => $stokOpname->id,
+                'id'    => $stokOpname->id,
                 'error' => $e->getMessage(),
             ]);
 
             $statusCode = str_contains($e->getMessage(), 'draft') ? 422 : 500;
 
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => $e->getMessage(),
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], $statusCode);
         }
     }
