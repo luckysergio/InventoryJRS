@@ -5,19 +5,16 @@ import { useShallow } from 'zustand/react/shallow';
 export const useTransaksiStore = create(
   devtools(
     (set, get) => ({
-      // ==================== FILTERS ====================
-      // Halaman Transaksi Aktif
       aktifFilters: {
         search: '',
         perPage: 20,
       },
       aktifCurrentPage: 1,
 
-      // Halaman Riwayat
       riwayatFilters: {
         search: '',
-        jenis: 'all',       // all | daily | pesanan
-        status: 'all',      // all | selesai | dibatalkan
+        jenis: 'all',
+        status: 'all',
         customer_id: '',
         dari: '',
         sampai: '',
@@ -25,16 +22,14 @@ export const useTransaksiStore = create(
       },
       riwayatCurrentPage: 1,
 
-      // ==================== MODALS ====================
       modals: {
-        form: false,        // Create / Edit
-        detail: false,      // View detail transaksi
-        pembayaran: false,  // Bayar detail
+        form: false,
+        detail: false,
+        pembayaran: false,
       },
       selectedTransaksi: null,
       selectedDetail: null,
 
-      // ==================== AKTIF FILTERS ACTIONS ====================
       setAktifSearch: (search) =>
         set((s) => ({
           aktifFilters: { ...s.aktifFilters, search },
@@ -50,7 +45,6 @@ export const useTransaksiStore = create(
           aktifCurrentPage: 1,
         }, false, 'resetAktifFilters'),
 
-      // ==================== RIWAYAT FILTERS ACTIONS ====================
       setRiwayatSearch: (search) =>
         set((s) => ({
           riwayatFilters: { ...s.riwayatFilters, search },
@@ -104,7 +98,6 @@ export const useTransaksiStore = create(
           riwayatCurrentPage: 1,
         }, false, 'resetRiwayatFilters'),
 
-      // ==================== MODALS ACTIONS ====================
       openFormModal: (transaksi = null) =>
         set({
           modals: { form: true, detail: false, pembayaran: false },
@@ -138,7 +131,6 @@ export const useTransaksiStore = create(
           selectedDetail: null,
         }), false, 'closePembayaranModal'),
 
-      // ==================== GETTERS ====================
       getAktifQueryParams: () => {
         const { aktifFilters, aktifCurrentPage } = get();
         return {
@@ -182,8 +174,6 @@ export const useTransaksiStore = create(
     { name: 'TransaksiStore', enabled: import.meta.env.DEV }
   )
 );
-
-// ==================== EXPORTED SELECTORS ====================
 
 export const useTransaksiAktifFilters = () =>
   useTransaksiStore(useShallow((s) => ({

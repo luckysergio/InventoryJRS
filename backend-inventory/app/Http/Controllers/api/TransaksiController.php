@@ -13,6 +13,7 @@ use App\Services\Customer\CustomerService;
 use App\Services\Dashboard\DashboardService;
 use App\Services\Inventory\InventoryService;
 use App\Services\Pembayaran\PembayaranService;
+use App\Services\Product\ProductService; // ✅ ADDED
 use App\Services\ProductMovement\ProductMovementService;
 use App\Services\Transaksi\TransaksiService;
 use App\Traits\BroadcastsDashboardEvents;
@@ -31,22 +32,18 @@ class TransaksiController extends Controller
         protected ProductMovementService $productMovementService,
         protected PembayaranService $pembayaranService,
         protected DashboardService $dashboardService,
-        protected CustomerService $customerService // ✅ NEW: untuk invalidate cache customer (tagihan)
+        protected CustomerService $customerService,
+        protected ProductService $productService
     ) {}
 
-    /**
-     * Invalidate semua cache yang terpengaruh oleh perubahan transaksi.
-     * - Transaksi, Inventory, ProductMovement, Pembayaran: data inti
-     * - Dashboard: metrics, chart, login stats
-     * - Customer: ✅ tagihan/outstanding balance berubah saat transaksi berubah
-     */
     private function invalidateAll(): void
     {
         $this->transaksiService->invalidateCache();
         $this->inventoryService->invalidateCache();
         $this->productMovementService->invalidateCache();
         $this->pembayaranService->invalidateCache();
-        $this->customerService->invalidateCache(); // ✅ NEW
+        $this->customerService->invalidateCache();
+        $this->productService->invalidateCache();
         $this->invalidateDashboard();
     }
 

@@ -139,6 +139,39 @@ class InventoryController extends Controller
         }
     }
 
+    public function stokMap(Request $request): JsonResponse
+    {
+        try {
+            $placeKode = $request->input('place', 'TOKO');
+
+            $allowedPlaces = ['TOKO', 'BENGKEL', 'GUDANG'];
+            if (!in_array($placeKode, $allowedPlaces, true)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Place tidak valid. Allowed: ' . implode(', ', $allowedPlaces),
+                ], 422);
+            }
+
+            $stokMap = $this->inventoryService->getStokMap($placeKode);
+
+            return response()->json([
+                'status' => true,
+                'data' => $stokMap ?: new \stdClass(),
+                'meta' => [
+                    'place' => $placeKode,
+                    'total_products' => count($stokMap),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Inventory stokMap error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat stok map.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     public function sync(): JsonResponse
     {
         try {
@@ -149,15 +182,15 @@ class InventoryController extends Controller
             Log::info('Inventory cache force synced');
 
             return response()->json([
-                'status'  => true,
+                'status' => true,
                 'message' => 'Cache inventory berhasil disinkronisasi.',
             ]);
         } catch (\Throwable $e) {
             Log::error('Inventory sync error', ['error' => $e->getMessage()]);
             return response()->json([
-                'status'  => false,
+                'status' => false,
                 'message' => 'Gagal sinkronisasi cache.',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }

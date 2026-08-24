@@ -89,14 +89,17 @@ export const masterKeys = {
     all: ['inventory'],
     lists: () => [...masterKeys.inventory.all, 'list'],
     list: (filters) => [...masterKeys.inventory.lists(), filters],
+    stokMap: (place = 'TOKO') => [...masterKeys.inventory.all, 'stok_map', place],
   },
-stokOpname: {
-  all: ['stok_opname'],
-  lists: () => [...masterKeys.stokOpname.all, 'list'],
-  list: (filters) => [...masterKeys.stokOpname.lists(), filters],
-  detail: (id) => [...masterKeys.stokOpname.all, 'detail', id],
-  availableInventories: (places) => [...masterKeys.stokOpname.all, 'available', places?.sort().join(',') || 'all'],
-},
+  stokOpname: {
+    all: ['stok_opname'],
+    lists: () => [...masterKeys.stokOpname.all, 'list'],
+    list: (filters) => [...masterKeys.stokOpname.lists(), filters],
+    detail: (id) => [...masterKeys.stokOpname.all, 'detail', id],
+    availableInventories: (places) => [
+      ...masterKeys.stokOpname.all, 'available', places?.sort().join(',') || 'all',
+    ],
+  },
   transaksi: {
     all: ['transaksi'],
     lists: () => [...masterKeys.transaksi.all, 'list'],
@@ -156,11 +159,9 @@ const extractDropdown = (response) => {
   });
 };
 
-const forceFreshCache = async (queryClient, queryKey) => {
+export const forceFreshCache = async (queryClient, queryKey) => {
   await queryClient.cancelQueries({ queryKey, exact: false });
-  
   queryClient.removeQueries({ queryKey, exact: false });
-  
   await queryClient.invalidateQueries({
     queryKey,
     exact: false,
@@ -168,10 +169,111 @@ const forceFreshCache = async (queryClient, queryKey) => {
   });
 };
 
+export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
+  const crossInvalidation = {
+    jenis: [
+      masterKeys.jenis.all,
+      masterKeys.type.all,
+      masterKeys.product.all,
+      masterKeys.harga.all,
+      masterKeys.inventory.all,
+      masterKeys.stokOpname.all,
+      masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
+    ],
+    type: [
+      masterKeys.type.all,
+      masterKeys.jenis.all,
+      masterKeys.product.all,
+      masterKeys.harga.all,
+      masterKeys.inventory.all,
+      masterKeys.stokOpname.all,
+      masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
+    ],
+    bahan: [
+      masterKeys.bahan.all,
+      masterKeys.product.all,
+      masterKeys.harga.all,
+      masterKeys.inventory.all,
+      masterKeys.stokOpname.all,
+      masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
+    ],
+    product: [
+      masterKeys.product.all,
+      masterKeys.harga.all,
+      masterKeys.inventory.all,
+      masterKeys.stokOpname.all,
+      masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
+      masterKeys.distributorProduct.all,
+      masterKeys.productCustomer.all,
+    ],
+    harga: [
+      masterKeys.harga.all,
+      masterKeys.product.all,
+      masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
+    ],
+    customer: [
+      masterKeys.customer.all,
+      masterKeys.harga.all,
+      masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
+      masterKeys.pembayaran.all,
+      masterKeys.productCustomer.all,
+    ],
+    distributor: [
+      masterKeys.distributor.all,
+      masterKeys.distributorProduct.all,
+      masterKeys.product.all,
+      masterKeys.harga.all,
+    ],
+    transaksi: [
+      masterKeys.transaksi.all,
+      masterKeys.inventory.all,
+      masterKeys.pembayaran.all,
+      masterKeys.customer.all,
+      masterKeys.stokOpname.all,
+    ],
+    pesanan: [
+      masterKeys.pesanan.all,
+      masterKeys.transaksi.all,
+      masterKeys.pembayaran.all,
+      masterKeys.product.all,
+    ],
+    pembayaran: [
+      masterKeys.pembayaran.all,
+      masterKeys.transaksi.all,
+      masterKeys.pesanan.all,
+    ],
+    inventory: [
+      masterKeys.inventory.all,
+      masterKeys.stokOpname.all,
+      masterKeys.product.all,
+    ],
+    stokOpname: [
+      masterKeys.stokOpname.all,
+      masterKeys.inventory.all,
+      masterKeys.productMovement.all,
+    ],
+  };
+
+  const relatedKeys = crossInvalidation[changedEntity] || [];
+
+  await Promise.all(
+    relatedKeys.map((key) => forceFreshCache(queryClient, key))
+  );
+};
+
 export const useJenisDropdown = () => useQuery({
   queryKey: masterKeys.jenis.dropdown(),
   queryFn: async () => extractDropdown(await api.get('/jenis/dropdown')),
-  staleTime: 15 * 60 * 1000,
+  staleTime: 5 * 60 * 1000,
+  gcTime: 10 * 60 * 1000,
+  refetchOnMount: 'always',
+  refetchOnWindowFocus: true,
 });
 
 export const useTypesDropdown = (jenisId = null) => useQuery({
@@ -179,37 +281,53 @@ export const useTypesDropdown = (jenisId = null) => useQuery({
   queryFn: async () => extractDropdown(
     await api.get('/type/dropdown', { params: { jenis_id: jenisId || undefined } })
   ),
-  staleTime: 15 * 60 * 1000,
+  staleTime: 5 * 60 * 1000,
+  gcTime: 10 * 60 * 1000,
+  refetchOnMount: 'always',
+  refetchOnWindowFocus: true,
 });
 
 export const useBahansDropdown = () => useQuery({
   queryKey: masterKeys.bahan.dropdown(),
   queryFn: async () => extractDropdown(await api.get('/bahan/dropdown')),
-  staleTime: 15 * 60 * 1000,
+  staleTime: 5 * 60 * 1000,
+  gcTime: 10 * 60 * 1000,
+  refetchOnMount: 'always',
+  refetchOnWindowFocus: true,
 });
 
 export const useProductsDropdown = () => useQuery({
   queryKey: masterKeys.product.dropdown(),
   queryFn: async () => extractDropdown(await api.get('/products/dropdown')),
-  staleTime: 15 * 60 * 1000,
+  staleTime: 5 * 60 * 1000,
+  gcTime: 10 * 60 * 1000,
+  refetchOnMount: 'always',
+  refetchOnWindowFocus: true,
 });
 
 export const useCustomersDropdown = () => useQuery({
   queryKey: masterKeys.customer.dropdown(),
   queryFn: async () => extractDropdown(await api.get('/customers/dropdown')),
-  staleTime: 15 * 60 * 1000,
+  staleTime: 5 * 60 * 1000,
+  gcTime: 10 * 60 * 1000,
+  refetchOnMount: 'always',
+  refetchOnWindowFocus: true,
 });
 
 export const useDistributorsDropdown = () => useQuery({
   queryKey: masterKeys.distributor.dropdown(),
   queryFn: async () => extractDropdown(await api.get('/distributors/dropdown')),
-  staleTime: 15 * 60 * 1000,
+  staleTime: 5 * 60 * 1000,
+  gcTime: 10 * 60 * 1000,
+  refetchOnMount: 'always',
+  refetchOnWindowFocus: true,
 });
 
 export const usePlacesDropdown = () => useQuery({
   queryKey: masterKeys.place.dropdown(),
   queryFn: async () => extractDropdown(await api.get('/places/dropdown')),
   staleTime: 15 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
 });
 
 export const useStatusTransaksiDropdown = () => useQuery({
@@ -218,7 +336,8 @@ export const useStatusTransaksiDropdown = () => useQuery({
     const res = await api.get('/status-transaksi');
     return extractArray(res);
   },
-  staleTime: 15 * 60 * 1000,
+  staleTime: 30 * 60 * 1000,
+  gcTime: 60 * 60 * 1000,
 });
 
 export const useStatusTransaksiList = useStatusTransaksiDropdown;
@@ -239,8 +358,9 @@ export const useProductsFull = () => useQuery({
     const res = await api.get('/products/available', { params: { per_page: 5000 } });
     return extractArray(res);
   },
-  staleTime: 5 * 60 * 1000,
-  gcTime: 10 * 60 * 1000,
+  staleTime: 2 * 60 * 1000,
+  gcTime: 5 * 60 * 1000,
+  refetchOnWindowFocus: true,
 });
 
 export const useProductsAll = () => useQuery({
@@ -249,8 +369,9 @@ export const useProductsAll = () => useQuery({
     const res = await api.get('/products', { params: { per_page: 5000 } });
     return extractArray(res);
   },
-  staleTime: 5 * 60 * 1000,
-  gcTime: 10 * 60 * 1000,
+  staleTime: 2 * 60 * 1000,
+  gcTime: 5 * 60 * 1000,
+  refetchOnWindowFocus: true,
 });
 
 export const useHargaByProduct = (productId, customerId = null) => useQuery({
@@ -276,19 +397,8 @@ export const useCreateHarga = () => {
       const res = await api.post('/harga', data);
       return extractObject(res);
     },
-    onSuccess: async (newHarga, variables) => {
-      await forceFreshCache(queryClient, masterKeys.harga.all);
-      
-      if (variables?.product_id) {
-        await forceFreshCache(
-          queryClient, 
-          [...masterKeys.harga.byProductBase(), variables.product_id]
-        );
-      }
-      
-      await forceFreshCache(queryClient, masterKeys.product.all);
-      
-      console.log('[useCreateHarga] Cache FORCE FRESH for product:', variables?.product_id);
+    onSuccess: async () => {
+      await invalidateRelatedCaches(queryClient, 'harga');
     },
   });
 };
@@ -302,9 +412,7 @@ export const useUpdateHarga = () => {
       return extractObject(res);
     },
     onSuccess: async () => {
-      await forceFreshCache(queryClient, masterKeys.harga.all);
-      await forceFreshCache(queryClient, masterKeys.product.all);
-      console.log('[useUpdateHarga] Cache FORCE FRESH');
+      await invalidateRelatedCaches(queryClient, 'harga');
     },
   });
 };
@@ -318,9 +426,7 @@ export const useDeleteHarga = () => {
       return extractObject(res);
     },
     onSuccess: async () => {
-      await forceFreshCache(queryClient, masterKeys.harga.all);
-      await forceFreshCache(queryClient, masterKeys.product.all);
-      console.log('[useDeleteHarga] Cache FORCE FRESH');
+      await invalidateRelatedCaches(queryClient, 'harga');
     },
   });
 };
@@ -331,32 +437,11 @@ export const useInvalidateHarga = () => {
   return useCallback(async (productId = null) => {
     if (productId) {
       await forceFreshCache(
-        queryClient, 
+        queryClient,
         [...masterKeys.harga.byProductBase(), productId]
       );
     } else {
       await forceFreshCache(queryClient, masterKeys.harga.all);
     }
-    console.log('[useInvalidateHarga] Manual fresh cache', { productId });
   }, [queryClient]);
-};
-
-export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
-  const crossInvalidation = {
-    jenis: [masterKeys.type.all, masterKeys.product.all, masterKeys.harga.all, masterKeys.transaksi.all, masterKeys.pesanan.all],
-    type: [masterKeys.product.all, masterKeys.harga.all, masterKeys.transaksi.all, masterKeys.pesanan.all],
-    bahan: [masterKeys.product.all, masterKeys.harga.all, masterKeys.transaksi.all, masterKeys.pesanan.all],
-    product: [masterKeys.harga.all, masterKeys.inventory.all, masterKeys.transaksi.all, masterKeys.pesanan.all],
-    harga: [masterKeys.product.all, masterKeys.transaksi.all, masterKeys.pesanan.all],
-    customer: [masterKeys.harga.all, masterKeys.transaksi.all, masterKeys.pesanan.all, masterKeys.pembayaran.all],
-    transaksi: [masterKeys.inventory.all, masterKeys.pembayaran.all, masterKeys.customer.all],
-    pesanan: [masterKeys.transaksi.all, masterKeys.pembayaran.all, masterKeys.product.all],
-    pembayaran: [masterKeys.transaksi.all, masterKeys.pesanan.all],
-  };
-
-  const relatedKeys = crossInvalidation[changedEntity] || [];
-
-  for (const key of relatedKeys) {
-    await forceFreshCache(queryClient, key);
-  }
 };

@@ -38,6 +38,7 @@ export const useTransaksis = (params = {}) => {
     },
     placeholderData: keepPreviousData,
     staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 };
 
@@ -50,6 +51,7 @@ export const useTransaksiDetail = (id) => {
     },
     enabled: !!id,
     staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 };
 
@@ -60,7 +62,6 @@ const invalidateTransaksiCache = async (qc) => {
     exact: false,
     refetchType: 'all',
   });
-  await invalidateRelatedCaches(qc, 'transaksi');
 
   await qc.cancelQueries({ queryKey: masterKeys.inventory.all, exact: false });
   await qc.invalidateQueries({
@@ -68,12 +69,24 @@ const invalidateTransaksiCache = async (qc) => {
     exact: false,
     refetchType: 'all',
   });
+
+  await qc.invalidateQueries({
+    queryKey: masterKeys.inventory.stokMap('TOKO'),
+    refetchType: 'active',
+  });
+  await qc.invalidateQueries({
+    queryKey: masterKeys.inventory.stokMap('BENGKEL'),
+    refetchType: 'active',
+  });
+
   await qc.cancelQueries({ queryKey: masterKeys.productMovement.all, exact: false });
   await qc.invalidateQueries({
     queryKey: masterKeys.productMovement.all,
     exact: false,
     refetchType: 'all',
   });
+
+  await invalidateRelatedCaches(qc, 'transaksi');
 };
 
 export const useCreateTransaksi = () => {

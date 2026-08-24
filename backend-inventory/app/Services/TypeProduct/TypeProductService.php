@@ -25,11 +25,12 @@ class TypeProductService
     private const CACHE_TTL_BY_JENIS = 3600;   // 1 jam
     private const CACHE_TTL_STATISTICS = 1800; // 30 menit
 
-    /**
-     * Get list type products dengan search, filter by jenis, & pagination.
-     *
-     * @return array{data: Collection|array, meta: array}
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | READ OPERATIONS
+    |--------------------------------------------------------------------------
+    */
+
     public function getList(
         ?string $search = null,
         ?int $jenisId = null,
@@ -142,6 +143,12 @@ class TypeProductService
         });
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | WRITE OPERATIONS
+    |--------------------------------------------------------------------------
+    */
+
     public function create(array $data): TypeProduct
     {
         return DB::transaction(function () use ($data) {
@@ -188,11 +195,6 @@ class TypeProductService
         });
     }
 
-    /**
-     * Delete type product dengan proteksi relasi.
-     *
-     * @return array{success: bool, code?: int, message: string}
-     */
     public function delete(TypeProduct $type): array
     {
         $id = $type->id;
@@ -241,12 +243,22 @@ class TypeProductService
         });
     }
 
-    private function getCacheVersion(): int
+    /*
+    |--------------------------------------------------------------------------
+    | CACHE MANAGEMENT (PUBLIC - untuk dipanggil dari controller/service lain)
+    |--------------------------------------------------------------------------
+    */
+
+    public function getCacheVersion(): int
     {
         return (int) Cache::get(self::CACHE_VERSION_KEY, 1);
     }
 
-    private function invalidateCache(): void
+    /**
+     * ✅ PUBLIC: Invalidate semua cache TypeProduct.
+     * Bisa dipanggil dari controller atau service lain (JenisProduct, Product).
+     */
+    public function invalidateCache(): void
     {
         $lock = Cache::lock(self::CACHE_VERSION_LOCK, 10);
 

@@ -299,6 +299,9 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
     Route::prefix('inventory')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/low-stock', [InventoryController::class, 'lowStock']);
         Route::get('/total/{productId}', [InventoryController::class, 'totalProduct']);
+
+        Route::get('/stok-map', [InventoryController::class, 'stokMap']);
+
         Route::get('/place/{placeId}', [InventoryController::class, 'byPlace']);
         Route::get('/product/{productId}', [InventoryController::class, 'byProduct']);
         Route::get('/', [InventoryController::class, 'index']);

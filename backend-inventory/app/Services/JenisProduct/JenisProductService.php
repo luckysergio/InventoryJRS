@@ -23,11 +23,12 @@ class JenisProductService
     private const CACHE_TTL_DROPDOWN = 7200;   // 2 jam
     private const CACHE_TTL_STATISTICS = 1800; // 30 menit
 
-    /**
-     * Get list jenis products dengan search & pagination support.
-     *
-     * @return array{data: Collection|array, meta: array}
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | READ OPERATIONS
+    |--------------------------------------------------------------------------
+    */
+
     public function getList(
         ?string $search = null,
         bool $withCount = true,
@@ -143,6 +144,12 @@ class JenisProductService
         });
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | WRITE OPERATIONS
+    |--------------------------------------------------------------------------
+    */
+
     public function create(array $data): JenisProduct
     {
         return DB::transaction(function () use ($data) {
@@ -150,6 +157,7 @@ class JenisProductService
                 'nama' => $data['nama'],
             ]);
 
+            // Internal invalidation untuk cache sendiri
             $this->invalidateCache();
 
             Log::info('JenisProduct created', [
@@ -183,11 +191,6 @@ class JenisProductService
         });
     }
 
-    /**
-     * Delete jenis product dengan proteksi relasi.
-     *
-     * @return array{success: bool, code?: int, message: string}
-     */
     public function delete(JenisProduct $jenisProduct): array
     {
         $id = $jenisProduct->id;
@@ -244,12 +247,22 @@ class JenisProductService
         });
     }
 
-    private function getCacheVersion(): int
+    /*
+    |--------------------------------------------------------------------------
+    | CACHE MANAGEMENT (PUBLIC - untuk dipanggil dari controller/service lain)
+    |--------------------------------------------------------------------------
+    */
+
+    public function getCacheVersion(): int
     {
         return (int) Cache::get(self::CACHE_VERSION_KEY, 1);
     }
 
-    private function invalidateCache(): void
+    /**
+     * ✅ PUBLIC: Invalidate semua cache JenisProduct.
+     * Bisa dipanggil dari controller atau service lain (TypeProduct, Product).
+     */
+    public function invalidateCache(): void
     {
         $lock = Cache::lock(self::CACHE_VERSION_LOCK, 10);
 

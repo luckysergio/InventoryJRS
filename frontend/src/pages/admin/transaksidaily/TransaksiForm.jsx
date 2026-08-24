@@ -20,7 +20,7 @@ import {
   useHargaByProduct,
   useCreateHarga,
 } from "../../../hooks/useMasterData";
-import { useInventories } from "../../../hooks/useInventory";
+import { useStokMap } from "../../../hooks/useInventory";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import {
   formatRupiah,
@@ -116,6 +116,7 @@ const DropdownPortal = ({ open, style, onClose, children }) => {
 };
 
 const createEmptyDetail = (statusProsesId) => ({
+  id: undefined,
   product_id: "",
   qty: 1,
   discount: 0,
@@ -127,9 +128,9 @@ const createEmptyDetail = (statusProsesId) => ({
   harga_label: "",
 });
 
-/* ==========================================
-   ✅ HARGA SELECTOR — FRESH CACHE GUARANTEE
-   ========================================== */
+// ==========================================
+// HARGA SELECTOR
+// ==========================================
 const HargaSelector = ({
   detailIndex,
   detail,
@@ -151,7 +152,6 @@ const HargaSelector = ({
   const [showNewForm, setShowNewForm] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  // Filter harga berdasarkan customer
   const hargaUmum = useMemo(
     () => hargaList.filter((h) => !h.customer_id),
     [hargaList]
@@ -161,7 +161,6 @@ const HargaSelector = ({
     [hargaList, customerId]
   );
 
-  // ✅ NEW: Force refetch setiap kali productId ATAU customerId berubah
   useEffect(() => {
     if (productId) {
       refetch();
@@ -169,7 +168,6 @@ const HargaSelector = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, customerId]);
 
-  // Auto-reset saat customer berubah
   const prevCustomerIdRef = useRef(customerId);
   useEffect(() => {
     const prevId = String(prevCustomerIdRef.current || "");
@@ -191,14 +189,12 @@ const HargaSelector = ({
     prevCustomerIdRef.current = customerId;
   }, [customerId, hargaList, detail.harga_product_id, detailIndex, onUpdateHarga]);
 
-  // Auto-show new form jika sudah ada draft
   useEffect(() => {
     if (!detail.harga_product_id && detail.harga_baru?.harga) {
       setShowNewForm(true);
     }
   }, [detail.harga_product_id, detail.harga_baru?.harga]);
 
-  // ✅ Auto-refetch saat dropdown dibuka
   useEffect(() => {
     if (isDropdownOpen && productId && !isLoading) {
       refetch();
@@ -256,7 +252,6 @@ const HargaSelector = ({
     });
   };
 
-  // ✅ Submit harga baru ke backend
   const handleSubmitNewHarga = async () => {
     if (!detail.harga_baru?.harga) return;
 
@@ -269,19 +264,11 @@ const HargaSelector = ({
         tanggal_berlaku: detail.harga_baru.tanggal_berlaku || new Date().toISOString().split("T")[0],
       };
 
-      // Create ke backend (auto force-fresh cache via hook)
       const newHarga = await createHargaMut.mutateAsync(payload);
-      
-      // ✅ Manual refetch setelah success (double-safety)
       await refetch();
-      
-      // ✅ Small delay untuk pastikan cache sudah ter-update
       await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Refetch sekali lagi untuk memastikan
       await refetch();
 
-      // Auto-select harga yang baru dibuat
       onUpdateHarga(detailIndex, {
         harga_product_id: String(newHarga.id),
         harga_baru: { harga: "", keterangan: "", tanggal_berlaku: "" },
@@ -705,7 +692,7 @@ const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabl
 };
 
 // ==========================================
-// PRODUCT DROPDOWN
+// PRODUCT DROPDOWN (UPDATED - Bug 1 Fix)
 // ==========================================
 const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, stokMap, disabled = false }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -729,11 +716,20 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
       bahan: p.bahan,
       harga_umum: p.harga_umum ?? p.harga ?? 0,
       _raw: p,
+      _fromDetail: p._fromDetail || false, // ✅ Flag untuk produk dari detail existing
     }));
   }, [products]);
 
   const filtered = useMemo(() => {
     let result = normalizedProducts;
+
+    // ✅ Prioritaskan produk yang terpilih (biar muncul di atas saat dicari)
+    if (selectedId) {
+      const selectedProduct = result.find(p => String(p.id) === String(selectedId));
+      if (selectedProduct) {
+        result = [selectedProduct, ...result.filter(p => String(p.id) !== String(selectedId))];
+      }
+    }
 
     if (search.trim()) {
       const s = search.toLowerCase();
@@ -753,7 +749,7 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
     }
 
     return result;
-  }, [normalizedProducts, search, filterJenis, filterType]);
+  }, [normalizedProducts, search, filterJenis, filterType, selectedId]);
 
   const selected = normalizedProducts.find((p) => String(p.id) === String(selectedId));
 
@@ -793,7 +789,7 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-mono font-bold text-xs text-indigo-700">{selected.kode}</span>
+                  <span className="font-mono font-bold text-xs text-indigo-700">{selected.kode || '-'}</span>
                 </div>
                 <p className="text-xs text-slate-600 truncate mt-0.5">
                   {formatProductName(selected._raw)}
@@ -831,13 +827,18 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-mono font-bold text-xs text-indigo-700">{selected.kode}</span>
+                  <span className="font-mono font-bold text-xs text-indigo-700">{selected.kode || '-'}</span>
                   <span className={cn(
                     "text-[9px] px-1.5 py-0.5 rounded-full font-semibold",
                     getStokFromMap(selected.id, stokMap) > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                   )}>
                     Stok: {getStokFromMap(selected.id, stokMap)}
                   </span>
+                  {selected._fromDetail && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">
+                      Existing
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-600 truncate mt-0.5">
                   {formatProductName(selected._raw)}
@@ -930,17 +931,17 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
             filtered.map((p) => {
               const isSelected = String(p.id) === String(selectedId);
               const stok = getStokFromMap(p.id, stokMap);
-              const isOutOfStock = stok <= 0;
+              const isOutOfStock = stok <= 0 && !p._fromDetail; // ✅ Existing product bisa tetap dipilih
               return (
                 <button
                   key={p._key}
                   type="button"
-                  onClick={() => { if (!isOutOfStock) handleSelect(p.id); }}
-                  disabled={isOutOfStock}
+                  onClick={() => { if (!isOutOfStock || isSelected) handleSelect(p.id); }}
+                  disabled={isOutOfStock && !isSelected}
                   className={cn(
                     "w-full px-3 py-2.5 text-left hover:bg-indigo-50 flex items-center gap-3 border-b border-slate-100 last:border-0 transition",
                     isSelected ? "bg-indigo-50" : "",
-                    isOutOfStock ? "opacity-50 cursor-not-allowed hover:bg-transparent" : ""
+                    isOutOfStock && !isSelected ? "opacity-50 cursor-not-allowed hover:bg-transparent" : ""
                   )}
                 >
                   <div className={cn(
@@ -949,7 +950,7 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
                   )}>
                     <Package size={13} className={cn(
                       isSelected ? "text-indigo-600" : "text-slate-500",
-                      isOutOfStock && "text-red-400"
+                      isOutOfStock && !isSelected && "text-red-400"
                     )} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -961,6 +962,11 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
                       )}>
                         {stok > 0 ? `${stok} unit` : "Habis"}
                       </span>
+                      {p._fromDetail && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">
+                          Di Transaksi
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-600 mt-0.5 truncate">
                       {formatProductName(p._raw)}
@@ -978,7 +984,7 @@ const ProductDropdown = ({ products, selectedId, onSelect, jenisList, typeList, 
 };
 
 // ==========================================
-// MAIN FORM COMPONENT
+// MAIN FORM COMPONENT (BUG 1 + BUG 2 FIXED)
 // ==========================================
 const TransaksiForm = () => {
   const { modals, selectedTransaksi, closeAllModals } = useTransaksiModals();
@@ -992,20 +998,17 @@ const TransaksiForm = () => {
   const { data: jenisList = [] } = useJenisDropdown();
   const { data: typeList = [] } = useTypesDropdown();
 
-  const { data: inventoryData } = useInventories({ perPage: 5000 });
-  const allInventories = inventoryData?.inventories || [];
+  const { data: stokMapData = {}, isLoading: loadingStok } = useStokMap('TOKO');
 
   const stokTokoMap = useMemo(() => {
     const map = new Map();
-    allInventories.forEach((inv) => {
-      const isToko = inv.place?.kode === "TOKO" ||
-                     inv.place?.nama?.toLowerCase().includes("toko");
-      if (isToko && inv.product_id) {
-        map.set(Number(inv.product_id), Number(inv.qty) || 0);
-      }
-    });
+    if (stokMapData && typeof stokMapData === 'object') {
+      Object.entries(stokMapData).forEach(([productId, qty]) => {
+        map.set(Number(productId), Number(qty) || 0);
+      });
+    }
     return map;
-  }, [allInventories]);
+  }, [stokMapData]);
 
   const isOpen = modals.form;
   const isEdit = !!selectedTransaksi;
@@ -1022,6 +1025,52 @@ const TransaksiForm = () => {
   });
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [editableIndices, setEditableIndices] = useState(new Set());
+
+  // ✅ BUG 1 FIX: Enrich products dengan data dari selectedTransaksi.details
+  // Ini memastikan produk yang sudah ada di transaksi tetap muncul di dropdown
+  // meskipun produk tersebut sudah tidak "available" di endpoint /products/available
+  const enrichedProducts = useMemo(() => {
+    if (!isEdit || !selectedTransaksi?.details) return products;
+
+    const existingProductIds = new Set(
+      (products || []).map(p => String(p.id ?? p.value ?? p._id))
+    );
+
+    const missingProducts = [];
+    selectedTransaksi.details.forEach(d => {
+      if (d.product && !existingProductIds.has(String(d.product_id))) {
+        missingProducts.push({
+          ...d.product,
+          id: d.product_id,
+          kode: d.product?.kode || `#${d.product_id}`,
+          _fromDetail: true, // ✅ Flag untuk menandai produk dari detail existing
+        });
+      }
+    });
+
+    if (missingProducts.length === 0) return products;
+    return [...(products || []), ...missingProducts];
+  }, [products, isEdit, selectedTransaksi]);
+
+  // ✅ BUG 2 FIX: Effective stok = stok real-time + qty existing di transaksi ini
+  // Ini adalah "stok yang tersedia untuk diedit" — termasuk stok yang sudah
+  // "dipakai" oleh detail existing dalam transaksi ini
+  const effectiveStokMap = useMemo(() => {
+    const map = new Map(stokTokoMap);
+
+    if (isEdit && selectedTransaksi?.details) {
+      selectedTransaksi.details
+        .filter(d => String(d.status_transaksi_id) !== String(STATUS_MAP.DIBATALKAN))
+        .forEach(d => {
+          const pid = Number(d.product_id);
+          const existingQty = Number(d.qty) || 0;
+          const current = map.get(pid) || 0;
+          map.set(pid, current + existingQty); // "kembalikan" qty existing ke stok
+        });
+    }
+
+    return map;
+  }, [stokTokoMap, isEdit, selectedTransaksi]);
 
   const selectedCustomerInfo = useMemo(() => {
     if (isCreatingCustomer && form.customer_baru.name) {
@@ -1044,7 +1093,7 @@ const TransaksiForm = () => {
         const activeDetails = (selectedTransaksi.details || [])
           .filter((d) => String(d.status_transaksi_id) !== String(STATUS_MAP.DIBATALKAN))
           .map((d) => ({
-            id: d.id,
+            id: d.id, // ✅ Pastikan id tersimpan untuk backend update
             product_id: String(d.product_id || ""),
             qty: d.qty || 1,
             discount: d.discount || 0,
@@ -1111,7 +1160,14 @@ const TransaksiForm = () => {
   const updateDetail = (index, field, value) => {
     setForm((f) => {
       const updated = [...f.details];
-      updated[index] = { ...updated[index], [field]: value };
+      const current = updated[index];
+
+      // ✅ Pastikan id tidak hilang saat update field lain
+      updated[index] = {
+        ...current,
+        [field]: value,
+        id: current.id, // Explicit preserve id
+      };
 
       if (field === "product_id") {
         updated[index].harga_product_id = "";
@@ -1169,18 +1225,31 @@ const TransaksiForm = () => {
     const stokErrors = [];
     const hargaErrors = [];
 
+    // ✅ BUG 2 FIX: Hitung total qty per product untuk validasi yang lebih akurat
+    const qtyPerProduct = new Map();
+    form.details.forEach((d) => {
+      if (!d.product_id) return;
+      const pid = Number(d.product_id);
+      const qty = Number(d.qty) || 0;
+      qtyPerProduct.set(pid, (qtyPerProduct.get(pid) || 0) + qty);
+    });
+
+    // Validasi total qty per product vs effective stok
+    qtyPerProduct.forEach((totalQty, pid) => {
+      const effectiveStok = effectiveStokMap.get(pid) || 0;
+      if (totalQty > effectiveStok) {
+        const product = enrichedProducts.find((p) => String(p.id) === String(pid));
+        stokErrors.push(
+          `${product?.kode || `Produk #${pid}`}: Total qty ${totalQty} > Stok tersedia ${effectiveStok}`
+        );
+      }
+    });
+
+    // Validasi harga
     form.details.forEach((d, idx) => {
       if (!d.product_id) return;
-      const stok = getStokFromMap(d.product_id, stokTokoMap);
-      const qty = Number(d.qty) || 0;
-
-      if (qty > stok) {
-        const product = products.find((p) => String(p.id) === String(d.product_id));
-        stokErrors.push(`Item #${idx + 1} (${product?.kode || "Produk"}): Qty ${qty} > Stok ${stok}`);
-      }
-
       if (!d.harga_product_id && !d.selected_harga) {
-        const product = products.find((p) => String(p.id) === String(d.product_id));
+        const product = enrichedProducts.find((p) => String(p.id) === String(d.product_id));
         hargaErrors.push(`Item #${idx + 1} (${product?.kode || "Produk"}): Harga belum dipilih`);
       }
     });
@@ -1207,7 +1276,7 @@ const TransaksiForm = () => {
         .filter((d) => d.product_id)
         .map((d) => {
           const detailPayload = {
-            id: d.id || undefined,
+            id: d.id || undefined, // ✅ Kirim id untuk existing details
             product_id: Number(d.product_id),
             qty: Number(d.qty) || 1,
             discount: Number(d.discount) || 0,
@@ -1286,7 +1355,7 @@ const TransaksiForm = () => {
         {/* Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
           <div className="p-5 sm:p-6 space-y-5">
-            {(loadingProducts || loadingCustomers || loadingStatus) && (
+            {(loadingProducts || loadingCustomers || loadingStatus || loadingStok) && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-2 text-sm text-blue-800">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Memuat data master...
@@ -1407,8 +1476,9 @@ const TransaksiForm = () => {
 
               <div className="space-y-4">
                 {form.details.map((detail, index) => {
-                  const product = products.find((p) => String(p.id) === String(detail.product_id));
-                  const stok = detail.product_id ? getStokFromMap(detail.product_id, stokTokoMap) : 0;
+                  const product = enrichedProducts.find((p) => String(p.id ?? p.value) === String(detail.product_id));
+                  // ✅ BUG 2 FIX: Gunakan effectiveStokMap untuk display stok
+                  const stok = detail.product_id ? getStokFromMap(detail.product_id, effectiveStokMap) : 0;
                   const detailKey = detail.id ? `detail-${detail.id}` : `detail-new-${index}`;
                   const qtyNum = Number(detail.qty) || 0;
                   const hargaNum = Number(detail.selected_harga) || 0;
@@ -1493,12 +1563,12 @@ const TransaksiForm = () => {
 
                       <div className={cn("p-4 space-y-3 transition-opacity", isLocked && "opacity-80")}>
                         <ProductDropdown
-                          products={products}
+                          products={enrichedProducts} // ✅ Gunakan enrichedProducts
                           selectedId={detail.product_id}
                           onSelect={(id) => updateDetail(index, "product_id", id)}
                           jenisList={jenisList}
                           typeList={typeList}
-                          stokMap={stokTokoMap}
+                          stokMap={effectiveStokMap} // ✅ Gunakan effectiveStokMap
                           disabled={isLocked || isSubmitting}
                         />
 
@@ -1542,7 +1612,7 @@ const TransaksiForm = () => {
                           </div>
                           <div>
                             <label className="block text-[10px] font-semibold text-slate-600 mb-1 uppercase tracking-wide">
-                              Stok
+                              Stok Tersedia
                             </label>
                             <div className={cn(
                               "w-full px-3 py-2 border rounded-lg text-sm font-bold",

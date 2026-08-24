@@ -3,6 +3,7 @@
 namespace App\Services\Inventory;
 
 use App\Models\Inventory;
+use App\Models\Place;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -13,15 +14,12 @@ class InventoryService
     private const CACHE_BY_PLACE_PREFIX = 'inventory:by_place:v';
     private const CACHE_BY_PRODUCT_PREFIX = 'inventory:by_product:v';
     private const CACHE_TOTAL_PREFIX = 'inventory:total:v';
+    private const CACHE_STOK_MAP_PREFIX = 'inventory:stok_map:v';
+    
     private const CACHE_VERSION_KEY = 'inventory:cache:version';
     private const CACHE_VERSION_LOCK = 'inventory:cache:version:lock';
     private const CACHE_TTL = 300;
-
-    /*
-    |--------------------------------------------------------------------------
-    | READ OPERATIONS
-    |--------------------------------------------------------------------------
-    */
+    private const CACHE_TTL_STOK_MAP = 120;
 
     public function getList(?string $search = null, ?int $placeId = null, int $perPage = 20, int $page = 1): array
     {
@@ -158,21 +156,33 @@ class InventoryService
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CACHE MANAGEMENT
-    |--------------------------------------------------------------------------
-    */
+    public function getStokMap(string $placeKode = 'TOKO'): array
+    {
+        $version = $this->getCacheVersion();
+        $cacheKey = self::CACHE_STOK_MAP_PREFIX . "{$version}:{$placeKode}";
+
+        return Cache::remember($cacheKey, self::CACHE_TTL_STOK_MAP, function () use ($placeKode) {
+            $place = Place::where('kode', $placeKode)->first();
+
+            if (!$place) {
+                return [];
+            }
+
+            return Inventory::where('place_id', $place->id)
+                ->select('product_id', 'qty')
+                ->get()
+                ->mapWithKeys(fn($inv) => [
+                    (string) $inv->product_id => (int) $inv->qty,
+                ])
+                ->toArray();
+        });
+    }
 
     public function getCacheVersion(): int
     {
         return (int) Cache::get(self::CACHE_VERSION_KEY, 1);
     }
 
-    /**
-     * ✅ Invalidate semua cache Inventory.
-     * Dipanggil saat stok berubah (transaksi, produksi, stok opname selesai).
-     */
     public function invalidateCache(): void
     {
         $lock = Cache::lock(self::CACHE_VERSION_LOCK, 10);

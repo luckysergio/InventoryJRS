@@ -8,13 +8,18 @@ use App\Http\Requests\TypeProduct\UpdateTypeProductRequest;
 use App\Http\Resources\TypeProductResource;
 use App\Models\TypeProduct;
 use App\Services\TypeProduct\TypeProductService;
+use App\Services\JenisProduct\JenisProductService;
+use App\Services\Product\ProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class TypeProductController extends Controller
 {
     public function __construct(
-        protected TypeProductService $typeProductService
+        protected TypeProductService $typeProductService,
+        protected JenisProductService $jenisProductService,
+        protected ProductService $productService
     ) {
     }
 
@@ -41,6 +46,7 @@ class TypeProductController extends Controller
                 'meta' => $result['meta'],
             ]);
         } catch (\Throwable $e) {
+            Log::error('TypeProduct index error', ['error' => $e->getMessage()]);
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal memuat data type product.',
@@ -66,6 +72,7 @@ class TypeProductController extends Controller
                 ]),
             ]);
         } catch (\Throwable $e) {
+            Log::error('TypeProduct dropdown error', ['error' => $e->getMessage()]);
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal memuat data dropdown.',
@@ -86,6 +93,10 @@ class TypeProductController extends Controller
                 ]),
             ]);
         } catch (\Throwable $e) {
+            Log::error('TypeProduct getByJenis error', [
+                'jenisId' => $jenisId,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal memuat data type product.',
@@ -103,6 +114,7 @@ class TypeProductController extends Controller
                 'data' => $stats,
             ]);
         } catch (\Throwable $e) {
+            Log::error('TypeProduct statistics error', ['error' => $e->getMessage()]);
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal memuat statistik.',
@@ -127,6 +139,10 @@ class TypeProductController extends Controller
                 'data' => new TypeProductResource($detail),
             ]);
         } catch (\Throwable $e) {
+            Log::error('TypeProduct show error', [
+                'id' => $typeProduct->id,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal memuat detail type product.',
@@ -139,12 +155,20 @@ class TypeProductController extends Controller
         try {
             $type = $this->typeProductService->create($request->validated());
 
+            // ✅ CROSS-INVALIDATION: Type → Jenis (karena `types_count` di stats) + Product
+            $this->jenisProductService->invalidateCache();
+            $this->productService->invalidateCache();
+
             return response()->json([
                 'status' => true,
                 'message' => 'Type product berhasil dibuat.',
                 'data' => new TypeProductResource($type),
             ], 201);
         } catch (\Throwable $e) {
+            Log::error('TypeProduct store error', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal membuat type product.',
@@ -158,12 +182,20 @@ class TypeProductController extends Controller
         try {
             $updated = $this->typeProductService->update($typeProduct, $request->validated());
 
+            // ✅ CROSS-INVALIDATION: Type berubah → Jenis stats & Product cache harus refresh
+            $this->jenisProductService->invalidateCache();
+            $this->productService->invalidateCache();
+
             return response()->json([
                 'status' => true,
                 'message' => 'Type product berhasil diperbarui.',
                 'data' => new TypeProductResource($updated),
             ]);
         } catch (\Throwable $e) {
+            Log::error('TypeProduct update error', [
+                'id' => $typeProduct->id,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal memperbarui type product.',
@@ -177,11 +209,20 @@ class TypeProductController extends Controller
         try {
             $result = $this->typeProductService->delete($typeProduct);
 
+            if ($result['success']) {
+                $this->jenisProductService->invalidateCache();
+                $this->productService->invalidateCache();
+            }
+
             return response()->json([
                 'status' => $result['success'],
                 'message' => $result['message'],
             ], $result['success'] ? 200 : ($result['code'] ?? 400));
         } catch (\Throwable $e) {
+            Log::error('TypeProduct destroy error', [
+                'id' => $typeProduct->id,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'status' => false,
                 'message' => 'Gagal menghapus type product.',

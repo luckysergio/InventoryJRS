@@ -7,7 +7,7 @@ export const useJenisProductStore = create(
     (set, get) => ({
       filters: {
         search: '',
-        perPage: 12,
+        perPage: 20,
       },
       currentPage: 1,
 
@@ -33,7 +33,7 @@ export const useJenisProductStore = create(
       resetFilters: () =>
         set(
           {
-            filters: { search: '', perPage: 12 },
+            filters: { search: '', perPage: 20 }, // ✅ Updated
             currentPage: 1,
           },
           false,
