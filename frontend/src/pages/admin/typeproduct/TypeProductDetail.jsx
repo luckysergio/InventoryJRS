@@ -4,9 +4,7 @@ import { useTypeProductModals } from "../../../lib/zustand/typeProductStore";
 import { cn } from "../../../lib/utils";
 
 const TypeProductDetail = () => {
-  const { modals, selectedType, closeAllModals, openEditModal } =
-    useTypeProductModals();
-
+  const { modals, selectedType, closeAllModals, openEditModal } = useTypeProductModals();
   const isOpen = modals.detail;
 
   const handleEdit = () => {
@@ -16,9 +14,7 @@ const TypeProductDetail = () => {
 
   const handleEscKey = useCallback(
     (e) => {
-      if (e.key === "Escape" && isOpen) {
-        closeAllModals();
-      }
+      if (e.key === "Escape" && isOpen) closeAllModals();
     },
     [isOpen, closeAllModals]
   );
@@ -37,12 +33,7 @@ const TypeProductDetail = () => {
   if (!isOpen || !selectedType) return null;
 
   const getInitials = (name) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
   };
 
   const formatDate = (dateStr) => {
@@ -57,9 +48,7 @@ const TypeProductDetail = () => {
   };
 
   const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
-      closeAllModals();
-    }
+    if (e.target === e.currentTarget) closeAllModals();
   };
 
   return (
@@ -70,15 +59,13 @@ const TypeProductDetail = () => {
       aria-modal="true"
     >
       <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[85vh] flex flex-col">
-        {/* Header - Sticky */}
+        {/* Header */}
         <div className="sticky top-0 z-10 px-5 py-3.5 border-b border-slate-200/60 flex items-center justify-between bg-gradient-to-r from-blue-50 via-white to-white flex-shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-sm flex-shrink-0">
               <Layers className="w-4 h-4 text-white" />
             </div>
-            <h2 className="text-base font-semibold text-slate-900 truncate">
-              Detail Type Product
-            </h2>
+            <h2 className="text-base font-semibold text-slate-900 truncate">Detail Type Product</h2>
           </div>
           <button
             onClick={closeAllModals}
@@ -89,17 +76,14 @@ const TypeProductDetail = () => {
           </button>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {/* Profile Header */}
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
           <div className="px-5 pt-5 pb-4 text-center bg-gradient-to-b from-slate-50 to-white">
             <div className="flex flex-col items-center">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg ring-4 ring-white">
                 {getInitials(selectedType.nama)}
               </div>
-              <h3 className="mt-3 text-base font-semibold text-slate-900">
-                {selectedType.nama}
-              </h3>
+              <h3 className="mt-3 text-base font-semibold text-slate-900">{selectedType.nama}</h3>
               <span className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
                 <Tag className="w-3 h-3" />
                 {selectedType.jenis?.nama || "Tanpa Jenis"}
@@ -107,7 +91,6 @@ const TypeProductDetail = () => {
             </div>
           </div>
 
-          {/* Info Grid */}
           <div className="px-5 py-4 space-y-2">
             <InfoItem
               icon={Tag}
@@ -140,7 +123,7 @@ const TypeProductDetail = () => {
           </div>
         </div>
 
-        {/* Sticky Actions */}
+        {/* Actions */}
         <div className="sticky bottom-0 px-5 py-3.5 border-t border-slate-200/60 bg-white flex gap-2 flex-shrink-0">
           <button
             onClick={closeAllModals}
@@ -161,23 +144,13 @@ const TypeProductDetail = () => {
   );
 };
 
-// ============================================
-// INFO ITEM COMPONENT
-// ============================================
 const InfoItem = ({ icon: Icon, iconBg, iconColor, label, value }) => (
   <div className="flex items-center gap-3 p-2.5 bg-slate-50 hover:bg-slate-100/70 rounded-lg transition-colors group">
-    <div
-      className={cn(
-        "p-1.5 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform",
-        iconBg
-      )}
-    >
+    <div className={cn("p-1.5 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform", iconBg)}>
       <Icon className={cn("w-3.5 h-3.5", iconColor)} />
     </div>
     <div className="flex-1 min-w-0">
-      <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">
-        {label}
-      </p>
+      <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">{label}</p>
       <p className="text-sm font-medium text-slate-900 truncate">{value}</p>
     </div>
   </div>

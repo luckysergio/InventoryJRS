@@ -2,6 +2,10 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import api from '../lib/api/axios';
 import { masterKeys, invalidateRelatedCaches } from './useMasterData';
 
+// ==========================================
+// READ HOOKS
+// ==========================================
+
 export const useTypeProducts = (params = {}) => {
   const { search = '', jenisId = '', perPage = 20, page = 1 } = params;
 
@@ -52,12 +56,10 @@ export const useTypeProductStatistics = () => {
   });
 };
 
-/**
- * ✅ Create Type Product dengan cross-invalidation.
- * Saat type baru dibuat:
- * - Jenis statistics harus refresh (types_count increment)
- * - Product cache refresh (type dropdown berubah)
- */
+// ==========================================
+// MUTATION HOOKS
+// ==========================================
+
 export const useCreateTypeProduct = () => {
   const queryClient = useQueryClient();
   
@@ -66,7 +68,7 @@ export const useCreateTypeProduct = () => {
     onSuccess: async (response, variables) => {
       const newType = response.data.data;
 
-      // ✅ Optimistic: tambahkan ke list cache
+      // Optimistic: tambahkan ke list cache
       queryClient.setQueriesData(
         { queryKey: masterKeys.type.lists() },
         (old) => {
@@ -79,45 +81,40 @@ export const useCreateTypeProduct = () => {
         }
       );
 
-      // ✅ Optimistic: tambahkan ke byJenis cache
-      if (variables?.data?.jenis_id || variables?.jenis_id) {
-        const jenisId = variables.data?.jenis_id || variables.jenis_id;
+      // Optimistic: tambahkan ke byJenis cache
+      const jenisId = variables?.jenis_id;
+      if (jenisId) {
         queryClient.setQueryData(
           masterKeys.type.byJenis(jenisId),
           (old) => (Array.isArray(old) ? [...old, newType] : [newType])
         );
       }
 
-      // ✅ Optimistic: tambahkan ke dropdown (for all & specific jenis)
+      // Optimistic: tambahkan ke dropdown (all & specific jenis)
       const dropdownItem = {
         value: newType.id,
         label: newType.nama,
         ...newType,
       };
 
-      // Update "all" dropdown
       queryClient.setQueryData(
         masterKeys.type.dropdown('all'),
         (old) => (Array.isArray(old) ? [...old, dropdownItem] : [dropdownItem])
       );
 
-      // Update specific jenis dropdown
-      if (newType.jenis_id) {
+      if (jenisId) {
         queryClient.setQueryData(
-          masterKeys.type.dropdown(newType.jenis_id),
+          masterKeys.type.dropdown(jenisId),
           (old) => (Array.isArray(old) ? [...old, dropdownItem] : [dropdownItem])
         );
       }
 
-      // ✅ Full cross-invalidation
+      // Full cross-invalidation (jenis stats + product cache)
       await invalidateRelatedCaches(queryClient, 'type');
     },
   });
 };
 
-/**
- * ✅ Update Type Product dengan cross-invalidation.
- */
 export const useUpdateTypeProduct = () => {
   const queryClient = useQueryClient();
   
@@ -126,10 +123,10 @@ export const useUpdateTypeProduct = () => {
     onSuccess: async (response, variables) => {
       const updatedType = response.data.data;
 
-      // ✅ Optimistic: update detail
+      // Optimistic: update detail
       queryClient.setQueryData(masterKeys.type.detail(variables.id), updatedType);
 
-      // ✅ Optimistic: update di semua list
+      // Optimistic: update di semua list
       queryClient.setQueriesData(
         { queryKey: masterKeys.type.lists() },
         (old) => {
@@ -143,7 +140,7 @@ export const useUpdateTypeProduct = () => {
         }
       );
 
-      // ✅ Optimistic: update di byJenis
+      // Optimistic: update di byJenis
       queryClient.setQueriesData(
         { queryKey: masterKeys.type.all.concat(['by_jenis']) },
         (old) => {
@@ -152,7 +149,7 @@ export const useUpdateTypeProduct = () => {
         }
       );
 
-      // ✅ Optimistic: update dropdown
+      // Optimistic: update dropdown
       const updateDropdown = (old) => {
         if (!Array.isArray(old)) return old;
         return old.map((item) =>
@@ -170,15 +167,11 @@ export const useUpdateTypeProduct = () => {
         );
       }
 
-      // ✅ Full cross-invalidation
       await invalidateRelatedCaches(queryClient, 'type');
     },
   });
 };
 
-/**
- * ✅ Delete Type Product dengan optimistic update + rollback.
- */
 export const useDeleteTypeProduct = () => {
   const queryClient = useQueryClient();
   
@@ -187,14 +180,12 @@ export const useDeleteTypeProduct = () => {
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: masterKeys.type.all, exact: false });
 
-      // Snapshot
       const previousList = queryClient.getQueriesData({ queryKey: masterKeys.type.lists() });
       const previousByJenis = queryClient.getQueriesData({
         queryKey: masterKeys.type.all.concat(['by_jenis']),
       });
       const previousDropdownAll = queryClient.getQueryData(masterKeys.type.dropdown('all'));
 
-      // Get detail untuk tahu jenis_id (untuk dropdown specific)
       const detail = queryClient.getQueryData(masterKeys.type.detail(id));
       const previousDropdownSpecific = detail?.jenis_id
         ? queryClient.getQueryData(masterKeys.type.dropdown(detail.jenis_id))
