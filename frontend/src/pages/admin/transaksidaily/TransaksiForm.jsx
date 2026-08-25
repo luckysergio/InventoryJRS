@@ -48,9 +48,6 @@ const getStokFromMap = (productId, stokMap) => {
   return stokMap.get(Number(productId)) ?? 0;
 };
 
-// ==========================================
-// DROPDOWN POSITIONING
-// ==========================================
 const useDropdownPosition = (open) => {
   const triggerRef = useRef(null);
   const [style, setStyle] = useState(null);
@@ -165,7 +162,6 @@ const HargaSelector = ({
     if (productId) {
       refetch();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, customerId]);
 
   const prevCustomerIdRef = useRef(customerId);
@@ -1026,9 +1022,6 @@ const TransaksiForm = () => {
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [editableIndices, setEditableIndices] = useState(new Set());
 
-  // ✅ BUG 1 FIX: Enrich products dengan data dari selectedTransaksi.details
-  // Ini memastikan produk yang sudah ada di transaksi tetap muncul di dropdown
-  // meskipun produk tersebut sudah tidak "available" di endpoint /products/available
   const enrichedProducts = useMemo(() => {
     if (!isEdit || !selectedTransaksi?.details) return products;
 

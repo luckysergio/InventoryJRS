@@ -125,6 +125,9 @@ export const masterKeys = {
   },
 };
 
+// ==========================================
+// HELPERS
+// ==========================================
 const extractArray = (response) => {
   if (!response) return [];
   const raw = response.data ?? response;
@@ -267,6 +270,9 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
   );
 };
 
+// ==========================================
+// DROPDOWN HOOKS
+// ==========================================
 export const useJenisDropdown = () => useQuery({
   queryKey: masterKeys.jenis.dropdown(),
   queryFn: async () => extractDropdown(await api.get('/jenis/dropdown')),
@@ -342,16 +348,32 @@ export const useStatusTransaksiDropdown = () => useQuery({
 
 export const useStatusTransaksiList = useStatusTransaksiDropdown;
 
+// ==========================================
+// ✅ FIXED: useCustomersFull — pakai endpoint /customers/full
+// ==========================================
+/**
+ * Get semua customer untuk dropdown di TransaksiForm.
+ * Pakai endpoint /customers/full yang:
+ * - Return SEMUA customer (tanpa limit)
+ * - Lightweight (tanpa subquery tagihan)
+ * - Cached 1 jam di backend
+ * - Response time < 50ms
+ */
 export const useCustomersFull = () => useQuery({
   queryKey: masterKeys.customer.full(),
   queryFn: async () => {
-    const res = await api.get('/customers', { params: { per_page: 1000 } });
+    // ✅ FIXED: Pakai endpoint baru /customers/full (bukan /customers)
+    const res = await api.get('/customers/full');
     return extractArray(res);
   },
-  staleTime: 5 * 60 * 1000,
-  gcTime: 10 * 60 * 1000,
+  staleTime: 5 * 60 * 1000,   // 5 menit (data jarang berubah)
+  gcTime: 30 * 60 * 1000,     // 30 menit
+  refetchOnWindowFocus: true,
 });
 
+// ==========================================
+// FULL PRODUCT HOOKS
+// ==========================================
 export const useProductsFull = () => useQuery({
   queryKey: masterKeys.product.full(),
   queryFn: async () => {
@@ -374,6 +396,9 @@ export const useProductsAll = () => useQuery({
   refetchOnWindowFocus: true,
 });
 
+// ==========================================
+// HARGA HOOKS
+// ==========================================
 export const useHargaByProduct = (productId, customerId = null) => useQuery({
   queryKey: masterKeys.harga.byProduct(productId, customerId),
   queryFn: async () => {

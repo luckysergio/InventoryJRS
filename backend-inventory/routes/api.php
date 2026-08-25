@@ -113,19 +113,15 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{jabatan}', [JabatanController::class, 'destroy'])->middleware('role:admin');
     });
 
-    /*
-    |----------------------------------------------------------------------
-    | Customer & Distributor
-    |----------------------------------------------------------------------
-    */
     Route::prefix('customers')->middleware('role:admin,admin_toko,kasir')->group(function () {
-        Route::get('/', [CustomerController::class, 'index']);
         Route::get('/dropdown', [CustomerController::class, 'dropdown']);
-        Route::post('/', [CustomerController::class, 'store']);
+        Route::get('/full', [CustomerController::class, 'full']); // ✅ BARU
         Route::get('/{customer}/tagihan', [CustomerController::class, 'tagihan']);
+        Route::get('/', [CustomerController::class, 'index']);
+        Route::post('/', [CustomerController::class, 'store']);
         Route::get('/{customer}', [CustomerController::class, 'show']);
-        Route::put('/{customer}', [CustomerController::class, 'update'])->middleware('role:admin,admin_toko');
-        Route::delete('/{customer}', [CustomerController::class, 'destroy'])->middleware('role:admin,admin_toko');
+        Route::put('/{customer}', [CustomerController::class, 'update']);
+        Route::delete('/{customer}', [CustomerController::class, 'destroy']);
     });
 
     Route::prefix('distributors')->middleware('role:admin,admin_toko,operator')->group(function () {

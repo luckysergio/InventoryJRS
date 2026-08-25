@@ -15,6 +15,7 @@ class CustomerService
     private const CACHE_LIST_PREFIX = 'customers:list:v';
     private const CACHE_DETAIL_PREFIX = 'customers:detail:v';
     private const CACHE_DROPDOWN_KEY = 'customers:dropdown:v';
+    private const CACHE_FULL_KEY = 'customers:full:v'; // ✅ BARU
     private const CACHE_TAGIHAN_PREFIX = 'customers:tagihan:v';
 
     private const CACHE_VERSION_KEY = 'customers:cache:version';
@@ -23,6 +24,7 @@ class CustomerService
     private const CACHE_TTL_LIST = 300;
     private const CACHE_TTL_DETAIL = 900;
     private const CACHE_TTL_DROPDOWN = 7200;
+    private const CACHE_TTL_FULL = 3600; // ✅ BARU: 1 jam
     private const CACHE_TTL_TAGIHAN = 300;
 
     private const STATUS_DIBATALKAN = 6;
@@ -31,8 +33,6 @@ class CustomerService
     |--------------------------------------------------------------------------
     | LIST CUSTOMERS (Sorted: Outstanding First → Alphabetical)
     |--------------------------------------------------------------------------
-    | FIX: Gunakan fromSub() + manual pagination untuk hindari binding error
-    |      saat paginate() membangun count query dari subquery.
     */
     public function getList(?string $search = null, int $perPage = 20, int $page = 1): array
     {
@@ -44,10 +44,6 @@ class CustomerService
                 ->where('nama', 'Dibatalkan')
                 ->value('id');
 
-            // ============================================
-            // Builder Factory — dipanggil 2x (count + data)
-            // Menghasilkan Builder baru setiap kali → bindings fresh
-            // ============================================
             $buildInnerQuery = function () use ($search, $statusDibatalkan) {
                 $pembayaranSubquery = DB::table('pembayarans')
                     ->select('transaksi_detail_id', DB::raw('SUM(jumlah_bayar) as total_bayar'))
@@ -93,17 +89,10 @@ class CustomerService
                     });
             };
 
-            // ============================================
-            // ✅ STEP 1: Count query (tanpa order, tanpa limit)
-            // fromSub() adalah API resmi Laravel — handle bindings dengan benar
-            // ============================================
             $total = (int) DB::query()
                 ->fromSub($buildInnerQuery(), 'count_c')
                 ->count();
 
-            // ============================================
-            // ✅ STEP 2: Data query dengan order (outstanding first, then alphabetical)
-            // ============================================
             $items = DB::query()
                 ->fromSub($buildInnerQuery(), 'c')
                 ->orderByRaw(
@@ -114,9 +103,6 @@ class CustomerService
                 ->take($perPage)
                 ->get();
 
-            // ============================================
-            // ✅ STEP 3: Manual LengthAwarePaginator (100% reliable, no binding issue)
-            // ============================================
             return new LengthAwarePaginator(
                 $items,
                 $total,
@@ -129,7 +115,6 @@ class CustomerService
             );
         });
 
-        // Transform hasil
         $items = collect($paginator->items())->map(function ($customer) {
             $arr = is_array($customer) ? $customer : (array) $customer;
 
@@ -324,7 +309,7 @@ class CustomerService
 
     /*
     |--------------------------------------------------------------------------
-    | DROPDOWN
+    | DROPDOWN (Simple - untuk filter & select biasa)
     |--------------------------------------------------------------------------
     */
     public function getForDropdown(): array
@@ -339,6 +324,37 @@ class CustomerService
                 ->map(fn($c) => [
                     'value' => $c->id,
                     'label' => $c->name . ($c->phone ? " ({$c->phone})" : ''),
+                ])
+                ->toArray();
+        });
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ✅ BARU: FULL CUSTOMERS (Lightweight - untuk TransaksiForm dropdown)
+    |--------------------------------------------------------------------------
+    | Return semua customer dengan data lengkap TANPA subquery tagihan.
+    | Jauh lebih ringan dari getList() - cocok untuk dropdown form.
+    | Cache 1 jam karena data jarang berubah.
+    */
+    public function getFull(): array
+    {
+        $version = $this->getCacheVersion();
+        $cacheKey = self::CACHE_FULL_KEY . $version;
+
+        return Cache::remember($cacheKey, self::CACHE_TTL_FULL, function () {
+            return Customer::select(['id', 'name', 'phone', 'email'])
+                ->orderBy('name', 'asc')
+                ->get()
+                ->map(fn($c) => [
+                    'id'      => $c->id,
+                    'name'    => $c->name,
+                    'nama'    => $c->name, // alias untuk kompatibilitas frontend
+                    'no_hp'   => $c->phone, // alias untuk kompatibilitas frontend
+                    'phone'   => $c->phone,
+                    'email'   => $c->email,
+                    'value'   => $c->id,    // alias untuk dropdown format
+                    'label'   => $c->name . ($c->phone ? " ({$c->phone})" : ''),
                 ])
                 ->toArray();
         });

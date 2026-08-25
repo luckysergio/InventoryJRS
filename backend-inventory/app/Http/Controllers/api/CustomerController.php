@@ -21,7 +21,8 @@ class CustomerController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $perPage = min((int) $request->input('per_page', 20), 50);
+            // ✅ FIXED: Naikkan max limit dari 50 → 100 untuk list page
+            $perPage = min((int) $request->input('per_page', 20), 100);
             $page = max((int) $request->input('page', 1), 1);
 
             $result = $this->customerService->getList(
@@ -62,8 +63,27 @@ class CustomerController extends Controller
     }
 
     /**
-     * ✅ IMPROVED: Error handling lebih detail untuk debugging
+     * ✅ BARU: Endpoint full customers untuk TransaksiForm dropdown.
+     * Lightweight - tanpa subquery tagihan, return semua customer.
+     * GET /api/customers/full
      */
+    public function full(): JsonResponse
+    {
+        try {
+            return response()->json([
+                'status' => true,
+                'data' => $this->customerService->getFull(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Customer full error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat data customer lengkap.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     public function tagihan(Request $request, Customer $customer): JsonResponse
     {
         try {
@@ -84,7 +104,6 @@ class CustomerController extends Controller
                 'summary' => $result['summary'],
             ]);
         } catch (\Throwable $e) {
-            // ✅ Log lebih detail untuk debugging
             Log::error('Customer tagihan error', [
                 'customer_id' => $customer->id,
                 'jenis'       => $request->input('jenis'),
@@ -97,15 +116,6 @@ class CustomerController extends Controller
                 'status'  => false,
                 'message' => 'Gagal memuat data tagihan: ' . $e->getMessage(),
                 'error'   => config('app.debug') ? $e->getMessage() : null,
-                'debug'   => config('app.debug') ? [
-                    'file' => basename($e->getFile()),
-                    'line' => $e->getLine(),
-                    'trace' => collect($e->getTrace())->take(5)->map(fn($t) => [
-                        'file' => basename($t['file'] ?? ''),
-                        'line' => $t['line'] ?? null,
-                        'function' => $t['function'] ?? null,
-                    ])->toArray(),
-                ] : null,
             ], 500);
         }
     }
