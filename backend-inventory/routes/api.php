@@ -149,6 +149,7 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
     Route::prefix('products')->middleware('role:admin,admin_toko,operator')->group(function () {
         Route::get('/dropdown', [ProductController::class, 'dropdown']);
         Route::get('/available', [ProductController::class, 'available']);
+        Route::get('/full', [ProductController::class, 'full']); // ✅ BARU — WAJIB sebelum /{product}
         Route::get('/lowStok', [ProductController::class, 'lowStock']);
         Route::get('/best-seller', [ProductController::class, 'bestSeller']);
         Route::get('/', [ProductController::class, 'index']);
@@ -216,7 +217,7 @@ Route::middleware(['jwt.auth', 'auto.refresh'])->group(function () {
         Route::delete('/{hargaProduct}', [HargaProductController::class, 'destroy'])->middleware('role:admin');
     });
 
-    Route::prefix('status-transaksi')->middleware('role:admin')->group(function () {
+    Route::prefix('status-transaksi')->middleware('role:admin,admin_toko')->group(function () {
         Route::get('/', [StatusTransaksiController::class, 'index']);
         Route::post('/', [StatusTransaksiController::class, 'store']);
         Route::put('/{statusTransaksi}', [StatusTransaksiController::class, 'update']);

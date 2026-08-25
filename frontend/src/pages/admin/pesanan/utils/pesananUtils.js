@@ -3,10 +3,6 @@ import {
   Truck, Package as PackageIcon, FileText, ShoppingCart,
 } from 'lucide-react';
 
-// ==========================================
-// PESANAN STATUS MAP (Sesuai DB Seeder)
-// ==========================================
-// ID harus match dengan tabel status_transaksis
 export const PESANAN_STATUS_MAP = {
   PROSES: 1,
   DI_PESAN: 2,
@@ -16,9 +12,6 @@ export const PESANAN_STATUS_MAP = {
   DIBATALKAN: 6,
 };
 
-// ==========================================
-// PESANAN STATUS INFO (UI Config)
-// ==========================================
 export const PESANAN_STATUS_INFO = {
   [PESANAN_STATUS_MAP.PROSES]: {
     label: 'Proses',
@@ -101,9 +94,6 @@ export const ACTIVE_STATUSES = [
   PESANAN_STATUS_MAP.SIAP,
 ];
 
-// ==========================================
-// PRODUCTION STATUS CONFIG
-// ==========================================
 export const PRODUCTION_STATUS_CONFIG = {
   none: {
     label: 'Belum Diproduksi',
@@ -146,10 +136,6 @@ export const PRODUCTION_STATUS_CONFIG = {
     icon: XCircle,
   },
 };
-
-// ==========================================
-// UTILITY FUNCTIONS
-// ==========================================
 
 export const formatRupiah = (value) =>
   new Intl.NumberFormat('id-ID').format(value || 0);
@@ -226,7 +212,6 @@ export const getOverallPesananStatus = (details = []) => {
     return adaSelesai ? PESANAN_STATUS_MAP.SELESAI : PESANAN_STATUS_MAP.DIBATALKAN;
   }
 
-  // Prioritas workflow tertinggi (yang paling maju)
   const priorities = [
     PESANAN_STATUS_MAP.SIAP,
     PESANAN_STATUS_MAP.DI_BUAT,

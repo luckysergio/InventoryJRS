@@ -28,6 +28,7 @@ class ProductService
     private const CACHE_BEST_SELLER_KEY = 'products:best_seller:v';
     private const CACHE_DROPDOWN_KEY = 'products:dropdown:v';
 
+    private const CACHE_FULL_KEY = 'products:full:v';
     private const CACHE_VERSION_KEY = 'products:cache:version';
     private const CACHE_VERSION_LOCK = 'products:cache:version:lock';
 
@@ -37,6 +38,8 @@ class ProductService
     private const CACHE_TTL_LOW_STOCK = 300;
     private const CACHE_TTL_BEST_SELLER = 600;
     private const CACHE_TTL_DROPDOWN = 600;
+
+    private const CACHE_TTL_FULL = 3600; // 1 jam
 
     private const STATUS_SELESAI = 'Selesai';
     private const STATUS_DIBATALKAN = 'Dibatalkan';
@@ -63,9 +66,16 @@ class ProductService
 
         $paginator = Cache::remember($cacheKey, self::CACHE_TTL_LIST, function () use ($search, $jenisId, $typeId, $perPage, $page) {
             $query = Product::select([
-                'products.id', 'products.kode', 'products.ukuran', 'products.keterangan',
-                'products.jenis_id', 'products.type_id', 'products.bahan_id',
-                'products.foto_depan', 'products.created_at', 'products.updated_at',
+                'products.id',
+                'products.kode',
+                'products.ukuran',
+                'products.keterangan',
+                'products.jenis_id',
+                'products.type_id',
+                'products.bahan_id',
+                'products.foto_depan',
+                'products.created_at',
+                'products.updated_at',
             ])
                 ->with([
                     'jenis' => fn($q) => $q->select('id', 'nama'),
@@ -160,7 +170,7 @@ class ProductService
         return Cache::remember($cacheKey, self::CACHE_TTL_AVAILABLE, function () {
             return Product::whereHas('inventories', function ($q) {
                 $q->where('qty', '>', 0)
-                  ->whereHas('place', fn($p) => $p->where('kode', 'TOKO'));
+                    ->whereHas('place', fn($p) => $p->where('kode', 'TOKO'));
             })
                 ->with([
                     'jenis' => fn($q) => $q->select('id', 'nama'),
@@ -170,6 +180,66 @@ class ProductService
                 ->orderByRaw('LOWER(kode) ASC')
                 ->get()
                 ->toArray();
+        });
+    }
+
+    public function getFull(): array
+    {
+        $version = $this->getCacheVersion();
+        $cacheKey = self::CACHE_FULL_KEY . $version;
+
+        return Cache::remember($cacheKey, self::CACHE_TTL_FULL, function () {
+            $products = Product::select([
+                'products.id',
+                'products.kode',
+                'products.ukuran',
+                'products.jenis_id',
+                'products.type_id',
+                'products.bahan_id',
+            ])
+                ->with([
+                    'jenis:id,nama',
+                    'type:id,nama,jenis_id',
+                    'bahan:id,nama',
+                    'inventories' => fn($q) => $q->join('places', 'places.id', '=', 'inventories.place_id')
+                        ->whereIn('places.kode', ['TOKO', 'BENGKEL'])
+                        ->select('inventories.product_id', 'inventories.qty', 'places.kode as place_kode'),
+                ])
+                ->orderByRaw('LOWER(products.kode) ASC')
+                ->get();
+
+            return $products->map(function (Product $p) {
+                $qtyToko = 0;
+                $qtyBengkel = 0;
+
+                foreach ($p->inventories as $inv) {
+                    if ($inv->place_kode === 'TOKO') $qtyToko = (int) $inv->qty;
+                    if ($inv->place_kode === 'BENGKEL') $qtyBengkel = (int) $inv->qty;
+                }
+
+                return [
+                    'id'           => $p->id,
+                    'value'        => $p->id,
+                    'kode'         => $p->kode,
+                    'ukuran'       => $p->ukuran,
+                    'jenis_id'     => $p->jenis_id,
+                    'type_id'      => $p->type_id,
+                    'bahan_id'     => $p->bahan_id,
+                    'jenis'        => $p->jenis ? ['id' => $p->jenis->id, 'nama' => $p->jenis->nama] : null,
+                    'type'         => $p->type ? ['id' => $p->type->id, 'nama' => $p->type->nama, 'jenis_id' => $p->type->jenis_id] : null,
+                    'bahan'        => $p->bahan ? ['id' => $p->bahan->id, 'nama' => $p->bahan->nama] : null,
+                    'qty_toko'     => $qtyToko,
+                    'qty_bengkel'  => $qtyBengkel,
+                    'stok'         => $qtyToko, // Alias untuk kompatibilitas frontend
+                    'label'        => implode(' • ', array_filter([
+                        $p->kode,
+                        $p->jenis?->nama,
+                        $p->type?->nama,
+                        $p->bahan?->nama,
+                        $p->ukuran ? "Ukuran: {$p->ukuran}" : null,
+                    ])),
+                ];
+            })->toArray();
         });
     }
 
@@ -631,9 +701,9 @@ class ProductService
 
         $baseKode = strtoupper(
             $this->jenisKode($jenisNama ?? '') .
-            $this->typeKode($typeNama ?? '') .
-            $this->bahanKode($bahanNama ?? '') .
-            $this->ukuranKode($ukuran)
+                $this->typeKode($typeNama ?? '') .
+                $this->bahanKode($bahanNama ?? '') .
+                $this->ukuranKode($ukuran)
         );
 
         $existing = Product::where('kode', $baseKode)

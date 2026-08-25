@@ -316,6 +316,28 @@ class ProductController extends Controller
         }
     }
 
+    public function full(): JsonResponse
+    {
+        try {
+            $data = $this->productService->getFull();
+
+            return response()->json([
+                'status' => true,
+                'data' => $data,
+                'meta' => [
+                    'total' => count($data),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Product full error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal memuat data produk lengkap.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     public function lowStock(): JsonResponse
     {
         try {

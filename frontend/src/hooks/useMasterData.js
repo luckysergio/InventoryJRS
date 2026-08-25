@@ -349,21 +349,38 @@ export const useStatusTransaksiDropdown = () => useQuery({
 export const useStatusTransaksiList = useStatusTransaksiDropdown;
 
 // ==========================================
-// ✅ FIXED: useCustomersFull — pakai endpoint /customers/full
+// FULL DATA HOOKS
 // ==========================================
+
 /**
  * Get semua customer untuk dropdown di TransaksiForm.
- * Pakai endpoint /customers/full yang:
- * - Return SEMUA customer (tanpa limit)
- * - Lightweight (tanpa subquery tagihan)
- * - Cached 1 jam di backend
- * - Response time < 50ms
  */
 export const useCustomersFull = () => useQuery({
   queryKey: masterKeys.customer.full(),
   queryFn: async () => {
-    // ✅ FIXED: Pakai endpoint baru /customers/full (bukan /customers)
     const res = await api.get('/customers/full');
+    return extractArray(res);
+  },
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+  refetchOnWindowFocus: true,
+});
+
+/**
+ * ✅ UPDATED: Get SEMUA produk untuk dropdown di TransaksiForm & PesananForm.
+ * 
+ * Pakai endpoint /products/full yang:
+ * - Return SEMUA produk (1000+) tanpa filter stok
+ * - Lightweight (hanya field yang diperlukan)
+ * - Cached 1 jam di backend
+ * - Response time < 50ms
+ * - Include stok_toko & stok_bengkel
+ */
+export const useProductsFull = () => useQuery({
+  queryKey: masterKeys.product.full(),
+  queryFn: async () => {
+    // ✅ FIXED: Pakai endpoint baru /products/full
+    const res = await api.get('/products/full');
     return extractArray(res);
   },
   staleTime: 5 * 60 * 1000,   // 5 menit (data jarang berubah)
@@ -371,20 +388,9 @@ export const useCustomersFull = () => useQuery({
   refetchOnWindowFocus: true,
 });
 
-// ==========================================
-// FULL PRODUCT HOOKS
-// ==========================================
-export const useProductsFull = () => useQuery({
-  queryKey: masterKeys.product.full(),
-  queryFn: async () => {
-    const res = await api.get('/products/available', { params: { per_page: 5000 } });
-    return extractArray(res);
-  },
-  staleTime: 2 * 60 * 1000,
-  gcTime: 5 * 60 * 1000,
-  refetchOnWindowFocus: true,
-});
-
+/**
+ * Get semua produk untuk list page (dengan pagination).
+ */
 export const useProductsAll = () => useQuery({
   queryKey: masterKeys.product.allFull(),
   queryFn: async () => {

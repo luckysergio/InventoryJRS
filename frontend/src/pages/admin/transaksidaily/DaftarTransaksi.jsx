@@ -6,12 +6,14 @@ import {
 import { useTransaksis } from "../../../hooks/useTransaksi";
 import { useTransaksiAktifFilters, useTransaksiModals } from "../../../lib/zustand/transaksiStore";
 import { useIsAdmin } from "../../../lib/zustand/authStore";
+import { useAuthStore } from "../../../lib/zustand/authStore";
 import {
   formatRupiah,
   formatTanggal,
   formatProductName,
   getInvoiceNumber,
   normalizeDetails,
+  STATUS_MAP,
 } from "./utils/transaksiUtils";
 import { cn } from "../../../lib/utils";
 import TransaksiForm from "./TransaksiForm";
@@ -20,28 +22,38 @@ import PembayaranModal from "./PembayaranModal";
 import InvoiceSimplePrint from "../../../components/InvoiceSimplePrint";
 import { useReactToPrint } from "react-to-print";
 
-// ==========================================
-// HELPER: Cek apakah transaksi punya detail belum lunas
-// ==========================================
-const hasUnpaidDetails = (transaksi) => {
+const useCanManageTransaksi = () => {
+  const isAdmin = useIsAdmin();
+  const user = useAuthStore((s) => s.user);
+  const isAdminToko = user?.role === 'admin_toko';
+  return isAdmin || isAdminToko;
+};
+
+const hasActiveUnpaidDetails = (transaksi) => {
   const details = normalizeDetails(transaksi.details || []);
   return details.some((d) => {
     const sisa = Number(d.sisa_tagihan) || 0;
-    return sisa > 0;
+    const statusId = Number(d.status_transaksi_id);
+    return sisa > 0
+      && statusId !== STATUS_MAP.SELESAI
+      && statusId !== STATUS_MAP.DIBATALKAN;
   });
 };
 
-// ==========================================
-// AKTIF CARD (SIMPLIFIED - hanya tampil jika ada sisa)
-// ==========================================
-const TransaksiAktifCard = ({ transaksi, isAdmin, onOpenDetail, onEdit, onBayar }) => {
+const TransaksiAktifCard = ({ transaksi, canManage, onOpenDetail, onEdit, onBayar }) => {
   const allDetails = normalizeDetails(transaksi.details || []);
 
-  // ✅ Hanya tampilkan detail yang BELUM lunas
-  const details = allDetails.filter((d) => {
+  const activeUnpaidDetails = allDetails.filter((d) => {
     const sisa = Number(d.sisa_tagihan) || 0;
-    return sisa > 0;
+    const statusId = Number(d.status_transaksi_id);
+    return sisa > 0
+      && statusId !== STATUS_MAP.SELESAI
+      && statusId !== STATUS_MAP.DIBATALKAN;
   });
+
+  const activeDetailsCount = allDetails.filter(
+    (d) => Number(d.status_transaksi_id) !== STATUS_MAP.DIBATALKAN
+  ).length;
 
   const totalTagihan = Number(transaksi.total) || 0;
   const sisaTagihan = Number(transaksi.sisa_tagihan) || 0;
@@ -52,7 +64,7 @@ const TransaksiAktifCard = ({ transaksi, isAdmin, onOpenDetail, onEdit, onBayar 
     documentTitle: getInvoiceNumber(transaksi).replace(/\//g, "-"),
   });
 
-  if (details.length === 0) return null;
+  if (activeUnpaidDetails.length === 0) return null;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col">
@@ -92,9 +104,8 @@ const TransaksiAktifCard = ({ transaksi, isAdmin, onOpenDetail, onEdit, onBayar 
         </div>
       </div>
 
-      {/* ✅ Details List - Scrollbar global (tanpa custom class) */}
       <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-[400px]">
-        {details.map((d) => {
+        {activeUnpaidDetails.map((d) => {
           const sisa = Number(d.sisa_tagihan) || 0;
           const sudahBayar = Number(d.total_bayar) || 0;
 
@@ -151,19 +162,19 @@ const TransaksiAktifCard = ({ transaksi, isAdmin, onOpenDetail, onEdit, onBayar 
           onClick={() => onOpenDetail(transaksi)}
           className="flex-1 flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] px-2 py-2 rounded-lg transition font-medium"
         >
-          <Receipt size={11} /> Detail ({allDetails.length})
+          <Receipt size={11} /> Detail ({activeDetailsCount})
         </button>
-        {isAdmin && (
+        {canManage && (
           <button
             onClick={() => onEdit(transaksi)}
             className="flex items-center justify-center gap-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] px-3 py-2 rounded-lg transition font-medium"
+            title="Edit Transaksi"
           >
             <Pencil size={11} />
           </button>
         )}
       </div>
 
-      {/* Hidden Print */}
       <div style={{ position: "absolute", left: "-9999px", top: 0, width: "210mm", padding: "20mm" }}>
         <InvoiceSimplePrint ref={printRef} transaksi={transaksi} />
       </div>
@@ -171,28 +182,23 @@ const TransaksiAktifCard = ({ transaksi, isAdmin, onOpenDetail, onEdit, onBayar 
   );
 };
 
-// ==========================================
-// MAIN PAGE
-// ==========================================
 const TransaksiPage = () => {
   const { filters, currentPage, setSearch, setCurrentPage, resetFilters, hasActiveFilters, getQueryParams } = useTransaksiAktifFilters();
   const { openFormModal, openDetailModal, openPembayaranModal, modals } = useTransaksiModals();
-  const isAdmin = useIsAdmin();
+
+  const canManage = useCanManageTransaksi();
 
   const [searchInput, setSearchInput] = useState(filters.search || "");
   const [showPaid, setShowPaid] = useState(false);
 
-  // ✅ Cek apakah ada modal yang terbuka untuk blur effect
   const isAnyModalOpen = modals.form || modals.detail || modals.pembayaran;
 
   const { data, isLoading, isFetching, refetch, error } = useTransaksis(getQueryParams());
 
-  // ✅ Sync searchInput dengan filters.search dari zustand (untuk handle reset)
   useEffect(() => {
     setSearchInput(filters.search || "");
   }, [filters.search]);
 
-  // Debounce search
   const [debounceTimer, setDebounceTimer] = useState(null);
   const handleSearchChange = useCallback((val) => {
     setSearchInput(val);
@@ -201,7 +207,6 @@ const TransaksiPage = () => {
     setDebounceTimer(timer);
   }, [debounceTimer, setSearch]);
 
-  // ✅ Reset filter + clear search input
   const handleResetFilters = useCallback(() => {
     resetFilters();
     setSearchInput("");
@@ -214,13 +219,12 @@ const TransaksiPage = () => {
   const total = meta.total || 0;
   const isFilterActive = hasActiveFilters();
 
-  // ✅ FILTER: Pisahkan transaksi yang punya detail belum lunas
   const { unpaidTransaksis, paidTransaksis } = useMemo(() => {
     const unpaid = [];
     const paid = [];
 
     allTransaksis.forEach((t) => {
-      if (hasUnpaidDetails(t)) {
+      if (hasActiveUnpaidDetails(t)) {
         unpaid.push(t);
       } else {
         paid.push(t);
@@ -230,7 +234,6 @@ const TransaksiPage = () => {
     return { unpaidTransaksis: unpaid, paidTransaksis: paid };
   }, [allTransaksis]);
 
-  // Tampilkan unpaid + (paid jika showPaid = true)
   const transaksis = showPaid
     ? [...unpaidTransaksis, ...paidTransaksis]
     : unpaidTransaksis;
@@ -246,7 +249,6 @@ const TransaksiPage = () => {
 
   return (
     <>
-      {/* ✅ MAIN CONTAINER - Blur saat modal terbuka */}
       <div className={cn(
         "space-y-4 pb-20 transition-all duration-300",
         isAnyModalOpen && "blur-sm pointer-events-none select-none opacity-80"
@@ -298,7 +300,7 @@ const TransaksiPage = () => {
           </div>
         </div>
 
-        {/* ✅ Error Banner */}
+        {/* Error Banner */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-fadeIn">
             <div className="p-2 bg-red-100 rounded-lg flex-shrink-0">
@@ -357,7 +359,7 @@ const TransaksiPage = () => {
                 <Eye size={16} /> Lihat Transaksi Lunas
               </button>
             )}
-            {!isFilterActive && unpaidTransaksis.length === 0 && paidTransaksis.length === 0 && isAdmin && (
+            {!isFilterActive && unpaidTransaksis.length === 0 && paidTransaksis.length === 0 && canManage && (
               <button
                 onClick={() => openFormModal()}
                 className="mt-4 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-lg transition-all flex items-center gap-2 mx-auto"
@@ -384,7 +386,7 @@ const TransaksiPage = () => {
           </div>
         ) : (
           <>
-            {/* Info Bar - Jumlah Transaksi & Toggle Lunas */}
+            {/* Info Bar */}
             <div className="flex flex-wrap items-center justify-between gap-2 px-1">
               {paidTransaksis.length > 0 && !isFilterActive && (
                 <button
@@ -407,7 +409,7 @@ const TransaksiPage = () => {
                 <TransaksiAktifCard
                   key={t.id}
                   transaksi={t}
-                  isAdmin={isAdmin}
+                  canManage={canManage} // ✅ UPDATED: pakai canManage
                   onOpenDetail={openDetailModal}
                   onEdit={(tr) => openFormModal(tr)}
                   onBayar={openPembayaranModal}
@@ -460,8 +462,7 @@ const TransaksiPage = () => {
           </>
         )}
 
-        {/* FAB */}
-        {isAdmin && (
+        {canManage && (
           <button onClick={() => openFormModal()} className="fixed bottom-6 right-6 z-40 group" aria-label="Buat Transaksi">
             <span className="absolute inset-0 rounded-full bg-indigo-600 animate-ping opacity-20 group-hover:opacity-0 transition-opacity duration-500" />
             <div className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-full shadow-2xl shadow-indigo-500/40 hover:shadow-indigo-500/60 transition-all duration-300 active:scale-95 hover:scale-110">

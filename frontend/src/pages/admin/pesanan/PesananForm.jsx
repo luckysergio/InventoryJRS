@@ -5,19 +5,19 @@ import {
   Package, Loader2, User, Calendar, CheckCircle2,
   DollarSign, Tag, Sparkles, TrendingUp, Lock, Unlock,
   Pencil, Layers, Hash, AlertCircle, Crown, Info,
-  Save, RefreshCw, // ✅ NEW: untuk tombol submit & refresh
+  Save, RefreshCw,
 } from "lucide-react";
 
 import { usePesananModals } from "../../../lib/zustand/pesananStore";
 import { useCreatePesanan, useUpdatePesanan } from "../../../hooks/usePesanan";
 import {
   useCustomersFull,
-  useProductsAll,
+  useProductsFull,
   useJenisDropdown,
   useTypesDropdown,
   useBahansDropdown,
   useHargaByProduct,
-  useCreateHarga, // ✅ NEW: hook untuk create harga ke backend
+  useCreateHarga,
 } from "../../../hooks/useMasterData";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import {
@@ -27,10 +27,6 @@ import {
   PESANAN_STATUS_MAP,
 } from "./utils/pesananUtils";
 import { cn } from "../../../lib/utils";
-
-/* ==========================================
-   HELPER: KODE GENERATION
-   ========================================== */
 
 const jenisKode = (t) => {
   if (!t) return "";
@@ -74,10 +70,6 @@ const generateKodePreview = (jenisNama, typeNama, bahanNama, ukuran, custName, c
   return prefix ? `${prefix}-${base}` : base || "—";
 };
 
-/* ==========================================
-   HELPERS
-   ========================================== */
-
 const getSafeKey = (item, index, prefix = "item") => {
   if (!item) return `${prefix}-fallback-${index}`;
   const id = item.id ?? item.value ?? item._id;
@@ -106,10 +98,6 @@ const createEmptyDetail = () => ({
     ukuran: "", keterangan: "",
   },
 });
-
-/* ==========================================
-   PORTAL DROPDOWN
-   ========================================== */
 
 const useDropdownPosition = (open) => {
   const triggerRef = useRef(null);
@@ -166,10 +154,6 @@ const DropdownPortal = ({ open, style, onClose, children }) => {
     document.body
   );
 };
-
-/* ==========================================
-   CUSTOMER DROPDOWN
-   ========================================== */
 
 const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabled }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -299,10 +283,6 @@ const CustomerDropdown = ({ customers, selectedId, onSelect, onCreateNew, disabl
   );
 };
 
-/* ==========================================
-   PESANAN PRODUCT SELECTOR
-   ========================================== */
-
 const PesananProductSelector = ({
   products, selectedId, onSelect, jenisList, bahanList,
   onToggleNewProduct, useNewProduct, productBaru, onUpdateProductBaru,
@@ -322,6 +302,7 @@ const PesananProductSelector = ({
   const activeJenisId = isNewJenis || !productBaru.jenis_id ? null : productBaru.jenis_id;
   const { data: reactiveTypes = [], isLoading: loadingTypes } = useTypesDropdown(activeJenisId);
 
+  // ✅ Reset type jika jenis berubah dan type tidak valid
   useEffect(() => {
     if (isNewJenis || isNewType || !productBaru.jenis_id || loadingTypes) return;
     if (productBaru.type_id) {
@@ -354,8 +335,12 @@ const PesananProductSelector = ({
       jenis_id: p.jenis_id ?? p.jenis?.id,
       type_id: p.type_id ?? p.type?.id,
       bahan_id: p.bahan_id ?? p.bahan?.id,
-      jenis: p.jenis, type: p.type, bahan: p.bahan,
+      jenis: p.jenis,
+      type: p.type,
+      bahan: p.bahan,
       ukuran: p.ukuran ?? "",
+      qty_toko: Number(p.qty_toko ?? p.stok ?? 0),       // ✅ Stok TOKO
+      qty_bengkel: Number(p.qty_bengkel ?? 0),             // ✅ Stok BENGKEL
       _raw: p,
     })),
     [products]
@@ -374,12 +359,36 @@ const PesananProductSelector = ({
     return result;
   }, [normalized, search, filterJenis, filterType]);
 
+  // ✅ Unique types untuk filter dropdown (dari produk yang ada)
+  const filterTypeOptions = useMemo(() => {
+    if (!filterJenis) return [];
+    return normalized
+      .filter((p) => String(p.jenis_id) === String(filterJenis) && p.type)
+      .reduce((acc, p) => {
+        if (!acc.find((t) => String(t.id) === String(p.type_id))) {
+          acc.push({ id: p.type_id, nama: p.type?.nama || "-" });
+        }
+        return acc;
+      }, []);
+  }, [normalized, filterJenis]);
+
   const selected = normalized.find((p) => String(p.id) === String(selectedId));
 
   useEffect(() => {
     if (isOpen && inputRef.current) setTimeout(() => inputRef.current?.focus(), 100);
   }, [isOpen]);
 
+  const resetFilters = () => {
+    setSearch("");
+    setFilterJenis("");
+    setFilterType("");
+  };
+
+  const hasActiveFilter = search || filterJenis || filterType;
+
+  // ==========================================
+  // MODE: PRODUK BARU
+  // ==========================================
   if (useNewProduct) {
     return (
       <div className="space-y-4 p-4 bg-gradient-to-br from-purple-50 via-pink-50 to-white rounded-xl border-2 border-purple-200 animate-fadeIn">
@@ -403,6 +412,7 @@ const PesananProductSelector = ({
           </button>
         </div>
 
+        {/* Kode Preview */}
         <div>
           <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase items-center gap-1">
             <Hash size={10} /> Kode Produk (Auto-generated)
@@ -410,7 +420,9 @@ const PesananProductSelector = ({
           <div
             className={cn(
               "w-full px-3 py-2.5 border rounded-lg font-mono font-semibold text-sm text-center transition-colors",
-              kodePreview !== "—" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-slate-100 border-slate-200 text-slate-400"
+              kodePreview !== "—"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                : "bg-slate-100 border-slate-200 text-slate-400"
             )}
           >
             {kodePreview}
@@ -418,8 +430,11 @@ const PesananProductSelector = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Jenis */}
           <div>
-            <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">Jenis <span className="text-red-500">*</span></label>
+            <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">
+              Jenis <span className="text-red-500">*</span>
+            </label>
             <select
               className="w-full px-3 py-2.5 border border-purple-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-200"
               value={productBaru.jenis_id}
@@ -433,7 +448,9 @@ const PesananProductSelector = ({
             >
               <option value="">Pilih Jenis</option>
               {(jenisList || []).map((j, idx) => (
-                <option key={getSafeKey(j, idx, "jenis")} value={j.value ?? j.id}>{j.label ?? j.nama}</option>
+                <option key={getSafeKey(j, idx, "jenis")} value={j.value ?? j.id}>
+                  {j.label ?? j.nama}
+                </option>
               ))}
               <option value="new">➕ Buat Jenis Baru</option>
             </select>
@@ -449,8 +466,11 @@ const PesananProductSelector = ({
             )}
           </div>
 
+          {/* Type */}
           <div>
-            <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">Type {isNewJenis ? "*" : ""}</label>
+            <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">
+              Type {isNewJenis ? "*" : ""}
+            </label>
             {isNewJenis ? (
               <div className="space-y-1.5">
                 <input
@@ -470,12 +490,19 @@ const PesananProductSelector = ({
                 <select
                   className="w-full px-3 py-2.5 border border-purple-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-200 disabled:bg-slate-50 disabled:cursor-not-allowed"
                   value={productBaru.type_id}
-                  onChange={(e) => { onUpdateProductBaru("type_id", e.target.value); onUpdateProductBaru("type_nama", ""); }}
+                  onChange={(e) => {
+                    onUpdateProductBaru("type_id", e.target.value);
+                    onUpdateProductBaru("type_nama", "");
+                  }}
                   disabled={disabled || !productBaru.jenis_id || loadingTypes}
                 >
-                  <option value="">{loadingTypes ? "Memuat..." : productBaru.jenis_id ? `Pilih Tipe (${reactiveTypes.length})` : "Pilih Jenis dulu"}</option>
+                  <option value="">
+                    {loadingTypes ? "Memuat..." : productBaru.jenis_id ? `Pilih Tipe (${reactiveTypes.length})` : "Pilih Jenis dulu"}
+                  </option>
                   {reactiveTypes.map((t, idx) => (
-                    <option key={getSafeKey(t, idx, "type")} value={t.value ?? t.id}>{t.label ?? t.nama}</option>
+                    <option key={getSafeKey(t, idx, "type")} value={t.value ?? t.id}>
+                      {t.label ?? t.nama}
+                    </option>
                   ))}
                   <option value="new">➕ Buat Tipe Baru</option>
                 </select>
@@ -498,17 +525,23 @@ const PesananProductSelector = ({
             )}
           </div>
 
+          {/* Bahan */}
           <div>
             <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">Bahan</label>
             <select
               className="w-full px-3 py-2.5 border border-purple-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-200"
               value={productBaru.bahan_id}
-              onChange={(e) => { onUpdateProductBaru("bahan_id", e.target.value); onUpdateProductBaru("bahan_nama", ""); }}
+              onChange={(e) => {
+                onUpdateProductBaru("bahan_id", e.target.value);
+                onUpdateProductBaru("bahan_nama", "");
+              }}
               disabled={disabled}
             >
               <option value="">Pilih Bahan (opsional)</option>
               {(bahanList || []).map((b, idx) => (
-                <option key={getSafeKey(b, idx, "bahan")} value={b.value ?? b.id}>{b.label ?? b.nama}</option>
+                <option key={getSafeKey(b, idx, "bahan")} value={b.value ?? b.id}>
+                  {b.label ?? b.nama}
+                </option>
               ))}
               <option value="new">➕ Buat Bahan Baru</option>
             </select>
@@ -524,11 +557,14 @@ const PesananProductSelector = ({
             )}
           </div>
 
+          {/* Ukuran */}
           <div>
-            <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">Ukuran <span className="text-red-500">*</span></label>
+            <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">
+              Ukuran <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
-              placeholder="Contoh: 200x100"
+              placeholder="Contoh: Ø50x60, Size #3, 200x100"
               className="w-full px-3 py-2.5 border border-purple-200 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-purple-200"
               value={productBaru.ukuran}
               onChange={(e) => onUpdateProductBaru("ukuran", e.target.value)}
@@ -537,6 +573,7 @@ const PesananProductSelector = ({
           </div>
         </div>
 
+        {/* Keterangan */}
         <div>
           <label className="block text-[10px] font-bold text-purple-800 mb-1 uppercase">Keterangan</label>
           <textarea
@@ -552,6 +589,9 @@ const PesananProductSelector = ({
     );
   }
 
+  // ==========================================
+  // MODE: PILIH PRODUK EXISTING
+  // ==========================================
   return (
     <div ref={triggerRef}>
       <div className="flex gap-2">
@@ -572,7 +612,16 @@ const PesananProductSelector = ({
                   <Package size={13} className="text-indigo-600" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <span className="font-mono font-bold text-xs text-indigo-700">{selected.kode || "-"}</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-mono font-bold text-xs text-indigo-700">{selected.kode || "-"}</span>
+                    {/* ✅ Badge stok TOKO */}
+                    <span className={cn(
+                      "text-[9px] px-1.5 py-0.5 rounded-full font-semibold",
+                      selected.qty_toko > 0 ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+                    )}>
+                      Toko: {selected.qty_toko}
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-600 truncate">{formatProductName(selected._raw)}</p>
                 </div>
               </>
@@ -588,6 +637,7 @@ const PesananProductSelector = ({
           {isOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
         </button>
 
+        {/* ✅ Tombol Produk Baru */}
         <button
           type="button"
           onClick={() => onToggleNewProduct(true)}
@@ -600,7 +650,9 @@ const PesananProductSelector = ({
         </button>
       </div>
 
+      {/* ✅ Dropdown Portal */}
       <DropdownPortal open={isOpen} style={style} onClose={() => setIsOpen(false)}>
+        {/* Search & Filters */}
         <div className="p-3 border-b border-slate-100 bg-slate-50/50 space-y-2 flex-shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -608,50 +660,83 @@ const PesananProductSelector = ({
               ref={inputRef}
               type="text"
               placeholder="Cari kode / nama produk..."
-              className="w-full pl-9 pr-8 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              className="w-full pl-9 pr-8 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded transition"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           <div className="flex gap-1.5">
             <select
-              className="flex-1 py-1.5 px-2 text-xs border border-slate-200 rounded-lg bg-white"
+              className="flex-1 py-1.5 px-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-200 transition"
               value={filterJenis}
               onChange={(e) => { setFilterJenis(e.target.value); setFilterType(""); }}
             >
               <option value="">Semua Jenis</option>
               {(jenisList || []).map((j, idx) => (
-                <option key={getSafeKey(j, idx, "filter-jenis")} value={j.value ?? j.id}>{j.label ?? j.nama}</option>
+                <option key={getSafeKey(j, idx, "filter-jenis")} value={j.value ?? j.id}>
+                  {j.label ?? j.nama}
+                </option>
               ))}
             </select>
 
             <select
-              className="flex-1 py-1.5 px-2 text-xs border border-slate-200 rounded-lg bg-white disabled:bg-slate-50"
+              className="flex-1 py-1.5 px-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-200 disabled:bg-slate-50 disabled:cursor-not-allowed transition"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               disabled={!filterJenis}
             >
               <option value="">Semua Type</option>
-              {!filterJenis ? [] : normalized
-                .filter((p) => String(p.jenis_id) === String(filterJenis) && p.type)
-                .reduce((acc, p) => {
-                  if (!acc.find((t) => t.id === p.type_id)) acc.push({ id: p.type_id, nama: p.type?.nama || "-" });
-                  return acc;
-                }, [])
-                .map((t, idx) => (
-                  <option key={getSafeKey(t, idx, "filter-type")} value={t.id}>{t.nama}</option>
-                ))
-              }
+              {filterTypeOptions.map((t, idx) => (
+                <option key={getSafeKey(t, idx, "filter-type")} value={t.id}>{t.nama}</option>
+              ))}
             </select>
+
+            {/* ✅ Reset filter button */}
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="px-2 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                title="Reset filter"
+              >
+                <X size={12} />
+              </button>
+            )}
           </div>
+
+          {/* ✅ Filter count info */}
+          {hasActiveFilter && (
+            <p className="text-[10px] text-slate-500 text-center">
+              {filtered.length} dari {normalized.length} produk
+            </p>
+          )}
         </div>
 
+        {/* Product List */}
         <div className="overflow-y-auto flex-1">
           {filtered.length === 0 ? (
             <div className="p-6 text-center">
               <Package size={24} className="mx-auto text-slate-300 mb-2" />
               <p className="text-sm text-slate-500">Produk tidak ditemukan</p>
+              {hasActiveFilter && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="mt-2 text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                >
+                  Reset Filter
+                </button>
+              )}
             </div>
           ) : (
             filtered.map((p) => {
@@ -670,10 +755,26 @@ const PesananProductSelector = ({
                     <Package size={13} className={isSelected ? "text-indigo-600" : "text-slate-500"} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="font-mono font-bold text-xs">{p.kode || "-"}</span>
-                    <p className="text-xs text-slate-600 truncate">{formatProductName(p._raw)}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-bold text-xs">{p.kode || "-"}</span>
+                      {/* ✅ Badge stok */}
+                      <span className={cn(
+                        "text-[9px] px-1.5 py-0.5 rounded-full font-semibold",
+                        p.qty_toko > 0 ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+                      )}>
+                        Toko: {p.qty_toko}
+                      </span>
+                      {p.qty_bengkel > 0 && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">
+                          Bengkel: {p.qty_bengkel}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-600 truncate mt-0.5">
+                      {formatProductName(p._raw)}
+                    </p>
                   </div>
-                  {isSelected && <CheckCircle2 size={16} className="text-indigo-600" />}
+                  {isSelected && <CheckCircle2 size={16} className="text-indigo-600 flex-shrink-0" />}
                 </button>
               );
             })
@@ -683,11 +784,6 @@ const PesananProductSelector = ({
     </div>
   );
 };
-
-/* ==========================================
-   ✅ HARGA SELECTOR — FRESH CACHE GUARANTEE
-   Dengan submit ke backend + auto-refetch
-   ========================================== */
 
 const HargaSelector = ({
   detailIndex, detail, productId, customerId,
@@ -1107,10 +1203,6 @@ const HargaSelector = ({
   );
 };
 
-/* ==========================================
-   HARGA MANUAL PRODUCT BARU
-   (Tetap sama - ini untuk produk baru yang dibuat di form pesanan)
-   ========================================== */
 
 const HargaManualProdukBaru = ({ detail, detailIndex, onUpdateHarga, disabled }) => {
   return (
@@ -1183,17 +1275,13 @@ const HargaManualProdukBaru = ({ detail, detailIndex, onUpdateHarga, disabled })
   );
 };
 
-/* ==========================================
-   MAIN FORM
-   ========================================== */
-
 const PesananForm = () => {
   const { modals, selectedPesanan, closeAllModals } = usePesananModals();
   const createMut = useCreatePesanan();
   const updateMut = useUpdatePesanan();
   const { success, info } = useConfirmDialog();
 
-  const { data: products = [], isLoading: loadingProducts } = useProductsAll();
+  const { data: products = [], isLoading: loadingProducts } = useProductsFull();
   const { data: customers = [], isLoading: loadingCustomers } = useCustomersFull();
   const { data: jenisList = [] } = useJenisDropdown();
   const { data: bahanList = [] } = useBahansDropdown();

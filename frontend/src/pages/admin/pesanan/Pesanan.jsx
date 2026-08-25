@@ -7,12 +7,14 @@ import { useReactToPrint } from "react-to-print";
 import { usePesanans } from "../../../hooks/usePesanan";
 import { usePesananFilters, usePesananModals } from "../../../lib/zustand/pesananStore";
 import { useIsAdmin } from "../../../lib/zustand/authStore";
+import { useAuthStore } from "../../../lib/zustand/authStore";
 import {
   formatRupiah,
   formatTanggal,
   formatProductName,
   getInvoiceNumber,
   normalizeDetails,
+  PESANAN_STATUS_MAP, // ✅ FIXED: Pakai PESANAN_STATUS_MAP (bukan STATUS_MAP)
 } from "./utils/pesananUtils";
 import { cn } from "../../../lib/utils";
 import PesananForm from "./PesananForm";
@@ -21,27 +23,49 @@ import PembayaranPesananModal from "./PembayaranPesananModal";
 import InvoiceSimplePrint from "../../../components/InvoiceSimplePrint";
 
 // ==========================================
-// HELPER: Cek apakah pesanan punya detail belum lunas
+// HELPER: Cek akses kelola pesanan (admin + admin_toko)
 // ==========================================
-const hasUnpaidDetails = (pesanan) => {
+const useCanManagePesanan = () => {
+  const isAdmin = useIsAdmin();
+  const user = useAuthStore((s) => s.user);
+  const isAdminToko = user?.role === 'admin_toko';
+  return isAdmin || isAdminToko;
+};
+
+// ==========================================
+// HELPER: Cek apakah pesanan punya detail aktif yang belum lunas
+// ==========================================
+const hasActiveUnpaidDetails = (pesanan) => {
   const details = normalizeDetails(pesanan.details || []);
   return details.some((d) => {
     const sisa = Number(d.sisa_tagihan) || 0;
-    return sisa > 0;
+    const statusId = Number(d.status_transaksi_id);
+    // ✅ Pakai PESANAN_STATUS_MAP
+    return sisa > 0
+      && statusId !== PESANAN_STATUS_MAP.SELESAI
+      && statusId !== PESANAN_STATUS_MAP.DIBATALKAN;
   });
 };
 
 // ==========================================
-// PESANAN CARD (IDENTIK DENGAN TransaksiAktifCard)
+// PESANAN CARD
 // ==========================================
-const PesananCard = ({ pesanan, isAdmin, onOpenDetail, onEdit, onBayar }) => {
+const PesananCard = ({ pesanan, canManage, onOpenDetail, onEdit, onBayar }) => {
   const allDetails = normalizeDetails(pesanan.details || []);
 
-  // ✅ Hanya tampilkan detail yang BELUM lunas
-  const details = allDetails.filter((d) => {
+  // ✅ Filter hanya detail aktif yang belum lunas
+  const activeUnpaidDetails = allDetails.filter((d) => {
     const sisa = Number(d.sisa_tagihan) || 0;
-    return sisa > 0;
+    const statusId = Number(d.status_transaksi_id);
+    return sisa > 0
+      && statusId !== PESANAN_STATUS_MAP.SELESAI
+      && statusId !== PESANAN_STATUS_MAP.DIBATALKAN;
   });
+
+  // ✅ Count detail non-dibatalkan (untuk button "Detail")
+  const activeDetailsCount = allDetails.filter(
+    (d) => Number(d.status_transaksi_id) !== PESANAN_STATUS_MAP.DIBATALKAN
+  ).length;
 
   const totalTagihan = Number(pesanan.total) || 0;
   const sisaTagihan = Number(pesanan.sisa_tagihan) || 0;
@@ -52,7 +76,7 @@ const PesananCard = ({ pesanan, isAdmin, onOpenDetail, onEdit, onBayar }) => {
     documentTitle: getInvoiceNumber(pesanan).replace(/\//g, "-"),
   });
 
-  if (details.length === 0) return null;
+  if (activeUnpaidDetails.length === 0) return null;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col">
@@ -82,7 +106,6 @@ const PesananCard = ({ pesanan, isAdmin, onOpenDetail, onEdit, onBayar }) => {
           </button>
         </div>
 
-        {/* Total */}
         <div className="text-center py-2">
           <p className="text-xs text-slate-500">Sisa Tagihan</p>
           <p className="text-lg font-bold text-red-600">Rp {formatRupiah(sisaTagihan)}</p>
@@ -92,9 +115,8 @@ const PesananCard = ({ pesanan, isAdmin, onOpenDetail, onEdit, onBayar }) => {
         </div>
       </div>
 
-      {/* ✅ Details List - Scrollbar global */}
       <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-[400px]">
-        {details.map((d) => {
+        {activeUnpaidDetails.map((d) => {
           const sisa = Number(d.sisa_tagihan) || 0;
           const sudahBayar = Number(d.total_bayar) || 0;
 
@@ -145,25 +167,24 @@ const PesananCard = ({ pesanan, isAdmin, onOpenDetail, onEdit, onBayar }) => {
         })}
       </div>
 
-      {/* Footer Actions */}
       <div className="p-3 border-t border-slate-100 flex gap-2 bg-white">
         <button
           onClick={() => onOpenDetail(pesanan)}
           className="flex-1 flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] px-2 py-2 rounded-lg transition font-medium"
         >
-          <Receipt size={11} /> Detail ({allDetails.length})
+          <Receipt size={11} /> Detail ({activeDetailsCount})
         </button>
-        {isAdmin && (
+        {canManage && (
           <button
             onClick={() => onEdit(pesanan)}
             className="flex items-center justify-center gap-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] px-3 py-2 rounded-lg transition font-medium"
+            title="Edit Pesanan"
           >
             <Pencil size={11} />
           </button>
         )}
       </div>
 
-      {/* Hidden Print */}
       <div style={{ position: "absolute", left: "-9999px", top: 0, width: "210mm", padding: "20mm" }}>
         <InvoiceSimplePrint ref={printRef} transaksi={pesanan} />
       </div>
@@ -172,27 +193,23 @@ const PesananCard = ({ pesanan, isAdmin, onOpenDetail, onEdit, onBayar }) => {
 };
 
 // ==========================================
-// MAIN PAGE (IDENTIK DENGAN TransaksiPage)
+// MAIN PAGE
 // ==========================================
 const PesananPage = () => {
   const { filters, currentPage, setSearch, setCurrentPage, resetFilters, hasActiveFilters, getQueryParams } = usePesananFilters();
   const { openFormModal, openDetailModal, openPembayaranModal, modals } = usePesananModals();
-  const isAdmin = useIsAdmin();
+  const canManage = useCanManagePesanan();
 
   const [searchInput, setSearchInput] = useState(filters.search || "");
   const [showPaid, setShowPaid] = useState(false);
-
-  // ✅ Cek apakah ada modal yang terbuka untuk blur effect
   const isAnyModalOpen = modals.form || modals.detail || modals.pembayaran;
 
   const { data, isLoading, isFetching, refetch, error } = usePesanans(getQueryParams());
 
-  // ✅ Sync searchInput dengan filters.search dari zustand (untuk handle reset)
   useEffect(() => {
     setSearchInput(filters.search || "");
   }, [filters.search]);
 
-  // Debounce search
   const [debounceTimer, setDebounceTimer] = useState(null);
   const handleSearchChange = useCallback((val) => {
     setSearchInput(val);
@@ -201,7 +218,6 @@ const PesananPage = () => {
     setDebounceTimer(timer);
   }, [debounceTimer, setSearch]);
 
-  // ✅ Reset filter + clear search input
   const handleResetFilters = useCallback(() => {
     resetFilters();
     setSearchInput("");
@@ -213,13 +229,12 @@ const PesananPage = () => {
   const lastPage = meta.last_page || 1;
   const isFilterActive = hasActiveFilters();
 
-  // ✅ FILTER: Pisahkan pesanan yang punya detail belum lunas
   const { unpaidPesanans, paidPesanans } = useMemo(() => {
     const unpaid = [];
     const paid = [];
 
     allPesanans.forEach((t) => {
-      if (hasUnpaidDetails(t)) {
+      if (hasActiveUnpaidDetails(t)) {
         unpaid.push(t);
       } else {
         paid.push(t);
@@ -229,7 +244,6 @@ const PesananPage = () => {
     return { unpaidPesanans: unpaid, paidPesanans: paid };
   }, [allPesanans]);
 
-  // Tampilkan unpaid + (paid jika showPaid = true)
   const pesanans = showPaid
     ? [...unpaidPesanans, ...paidPesanans]
     : unpaidPesanans;
@@ -245,7 +259,6 @@ const PesananPage = () => {
 
   return (
     <>
-      {/* ✅ MAIN CONTAINER - Blur saat modal terbuka */}
       <div className={cn(
         "space-y-4 pb-20 transition-all duration-300",
         isAnyModalOpen && "blur-sm pointer-events-none select-none opacity-80"
@@ -297,7 +310,6 @@ const PesananPage = () => {
           </div>
         </div>
 
-        {/* ✅ Error Banner */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-fadeIn">
             <div className="p-2 bg-red-100 rounded-lg flex-shrink-0">
@@ -318,7 +330,6 @@ const PesananPage = () => {
           </div>
         )}
 
-        {/* Content */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {[...Array(8)].map((_, i) => (
@@ -356,7 +367,7 @@ const PesananPage = () => {
                 <Eye size={16} /> Lihat Pesanan Lunas
               </button>
             )}
-            {!isFilterActive && unpaidPesanans.length === 0 && paidPesanans.length === 0 && isAdmin && (
+            {!isFilterActive && unpaidPesanans.length === 0 && paidPesanans.length === 0 && canManage && (
               <button
                 onClick={() => openFormModal()}
                 className="mt-4 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-lg transition-all flex items-center gap-2 mx-auto"
@@ -383,13 +394,12 @@ const PesananPage = () => {
           </div>
         ) : (
           <>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {pesanans.map((t) => (
                 <PesananCard
                   key={t.id}
                   pesanan={t}
-                  isAdmin={isAdmin}
+                  canManage={canManage}
                   onOpenDetail={openDetailModal}
                   onEdit={(tr) => openFormModal(tr)}
                   onBayar={openPembayaranModal}
@@ -442,8 +452,7 @@ const PesananPage = () => {
           </>
         )}
 
-        {/* FAB */}
-        {isAdmin && (
+        {canManage && (
           <button onClick={() => openFormModal()} className="fixed bottom-6 right-6 z-40 group" aria-label="Buat Pesanan">
             <span className="absolute inset-0 rounded-full bg-indigo-600 animate-ping opacity-20 group-hover:opacity-0 transition-opacity duration-500" />
             <div className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-full shadow-2xl shadow-indigo-500/40 hover:shadow-indigo-500/60 transition-all duration-300 active:scale-95 hover:scale-110">
