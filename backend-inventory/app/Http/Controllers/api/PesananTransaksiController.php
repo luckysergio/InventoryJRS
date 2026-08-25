@@ -27,15 +27,9 @@ class PesananTransaksiController extends Controller
         private PesananTransaksiService $service,
         private ProductionService $productionService,
         private DashboardService $dashboardService,
-        private CustomerService $customerService // ✅ NEW: untuk invalidate cache customer (tagihan)
+        private CustomerService $customerService
     ) {}
 
-    /**
-     * Invalidate semua cache yang terpengaruh oleh perubahan pesanan.
-     * - Production: status produksi
-     * - Dashboard: metrics, chart
-     * - Customer: ✅ tagihan pesanan berubah saat pesanan dibuat/diubah/dihapus
-     */
     private function invalidateAll(): void
     {
         $this->invalidateProductionCache();

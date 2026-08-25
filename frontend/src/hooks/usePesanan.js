@@ -56,14 +56,34 @@ export const usePesanan = (id) => {
 };
 
 const invalidatePesananCache = async (qc) => {
-  
   await qc.invalidateQueries({
     queryKey: masterKeys.pesanan.all,
     exact: false,
-    refetchType: 'active', // Hanya refetch query yang aktif
+    refetchType: 'active',
   });
-  
   await invalidateRelatedCaches(qc, 'pesanan');
+};
+
+const invalidatePembayaranPesananCache = async (qc) => {
+  await qc.invalidateQueries({
+    queryKey: masterKeys.pesanan.all,
+    exact: false,
+    refetchType: 'active',
+  });
+
+  await qc.invalidateQueries({
+    queryKey: masterKeys.transaksi.all,
+    exact: false,
+    refetchType: 'active',
+  });
+
+  await qc.invalidateQueries({
+    queryKey: masterKeys.pembayaran.all,
+    exact: false,
+    refetchType: 'active',
+  });
+
+  await invalidateRelatedCaches(qc, 'pembayaran');
 };
 
 export const useCreatePesanan = () => {
@@ -114,7 +134,7 @@ export const useCompletePesananDetail = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (detailId) => api.patch(`/pesanan/detail/${detailId}/selesai`),
-    onSuccess: async () => await invalidatePesananCache(qc),
+    onSuccess: async () => await invalidatePembayaranPesananCache(qc),
   });
 };
 
@@ -122,17 +142,6 @@ export const useCreatePembayaranPesanan = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload) => api.post('/pembayaran', payload),
-    onSuccess: async () => {
-      await qc.invalidateQueries({
-        queryKey: masterKeys.pembayaran.all,
-        exact: false,
-        refetchType: 'active',
-      });
-      await qc.invalidateQueries({
-        queryKey: masterKeys.transaksi.all,
-        exact: false,
-        refetchType: 'active',
-      });
-    },
+    onSuccess: async () => await invalidatePembayaranPesananCache(qc),
   });
 };

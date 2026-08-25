@@ -244,12 +244,14 @@ export const invalidateRelatedCaches = async (queryClient, changedEntity) => {
       masterKeys.pesanan.all,
       masterKeys.transaksi.all,
       masterKeys.pembayaran.all,
+      masterKeys.customer.all,
       masterKeys.product.all,
     ],
     pembayaran: [
       masterKeys.pembayaran.all,
       masterKeys.transaksi.all,
       masterKeys.pesanan.all,
+      masterKeys.customer.all,
     ],
     inventory: [
       masterKeys.inventory.all,
