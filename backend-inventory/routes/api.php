@@ -23,6 +23,7 @@ use App\Http\Controllers\api\ProductInternalController;
 use App\Http\Controllers\api\ProductMovementController;
 use App\Http\Controllers\api\ProductionController;
 use App\Http\Controllers\api\PublicProductController;
+use App\Http\Controllers\api\PublicProductCustomController;
 use App\Http\Controllers\api\ResetPasswordController;
 use App\Http\Controllers\api\StatusTransaksiController;
 use App\Http\Controllers\api\StokOpnameController;
@@ -30,16 +31,20 @@ use App\Http\Controllers\api\TransaksiController;
 use App\Http\Controllers\api\TypeProductController;
 use App\Http\Controllers\api\UserController;
 
+
 Route::prefix('public')->group(function () {
-    Route::get('/products', [PublicProductController::class, 'index']);
     Route::get('/products/available', [PublicProductController::class, 'available']);
     Route::get('/products/best-seller', [PublicProductController::class, 'bestSeller']);
-    Route::get('/products/{id}', [PublicProductController::class, 'show']);
-});
-
-Route::prefix('master')->group(function () {
-    Route::get('/type-products', [TypeProductController::class, 'master']);
+    Route::get('/products/{id}', [PublicProductController::class, 'show'])
+        ->where('id', '[0-9]+');
+    Route::get('/products', [PublicProductController::class, 'index']);
+    Route::get('/product-customs', [PublicProductCustomController::class, 'index']);
+    Route::get('/product-customs/{id}', [PublicProductCustomController::class, 'show'])
+        ->where('id', '[0-9]+');
+    Route::get('/customers/{customerId}/products', [PublicProductCustomController::class, 'forCustomer'])
+        ->where('customerId', '[0-9]+');
     Route::get('/jenis-products', [JenisProductController::class, 'master']);
+    Route::get('/type-products', [TypeProductController::class, 'master']);
 });
 
 Route::prefix('auth')->group(function () {
