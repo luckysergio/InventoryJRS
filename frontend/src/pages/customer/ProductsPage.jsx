@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   X, ChevronRight, ChevronLeft,
   Package, SlidersHorizontal, Eye, CheckCircle2,
   AlertCircle, Tag, Layers, Loader2,
-  User, Ruler, Box, Wallet,
+  User, Ruler, Box, Wallet, Warehouse, Phone
 } from 'lucide-react';
 import AOS from 'aos';
 import SEO from './components/SEO';
@@ -16,7 +16,8 @@ import {
 } from './hooks/usePublicProducts';
 import { cn } from '../../lib/utils';
 
-const ASSET_URL = import.meta.env.VITE_ASSET_URL || '';
+// ✅ FIX: Gunakan VITE_APP_URL untuk fallback, bukan VITE_ASSET_URL (yang mungkin mengandung /api)
+const APP_URL = import.meta.env.VITE_APP_URL || 'https://www.jayarubberseal.com';
 const WA_NUMBER = '6281287951140';
 
 const formatRupiah = (value) =>
@@ -26,12 +27,16 @@ const formatRupiah = (value) =>
     minimumFractionDigits: 0,
   }).format(value || 0);
 
-const resolveImage = (url, path) =>
-  url || (path ? `${ASSET_URL}/storage/${path}` : null);
+// ✅ FIX: Helper resolusi gambar yang aman dari bug duplikasi "/api/"
+const resolveImage = (url, path) => {
+  if (url) return url; // Backend sudah mengirim URL lengkap yang benar
+  if (path) {
+    const cleanPath = path.startsWith('products/') ? path : `products/${path}`;
+    return `${APP_URL}/storage/${cleanPath}`;
+  }
+  return null;
+};
 
-/* ==========================================
-   SKIP NAVIGATION
-   ========================================== */
 const SkipNavigation = () => (
   <a
     href="#main-content"
@@ -53,211 +58,196 @@ const ProductDetailModal = ({ product, onClose }) => {
 
   const data = detail || product;
 
+  const handleEscKey = useCallback((e) => {
+    if (e.key === 'Escape' && product) onClose();
+  }, [product, onClose]);
+
   useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    closeButtonRef.current?.focus();
+    if (product) {
+      document.addEventListener('keydown', handleEscKey);
+      document.body.style.overflow = 'hidden';
+    }
     return () => {
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('keydown', handleEscKey);
       document.body.style.overflow = '';
     };
-  }, [onClose]);
+  }, [product, handleEscKey]);
 
   useEffect(() => {
     setActiveImage('depan');
   }, [product?.id]);
 
-  const images = [
-    { key: 'depan', label: 'Depan', url: resolveImage(data?.foto_depan_url, data?.foto_depan) },
-    { key: 'samping', label: 'Samping', url: resolveImage(data?.foto_samping_url, data?.foto_samping) },
-    { key: 'atas', label: 'Atas', url: resolveImage(data?.foto_atas_url, data?.foto_atas) },
-  ].filter((img) => img.url);
+  if (!product) return null;
 
-  const currentImage = images.find((img) => img.key === activeImage) || images[0] || null;
-  const totalStok = (data?.qty_toko || 0) + (data?.qty_bengkel || 0);
+  const qtyToko = Number(data?.qty_toko) || 0;
+  const qtyBengkel = Number(data?.qty_bengkel) || 0;
+  const totalQty = qtyToko + qtyBengkel;
+
+  const fotoUrls = [
+    resolveImage(data?.foto_depan_url, data?.foto_depan),
+    resolveImage(data?.foto_samping_url, data?.foto_samping),
+    resolveImage(data?.foto_atas_url, data?.foto_atas),
+  ].filter(Boolean);
 
   const waText = encodeURIComponent(
-    `Halo Jaya Rubber Seal, saya tertarik dengan produk ${data?.kode || ''} (${data?.jenis?.nama || ''} ${data?.type?.nama || ''}). Apakah tersedia?`
+    `Halo Jaya Rubber Seal, saya tertarik dengan produk ${data?.kode || ''} (${data?.jenis?.nama || ''} ${data?.type?.nama || ''}). Apakah stok tersedia?`
   );
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
-      onClick={onClose}
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="product-detail-title"
+      aria-labelledby="modal-product-title"
     >
-      <div
-        className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0 bg-gradient-to-r from-brand-50 to-white">
-          <div className="min-w-0">
-            <p className="text-xs font-mono text-slate-500">{data?.kode || '-'}</p>
-            <h2
-              id="product-detail-title"
-              className="text-lg font-display font-bold text-slate-900 truncate"
-            >
-              {isLoading
-                ? 'Memuat detail...'
-                : [data?.jenis?.nama, data?.type?.nama].filter(Boolean).join(' ') || 'Detail Produk'}
-            </h2>
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[90vh] flex flex-col">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-10 px-5 py-4 border-b border-slate-200/60 flex items-center justify-between bg-white flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 bg-gradient-to-br from-brand-500 to-ocean-500 rounded-lg shadow-sm flex-shrink-0">
+              <Package className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h2 id="modal-product-title" className="text-lg font-bold text-slate-900 truncate">
+                {isLoading ? 'Memuat detail...' : data?.kode || '-'}
+              </h2>
+              <p className="text-xs text-slate-500 truncate">
+                {[data?.jenis?.nama, data?.type?.nama, data?.bahan?.nama].filter(Boolean).join(' • ')}
+              </p>
+            </div>
           </div>
           <button
             ref={closeButtonRef}
             onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500"
-            aria-label="Tutup detail produk"
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors group"
+            aria-label="Tutup modal"
           >
-            <X className="w-5 h-5 text-slate-500" />
+            <X className="w-5 h-5 text-slate-500 group-hover:text-slate-700 group-hover:rotate-90 transition-all duration-200" />
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1">
-          {isLoading ? (
-            <div className="grid md:grid-cols-2 gap-6" aria-label="Memuat detail produk" role="status">
-              <div className="aspect-square bg-slate-200 rounded-2xl animate-pulse" aria-hidden="true" />
-              <div className="space-y-3">
-                <div className="h-5 bg-slate-200 rounded w-3/4 animate-pulse" aria-hidden="true" />
-                <div className="h-4 bg-slate-200 rounded w-1/2 animate-pulse" aria-hidden="true" />
-                <div className="h-10 bg-slate-200 rounded w-2/3 animate-pulse" aria-hidden="true" />
-                <div className="h-24 bg-slate-200 rounded animate-pulse" aria-hidden="true" />
-              </div>
-              <span className="sr-only">Memuat detail produk...</span>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <div className="relative aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-brand-50 to-ocean-50 border border-slate-100">
-                  {currentImage ? (
-                    <img
-                      src={currentImage.url}
-                      alt={`Foto ${currentImage.label} ${data?.kode || 'produk'}`}
-                      className="w-full h-full object-cover"
-                      width="600"
-                      height="600"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center" aria-hidden="true">
-                      <Package className="text-brand-300" size={56} />
-                    </div>
-                  )}
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="p-5 sm:p-6 space-y-6">
+            {isLoading ? (
+              <div className="grid md:grid-cols-2 gap-6" aria-label="Memuat detail produk" role="status">
+                <div className="aspect-square bg-slate-200 rounded-2xl animate-pulse" aria-hidden="true" />
+                <div className="space-y-3">
+                  <div className="h-5 bg-slate-200 rounded w-3/4 animate-pulse" aria-hidden="true" />
+                  <div className="h-4 bg-slate-200 rounded w-1/2 animate-pulse" aria-hidden="true" />
+                  <div className="h-10 bg-slate-200 rounded w-2/3 animate-pulse" aria-hidden="true" />
+                  <div className="h-24 bg-slate-200 rounded animate-pulse" aria-hidden="true" />
                 </div>
-
-                {images.length > 1 && (
-                  <div className="flex gap-2 mt-3" role="group" aria-label="Pilih foto produk">
-                    {images.map((img) => (
-                      <button
-                        key={img.key}
-                        onClick={() => setActiveImage(img.key)}
-                        className={cn(
-                          'w-16 h-16 rounded-xl overflow-hidden border-2 transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
-                          currentImage?.key === img.key
-                            ? 'border-brand-500 ring-2 ring-brand-200'
-                            : 'border-slate-200 hover:border-brand-300'
-                        )}
-                        aria-label={`Foto ${img.label}`}
-                        aria-pressed={currentImage?.key === img.key}
-                      >
-                        <img src={img.url} alt="" className="w-full h-full object-cover" width="64" height="64" />
-                      </button>
+                <span className="sr-only">Memuat detail produk...</span>
+              </div>
+            ) : (
+              <>
+                {/* Photo Gallery */}
+                {fotoUrls.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-3">
+                    {fotoUrls.map((url, idx) => (
+                      <img
+                        key={idx}
+                        src={url}
+                        alt={`Foto produk ${idx + 1}`}
+                        className="w-full aspect-square object-cover rounded-xl border border-slate-200 shadow-sm"
+                      />
                     ))}
                   </div>
+                ) : (
+                  <div className="w-full aspect-video bg-slate-50 rounded-xl flex items-center justify-center border border-dashed border-slate-200">
+                    <Package className="w-12 h-12 text-slate-300" />
+                  </div>
                 )}
-              </div>
 
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {data?.jenis?.nama && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 border border-brand-200 text-xs font-semibold">
-                      <Tag size={12} aria-hidden="true" />
-                      {data.jenis.nama}
-                    </span>
-                  )}
-                  {data?.type?.nama && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-ocean-50 text-ocean-700 border border-ocean-200 text-xs font-semibold">
-                      <Layers size={12} aria-hidden="true" />
-                      {data.type.nama}
-                    </span>
-                  )}
-                  {data?.bahan?.nama && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold">
-                      <Box size={12} aria-hidden="true" />
-                      {data.bahan.nama}
-                    </span>
-                  )}
+                {/* Price & Stock Cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 text-center">
+                    <p className="text-xs text-emerald-600 font-medium mb-1 uppercase tracking-wide">Harga Umum</p>
+                    <p className="text-xl font-bold text-emerald-700">{formatRupiah(data?.harga_umum)}</p>
+                  </div>
+                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
+                    <p className="text-xs text-blue-600 font-medium mb-1 uppercase tracking-wide">Total Stok</p>
+                    <p className={cn("text-xl font-bold", totalQty < 20 ? "text-red-600" : "text-blue-700")}>
+                      {totalQty} Unit
+                    </p>
+                  </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-50 to-ocean-50 border border-brand-100">
-                  <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Harga Umum</p>
-                  <p className="text-2xl sm:text-3xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-ocean-600">
-                    {formatRupiah(data?.harga_umum)}
-                  </p>
-                </div>
+                {/* Detail Items */}
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                    <div className="p-2 bg-purple-100 rounded-lg flex-shrink-0">
+                      <Tag className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide mb-0.5">Spesifikasi</p>
+                      <p className="text-sm font-medium text-slate-900">
+                        {data?.jenis?.nama || '-'} {data?.type?.nama ? `- ${data.type.nama}` : ''}{' '}
+                        {data?.bahan?.nama ? `(${data.bahan.nama})` : ''} | {data?.ukuran || 'Ukuran standar'}
+                      </p>
+                    </div>
+                  </div>
 
-                <dl className="space-y-2 text-sm">
-                  {data?.ukuran && (
-                    <div className="flex items-center gap-2">
-                      <Ruler size={15} className="text-slate-400" aria-hidden="true" />
-                      <dt className="text-slate-500">Ukuran:</dt>
-                      <dd className="font-semibold text-slate-900">{data.ukuran}</dd>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                      <div className="p-2 bg-amber-100 rounded-lg flex-shrink-0">
+                        <Warehouse className="w-4 h-4 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">Stok Toko</p>
+                        <p className="text-sm font-bold text-slate-900">{qtyToko} Unit</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                      <div className="p-2 bg-indigo-100 rounded-lg flex-shrink-0">
+                        <Warehouse className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">Stok Bengkel</p>
+                        <p className="text-sm font-bold text-slate-900">{qtyBengkel} Unit</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {data?.keterangan && (
+                    <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                      <div className="p-2 bg-slate-200 rounded-lg flex-shrink-0">
+                        <Ruler className="w-4 h-4 text-slate-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide mb-0.5">Keterangan</p>
+                        <p className="text-sm text-slate-900 break-words">{data.keterangan}</p>
+                      </div>
                     </div>
                   )}
-                  <div className="flex items-center gap-2">
-                    <Wallet size={15} className="text-slate-400" aria-hidden="true" />
-                    <dt className="text-slate-500">Stok Total:</dt>
-                    <dd className="font-semibold text-slate-900">{totalStok} unit</dd>
-                  </div>
-                </dl>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100">
-                    <p className="text-[10px] text-emerald-600 font-medium uppercase">Toko</p>
-                    <p className={cn('text-lg font-bold', (data?.qty_toko || 0) > 0 ? 'text-emerald-700' : 'text-red-500')}>
-                      {data?.qty_toko || 0}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-100">
-                    <p className="text-[10px] text-blue-600 font-medium uppercase">Bengkel</p>
-                    <p className={cn('text-lg font-bold', (data?.qty_bengkel || 0) > 0 ? 'text-blue-700' : 'text-red-500')}>
-                      {data?.qty_bengkel || 0}
-                    </p>
-                  </div>
                 </div>
-
-                <p
-                  className={cn(
-                    'inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full',
-                    totalStok > 0
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      : 'bg-red-50 text-red-600 border border-red-200'
-                  )}
-                >
-                  {totalStok > 0 ? <CheckCircle2 size={14} aria-hidden="true" /> : <AlertCircle size={14} aria-hidden="true" />}
-                  {totalStok > 0 ? 'Produk Tersedia' : 'Stok Habis'}
-                </p>
-
-                {data?.keterangan && (
-                  <p className="text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-3">{data.keterangan}</p>
-                )}
-
-                <a
-                  href={`https://wa.me/${WA_NUMBER}?text=${waText}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-brand-500 to-ocean-500 text-white font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
-                >
-                  <User size={18} aria-hidden="true" />
-                  Tanya Produk Ini
-                </a>
-              </div>
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </div>
+
+        {/* Sticky Actions */}
+        {!isLoading && (
+          <div className="sticky bottom-0 px-5 py-4 border-t border-slate-200/60 bg-white flex gap-3 flex-shrink-0">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-3 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors active:scale-95"
+            >
+              Tutup
+            </button>
+            <a
+              href={`https://wa.me/${WA_NUMBER}?text=${waText}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-brand-500 to-ocean-500 hover:shadow-lg hover:shadow-brand-500/30 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <Phone size={16} />
+              Tanya Stok via WhatsApp
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -309,26 +299,26 @@ const ProductCard = ({ product, index, onSelect }) => {
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4 pointer-events-none">
           <div className="flex items-center gap-2 text-white text-sm font-semibold">
             <Eye size={16} aria-hidden="true" />
-            <span>Lihat Detail</span>
+            <span>Klik untuk Detail</span>
           </div>
         </div>
       </div>
 
       <div className="p-5">
-        <p className="text-xs font-mono text-slate-500 mb-1">{product.kode || '-'}</p>
+        <p className="text-xs font-mono text-slate-600 mb-1">{product.kode || '-'}</p>
         <h3 className="font-display font-bold text-slate-900 mb-2 line-clamp-2 group-hover:text-brand-600 transition-colors min-h-[3rem]">
           {productName} {product.type?.nama || ''}
         </h3>
 
         {product.ukuran && (
-          <p className="text-xs text-slate-600 mb-2 flex items-center gap-1">
+          <p className="text-xs text-slate-700 mb-3 flex items-center gap-1">
             <span className="font-medium">Ukuran:</span>
             <span>{product.ukuran}</span>
           </p>
         )}
 
         {product.bahan?.nama && (
-          <p className="text-xs text-slate-600 mb-3 flex items-center gap-1">
+          <p className="text-xs text-slate-700 mb-3 flex items-center gap-1">
             <span className="font-medium">Bahan:</span>
             <span>{product.bahan.nama}</span>
           </p>
@@ -337,11 +327,7 @@ const ProductCard = ({ product, index, onSelect }) => {
         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
           <span className="text-sm font-bold text-brand-600 flex items-center gap-1">
             Lihat Detail
-            <ChevronRight
-              size={16}
-              className="group-hover:translate-x-1 transition-transform"
-              aria-hidden="true"
-            />
+            <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
           </span>
           {(product.qty_toko > 0 || product.qty_bengkel > 0) && (
             <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
@@ -359,11 +345,7 @@ const ProductCard = ({ product, index, onSelect }) => {
    PRODUCT CARD SKELETON
    ========================================== */
 const ProductCardSkeleton = () => (
-  <div
-    className="bg-white rounded-2xl overflow-hidden border border-slate-100"
-    role="status"
-    aria-label="Memuat produk"
-  >
+  <div className="bg-white rounded-2xl overflow-hidden border border-slate-100" role="status" aria-label="Memuat produk">
     <div className="aspect-square bg-slate-200 animate-pulse" aria-hidden="true" />
     <div className="p-5 space-y-3">
       <div className="h-3 bg-slate-200 rounded w-1/4 animate-pulse" aria-hidden="true" />
@@ -376,34 +358,17 @@ const ProductCardSkeleton = () => (
 );
 
 /* ==========================================
-   DESKTOP FILTER SIDEBAR (Desktop only)
-   Selalu visible, sticky, tanpa overlay
+   DESKTOP FILTER SIDEBAR
    ========================================== */
-const DesktopFilterSidebar = ({
-  filters,
-  setFilters,
-  jenisList,
-  typeList,
-  isLoadingJenis,
-  isLoadingType,
-}) => {
+const DesktopFilterSidebar = ({ filters, setFilters, jenisList, typeList, isLoadingJenis, isLoadingType }) => {
   const activeFiltersCount = (filters.jenisId ? 1 : 0) + (filters.typeId ? 1 : 0);
 
   const handleSelectJenis = (jenisId) => {
-    setFilters((prev) => ({
-      ...prev,
-      jenisId: prev.jenisId === jenisId ? null : jenisId,
-      typeId: null,
-      page: 1,
-    }));
+    setFilters((prev) => ({ ...prev, jenisId: prev.jenisId === jenisId ? null : jenisId, typeId: null, page: 1 }));
   };
 
   const handleSelectType = (typeId) => {
-    setFilters((prev) => ({
-      ...prev,
-      typeId: prev.typeId === typeId ? null : typeId,
-      page: 1,
-    }));
+    setFilters((prev) => ({ ...prev, typeId: prev.typeId === typeId ? null : typeId, page: 1 }));
   };
 
   const clearFilters = () => {
@@ -412,7 +377,6 @@ const DesktopFilterSidebar = ({
 
   return (
     <div className="sticky top-24 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-display font-bold text-slate-900 flex items-center gap-2">
           <SlidersHorizontal size={20} aria-hidden="true" />
@@ -429,13 +393,11 @@ const DesktopFilterSidebar = ({
         )}
       </div>
 
-      {/* Jenis Produk */}
       <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
         <h3 className="font-display font-bold text-slate-900 mb-4 flex items-center gap-2">
           <Tag size={18} aria-hidden="true" />
           Jenis Produk
         </h3>
-
         {isLoadingJenis ? (
           <div className="flex items-center justify-center py-4 text-slate-500">
             <Loader2 size={20} className="animate-spin mr-2" />
@@ -447,9 +409,7 @@ const DesktopFilterSidebar = ({
               onClick={() => handleSelectJenis(null)}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
-                !filters.jenisId
-                  ? 'bg-brand-50 text-brand-700 border border-brand-200'
-                  : 'text-slate-700 hover:bg-slate-50 border border-transparent'
+                !filters.jenisId ? 'bg-brand-50 text-brand-700 border border-brand-200' : 'text-slate-700 hover:bg-slate-50 border border-transparent'
               )}
               role="radio"
               aria-checked={!filters.jenisId}
@@ -458,7 +418,6 @@ const DesktopFilterSidebar = ({
               <span className="flex-1 text-left">Semua Jenis</span>
               {!filters.jenisId && <CheckCircle2 size={16} aria-hidden="true" />}
             </button>
-
             {jenisList.map((jenis) => {
               const isActive = filters.jenisId === jenis.value;
               return (
@@ -467,9 +426,7 @@ const DesktopFilterSidebar = ({
                   onClick={() => handleSelectJenis(jenis.value)}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
-                    isActive
-                      ? 'bg-brand-50 text-brand-700 border border-brand-200'
-                      : 'text-slate-700 hover:bg-slate-50 border border-transparent'
+                    isActive ? 'bg-brand-50 text-brand-700 border border-brand-200' : 'text-slate-700 hover:bg-slate-50 border border-transparent'
                   )}
                   role="radio"
                   aria-checked={isActive}
@@ -483,17 +440,13 @@ const DesktopFilterSidebar = ({
         )}
       </div>
 
-      {/* Tipe Produk (cascade) */}
       <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
         <h3 className="font-display font-bold text-slate-900 mb-4 flex items-center gap-2">
           <Layers size={18} aria-hidden="true" />
           Tipe Produk
         </h3>
-
         {!filters.jenisId ? (
-          <p className="text-xs text-slate-500 italic py-2">
-            Pilih jenis produk terlebih dahulu untuk melihat tipe yang tersedia.
-          </p>
+          <p className="text-xs text-slate-500 italic py-2">Pilih jenis produk terlebih dahulu untuk melihat tipe yang tersedia.</p>
         ) : isLoadingType ? (
           <div className="flex items-center justify-center py-4 text-slate-500">
             <Loader2 size={20} className="animate-spin mr-2" />
@@ -507,9 +460,7 @@ const DesktopFilterSidebar = ({
               onClick={() => handleSelectType(null)}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
-                !filters.typeId
-                  ? 'bg-ocean-50 text-ocean-700 border border-ocean-200'
-                  : 'text-slate-700 hover:bg-slate-50 border border-transparent'
+                !filters.typeId ? 'bg-ocean-50 text-ocean-700 border border-ocean-200' : 'text-slate-700 hover:bg-slate-50 border border-transparent'
               )}
               role="radio"
               aria-checked={!filters.typeId}
@@ -517,7 +468,6 @@ const DesktopFilterSidebar = ({
               <span className="flex-1 text-left">Semua Tipe</span>
               {!filters.typeId && <CheckCircle2 size={16} aria-hidden="true" />}
             </button>
-
             {typeList.map((type) => {
               const isActive = filters.typeId === type.value;
               return (
@@ -526,9 +476,7 @@ const DesktopFilterSidebar = ({
                   onClick={() => handleSelectType(type.value)}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
-                    isActive
-                      ? 'bg-ocean-50 text-ocean-700 border border-ocean-200'
-                      : 'text-slate-700 hover:bg-slate-50 border border-transparent'
+                    isActive ? 'bg-ocean-50 text-ocean-700 border border-ocean-200' : 'text-slate-700 hover:bg-slate-50 border border-transparent'
                   )}
                   role="radio"
                   aria-checked={isActive}
@@ -546,27 +494,17 @@ const DesktopFilterSidebar = ({
 };
 
 /* ==========================================
-   MOBILE QUICK FILTER CHIPS (Mobile only)
-   Horizontal scroll, tanpa tombol "Filter Lengkap"
+   MOBILE QUICK FILTER CHIPS
    ========================================== */
 const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) => {
   const hasFilters = filters.jenisId || filters.typeId;
 
   const handleSelectJenis = (jenisId) => {
-    setFilters((prev) => ({
-      ...prev,
-      jenisId: prev.jenisId === jenisId ? null : jenisId,
-      typeId: null,
-      page: 1,
-    }));
+    setFilters((prev) => ({ ...prev, jenisId: prev.jenisId === jenisId ? null : jenisId, typeId: null, page: 1 }));
   };
 
   const handleSelectType = (typeId) => {
-    setFilters((prev) => ({
-      ...prev,
-      typeId: prev.typeId === typeId ? null : typeId,
-      page: 1,
-    }));
+    setFilters((prev) => ({ ...prev, typeId: prev.typeId === typeId ? null : typeId, page: 1 }));
   };
 
   const clearFilters = () => {
@@ -575,7 +513,6 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
 
   return (
     <div className="mb-6">
-      {/* Reset bar */}
       {hasFilters && (
         <div className="flex items-center gap-2 mb-3">
           <button
@@ -589,19 +526,12 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
         </div>
       )}
 
-      {/* Horizontal scroll chips for Jenis */}
-      <div
-        className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4"
-        role="radiogroup"
-        aria-label="Filter jenis produk"
-      >
+      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4" role="radiogroup" aria-label="Filter jenis produk">
         <button
           onClick={() => handleSelectJenis(null)}
           className={cn(
-            'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 border-2',
-            !filters.jenisId
-              ? 'bg-brand-500 text-white border-brand-500 shadow-md'
-              : 'bg-white text-slate-700 border-slate-200 hover:border-brand-300'
+            'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 border-2 flex-shrink-0',
+            !filters.jenisId ? 'bg-brand-500 text-white border-brand-500 shadow-md' : 'bg-white text-slate-700 border-slate-200 hover:border-brand-300'
           )}
           role="radio"
           aria-checked={!filters.jenisId}
@@ -609,7 +539,6 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
           <Package size={14} aria-hidden="true" />
           <span>Semua</span>
         </button>
-
         {jenisList.map((jenis) => {
           const isActive = filters.jenisId === jenis.value;
           return (
@@ -617,10 +546,8 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
               key={jenis.value}
               onClick={() => handleSelectJenis(jenis.value)}
               className={cn(
-                'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 border-2',
-                isActive
-                  ? 'bg-brand-500 text-white border-brand-500 shadow-md'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-brand-300'
+                'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 border-2 flex-shrink-0',
+                isActive ? 'bg-brand-500 text-white border-brand-500 shadow-md' : 'bg-white text-slate-700 border-slate-200 hover:border-brand-300'
               )}
               role="radio"
               aria-checked={isActive}
@@ -632,28 +559,19 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
         })}
       </div>
 
-      {/* Horizontal scroll chips for Type (only when jenis selected) */}
       {filters.jenisId && typeList.length > 0 && (
-        <div
-          className="flex gap-2 overflow-x-auto pb-2 mt-3 -mx-4 px-4"
-          role="radiogroup"
-          aria-label="Filter tipe produk"
-          data-aos="fade-down"
-        >
+        <div className="flex gap-2 overflow-x-auto pb-2 mt-3 -mx-4 px-4" role="radiogroup" aria-label="Filter tipe produk" data-aos="fade-down">
           <button
             onClick={() => handleSelectType(null)}
             className={cn(
-              'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-ocean-500 border-2',
-              !filters.typeId
-                ? 'bg-ocean-500 text-white border-ocean-500 shadow-md'
-                : 'bg-white text-slate-700 border-slate-200 hover:border-ocean-300'
+              'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-ocean-500 border-2 flex-shrink-0',
+              !filters.typeId ? 'bg-ocean-500 text-white border-ocean-500 shadow-md' : 'bg-white text-slate-700 border-slate-200 hover:border-ocean-300'
             )}
             role="radio"
             aria-checked={!filters.typeId}
           >
             <span>Semua Tipe</span>
           </button>
-
           {typeList.map((type) => {
             const isActive = filters.typeId === type.value;
             return (
@@ -661,10 +579,8 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
                 key={type.value}
                 onClick={() => handleSelectType(type.value)}
                 className={cn(
-                  'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-ocean-500 border-2',
-                  isActive
-                    ? 'bg-ocean-500 text-white border-ocean-500 shadow-md'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-ocean-300'
+                  'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-ocean-500 border-2 flex-shrink-0',
+                  isActive ? 'bg-ocean-500 text-white border-ocean-500 shadow-md' : 'bg-white text-slate-700 border-slate-200 hover:border-ocean-300'
                 )}
                 role="radio"
                 aria-checked={isActive}
@@ -700,9 +616,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         disabled={currentPage === 1}
         className={cn(
           'flex items-center gap-1 px-4 py-2 rounded-xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
-          currentPage === 1
-            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            : 'bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200'
+          currentPage === 1 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200'
         )}
         aria-label="Halaman sebelumnya"
       >
@@ -712,11 +626,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 
       {start > 1 && (
         <>
-          <button
-            onClick={() => onPageChange(1)}
-            className="w-10 h-10 rounded-xl bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-500"
-            aria-label="Halaman 1"
-          >
+          <button onClick={() => onPageChange(1)} className="w-10 h-10 rounded-xl bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-500" aria-label="Halaman 1">
             1
           </button>
           {start > 2 && <span className="px-2 text-slate-400" aria-hidden="true">...</span>}
@@ -729,9 +639,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
           onClick={() => onPageChange(page)}
           className={cn(
             'w-10 h-10 rounded-xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
-            page === currentPage
-              ? 'bg-gradient-to-r from-brand-500 to-ocean-500 text-white shadow-md'
-              : 'bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200'
+            page === currentPage ? 'bg-gradient-to-r from-brand-500 to-ocean-500 text-white shadow-md' : 'bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200'
           )}
           aria-label={`Halaman ${page}`}
           aria-current={page === currentPage ? 'page' : undefined}
@@ -743,11 +651,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
       {end < totalPages && (
         <>
           {end < totalPages - 1 && <span className="px-2 text-slate-400" aria-hidden="true">...</span>}
-          <button
-            onClick={() => onPageChange(totalPages)}
-            className="w-10 h-10 rounded-xl bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-500"
-            aria-label={`Halaman ${totalPages}`}
-          >
+          <button onClick={() => onPageChange(totalPages)} className="w-10 h-10 rounded-xl bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-500" aria-label={`Halaman ${totalPages}`}>
             {totalPages}
           </button>
         </>
@@ -758,9 +662,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         disabled={currentPage === totalPages}
         className={cn(
           'flex items-center gap-1 px-4 py-2 rounded-xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
-          currentPage === totalPages
-            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            : 'bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200'
+          currentPage === totalPages ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200'
         )}
         aria-label="Halaman berikutnya"
       >
@@ -882,8 +784,8 @@ const ProductsPage = () => {
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Beranda', item: import.meta.env.VITE_SITE_URL || 'https://jayarubberseal.id' },
-          { '@type': 'ListItem', position: 2, name: 'Semua Produk', item: `${import.meta.env.VITE_SITE_URL || 'https://jayarubberseal.id'}/products` },
+          { '@type': 'ListItem', position: 1, name: 'Beranda', item: APP_URL },
+          { '@type': 'ListItem', position: 2, name: 'Semua Produk', item: `${APP_URL}/products` },
         ],
       },
       {
@@ -927,14 +829,10 @@ const ProductsPage = () => {
 
           <div className="relative container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
-                Katalog Produk
-              </h2>
+              <h2 className="text-xl sm:text-2xl font-display font-bold text-slate-900">Katalog Produk</h2>
               <div className="flex items-center gap-2 text-sm text-slate-600" aria-live="polite">
                 <Package size={18} aria-hidden="true" />
-                <span className="font-semibold text-slate-900">
-                  {totalProducts.toLocaleString('id-ID')}
-                </span>
+                <span className="font-semibold text-slate-900">{totalProducts.toLocaleString('id-ID')}</span>
                 <span>produk</span>
               </div>
             </div>
@@ -945,7 +843,7 @@ const ProductsPage = () => {
         <section className="py-6 sm:py-10 bg-white" aria-label="Daftar produk">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex gap-8">
-              {/* ✅ DESKTOP ONLY: Sidebar kiri, selalu visible, sticky */}
+              {/* DESKTOP ONLY: Sidebar kiri, selalu visible, sticky */}
               <aside className="hidden lg:block lg:w-72 flex-shrink-0">
                 <DesktopFilterSidebar
                   filters={filters}
@@ -958,14 +856,9 @@ const ProductsPage = () => {
               </aside>
 
               <div className="flex-1 min-w-0">
-                {/* ✅ MOBILE ONLY: Quick filter chips di atas grid */}
+                {/* MOBILE ONLY: Quick filter chips di atas grid */}
                 <div className="lg:hidden">
-                  <MobileQuickFilterChips
-                    filters={filters}
-                    setFilters={setFilters}
-                    jenisList={jenisList}
-                    typeList={typeList}
-                  />
+                  <MobileQuickFilterChips filters={filters} setFilters={setFilters} jenisList={jenisList} typeList={typeList} />
                 </div>
 
                 {error ? (
@@ -981,20 +874,12 @@ const ProductsPage = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" role="list">
                       {products.map((product, index) => (
                         <div key={product.id} role="listitem">
-                          <ProductCard
-                            product={product}
-                            index={index}
-                            onSelect={setSelectedProduct}
-                          />
+                          <ProductCard product={product} index={index} onSelect={setSelectedProduct} />
                         </div>
                       ))}
                     </div>
 
-                    <Pagination
-                      currentPage={filters.page}
-                      totalPages={totalPages}
-                      onPageChange={handlePageChange}
-                    />
+                    <Pagination currentPage={filters.page} totalPages={totalPages} onPageChange={handlePageChange} />
                   </>
                 ) : (
                   <EmptyState onClearFilters={clearAllFilters} />
@@ -1006,12 +891,7 @@ const ProductsPage = () => {
       </main>
 
       {/* Modal Detail */}
-      {selectedProduct && (
-        <ProductDetailModal
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-        />
-      )}
+      {selectedProduct && <ProductDetailModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />}
     </>
   );
 };

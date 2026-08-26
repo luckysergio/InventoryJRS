@@ -1,17 +1,23 @@
 User-agent: *
+# Izinkan crawling untuk halaman publik
 Allow: /
+Allow: /products
+Allow: /product-customs
+Allow: /blog
+Allow: /tentang
+
+# Blokir akses ke area admin, API, dan autentikasi
 Disallow: /admin/
 Disallow: /api/
 Disallow: /login
 Disallow: /register
+Disallow: /forgot-password
 
-Allow: /products
-Allow: /blog
-Allow: /tentang
-
+# Atur delay crawling yang wajar (1 detik)
 Crawl-delay: 1
 
-Sitemap: https://jayarubberseal.com/sitemap.xml
+# Lokasi Sitemap
+Sitemap: https://www.jayarubberseal.com/sitemap.xml
 
 User-agent: AhrefsBot
 Disallow: /
@@ -23,4 +29,7 @@ User-agent: DotBot
 Disallow: /
 
 User-agent: MJ12bot
+Disallow: /
+
+User-agent: PetalBot
 Disallow: /

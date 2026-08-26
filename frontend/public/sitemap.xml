@@ -1,165 +1,157 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
-  <!-- 1. Halaman Utama (Home) -->
   <url>
-    <loc>https://jayarubberseal.id/</loc>
-    <lastmod>2024-06-20</lastmod>
+    <loc>https://www.jayarubberseal.com/</loc>
+    <lastmod>2024-10-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
 
-  <!-- 2. Halaman Semua Produk -->
   <url>
-    <loc>https://jayarubberseal.id/products</loc>
-    <lastmod>2024-06-20</lastmod>
+    <loc>https://www.jayarubberseal.com/products</loc>
+    <lastmod>2024-10-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
 
-  <!-- 3. Halaman Produk Custom -->
   <url>
-    <loc>https://jayarubberseal.id/product-customs</loc>
-    <lastmod>2024-06-20</lastmod>
+    <loc>https://www.jayarubberseal.com/product-customs</loc>
+    <lastmod>2024-10-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
 
-  <!-- 4. Halaman Daftar Blog -->
   <url>
-    <loc>https://jayarubberseal.id/blog</loc>
-    <lastmod>2024-06-20</lastmod>
+    <loc>https://www.jayarubberseal.com/blog</loc>
+    <lastmod>2024-10-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
 
-  <!-- 5. Halaman Tentang Kami -->
   <url>
-    <loc>https://jayarubberseal.id/tentang</loc>
-    <lastmod>2024-06-20</lastmod>
+    <loc>https://www.jayarubberseal.com/tentang</loc>
+    <lastmod>2024-10-25</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
-  <!-- ========================================== -->
-  <!-- DETAIL ARTIKEL BLOG (20 Artikel)           -->
-  <!-- ========================================== -->
   <url>
-    <loc>https://jayarubberseal.id/blog/panduan-memilih-rubber-seal</loc>
+    <loc>https://www.jayarubberseal.com/blog/panduan-memilih-rubber-seal</loc>
     <lastmod>2024-01-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/perbedaan-material-nbr-epdm-silicone</loc>
+    <loc>https://www.jayarubberseal.com/blog/perbedaan-material-nbr-epdm-silicone</loc>
     <lastmod>2024-01-22</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/tanda-mounting-karet-harus-diganti</loc>
+    <loc>https://www.jayarubberseal.com/blog/tanda-mounting-karet-harus-diganti</loc>
     <lastmod>2024-02-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/keuntungan-custom-rubber-seal</loc>
+    <loc>https://www.jayarubberseal.com/blog/keuntungan-custom-rubber-seal</loc>
     <lastmod>2024-02-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/peran-gasket-sistem-pipa</loc>
+    <loc>https://www.jayarubberseal.com/blog/peran-gasket-sistem-pipa</loc>
     <lastmod>2024-02-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/keunggulan-viton-fkm-industri-ekstrem</loc>
+    <loc>https://www.jayarubberseal.com/blog/keunggulan-viton-fkm-industri-ekstrem</loc>
     <lastmod>2024-03-01</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/cara-mengukur-o-ring-dengan-caliper</loc>
+    <loc>https://www.jayarubberseal.com/blog/cara-mengukur-o-ring-dengan-caliper</loc>
     <lastmod>2024-03-08</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/mengenal-jenis-jenis-engine-mounting</loc>
+    <loc>https://www.jayarubberseal.com/blog/mengenal-jenis-jenis-engine-mounting</loc>
     <lastmod>2024-03-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/penyebab-rubber-seal-cepat-rusak</loc>
+    <loc>https://www.jayarubberseal.com/blog/penyebab-rubber-seal-cepat-rusak</loc>
     <lastmod>2024-03-22</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/pentingnya-food-grade-rubber-seal</loc>
+    <loc>https://www.jayarubberseal.com/blog/pentingnya-food-grade-rubber-seal</loc>
     <lastmod>2024-04-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/aplikasi-rubber-coupling-insert</loc>
+    <loc>https://www.jayarubberseal.com/blog/aplikasi-rubber-coupling-insert</loc>
     <lastmod>2024-04-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/tips-merawat-komponen-karet-tahan-lama</loc>
+    <loc>https://www.jayarubberseal.com/blog/tips-merawat-komponen-karet-tahan-lama</loc>
     <lastmod>2024-04-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/proses-vulcanization-kekuatan-karet</loc>
+    <loc>https://www.jayarubberseal.com/blog/proses-vulcanization-kekuatan-karet</loc>
     <lastmod>2024-04-25</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/memahami-tingkat-kekerasan-karet-shore-a</loc>
+    <loc>https://www.jayarubberseal.com/blog/memahami-tingkat-kekerasan-karet-shore-a</loc>
     <lastmod>2024-05-03</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/rubber-bumper-fender-perlindungan-pabrik</loc>
+    <loc>https://www.jayarubberseal.com/blog/rubber-bumper-fender-perlindungan-pabrik</loc>
     <lastmod>2024-05-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/inovasi-diaphragm-rubber-seal-pompa</loc>
+    <loc>https://www.jayarubberseal.com/blog/inovasi-diaphragm-rubber-seal-pompa</loc>
     <lastmod>2024-05-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/solusi-karet-inflatable-seal</loc>
+    <loc>https://www.jayarubberseal.com/blog/solusi-karet-inflatable-seal</loc>
     <lastmod>2024-05-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/pentingnya-bellows-rubber-seal-shaft</loc>
+    <loc>https://www.jayarubberseal.com/blog/pentingnya-bellows-rubber-seal-shaft</loc>
     <lastmod>2024-06-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/perbandingan-polyurethane-vs-rubber-seal</loc>
+    <loc>https://www.jayarubberseal.com/blog/perbandingan-polyurethane-vs-rubber-seal</loc>
     <lastmod>2024-06-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://jayarubberseal.id/blog/pengujian-compression-set-rubber-seal</loc>
+    <loc>https://www.jayarubberseal.com/blog/pengujian-compression-set-rubber-seal</loc>
     <lastmod>2024-06-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
