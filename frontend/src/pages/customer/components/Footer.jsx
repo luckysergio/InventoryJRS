@@ -47,9 +47,7 @@ const Footer = () => {
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-ocean-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* ✅ Padding lebih compact di mobile */}
       <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-6 sm:pb-8">
-        {/* ✅ Grid: company full di mobile, menu+produk 2 kolom, kontak full */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-8">
           {/* Company */}
           <div className="col-span-2 lg:col-span-1">
@@ -92,16 +90,15 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Produk */}
+          {/* ✅ Produk — TEXT ONLY, tanpa redirect */}
           <div>
             <h4 className="text-sm font-bold uppercase tracking-wider text-brand-400 mb-4">Produk</h4>
             <ul className="space-y-2.5">
               {PRODUCT_CATEGORIES.map((cat) => (
                 <li key={cat}>
-                  <Link to="/products" className="group flex items-center gap-1 text-sm text-slate-300 hover:text-brand-400 transition-colors">
-                    <span>{cat}</span>
-                    <ArrowUpRight size={14} className="opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                  </Link>
+                  <span className="text-sm text-slate-300">
+                    {cat}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -157,12 +154,9 @@ const Footer = () => {
         </div>
 
         {/* Bottom */}
-        <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-center">
           <p className="text-xs sm:text-sm text-slate-400 text-center">
             © {currentYear} {COMPANY_INFO.name}. All rights reserved.
-          </p>
-          <p className="text-xs sm:text-sm text-slate-400 flex items-center gap-1">
-            Made with <Heart size={14} className="text-red-400 fill-red-400" /> in Jakarta
           </p>
         </div>
       </div>

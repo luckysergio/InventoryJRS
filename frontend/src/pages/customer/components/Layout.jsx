@@ -25,7 +25,7 @@ const Layout = () => {
 
       <Navbar />
 
-      <main id="main-content" className="flex-1 pt-[64px] sm:pt-[68px]" tabIndex="-1">
+      <main id="main-content" className="flex-1 pt-[68px] sm:pt-[84px]" tabIndex="-1">
         <Outlet />
       </main>
 

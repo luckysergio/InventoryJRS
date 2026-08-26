@@ -15,7 +15,7 @@ import ResetPassword from "./pages/admin/ResetPassword";
 // ==========================================
 const CustomerLayout = lazy(() => import("./pages/customer/components/Layout"));
 const HomePage = lazy(() => import("./pages/customer/HomePage"));
-// const ProductPublicPage = lazy(() => import("./pages/customer/ProductPublic"));
+const ProductsPage = lazy(() => import("./pages/customer/ProductsPage"));
 // const ProductCustomPage = lazy(() => import("./pages/customer/ProductCustom"));
 // const BlogPage = lazy(() => import("./pages/customer/BlogPage"));
 // const TentangPage = lazy(() => import("./pages/customer/TentangPage"));
@@ -94,7 +94,7 @@ function App() {
               ========================================== */}
           <Route element={<CustomerLayout />}>
             <Route path="/" element={<HomePage />} />
-            {/* <Route path="/products" element={<ProductPublicPage />} /> */}
+            <Route path="/products" element={<ProductsPage />} />
             {/* <Route path="/products/custom" element={<ProductCustomPage />} /> */}
             {/* <Route path="/blog" element={<BlogPage />} /> */}
             {/* <Route path="/tentang" element={<TentangPage />} /> */}
