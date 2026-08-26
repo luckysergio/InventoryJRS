@@ -69,6 +69,7 @@ class TypeProductController extends Controller
                 'data' => $types->map(fn($t) => [
                     'value' => $t->id,
                     'label' => $t->nama,
+                    'jenis_id' => $t->jenis_id,
                 ]),
             ]);
         } catch (\Throwable $e) {
@@ -90,6 +91,7 @@ class TypeProductController extends Controller
                 'data' => $types->map(fn($t) => [
                     'value' => $t->id,
                     'label' => $t->nama,
+                    'jenis_id' => $t->jenis_id,
                 ]),
             ]);
         } catch (\Throwable $e) {
@@ -102,6 +104,11 @@ class TypeProductController extends Controller
                 'message' => 'Gagal memuat data type product.',
             ], 500);
         }
+    }
+
+    public function master(Request $request): JsonResponse
+    {
+        return $this->dropdown($request);
     }
 
     public function statistics(): JsonResponse
@@ -155,7 +162,6 @@ class TypeProductController extends Controller
         try {
             $type = $this->typeProductService->create($request->validated());
 
-            // ✅ CROSS-INVALIDATION: Type → Jenis (karena `types_count` di stats) + Product
             $this->jenisProductService->invalidateCache();
             $this->productService->invalidateCache();
 
@@ -182,7 +188,6 @@ class TypeProductController extends Controller
         try {
             $updated = $this->typeProductService->update($typeProduct, $request->validated());
 
-            // ✅ CROSS-INVALIDATION: Type berubah → Jenis stats & Product cache harus refresh
             $this->jenisProductService->invalidateCache();
             $this->productService->invalidateCache();
 

@@ -38,13 +38,19 @@ Route::prefix('public')->group(function () {
     Route::get('/products/{id}', [PublicProductController::class, 'show'])
         ->where('id', '[0-9]+');
     Route::get('/products', [PublicProductController::class, 'index']);
+
     Route::get('/product-customs', [PublicProductCustomController::class, 'index']);
     Route::get('/product-customs/{id}', [PublicProductCustomController::class, 'show'])
         ->where('id', '[0-9]+');
     Route::get('/customers/{customerId}/products', [PublicProductCustomController::class, 'forCustomer'])
         ->where('customerId', '[0-9]+');
+
     Route::get('/jenis-products', [JenisProductController::class, 'master']);
+    
     Route::get('/type-products', [TypeProductController::class, 'master']);
+    
+    Route::get('/type-products/by-jenis/{jenisId}', [TypeProductController::class, 'getByJenis'])
+        ->where('jenisId', '[0-9]+');
 });
 
 Route::prefix('auth')->group(function () {

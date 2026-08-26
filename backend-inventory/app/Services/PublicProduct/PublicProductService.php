@@ -48,7 +48,6 @@ class PublicProductService
                     'products.updated_at',
                 ])
                 ->with([
-                    // ✅ HAPUS type hint Builder di closure with()
                     'jenis' => fn($q) => $q->select('id', 'nama'),
                     'type' => fn($q) => $q->select('id', 'nama'),
                     'bahan' => fn($q) => $q->select('id', 'nama'),
@@ -63,15 +62,15 @@ class PublicProductService
                         ->select('inventories.product_id', 'inventories.qty', 'places.kode as place_kode'),
                 ])
                 ->whereNull('products.customer_id')
-                ->when($search, function (Builder $q) use ($search): void {
-                    $q->where(function (Builder $sub) use ($search): void {
+                ->when($search, function ($q) use ($search) {
+                    $q->where(function ($sub) use ($search) {
                         $sub->where('products.kode', 'like', "%{$search}%")
                             ->orWhere('products.ukuran', 'like', "%{$search}%")
                             ->orWhereHas('jenis', fn($j) => $j->where('nama', 'like', "%{$search}%"));
                     });
                 })
-                ->when($jenisId, fn(Builder $q) => $q->where('products.jenis_id', $jenisId))
-                ->when($typeId, fn(Builder $q) => $q->where('products.type_id', $typeId))
+                ->when($jenisId, fn($q) => $q->where('products.jenis_id', $jenisId))
+                ->when($typeId, fn($q) => $q->where('products.type_id', $typeId))
                 ->orderBy('products.kode', 'asc');
 
             return $query->paginate($perPage, ['*'], 'page', $page);
@@ -94,7 +93,6 @@ class PublicProductService
 
         return Cache::remember($cacheKey, self::CACHE_TTL_DETAIL, function () use ($id): ?array {
             $product = Product::with([
-                    // ✅ Tanpa type hint
                     'jenis' => fn($q) => $q->select('id', 'nama'),
                     'type' => fn($q) => $q->select('id', 'nama'),
                     'bahan' => fn($q) => $q->select('id', 'nama'),
@@ -118,7 +116,7 @@ class PublicProductService
         $cacheKey = self::CACHE_AVAILABLE_KEY . $version;
 
         return Cache::remember($cacheKey, self::CACHE_TTL_AVAILABLE, function (): array {
-            $products = Product::whereHas('inventories', function (Builder $q): void {
+            $products = Product::whereHas('inventories', function ($q) {
                     $q->where('qty', '>', 0)
                       ->whereHas('place', fn($p) => $p->where('kode', 'TOKO'));
                 })
@@ -132,7 +130,6 @@ class PublicProductService
                     'products.foto_depan',
                 ])
                 ->with([
-                    // ✅ Tanpa type hint
                     'jenis' => fn($q) => $q->select('id', 'nama'),
                     'type' => fn($q) => $q->select('id', 'nama'),
                     'bahan' => fn($q) => $q->select('id', 'nama'),
@@ -209,7 +206,6 @@ class PublicProductService
 
                 $productIds = $aggregated->pluck('product_id')->toArray();
 
-                // ✅ FIX UTAMA: HAPUS type hint Builder di closure with()
                 $productsMap = Product::with([
                         'jenis' => fn($q) => $q->select('id', 'nama'),
                         'type' => fn($q) => $q->select('id', 'nama'),

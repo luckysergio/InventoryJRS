@@ -24,14 +24,6 @@ class ProductCustomerController extends Controller
         protected HargaProductService $hargaProductService
     ) {}
 
-    /**
-     * Invalidate SEMUA cache dalam ekosistem produk.
-     * 
-     * Dipanggil setelah CRUD product customer, karena perubahan akan mempengaruhi:
-     * - Product (master)
-     * - ProductDistributor (produk distributor)
-     * - HargaProduct (daftar harga)
-     */
     private function invalidateProductEcosystem(): void
     {
         $this->productService->invalidateCache();

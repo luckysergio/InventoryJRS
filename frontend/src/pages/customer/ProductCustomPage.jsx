@@ -4,16 +4,16 @@ import {
   X, ChevronRight, ChevronLeft,
   Package, SlidersHorizontal, Eye, CheckCircle2,
   AlertCircle, Tag, Layers, Loader2,
-  User, Ruler, Box, Wallet,
+  User, Ruler, Box, Wallet, Sparkles,
 } from 'lucide-react';
 import AOS from 'aos';
 import SEO from './components/SEO';
 import {
-  useAllProducts,
+  useAllProductCustoms,
   useJenisProducts,
   useTypeProducts,
-  useProductDetail,
-} from './hooks/usePublicProducts';
+  useProductCustomDetail,
+} from './hooks/useProductCustoms';
 import { cn } from '../../lib/utils';
 
 const ASSET_URL = import.meta.env.VITE_ASSET_URL || '';
@@ -42,10 +42,10 @@ const SkipNavigation = () => (
 );
 
 /* ==========================================
-   PRODUCT DETAIL MODAL
+   PRODUCT CUSTOM DETAIL MODAL
    ========================================== */
-const ProductDetailModal = ({ product, onClose }) => {
-  const { data: detail, isLoading } = useProductDetail(product?.id, {
+const ProductCustomDetailModal = ({ product, onClose }) => {
+  const { data: detail, isLoading } = useProductCustomDetail(product?.id, {
     enabled: !!product?.id,
   });
   const [activeImage, setActiveImage] = useState('depan');
@@ -80,7 +80,7 @@ const ProductDetailModal = ({ product, onClose }) => {
   const totalStok = (data?.qty_toko || 0) + (data?.qty_bengkel || 0);
 
   const waText = encodeURIComponent(
-    `Halo Jaya Rubber Seal, saya tertarik dengan produk ${data?.kode || ''} (${data?.jenis?.nama || ''} ${data?.type?.nama || ''}). Apakah tersedia?`
+    `Halo Jaya Rubber Seal, saya tertarik dengan produk custom ${data?.kode || ''} (${data?.jenis?.nama || ''} ${data?.type?.nama || ''}). Mohon info lebih lanjut.`
   );
 
   return (
@@ -89,22 +89,28 @@ const ProductDetailModal = ({ product, onClose }) => {
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="product-detail-title"
+      aria-labelledby="product-custom-detail-title"
     >
       <div
         className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0 bg-gradient-to-r from-brand-50 to-white">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0 bg-gradient-to-r from-purple-50 to-white">
           <div className="min-w-0">
-            <p className="text-xs font-mono text-slate-500">{data?.kode || '-'}</p>
+            <div className="flex items-center gap-2 mb-0.5">
+              <p className="text-xs font-mono text-slate-500">{data?.kode || '-'}</p>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold uppercase tracking-wider">
+                <Sparkles size={10} aria-hidden="true" />
+                Custom
+              </span>
+            </div>
             <h2
-              id="product-detail-title"
+              id="product-custom-detail-title"
               className="text-lg font-display font-bold text-slate-900 truncate"
             >
               {isLoading
                 ? 'Memuat detail...'
-                : [data?.jenis?.nama, data?.type?.nama].filter(Boolean).join(' ') || 'Detail Produk'}
+                : [data?.jenis?.nama, data?.type?.nama].filter(Boolean).join(' ') || 'Detail Produk Custom'}
             </h2>
           </div>
           <button
@@ -132,18 +138,20 @@ const ProductDetailModal = ({ product, onClose }) => {
           ) : (
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <div className="relative aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-brand-50 to-ocean-50 border border-slate-100">
+                <div className="relative aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-purple-50 to-ocean-50 border border-slate-100">
                   {currentImage ? (
                     <img
                       src={currentImage.url}
-                      alt={`Foto ${currentImage.label} ${data?.kode || 'produk'}`}
+                      alt={`Foto ${currentImage.label} ${data?.kode || 'produk custom'}`}
                       className="w-full h-full object-cover"
+                      style={{ aspectRatio: '1/1' }}
                       width="600"
                       height="600"
+                      loading="eager"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center" aria-hidden="true">
-                      <Package className="text-brand-300" size={56} />
+                      <Package className="text-purple-300" size={56} />
                     </div>
                   )}
                 </div>
@@ -157,8 +165,8 @@ const ProductDetailModal = ({ product, onClose }) => {
                         className={cn(
                           'w-16 h-16 rounded-xl overflow-hidden border-2 transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
                           currentImage?.key === img.key
-                            ? 'border-brand-500 ring-2 ring-brand-200'
-                            : 'border-slate-200 hover:border-brand-300'
+                            ? 'border-purple-500 ring-2 ring-purple-200'
+                            : 'border-slate-200 hover:border-purple-300'
                         )}
                         aria-label={`Foto ${img.label}`}
                         aria-pressed={currentImage?.key === img.key}
@@ -172,6 +180,9 @@ const ProductDetailModal = ({ product, onClose }) => {
 
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-xs font-semibold">
+                    Produk Custom
+                  </span>
                   {data?.jenis?.nama && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 border border-brand-200 text-xs font-semibold">
                       <Tag size={12} aria-hidden="true" />
@@ -192,10 +203,10 @@ const ProductDetailModal = ({ product, onClose }) => {
                   )}
                 </div>
 
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-50 to-ocean-50 border border-brand-100">
-                  <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Harga Umum</p>
-                  <p className="text-2xl sm:text-3xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-ocean-600">
-                    {formatRupiah(data?.harga_umum)}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-50 to-brand-50 border border-purple-100">
+                  <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Harga Custom</p>
+                  <p className="text-2xl sm:text-3xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-brand-600">
+                    {formatRupiah(data?.harga)}
                   </p>
                 </div>
 
@@ -249,10 +260,10 @@ const ProductDetailModal = ({ product, onClose }) => {
                   href={`https://wa.me/${WA_NUMBER}?text=${waText}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-brand-500 to-ocean-500 text-white font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-brand-500 text-white font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
                 >
                   <User size={18} aria-hidden="true" />
-                  Tanya Produk Ini
+                  Tanya Produk Custom Ini
                 </a>
               </div>
             </div>
@@ -264,11 +275,11 @@ const ProductDetailModal = ({ product, onClose }) => {
 };
 
 /* ==========================================
-   PRODUCT CARD
+   PRODUCT CUSTOM CARD
    ========================================== */
-const ProductCard = ({ product, index, onSelect }) => {
+const ProductCustomCard = ({ product, index, onSelect }) => {
   const imageUrl = resolveImage(product.foto_depan_url, product.foto_depan);
-  const productName = product.jenis?.nama || product.kode || 'Produk Rubber Seal';
+  const productName = product.jenis?.nama || product.kode || 'Produk Custom';
   const fullLabel = [product.kode, product.jenis?.nama, product.type?.nama, product.ukuran]
     .filter(Boolean)
     .join(' • ');
@@ -284,12 +295,12 @@ const ProductCard = ({ product, index, onSelect }) => {
           onSelect(product);
         }
       }}
-      className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 cursor-pointer"
+      className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 cursor-pointer"
       data-aos="fade-up"
       data-aos-delay={Math.min(index * 50, 300)}
-      aria-label={`Lihat detail produk ${fullLabel}`}
+      aria-label={`Lihat detail produk custom ${fullLabel}`}
     >
-      <div className="relative aspect-square bg-gradient-to-br from-brand-50 to-ocean-50 overflow-hidden">
+      <div className="relative aspect-square bg-gradient-to-br from-purple-50 to-ocean-50 overflow-hidden">
         {imageUrl ? (
           <img
             src={imageUrl}
@@ -302,9 +313,14 @@ const ProductCard = ({ product, index, onSelect }) => {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center" aria-hidden="true">
-            <Package className="text-brand-300" size={48} />
+            <Package className="text-purple-300" size={48} />
           </div>
         )}
+
+        <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-xs font-bold shadow-lg flex items-center gap-1">
+          <Sparkles size={12} aria-hidden="true" />
+          <span>Custom</span>
+        </div>
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4 pointer-events-none">
           <div className="flex items-center gap-2 text-white text-sm font-semibold">
@@ -316,7 +332,7 @@ const ProductCard = ({ product, index, onSelect }) => {
 
       <div className="p-5">
         <p className="text-xs font-mono text-slate-500 mb-1">{product.kode || '-'}</p>
-        <h3 className="font-display font-bold text-slate-900 mb-2 line-clamp-2 group-hover:text-brand-600 transition-colors min-h-[3rem]">
+        <h3 className="font-display font-bold text-slate-900 mb-2 line-clamp-2 group-hover:text-purple-600 transition-colors min-h-[3rem]">
           {productName} {product.type?.nama || ''}
         </h3>
 
@@ -335,7 +351,7 @@ const ProductCard = ({ product, index, onSelect }) => {
         )}
 
         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-          <span className="text-sm font-bold text-brand-600 flex items-center gap-1">
+          <span className="text-sm font-bold text-purple-600 flex items-center gap-1">
             Lihat Detail
             <ChevronRight
               size={16}
@@ -376,8 +392,7 @@ const ProductCardSkeleton = () => (
 );
 
 /* ==========================================
-   DESKTOP FILTER SIDEBAR (Desktop only)
-   Selalu visible, sticky, tanpa overlay
+   DESKTOP FILTER SIDEBAR
    ========================================== */
 const DesktopFilterSidebar = ({
   filters,
@@ -412,7 +427,6 @@ const DesktopFilterSidebar = ({
 
   return (
     <div className="sticky top-24 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-display font-bold text-slate-900 flex items-center gap-2">
           <SlidersHorizontal size={20} aria-hidden="true" />
@@ -421,7 +435,7 @@ const DesktopFilterSidebar = ({
         {activeFiltersCount > 0 && (
           <button
             onClick={clearFilters}
-            className="text-xs text-brand-600 hover:text-brand-700 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 rounded px-2 py-1"
+            className="text-xs text-purple-600 hover:text-purple-700 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 rounded px-2 py-1"
             aria-label="Hapus semua filter"
           >
             Hapus Semua
@@ -429,7 +443,6 @@ const DesktopFilterSidebar = ({
         )}
       </div>
 
-      {/* Jenis Produk */}
       <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
         <h3 className="font-display font-bold text-slate-900 mb-4 flex items-center gap-2">
           <Tag size={18} aria-hidden="true" />
@@ -446,9 +459,9 @@ const DesktopFilterSidebar = ({
             <button
               onClick={() => handleSelectJenis(null)}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-purple-500',
                 !filters.jenisId
-                  ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                  ? 'bg-purple-50 text-purple-700 border border-purple-200'
                   : 'text-slate-700 hover:bg-slate-50 border border-transparent'
               )}
               role="radio"
@@ -466,9 +479,9 @@ const DesktopFilterSidebar = ({
                   key={jenis.value}
                   onClick={() => handleSelectJenis(jenis.value)}
                   className={cn(
-                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
+                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-purple-500',
                     isActive
-                      ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                      ? 'bg-purple-50 text-purple-700 border border-purple-200'
                       : 'text-slate-700 hover:bg-slate-50 border border-transparent'
                   )}
                   role="radio"
@@ -483,7 +496,6 @@ const DesktopFilterSidebar = ({
         )}
       </div>
 
-      {/* Tipe Produk (cascade) */}
       <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
         <h3 className="font-display font-bold text-slate-900 mb-4 flex items-center gap-2">
           <Layers size={18} aria-hidden="true" />
@@ -506,7 +518,7 @@ const DesktopFilterSidebar = ({
             <button
               onClick={() => handleSelectType(null)}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-purple-500',
                 !filters.typeId
                   ? 'bg-ocean-50 text-ocean-700 border border-ocean-200'
                   : 'text-slate-700 hover:bg-slate-50 border border-transparent'
@@ -525,7 +537,7 @@ const DesktopFilterSidebar = ({
                   key={type.value}
                   onClick={() => handleSelectType(type.value)}
                   className={cn(
-                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
+                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-purple-500',
                     isActive
                       ? 'bg-ocean-50 text-ocean-700 border border-ocean-200'
                       : 'text-slate-700 hover:bg-slate-50 border border-transparent'
@@ -546,8 +558,7 @@ const DesktopFilterSidebar = ({
 };
 
 /* ==========================================
-   MOBILE QUICK FILTER CHIPS (Mobile only)
-   Horizontal scroll, tanpa tombol "Filter Lengkap"
+   ✅ MOBILE QUICK FILTER CHIPS (Fixed & Optimized)
    ========================================== */
 const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) => {
   const hasFilters = filters.jenisId || filters.typeId;
@@ -557,7 +568,6 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
       ...prev,
       jenisId: prev.jenisId === jenisId ? null : jenisId,
       typeId: null,
-      page: 1,
     }));
   };
 
@@ -565,7 +575,6 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
     setFilters((prev) => ({
       ...prev,
       typeId: prev.typeId === typeId ? null : typeId,
-      page: 1,
     }));
   };
 
@@ -573,14 +582,18 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
     setFilters((prev) => ({ ...prev, jenisId: null, typeId: null, page: 1 }));
   };
 
+  // ✅ Class wrapper untuk scroll horizontal yang aman (tanpa negative margin)
+  const scrollContainerClass = cn(
+    "flex gap-2 overflow-x-auto pb-3 w-full snap-x touch-pan-y"
+  );
+
   return (
     <div className="mb-6">
-      {/* Reset bar */}
       {hasFilters && (
         <div className="flex items-center gap-2 mb-3">
           <button
             onClick={clearFilters}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-red-600 text-sm font-medium hover:bg-red-50 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 whitespace-nowrap"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-red-600 text-sm font-medium bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 whitespace-nowrap"
             aria-label="Hapus semua filter"
           >
             <X size={14} aria-hidden="true" />
@@ -589,19 +602,18 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
         </div>
       )}
 
-      {/* Horizontal scroll chips for Jenis */}
       <div
-        className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4"
+        className={scrollContainerClass}
         role="radiogroup"
         aria-label="Filter jenis produk"
       >
         <button
           onClick={() => handleSelectJenis(null)}
           className={cn(
-            'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 border-2',
+            "snap-start inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 border-2 flex-shrink-0",
             !filters.jenisId
-              ? 'bg-brand-500 text-white border-brand-500 shadow-md'
-              : 'bg-white text-slate-700 border-slate-200 hover:border-brand-300'
+              ? "bg-purple-500 text-white border-purple-500 shadow-md focus:ring-purple-300"
+              : "bg-white text-slate-700 border-slate-200 hover:border-purple-300 focus:ring-purple-200"
           )}
           role="radio"
           aria-checked={!filters.jenisId}
@@ -617,10 +629,10 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
               key={jenis.value}
               onClick={() => handleSelectJenis(jenis.value)}
               className={cn(
-                'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 border-2',
+                "snap-start inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 border-2 flex-shrink-0",
                 isActive
-                  ? 'bg-brand-500 text-white border-brand-500 shadow-md'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-brand-300'
+                  ? "bg-purple-500 text-white border-purple-500 shadow-md focus:ring-purple-300"
+                  : "bg-white text-slate-700 border-slate-200 hover:border-purple-300 focus:ring-purple-200"
               )}
               role="radio"
               aria-checked={isActive}
@@ -632,10 +644,9 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
         })}
       </div>
 
-      {/* Horizontal scroll chips for Type (only when jenis selected) */}
       {filters.jenisId && typeList.length > 0 && (
         <div
-          className="flex gap-2 overflow-x-auto pb-2 mt-3 -mx-4 px-4"
+          className={cn(scrollContainerClass, "mt-2")}
           role="radiogroup"
           aria-label="Filter tipe produk"
           data-aos="fade-down"
@@ -643,10 +654,10 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
           <button
             onClick={() => handleSelectType(null)}
             className={cn(
-              'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-ocean-500 border-2',
+              "snap-start inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 border-2 flex-shrink-0",
               !filters.typeId
-                ? 'bg-ocean-500 text-white border-ocean-500 shadow-md'
-                : 'bg-white text-slate-700 border-slate-200 hover:border-ocean-300'
+                ? "bg-ocean-500 text-white border-ocean-500 shadow-md focus:ring-ocean-300"
+                : "bg-white text-slate-700 border-slate-200 hover:border-ocean-300 focus:ring-ocean-200"
             )}
             role="radio"
             aria-checked={!filters.typeId}
@@ -661,10 +672,10 @@ const MobileQuickFilterChips = ({ filters, setFilters, jenisList, typeList }) =>
                 key={type.value}
                 onClick={() => handleSelectType(type.value)}
                 className={cn(
-                  'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-ocean-500 border-2',
+                  "snap-start inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 border-2 flex-shrink-0",
                   isActive
-                    ? 'bg-ocean-500 text-white border-ocean-500 shadow-md'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-ocean-300'
+                    ? "bg-ocean-500 text-white border-ocean-500 shadow-md focus:ring-ocean-300"
+                    : "bg-white text-slate-700 border-slate-200 hover:border-ocean-300 focus:ring-ocean-200"
                 )}
                 role="radio"
                 aria-checked={isActive}
@@ -699,10 +710,10 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
         className={cn(
-          'flex items-center gap-1 px-4 py-2 rounded-xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
+          'flex items-center gap-1 px-4 py-2 rounded-xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500',
           currentPage === 1
             ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            : 'bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200'
+            : 'bg-white text-slate-700 hover:bg-purple-50 hover:text-purple-600 border border-slate-200'
         )}
         aria-label="Halaman sebelumnya"
       >
@@ -714,7 +725,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         <>
           <button
             onClick={() => onPageChange(1)}
-            className="w-10 h-10 rounded-xl bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="w-10 h-10 rounded-xl bg-white text-slate-700 hover:bg-purple-50 hover:text-purple-600 border border-slate-200 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500"
             aria-label="Halaman 1"
           >
             1
@@ -728,10 +739,10 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
           key={page}
           onClick={() => onPageChange(page)}
           className={cn(
-            'w-10 h-10 rounded-xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
+            'w-10 h-10 rounded-xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500',
             page === currentPage
-              ? 'bg-gradient-to-r from-brand-500 to-ocean-500 text-white shadow-md'
-              : 'bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200'
+              ? 'bg-gradient-to-r from-purple-500 to-brand-500 text-white shadow-md'
+              : 'bg-white text-slate-700 hover:bg-purple-50 hover:text-purple-600 border border-slate-200'
           )}
           aria-label={`Halaman ${page}`}
           aria-current={page === currentPage ? 'page' : undefined}
@@ -745,7 +756,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
           {end < totalPages - 1 && <span className="px-2 text-slate-400" aria-hidden="true">...</span>}
           <button
             onClick={() => onPageChange(totalPages)}
-            className="w-10 h-10 rounded-xl bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="w-10 h-10 rounded-xl bg-white text-slate-700 hover:bg-purple-50 hover:text-purple-600 border border-slate-200 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500"
             aria-label={`Halaman ${totalPages}`}
           >
             {totalPages}
@@ -757,10 +768,10 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
         className={cn(
-          'flex items-center gap-1 px-4 py-2 rounded-xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-500',
+          'flex items-center gap-1 px-4 py-2 rounded-xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-purple-500',
           currentPage === totalPages
             ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            : 'bg-white text-slate-700 hover:bg-brand-50 hover:text-brand-600 border border-slate-200'
+            : 'bg-white text-slate-700 hover:bg-purple-50 hover:text-purple-600 border border-slate-200'
         )}
         aria-label="Halaman berikutnya"
       >
@@ -776,16 +787,16 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
    ========================================== */
 const EmptyState = ({ onClearFilters }) => (
   <div className="text-center py-16 px-4">
-    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-100 mb-6" aria-hidden="true">
-      <Package size={40} className="text-slate-400" />
+    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-purple-100 mb-6" aria-hidden="true">
+      <Sparkles size={40} className="text-purple-400" />
     </div>
-    <h3 className="text-xl font-display font-bold text-slate-900 mb-2">Produk Tidak Ditemukan</h3>
+    <h3 className="text-xl font-display font-bold text-slate-900 mb-2">Produk Custom Tidak Ditemukan</h3>
     <p className="text-slate-600 mb-6 max-w-md mx-auto">
-      Maaf, tidak ada produk yang sesuai dengan filter yang Anda pilih. Coba ubah filter atau hapus semua filter untuk melihat semua produk.
+      Maaf, tidak ada produk custom yang sesuai dengan filter yang Anda pilih. Coba ubah filter atau hapus semua filter.
     </p>
     <button
       onClick={onClearFilters}
-      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-brand-500 to-ocean-500 text-white font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-brand-500 text-white font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
     >
       <X size={18} aria-hidden="true" />
       Hapus Semua Filter
@@ -800,11 +811,11 @@ const ErrorState = ({ onRetry }) => (
     </div>
     <h3 className="text-xl font-display font-bold text-slate-900 mb-2">Terjadi Kesalahan</h3>
     <p className="text-slate-600 mb-6 max-w-md mx-auto">
-      Maaf, kami tidak dapat memuat daftar produk. Silakan coba lagi nanti atau hubungi tim support kami.
+      Maaf, kami tidak dapat memuat daftar produk custom. Silakan coba lagi nanti.
     </p>
     <button
       onClick={onRetry}
-      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-brand-500 to-ocean-500 text-white font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-brand-500 text-white font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
     >
       Coba Lagi
     </button>
@@ -812,9 +823,9 @@ const ErrorState = ({ onRetry }) => (
 );
 
 /* ==========================================
-   PRODUCTS PAGE - MAIN
+   PRODUCT CUSTOM PAGE - MAIN
    ========================================== */
-const ProductsPage = () => {
+const ProductCustomPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedProduct, setSelectedProduct] = useState(null);
 
@@ -833,7 +844,7 @@ const ProductsPage = () => {
     isLoading,
     error,
     refetch,
-  } = useAllProducts({
+  } = useAllProductCustoms({
     page: filters.page,
     pageSize: filters.pageSize,
     jenisId: filters.jenisId,
@@ -844,7 +855,6 @@ const ProductsPage = () => {
   const totalProducts = productsData.total || 0;
   const totalPages = productsData.lastPage || 1;
 
-  // Sync URL
   useEffect(() => {
     const params = new URLSearchParams();
     if (filters.jenisId) params.set('jenis_id', filters.jenisId.toString());
@@ -854,18 +864,28 @@ const ProductsPage = () => {
     setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);
 
-  // AOS
   useEffect(() => {
     AOS.init({ duration: 800, once: true, offset: 50 });
     const timer = setTimeout(() => AOS.refresh(), 100);
     return () => clearTimeout(timer);
   }, []);
 
-  // Reset page when filter changes
+  // ✅ FIX: Mencegah warning exhaustive-deps dan reset page yang tidak perlu
+  const prevFiltersRef = useRef({ jenisId: filters.jenisId, typeId: filters.typeId, pageSize: filters.pageSize });
+
   useEffect(() => {
-    setFilters((prev) => ({ ...prev, page: 1 }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.jenisId, filters.typeId, filters.pageSize]);
+    const prev = prevFiltersRef.current;
+    const hasFilterChanged = 
+      prev.jenisId !== filters.jenisId || 
+      prev.typeId !== filters.typeId || 
+      prev.pageSize !== filters.pageSize;
+
+    if (hasFilterChanged && filters.page !== 1) {
+      setFilters((prev) => ({ ...prev, page: 1 }));
+    }
+    
+    prevFiltersRef.current = { jenisId: filters.jenisId, typeId: filters.typeId, pageSize: filters.pageSize };
+  }, [filters.jenisId, filters.typeId, filters.pageSize, filters.page]);
 
   const handlePageChange = (page) => {
     setFilters((prev) => ({ ...prev, page }));
@@ -883,12 +903,12 @@ const ProductsPage = () => {
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Beranda', item: import.meta.env.VITE_SITE_URL || 'https://jayarubberseal.id' },
-          { '@type': 'ListItem', position: 2, name: 'Semua Produk', item: `${import.meta.env.VITE_SITE_URL || 'https://jayarubberseal.id'}/products` },
+          { '@type': 'ListItem', position: 2, name: 'Produk Custom', item: `${import.meta.env.VITE_SITE_URL || 'https://jayarubberseal.id'}/product-customs` },
         ],
       },
       {
         '@type': 'ItemList',
-        name: 'Katalog Produk Rubber Seal',
+        name: 'Katalog Produk Custom Rubber Seal',
         numberOfItems: totalProducts,
         itemListElement: products.slice(0, 20).map((product, index) => ({
           '@type': 'ListItem',
@@ -897,7 +917,7 @@ const ProductsPage = () => {
             '@type': 'Product',
             name: [product.jenis?.nama, product.type?.nama, product.ukuran].filter(Boolean).join(' ') || product.kode,
             sku: product.kode,
-            description: product.keterangan || 'Produk rubber seal berkualitas',
+            description: product.keterangan || 'Produk rubber seal custom berkualitas',
             image: resolveImage(product.foto_depan_url, product.foto_depan) || '',
             brand: { '@type': 'Brand', name: 'Jaya Rubber Seal' },
           },
@@ -910,26 +930,30 @@ const ProductsPage = () => {
     <>
       <SkipNavigation />
       <SEO
-        title="Semua Produk"
-        description="Jelajahi katalog lengkap produk rubber seal, o-ring, gasket, mounting karet, dan seal industri berkualitas tinggi dari Jaya Rubber Seal. Harga pabrik langsung."
-        keywords="produk rubber seal, katalog rubber seal, daftar produk karet, o-ring, gasket, mounting karet, oil seal"
+        title="Produk Custom"
+        description="Katalog produk rubber seal custom berkualitas tinggi dari Jaya Rubber Seal. Produk pesanan khusus dengan harga khusus sesuai kebutuhan Anda."
+        keywords="produk custom rubber seal, karet custom, pesanan khusus, o-ring custom, gasket custom, mounting custom"
         schema={productsSchema}
       />
       <main id="main-content" tabIndex="-1">
-        <h1 className="sr-only">Semua Produk Rubber Seal — Jaya Rubber Seal</h1>
+        <h1 className="sr-only">Produk Custom Rubber Seal — Jaya Rubber Seal</h1>
 
-        {/* Slim header */}
-        <section className="relative pt-6 sm:pt-8 pb-2 bg-gradient-to-br from-white via-brand-50 to-ocean-50">
+        <section className="relative pt-6 sm:pt-8 pb-2 bg-gradient-to-br from-white via-purple-50 to-ocean-50">
           <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-            <div className="absolute top-10 right-10 w-72 h-72 bg-brand-200/30 rounded-full blur-3xl animate-float" />
+            <div className="absolute top-10 right-10 w-72 h-72 bg-purple-200/30 rounded-full blur-3xl animate-float" />
             <div className="absolute bottom-10 left-10 w-96 h-96 bg-ocean-200/30 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }} />
           </div>
 
           <div className="relative container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
-                Katalog Produk
-              </h2>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-brand-500 flex items-center justify-center shadow-md">
+                  <Sparkles className="text-white" size={20} aria-hidden="true" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
+                  Produk Custom
+                </h2>
+              </div>
               <div className="flex items-center gap-2 text-sm text-slate-600" aria-live="polite">
                 <Package size={18} aria-hidden="true" />
                 <span className="font-semibold text-slate-900">
@@ -941,11 +965,9 @@ const ProductsPage = () => {
           </div>
         </section>
 
-        {/* Products Section */}
-        <section className="py-6 sm:py-10 bg-white" aria-label="Daftar produk">
+        <section className="py-6 sm:py-10 bg-white" aria-label="Daftar produk custom">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex gap-8">
-              {/* ✅ DESKTOP ONLY: Sidebar kiri, selalu visible, sticky */}
               <aside className="hidden lg:block lg:w-72 flex-shrink-0">
                 <DesktopFilterSidebar
                   filters={filters}
@@ -958,7 +980,6 @@ const ProductsPage = () => {
               </aside>
 
               <div className="flex-1 min-w-0">
-                {/* ✅ MOBILE ONLY: Quick filter chips di atas grid */}
                 <div className="lg:hidden">
                   <MobileQuickFilterChips
                     filters={filters}
@@ -981,7 +1002,7 @@ const ProductsPage = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" role="list">
                       {products.map((product, index) => (
                         <div key={product.id} role="listitem">
-                          <ProductCard
+                          <ProductCustomCard
                             product={product}
                             index={index}
                             onSelect={setSelectedProduct}
@@ -1005,9 +1026,8 @@ const ProductsPage = () => {
         </section>
       </main>
 
-      {/* Modal Detail */}
       {selectedProduct && (
-        <ProductDetailModal
+        <ProductCustomDetailModal
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
         />
@@ -1016,4 +1036,4 @@ const ProductsPage = () => {
   );
 };
 
-export default ProductsPage;
+export default ProductCustomPage;
