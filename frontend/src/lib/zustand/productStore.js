@@ -5,20 +5,14 @@ import { useShallow } from 'zustand/react/shallow';
 export const useProductStore = create(
   devtools(
     (set, get) => ({
-      // ============================================
-      // FILTER & PAGINATION STATE
-      // ============================================
       filters: {
         search: '',
         jenisId: '',
         typeId: '',
-        perPage: 15,
+        perPage: 20,
       },
       currentPage: 1,
 
-      // ============================================
-      // UI / MODAL STATE
-      // ============================================
       modals: {
         create: false,
         edit: false,
@@ -26,9 +20,6 @@ export const useProductStore = create(
       },
       selectedProduct: null,
 
-      // ============================================
-      // ACTIONS: FILTER & PAGINATION
-      // ============================================
       setSearch: (search) =>
         set((state) => ({ filters: { ...state.filters, search }, currentPage: 1 }), false, 'setSearch'),
 
@@ -41,11 +32,8 @@ export const useProductStore = create(
       setCurrentPage: (page) => set({ currentPage: page }, false, 'setCurrentPage'),
 
       resetFilters: () =>
-        set({ filters: { search: '', jenisId: '', typeId: '', perPage: 15 }, currentPage: 1 }, false, 'resetFilters'),
+        set({ filters: { search: '', jenisId: '', typeId: '', perPage: 20 }, currentPage: 1 }, false, 'resetFilters'),
 
-      // ============================================
-      // ACTIONS: MODAL MANAGEMENT
-      // ============================================
       openCreateModal: () =>
         set((state) => ({ modals: { ...state.modals, create: true, edit: false, detail: false }, selectedProduct: null }), false, 'openCreateModal'),
 
@@ -58,9 +46,6 @@ export const useProductStore = create(
       closeAllModals: () =>
         set({ modals: { create: false, edit: false, detail: false }, selectedProduct: null }, false, 'closeAllModals'),
 
-      // ============================================
-      // GETTERS
-      // ============================================
       getQueryParams: () => {
         const { filters, currentPage } = get();
         return {
@@ -81,9 +66,6 @@ export const useProductStore = create(
   )
 );
 
-// ============================================
-// SELECTORS DENGAN useShallow (FIX INFINITE LOOP)
-// ============================================
 export const useProductFilters = () => {
   return useProductStore(
     useShallow((state) => ({

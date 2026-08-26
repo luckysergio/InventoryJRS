@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow';
 export const useProductCustomerStore = create(
   devtools(
     (set, get) => ({
-      filters: { search: '', customerId: '', perPage: 15 },
+      filters: { search: '', customerId: '', perPage: 20 },
       currentPage: 1,
 
       modals: {
@@ -14,7 +14,6 @@ export const useProductCustomerStore = create(
       },
       selectedItem: null,
 
-      // Filter & Pagination
       setSearch: (search) =>
         set((s) => ({ filters: { ...s.filters, search }, currentPage: 1 }), false, 'setSearch'),
 
@@ -24,9 +23,8 @@ export const useProductCustomerStore = create(
       setCurrentPage: (page) => set({ currentPage: page }, false, 'setCurrentPage'),
 
       resetFilters: () =>
-        set({ filters: { search: '', customerId: '', perPage: 15 }, currentPage: 1 }, false, 'resetFilters'),
+        set({ filters: { search: '', customerId: '', perPage: 20 }, currentPage: 1 }, false, 'resetFilters'),
 
-      // Modals
       openCreateModal: () =>
         set({ modals: { form: true, detail: false }, selectedItem: null }, false, 'openCreateModal'),
 
@@ -39,7 +37,6 @@ export const useProductCustomerStore = create(
       closeAllModals: () =>
         set({ modals: { form: false, detail: false }, selectedItem: null }, false, 'closeAllModals'),
 
-      // Getters
       getQueryParams: () => {
         const { filters, currentPage } = get();
         return {

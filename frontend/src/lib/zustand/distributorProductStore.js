@@ -9,7 +9,7 @@ export const useDistributorProductStore = create(
         search: '',
         jenisId: '',
         typeId: '',
-        perPage: 15,
+        perPage: 20,
       },
       currentPage: 1,
 
@@ -32,7 +32,7 @@ export const useDistributorProductStore = create(
       setCurrentPage: (page) => set({ currentPage: page }, false, 'setCurrentPage'),
 
       resetFilters: () =>
-        set({ filters: { search: '', jenisId: '', typeId: '', perPage: 15 }, currentPage: 1 }, false, 'resetFilters'),
+        set({ filters: { search: '', jenisId: '', typeId: '', perPage: 20 }, currentPage: 1 }, false, 'resetFilters'),
 
       openCreateModal: () =>
         set((state) => ({ modals: { ...state.modals, create: true, edit: false, detail: false }, selectedItem: null }), false, 'openCreateModal'),
