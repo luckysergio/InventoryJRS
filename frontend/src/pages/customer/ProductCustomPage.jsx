@@ -181,6 +181,7 @@ const ProductCustomDetailModal = ({ product, onClose }) => {
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-xs font-semibold">
+                    <Sparkles size={12} aria-hidden="true" />
                     Produk Custom
                   </span>
                   {data?.jenis?.nama && (
@@ -947,9 +948,6 @@ const ProductCustomPage = () => {
           <div className="relative container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-brand-500 flex items-center justify-center shadow-md">
-                  <Sparkles className="text-white" size={20} aria-hidden="true" />
-                </div>
                 <h2 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
                   Produk Custom
                 </h2>

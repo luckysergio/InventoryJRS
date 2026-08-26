@@ -17,8 +17,9 @@ const CustomerLayout = lazy(() => import("./pages/customer/components/Layout"));
 const HomePage = lazy(() => import("./pages/customer/HomePage"));
 const ProductsPage = lazy(() => import("./pages/customer/ProductsPage"));
 const ProductCustomPage = lazy(() => import("./pages/customer/ProductCustomPage"));
-// const BlogPage = lazy(() => import("./pages/customer/BlogPage"));
-// const TentangPage = lazy(() => import("./pages/customer/TentangPage"));
+const BlogPage = lazy(() => import("./pages/customer/BlogPage"));
+const BlogDetailPage = lazy(() => import("./pages/customer/BlogDetailPage"));
+const TentangPage = lazy(() => import("./pages/customer/TentangPage"));
 
 // ==========================================
 // ADMIN (Lazy)
@@ -88,16 +89,13 @@ function App() {
     <BrowserRouter>
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          {/* ==========================================
-              PUBLIC / CUSTOMER — DIBUNGKUS CustomerLayout
-              (Ini yang bikin Navbar + Footer MUNCUL)
-              ========================================== */}
           <Route element={<CustomerLayout />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/products/custom" element={<ProductCustomPage />} />
-            {/* <Route path="/blog" element={<BlogPage />} /> */}
-            {/* <Route path="/tentang" element={<TentangPage />} /> */}
+            <Route path="/blog" element={<BlogPage />} />
+            <Route path="/blog/:slug" element={<BlogDetailPage />} />
+            <Route path="/tentang" element={<TentangPage />} />
           </Route>
 
           {/* AUTH */}

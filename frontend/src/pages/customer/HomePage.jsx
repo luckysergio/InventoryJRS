@@ -67,7 +67,7 @@ const FEATURES = [
 const CATEGORIES = [
   {
     name: 'O-Ring',
-    path: '/products?category=o-ring',
+    path: '/products',
     description: 'O-ring berbagai ukuran dan material (NBR, Viton, Silicone, EPDM) untuk sealing industri dan otomotif.',
     icon: CircleDot,
     badge: 'Best Seller',
@@ -75,7 +75,7 @@ const CATEGORIES = [
   },
   {
     name: 'Gasket',
-    path: '/products?category=gasket',
+    path: '/products',
     description: 'Gasket karet tahan panas, oli, dan kimia untuk aplikasi mesin industri, pipa, dan flange.',
     icon: Layers,
     badge: 'Populer',
@@ -83,7 +83,7 @@ const CATEGORIES = [
   },
   {
     name: 'Rubber Mounting',
-    path: '/products?category=mounting',
+    path: '/products',
     description: 'Mounting karet anti-vibrasi untuk mesin, genset, kendaraan, dan peralatan industri berat.',
     icon: Wrench,
     badge: 'Tersedia',
@@ -91,7 +91,7 @@ const CATEGORIES = [
   },
   {
     name: 'Custom Rubber',
-    path: '/products?category=custom',
+    path: '/products/custom',
     description: 'Layanan produksi karet custom sesuai gambar teknis dan spesifikasi khusus proyek Anda.',
     icon: Cog,
     badge: 'On Demand',
