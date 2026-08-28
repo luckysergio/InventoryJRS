@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
-  X, Image as ImageIcon, Camera, Tag, User, Loader2, AlertCircle,
+  X, Image as ImageIcon, Camera, User, Loader2, AlertCircle,
   CheckCircle, Truck, Plus, ChevronUp, ChevronDown, Search,
 } from "lucide-react";
 import { useProductCustomerModals } from "../../../lib/zustand/productCustomerStore";
@@ -99,6 +99,7 @@ const ProductCustomerForm = () => {
   const [form, setForm] = useState({ customer_id: "", jenis_id: "", type_id: "", bahan_id: "", ukuran: "", keterangan: "", harga: "" });
   const [newInputs, setNewInputs] = useState({ jenis: "", type: "", bahan: "" });
   const [fotos, setFotos] = useState({ depan: null, samping: null, atas: null });
+  const [removedFotos, setRemovedFotos] = useState({ depan: false, samping: false, atas: false });
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [isCreatingNewCustomer, setIsCreatingNewCustomer] = useState(false);
@@ -138,6 +139,7 @@ const ProductCustomerForm = () => {
         samping: selectedItem.foto_samping_url || (selectedItem.foto_samping ? `${ASSET_URL}/storage/${selectedItem.foto_samping}` : null),
         atas: selectedItem.foto_atas_url || (selectedItem.foto_atas ? `${ASSET_URL}/storage/${selectedItem.foto_atas}` : null),
       });
+      setRemovedFotos({ depan: false, samping: false, atas: false });
       setNewInputs({ jenis: "", type: "", bahan: "" });
       setErrors({}); setTouched({});
       setIsCreatingNewCustomer(false); setNewCustForm({ name: "", phone: "", email: "" });
@@ -145,6 +147,7 @@ const ProductCustomerForm = () => {
     } else if (isCreate) {
       setForm({ customer_id: "", jenis_id: "", type_id: "", bahan_id: "", ukuran: "", keterangan: "", harga: "" });
       setFotos({ depan: null, samping: null, atas: null });
+      setRemovedFotos({ depan: false, samping: false, atas: false });
       setNewInputs({ jenis: "", type: "", bahan: "" });
       setErrors({}); setTouched({});
       setIsCreatingNewCustomer(false); setNewCustForm({ name: "", phone: "", email: "" });
@@ -152,12 +155,10 @@ const ProductCustomerForm = () => {
     }
   }, [isEdit, isCreate, selectedItem, modals.form]);
 
-  // ✅ FIX: Tunggu types load sebelum initialized
   useEffect(() => {
     if (isEdit && !loadingTypes && !isInitialized) setIsInitialized(true);
   }, [isEdit, loadingTypes, isInitialized]);
 
-  // ✅ FIX: Auto-reset HANYA setelah initialized DAN types sudah load
   useEffect(() => {
     if (!isInitialized || loadingTypes) return;
     if (isNewJenis || isNewType) return;
@@ -203,6 +204,16 @@ const ProductCustomerForm = () => {
     if (file.size > 5 * 1024 * 1024) { info("Error", "Ukuran file maksimal 5MB"); return; }
     if (!["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(file.type)) { info("Error", "Hanya JPG/PNG/WebP"); return; }
     setFotos((prev) => ({ ...prev, [field]: file }));
+    setRemovedFotos((prev) => ({ ...prev, [field]: false }));
+    e.target.value = "";
+  };
+
+  const handleRemoveFoto = (field) => {
+    const current = fotos[field];
+    if (typeof current === "string" && current) {
+      setRemovedFotos((prev) => ({ ...prev, [field]: true }));
+    }
+    setFotos((prev) => ({ ...prev, [field]: null }));
   };
 
   const handleCreateNewCustomer = async () => {
@@ -235,9 +246,14 @@ const ProductCustomerForm = () => {
     if (isNewBahan) formData.append("bahan_nama", newInputs.bahan.trim().toUpperCase());
     else if (form.bahan_id) formData.append("bahan_id", form.bahan_id);
 
-    if (fotos.depan instanceof File) formData.append("foto_depan", fotos.depan);
-    if (fotos.samping instanceof File) formData.append("foto_samping", fotos.samping);
-    if (fotos.atas instanceof File) formData.append("foto_atas", fotos.atas);
+    ["depan", "samping", "atas"].forEach((field) => {
+      const foto = fotos[field];
+      if (foto instanceof File) {
+        formData.append(`foto_${field}`, foto);
+      } else if (isEdit && removedFotos[field]) {
+        formData.append(`remove_foto_${field}`, "1");
+      }
+    });
 
     try {
       if (isEdit) {
@@ -264,18 +280,41 @@ const ProductCustomerForm = () => {
   const renderFotoInput = (label, field) => {
     const foto = fotos[field];
     const preview = foto instanceof File ? URL.createObjectURL(foto) : foto;
+    const showRemoveIndicator = removedFotos[field] && !(foto instanceof File);
     return (
       <div className="space-y-1.5">
         <label className="block text-xs font-medium text-slate-600 text-center">{label}</label>
         <div className="flex flex-col items-center gap-1.5">
           <div className="relative">
-            {preview ? <img src={preview} alt={label} className="w-16 h-16 object-cover rounded-lg border border-slate-200" /> : <div className="w-16 h-16 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50"><ImageIcon size={20} className="text-slate-400" /></div>}
-            {preview && <button type="button" onClick={() => setFotos((prev) => ({ ...prev, [field]: null }))} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm hover:bg-red-600 transition">×</button>}
+            {preview ? (
+              <img src={preview} alt={label} className="w-16 h-16 object-cover rounded-lg border border-slate-200" />
+            ) : (
+              <div className="w-16 h-16 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50">
+                <ImageIcon size={20} className="text-slate-400" />
+              </div>
+            )}
+            {preview && (
+              <button
+                type="button"
+                onClick={() => handleRemoveFoto(field)}
+                className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm hover:bg-red-600 transition"
+                title="Hapus foto"
+              >
+                ×
+              </button>
+            )}
           </div>
           <div className="flex gap-1">
-            <button type="button" onClick={() => fileRefs[field].current?.click()} className="text-[10px] px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition">Galeri</button>
-            <button type="button" onClick={() => camRefs[field].current?.click()} className="text-[10px] px-2 py-1 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 transition flex items-center gap-0.5"><Camera size={9} /> Kamera</button>
+            <button type="button" onClick={() => fileRefs[field].current?.click()} className="text-[10px] px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition">
+              Galeri
+            </button>
+            <button type="button" onClick={() => camRefs[field].current?.click()} className="text-[10px] px-2 py-1 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 transition flex items-center gap-0.5">
+              <Camera size={9} /> Kamera
+            </button>
           </div>
+          {showRemoveIndicator && (
+            <p className="text-[10px] text-red-500 text-center">Akan dihapus saat disimpan</p>
+          )}
         </div>
         <input type="file" ref={fileRefs[field]} accept="image/*" onChange={(e) => handleFileChange(e, field)} className="hidden" />
         <input type="file" ref={camRefs[field]} accept="image/*" capture="environment" onChange={(e) => handleFileChange(e, field)} className="hidden" />
@@ -288,33 +327,105 @@ const ProductCustomerForm = () => {
       <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-modalIn ring-1 ring-black/5 max-h-[90vh] flex flex-col">
         <div className={cn("px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0", isEdit ? "bg-gradient-to-r from-amber-50 to-white" : "bg-gradient-to-r from-blue-50 to-white")}>
           <div className="flex items-center gap-3">
-            <div className={cn("p-2 rounded-lg", isEdit ? "bg-amber-100" : "bg-blue-100")}><Truck className={cn("w-5 h-5", isEdit ? "text-amber-600" : "text-blue-600")} /></div>
+            <div className={cn("p-2 rounded-lg", isEdit ? "bg-amber-100" : "bg-blue-100")}>
+              <Truck className={cn("w-5 h-5", isEdit ? "text-amber-600" : "text-blue-600")} />
+            </div>
             <h2 className="text-lg font-semibold text-slate-900">{isEdit ? "Edit Produk Customer" : "Tambah Produk Customer"}</h2>
           </div>
-          <button onClick={handleCancel} className="p-2 hover:bg-slate-100 rounded-lg transition-colors" disabled={isSubmitting}><X className="w-5 h-5 text-slate-500" /></button>
+          <button onClick={handleCancel} className="p-2 hover:bg-slate-100 rounded-lg transition-colors" disabled={isSubmitting}>
+            <X className="w-5 h-5 text-slate-500" />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Kode Product <span className="text-slate-400 font-normal">(Auto-generated)</span></label>
-            <div className={cn("w-full px-4 py-2.5 border rounded-lg font-mono font-semibold tracking-wider text-center transition-colors", kodePreview !== "—" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-slate-100 border-slate-200 text-slate-400")}>{isEdit ? (selectedItem?.kode || kodePreview) : kodePreview}</div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Kode Product <span className="text-slate-400 font-normal">(Auto-generated)</span>
+            </label>
+            <div className={cn("w-full px-4 py-2.5 border rounded-lg font-mono font-semibold tracking-wider text-center transition-colors", kodePreview !== "—" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-slate-100 border-slate-200 text-slate-400")}>
+              {isEdit ? (selectedItem?.kode || kodePreview) : kodePreview}
+            </div>
           </div>
 
           {!isEdit && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer <span className="text-red-500">*</span></label>
-              <SearchableCustomerDropdown customers={customersOptions} selectedValue={form.customer_id} onSelect={(val) => { setIsCreatingNewCustomer(false); setForm((p) => ({ ...p, customer_id: val })); setErrors((p) => ({ ...p, customer_id: undefined })); }} onCreateNew={() => { setIsCreatingNewCustomer(true); setForm((p) => ({ ...p, customer_id: "" })); }} />
-              {errors.customer_id && touched.customer_id && <p className="mt-1 text-xs text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.customer_id}</p>}
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Customer <span className="text-red-500">*</span>
+              </label>
+              <SearchableCustomerDropdown
+                customers={customersOptions}
+                selectedValue={form.customer_id}
+                onSelect={(val) => {
+                  setIsCreatingNewCustomer(false);
+                  setForm((p) => ({ ...p, customer_id: val }));
+                  setErrors((p) => ({ ...p, customer_id: undefined }));
+                }}
+                onCreateNew={() => {
+                  setIsCreatingNewCustomer(true);
+                  setForm((p) => ({ ...p, customer_id: "" }));
+                }}
+              />
+              {errors.customer_id && touched.customer_id && (
+                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.customer_id}
+                </p>
+              )}
               {isCreatingNewCustomer && (
                 <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200 space-y-3 animate-fadeIn">
-                  <p className="text-xs font-medium text-blue-800 flex items-center gap-1"><User size={12} /> Buat Customer Baru</p>
-                  <input type="text" placeholder="Nama Customer *" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none" value={newCustForm.name} onChange={(e) => setNewCustForm((p) => ({ ...p, name: e.target.value }))} />
-                  <input type="tel" placeholder="Nomor HP" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none" value={newCustForm.phone} onChange={(e) => setNewCustForm((p) => ({ ...p, phone: e.target.value }))} />
-                  <input type="email" placeholder="Email (opsional)" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none" value={newCustForm.email} onChange={(e) => setNewCustForm((p) => ({ ...p, email: e.target.value }))} />
+                  <p className="text-xs font-medium text-blue-800 flex items-center gap-1">
+                    <User size={12} /> Buat Customer Baru
+                  </p>
+                  <input
+                    type="text"
+                    placeholder="Nama Customer *"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                    value={newCustForm.name}
+                    onChange={(e) => setNewCustForm((p) => ({ ...p, name: e.target.value }))}
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Nomor HP"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                    value={newCustForm.phone}
+                    onChange={(e) => setNewCustForm((p) => ({ ...p, phone: e.target.value }))}
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email (opsional)"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                    value={newCustForm.email}
+                    onChange={(e) => setNewCustForm((p) => ({ ...p, email: e.target.value }))}
+                  />
                   {errors.new_customer && <p className="text-xs text-red-600">{errors.new_customer}</p>}
                   <div className="flex gap-2">
-                    <button type="button" onClick={handleCreateNewCustomer} disabled={createCustomerMut.isPending} className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-1 disabled:opacity-50">{createCustomerMut.isPending ? <><Loader2 size={14} className="animate-spin" /> Menyimpan...</> : <><CheckCircle size={14} /> Simpan & Pilih</>}</button>
-                    <button type="button" onClick={() => { setIsCreatingNewCustomer(false); setNewCustForm({ name: "", phone: "", email: "" }); setErrors((p) => ({ ...p, new_customer: undefined })); }} className="px-3 py-2 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200 transition">Batal</button>
+                    <button
+                      type="button"
+                      onClick={handleCreateNewCustomer}
+                      disabled={createCustomerMut.isPending}
+                      className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-1 disabled:opacity-50"
+                    >
+                      {createCustomerMut.isPending ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" /> Menyimpan...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle size={14} /> Simpan & Pilih
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCreatingNewCustomer(false);
+                        setNewCustForm({ name: "", phone: "", email: "" });
+                        setErrors((p) => ({ ...p, new_customer: undefined }));
+                      }}
+                      className="px-3 py-2 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200 transition"
+                    >
+                      Batal
+                    </button>
                   </div>
                 </div>
               )}
@@ -324,7 +435,9 @@ const ProductCustomerForm = () => {
           {isEdit && form.customer_id && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer</label>
-              <div className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-600 text-sm">{customersOptions.find((c) => String(c.value) === String(form.customer_id))?.label || "—"}</div>
+              <div className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-600 text-sm">
+                {customersOptions.find((c) => String(c.value) === String(form.customer_id))?.label || "—"}
+              </div>
               <p className="mt-1 text-xs text-slate-500">Customer tidak dapat diubah saat edit</p>
             </div>
           )}
@@ -332,66 +445,183 @@ const ProductCustomerForm = () => {
           <FormField label="Harga Customer" required error={errors.harga} touched={touched.harga}>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-bold">Rp</span>
-              <input type="text" inputMode="numeric" value={formatRupiahDisplay(unformatRupiah(form.harga))} onChange={(e) => setForm((p) => ({ ...p, harga: String(unformatRupiah(e.target.value)) }))} className={cn("w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm font-medium", errors.harga && touched.harga ? "border-red-300 focus:ring-red-500" : "border-slate-200 focus:ring-blue-500")} placeholder="0" disabled={isSubmitting} />
+              <input
+                type="text"
+                inputMode="numeric"
+                value={formatRupiahDisplay(unformatRupiah(form.harga))}
+                onChange={(e) => setForm((p) => ({ ...p, harga: String(unformatRupiah(e.target.value)) }))}
+                className={cn("w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm font-medium", errors.harga && touched.harga ? "border-red-300 focus:ring-red-500" : "border-slate-200 focus:ring-blue-500")}
+                placeholder="0"
+                disabled={isSubmitting}
+              />
             </div>
           </FormField>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label="Jenis" required error={errors.jenis_id} touched={touched.jenis_id}>
-              <select value={form.jenis_id} onChange={(e) => { setForm((p) => ({ ...p, jenis_id: e.target.value, type_id: "" })); setNewInputs((p) => ({ ...p, jenis: "", type: "" })); setErrors((p) => ({ ...p, jenis_id: undefined })); }} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white" disabled={loadingJenis || isSubmitting}>
+              <select
+                value={form.jenis_id}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, jenis_id: e.target.value, type_id: "" }));
+                  setNewInputs((p) => ({ ...p, jenis: "", type: "" }));
+                  setErrors((p) => ({ ...p, jenis_id: undefined }));
+                }}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                disabled={loadingJenis || isSubmitting}
+              >
                 <option value="">{loadingJenis ? "Memuat..." : "Pilih Jenis"}</option>
-                {jenisOptions.map((j) => <option key={j.value} value={j.value}>{j.label}</option>)}
+                {jenisOptions.map((j) => (
+                  <option key={j.value} value={j.value}>{j.label}</option>
+                ))}
                 <option value="new">➕ Tambah Jenis Baru</option>
               </select>
-              {isNewJenis && <input type="text" placeholder="Nama JENIS baru (HURUF KAPITAL)" className="w-full mt-2 px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide" value={newInputs.jenis} onChange={(e) => setNewInputs((p) => ({ ...p, jenis: e.target.value.toUpperCase() }))} disabled={isSubmitting} />}
+              {isNewJenis && (
+                <input
+                  type="text"
+                  placeholder="Nama JENIS baru (HURUF KAPITAL)"
+                  className="w-full mt-2 px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide"
+                  value={newInputs.jenis}
+                  onChange={(e) => setNewInputs((p) => ({ ...p, jenis: e.target.value.toUpperCase() }))}
+                  disabled={isSubmitting}
+                />
+              )}
             </FormField>
 
             <FormField label={`Tipe ${isNewJenis ? "Baru *" : "*"}`} required error={errors.type_id} touched={touched.type_id}>
               {isNewJenis ? (
                 <div className="space-y-2">
-                  <input type="text" placeholder="Nama TIPE baru (HURUF KAPITAL)" className={cn("w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm font-medium tracking-wide", errors.type_id && touched.type_id ? "border-red-300 focus:ring-red-500" : "border-blue-300 focus:ring-blue-500")} value={newInputs.type} onChange={(e) => { setNewInputs((p) => ({ ...p, type: e.target.value.toUpperCase() })); if (errors.type_id) setErrors((p) => ({ ...p, type_id: undefined })); }} disabled={isSubmitting} />
+                  <input
+                    type="text"
+                    placeholder="Nama TIPE baru (HURUF KAPITAL)"
+                    className={cn("w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm font-medium tracking-wide", errors.type_id && touched.type_id ? "border-red-300 focus:ring-red-500" : "border-blue-300 focus:ring-blue-500")}
+                    value={newInputs.type}
+                    onChange={(e) => {
+                      setNewInputs((p) => ({ ...p, type: e.target.value.toUpperCase() }));
+                      if (errors.type_id) setErrors((p) => ({ ...p, type_id: undefined }));
+                    }}
+                    disabled={isSubmitting}
+                  />
                   <p className="text-[11px] text-blue-600">💡 Tipe akan dibuat bersama jenis baru.</p>
                 </div>
               ) : (
                 <>
-                  <select value={form.type_id} onChange={(e) => { setForm((p) => ({ ...p, type_id: e.target.value })); setNewInputs((p) => ({ ...p, type: "" })); setErrors((p) => ({ ...p, type_id: undefined })); }} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-400" disabled={!form.jenis_id || loadingTypes || isSubmitting}>
+                  <select
+                    value={form.type_id}
+                    onChange={(e) => {
+                      setForm((p) => ({ ...p, type_id: e.target.value }));
+                      setNewInputs((p) => ({ ...p, type: "" }));
+                      setErrors((p) => ({ ...p, type_id: undefined }));
+                    }}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-400"
+                    disabled={!form.jenis_id || loadingTypes || isSubmitting}
+                  >
                     <option value="">{loadingTypes ? "Memuat..." : (form.jenis_id ? `Pilih Tipe (${typesOptions.length})` : "Pilih Jenis dulu")}</option>
-                    {typesOptions.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    {typesOptions.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
                     <option value="new">➕ Tambah Tipe Baru</option>
                   </select>
-                  {isNewType && <input type="text" placeholder="Nama TIPE baru (HURUF KAPITAL)" className="w-full mt-2 px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide" value={newInputs.type} onChange={(e) => { setNewInputs((p) => ({ ...p, type: e.target.value.toUpperCase() })); if (errors.type_id) setErrors((p) => ({ ...p, type_id: undefined })); }} disabled={isSubmitting} />}
+                  {isNewType && (
+                    <input
+                      type="text"
+                      placeholder="Nama TIPE baru (HURUF KAPITAL)"
+                      className="w-full mt-2 px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide"
+                      value={newInputs.type}
+                      onChange={(e) => {
+                        setNewInputs((p) => ({ ...p, type: e.target.value.toUpperCase() }));
+                        if (errors.type_id) setErrors((p) => ({ ...p, type_id: undefined }));
+                      }}
+                      disabled={isSubmitting}
+                    />
+                  )}
                 </>
               )}
             </FormField>
 
             <FormField label="Bahan" error={errors.bahan_id} touched={touched.bahan_id}>
-              <select value={form.bahan_id} onChange={(e) => { setForm((p) => ({ ...p, bahan_id: e.target.value })); setNewInputs((p) => ({ ...p, bahan: "" })); setErrors((p) => ({ ...p, bahan_id: undefined })); }} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white" disabled={loadingBahans || isSubmitting}>
+              <select
+                value={form.bahan_id}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, bahan_id: e.target.value }));
+                  setNewInputs((p) => ({ ...p, bahan: "" }));
+                  setErrors((p) => ({ ...p, bahan_id: undefined }));
+                }}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                disabled={loadingBahans || isSubmitting}
+              >
                 <option value="">{loadingBahans ? "Memuat..." : "Pilih Bahan"}</option>
-                {bahansOptions.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+                {bahansOptions.map((b) => (
+                  <option key={b.value} value={b.value}>{b.label}</option>
+                ))}
                 <option value="new">➕ Tambah Bahan Baru</option>
               </select>
-              {isNewBahan && <input type="text" placeholder="Nama BAHAN baru (HURUF KAPITAL)" className="w-full mt-2 px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide" value={newInputs.bahan} onChange={(e) => { setNewInputs((p) => ({ ...p, bahan: e.target.value.toUpperCase() })); if (errors.bahan_id) setErrors((p) => ({ ...p, bahan_id: undefined })); }} disabled={isSubmitting} />}
+              {isNewBahan && (
+                <input
+                  type="text"
+                  placeholder="Nama BAHAN baru (HURUF KAPITAL)"
+                  className="w-full mt-2 px-3 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tracking-wide"
+                  value={newInputs.bahan}
+                  onChange={(e) => setNewInputs((p) => ({ ...p, bahan: e.target.value.toUpperCase() }))}
+                  disabled={isSubmitting}
+                />
+              )}
             </FormField>
 
             <FormField label="Ukuran" required error={errors.ukuran} touched={touched.ukuran}>
-              <input type="text" value={form.ukuran} onChange={(e) => setForm((p) => ({ ...p, ukuran: e.target.value }))} onBlur={() => setTouched((p) => ({ ...p, ukuran: true }))} className={cn("w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm", errors.ukuran && touched.ukuran ? "border-red-300 focus:ring-red-500" : "border-slate-200 focus:ring-blue-500")} placeholder="Contoh: 10x20" disabled={isSubmitting} />
+              <input
+                type="text"
+                value={form.ukuran}
+                onChange={(e) => setForm((p) => ({ ...p, ukuran: e.target.value }))}
+                onBlur={() => setTouched((p) => ({ ...p, ukuran: true }))}
+                className={cn("w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm", errors.ukuran && touched.ukuran ? "border-red-300 focus:ring-red-500" : "border-slate-200 focus:ring-blue-500")}
+                placeholder="Contoh: 10x20"
+                disabled={isSubmitting}
+              />
             </FormField>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Foto Product</label>
-            <div className="grid grid-cols-3 gap-4">{renderFotoInput("Depan", "depan")}{renderFotoInput("Samping", "samping")}{renderFotoInput("Atas", "atas")}</div>
+            <div className="grid grid-cols-3 gap-4">
+              {renderFotoInput("Depan", "depan")}
+              {renderFotoInput("Samping", "samping")}
+              {renderFotoInput("Atas", "atas")}
+            </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Keterangan</label>
-            <textarea value={form.keterangan} onChange={(e) => setForm((p) => ({ ...p, keterangan: e.target.value }))} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none" rows={2} placeholder="Opsional" disabled={isSubmitting} />
+            <textarea
+              value={form.keterangan}
+              onChange={(e) => setForm((p) => ({ ...p, keterangan: e.target.value }))}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+              rows={2}
+              placeholder="Opsional"
+              disabled={isSubmitting}
+            />
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={handleCancel} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" disabled={isSubmitting}>Batal</button>
-            <button type="submit" disabled={isSubmitting} className={cn("flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed", isEdit ? "bg-amber-600 hover:bg-amber-700" : "bg-blue-600 hover:bg-blue-700")}>
-              {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</> : (isEdit ? "Perbarui" : "Simpan")}
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              disabled={isSubmitting}
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={cn("flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed", isEdit ? "bg-amber-600 hover:bg-amber-700" : "bg-blue-600 hover:bg-blue-700")}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...
+                </>
+              ) : (
+                isEdit ? "Perbarui" : "Simpan"
+              )}
             </button>
           </div>
         </form>
@@ -402,9 +632,16 @@ const ProductCustomerForm = () => {
 
 const FormField = ({ label, required, error, touched, children }) => (
   <div>
-    <label className="block text-sm font-medium text-slate-700 mb-1.5">{label} {required && <span className="text-red-500">*</span>}</label>
+    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+      {label} {required && <span className="text-red-500">*</span>}
+    </label>
     {children}
-    {error && touched && <p className="mt-1 text-xs text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{error}</p>}
+    {error && touched && (
+      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+        <AlertCircle className="w-3 h-3" />
+        {error}
+      </p>
+    )}
   </div>
 );
 

@@ -17,11 +17,7 @@ import { cn } from "../../../lib/utils";
 import StokOpnameForm from "./StokOpnameForm";
 import StokOpnameDetail from "./StokOpnameDetail";
 
-// ==========================================
-// OPNAME CARD (Draft)
-// ==========================================
 const OpnameCard = ({ opname, isAdmin, onOpenDetail, onPrint }) => {
-  // ✅ NORMALIZE details agar d.product & d.place tersedia (flat)
   const details = normalizeDetails(opname.details || []);
   const totalItems = details.length;
   const filledItems = getFilledCount(details);

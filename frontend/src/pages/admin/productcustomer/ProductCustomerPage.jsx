@@ -4,13 +4,13 @@ import {
   Plus, Pencil, Trash2, Search, X, RefreshCw,
   ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
   Tag, Image as ImageIcon, Eye, User, Filter,
-  Quote, Sparkles, CheckCircle2,
+  Quote, Sparkles, CheckCircle2, Lock,
 } from "lucide-react";
 import { useProductCustomers, useDeleteProductCustomer } from "../../../hooks/useProductCustomers";
 import { useCustomersDropdown } from "../../../hooks/useMasterData";
 import { useProductCustomerFilters, useProductCustomerModals } from "../../../lib/zustand/productCustomerStore";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
-import { useIsAdmin, useUserRole } from "../../../lib/zustand/authStore";
+import { useUserRole } from "../../../lib/zustand/authStore";
 import { cn } from "../../../lib/utils";
 import ProductCustomerForm from "./ProductCustomerForm";
 import ProductCustomerDetail from "./ProductCustomerDetail";
@@ -21,9 +21,10 @@ const formatRupiah = (v) =>
     style: "currency", currency: "IDR", minimumFractionDigits: 0,
   }).format(Number(v) || 0);
 
-// ==========================================
-// DROPDOWN POSITIONING (Fixed + Portal)
-// ==========================================
+const canCreateProductCustomer = (role) => role === "admin";
+const canEditProductCustomer = (role) => role === "admin";
+const canDeleteProductCustomer = (role) => role === "admin";
+
 const useDropdownPosition = (open) => {
   const triggerRef = useRef(null);
   const [style, setStyle] = useState(null);
@@ -97,7 +98,6 @@ const SearchableSelect = ({
     setIsSearchFocused(false);
   }, []);
 
-  // Filter & sort options
   const filtered = useMemo(() => {
     const sorted = [...options].sort((a, b) =>
       (a.label || "").toLowerCase().localeCompare((b.label || "").toLowerCase())
@@ -107,7 +107,6 @@ const SearchableSelect = ({
     return sorted.filter((opt) => opt.label?.toLowerCase().includes(s));
   }, [options, search]);
 
-  // Close on click outside (trigger + panel)
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (event) => {
@@ -119,7 +118,6 @@ const SearchableSelect = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, close]);
 
-  // Close on Escape
   useEffect(() => {
     if (!isOpen) return;
     const handleEsc = (e) => {
@@ -143,7 +141,6 @@ const SearchableSelect = ({
     close();
   };
 
-  // Disabled state
   if (disabled) {
     return (
       <div className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 text-sm flex items-center gap-2">
@@ -155,7 +152,6 @@ const SearchableSelect = ({
 
   return (
     <>
-      {/* Trigger Button */}
       <div className="relative w-full" ref={triggerRef}>
         <button
           type="button"
@@ -183,14 +179,12 @@ const SearchableSelect = ({
         </button>
       </div>
 
-      {/* ✅ Dropdown Panel - Render via PORTAL (tidak ter-clip) */}
       {isOpen && style && createPortal(
         <div
           ref={panelRef}
           style={style}
           className="fixed z-[90] bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-fadeIn"
         >
-          {/* Search Bar */}
           <div className="p-2 border-b border-slate-100 bg-white flex-shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -224,9 +218,7 @@ const SearchableSelect = ({
             </div>
           </div>
 
-          {/* Options List */}
           <div className="overflow-y-auto flex-1">
-            {/* "Semua Customer" option */}
             <button
               type="button"
               onClick={() => handlePick("")}
@@ -303,11 +295,21 @@ const SearchableSelect = ({
   );
 };
 
-const ProductCustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete }) => {
+// ==========================================
+// PRODUCT CUSTOMER CARD (Adaptive by role)
+// ==========================================
+const ProductCustomerCard = ({ item, canEdit, canDelete, onDetail, onEdit, onDelete }) => {
   const harga = Number(item.harga) || 0;
   const fotoUrl = item.foto_depan_url || (item.foto_depan ? `${ASSET_URL}/storage/${item.foto_depan}` : null);
   const customerName = item.customer?.name || "—";
   const hasKeterangan = !!item.keterangan;
+
+  // ✅ Grid dinamis berdasarkan akses user
+  const actionCount = 1 + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
+  const gridCols =
+    actionCount === 3 ? "grid-cols-3" :
+    actionCount === 2 ? "grid-cols-2" :
+    "grid-cols-1";
 
   return (
     <div
@@ -341,7 +343,6 @@ const ProductCustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete }) => {
             )}
           </div>
 
-          {/* Info */}
           <div className="flex-1 min-w-0">
             <h3 className="font-mono font-bold text-xs sm:text-sm text-slate-900 leading-tight break-words line-clamp-2">
               {item.kode}
@@ -352,7 +353,6 @@ const ProductCustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete }) => {
           </div>
         </div>
 
-        {/* Customer Badge */}
         <div className="mt-3">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold border bg-cyan-50 text-cyan-700 border-cyan-200 w-full">
             <div className="p-1 bg-cyan-100 rounded-md flex-shrink-0">
@@ -395,16 +395,19 @@ const ProductCustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete }) => {
         )}
       </div>
 
+      {/* ========================================== */}
+      {/* ACTION BUTTONS - DYNAMIC GRID BY ROLE      */}
+      {/* ========================================== */}
       <div className={cn(
         "grid border-t-2 border-slate-100 bg-gradient-to-b from-slate-50/50 to-white",
-        isAdmin ? "grid-cols-3" : "grid-cols-1"
+        gridCols
       )}>
-        {/* DETAIL - Blue */}
+        {/* DETAIL - Blue (always available) */}
         <button
           onClick={onDetail}
           className={cn(
             "group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-blue-50 active:scale-95 transition-all duration-200",
-            isAdmin && "border-r border-slate-100"
+            (canEdit || canDelete) && "border-r border-slate-100"
           )}
           title="Detail Produk Customer"
         >
@@ -416,11 +419,14 @@ const ProductCustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete }) => {
           </span>
         </button>
 
-        {/* EDIT - Indigo (admin only) */}
-        {isAdmin && (
+        {/* EDIT - Indigo (ADMIN ONLY) */}
+        {canEdit && (
           <button
             onClick={onEdit}
-            className="group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-indigo-50 active:scale-95 transition-all duration-200 border-r border-slate-100"
+            className={cn(
+              "group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-indigo-50 active:scale-95 transition-all duration-200",
+              canDelete && "border-r border-slate-100"
+            )}
             title="Edit Produk Customer"
           >
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-100 group-hover/btn:bg-indigo-500 flex items-center justify-center transition-all duration-200 shadow-sm group-hover/btn:shadow-md group-hover/btn:scale-110">
@@ -432,8 +438,8 @@ const ProductCustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete }) => {
           </button>
         )}
 
-        {/* DELETE - Red (admin only) */}
-        {isAdmin && (
+        {/* DELETE - Red (ADMIN ONLY) */}
+        {canDelete && (
           <button
             onClick={onDelete}
             className="group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-red-50 active:scale-95 transition-all duration-200"
@@ -464,9 +470,11 @@ const ProductCustomerPage = () => {
   const { openCreateModal, openEditModal, openDetailModal } = useProductCustomerModals();
   const { danger, success, info, warning } = useConfirmDialog();
 
+  // ✅ Ambil role user untuk kontrol akses
   const role = useUserRole();
-  const isAdmin = useIsAdmin();
-  const canCreate = ["admin", "admin_toko", "operator"].includes(role);
+  const canCreate = canCreateProductCustomer(role);
+  const canEdit = canEditProductCustomer(role);
+  const canDelete = canDeleteProductCustomer(role);
 
   const [searchInput, setSearchInput] = useState(filters.search);
   const { data: customersOptions = [], isLoading: loadingCustomers } = useCustomersDropdown();
@@ -493,14 +501,6 @@ const ProductCustomerPage = () => {
   const total = meta.total || 0;
   const isFilterActive = hasActiveFilters();
 
-  const stats = useMemo(() => {
-    const uniqueCustomers = new Set(
-      products.map((p) => p.customer?.id).filter(Boolean)
-    ).size;
-    const withKeterangan = products.filter((p) => p.keterangan).length;
-    return { uniqueCustomers, withKeterangan };
-  }, [products]);
-
   const paginationNumbers = useMemo(() => {
     const max = 5, pages = [];
     let start = Math.max(1, currentPage - Math.floor(max / 2));
@@ -511,6 +511,12 @@ const ProductCustomerPage = () => {
   }, [currentPage, lastPage]);
 
   const handleDelete = async (item) => {
+    // ✅ Defense in depth: cek akses sebelum action
+    if (!canDelete) {
+      await info("Akses Ditolak", "Hanya admin yang dapat menghapus produk customer");
+      return;
+    }
+
     const confirmed = await danger(
       "Hapus Produk Customer?",
       `Apakah Anda yakin ingin menghapus "${item.kode}"? Tindakan ini tidak dapat dibatalkan.`
@@ -528,14 +534,17 @@ const ProductCustomerPage = () => {
     }
   };
 
+  // ✅ Skeleton adaptif berdasarkan jumlah tombol yang tampil
+  const skeletonActionCount = 1 + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
+  const skeletonGridCols =
+    skeletonActionCount === 3 ? "grid-cols-3" :
+    skeletonActionCount === 2 ? "grid-cols-2" :
+    "grid-cols-1";
+
   return (
     <div className="space-y-4 pb-20">
-      {/* ========================================== */}
-      {/* STICKY FILTER BAR */}
-      {/* ========================================== */}
       <div className="sticky top-4 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-2 pb-3 bg-white/80 backdrop-blur-lg border-b border-slate-200/60">
         <div className="bg-white/95 backdrop-blur-sm rounded-xl border border-slate-200/80 p-3 shadow-md">
-          {/* Row 1: Search + Refresh */}
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -603,23 +612,56 @@ const ProductCustomerPage = () => {
       </div>
 
       {isLoading ? (
-        <LoadingSkeleton />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden animate-pulse">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
+                <div className="h-6 w-20 bg-slate-200 rounded-full" />
+                <div className="h-4 w-14 bg-slate-200 rounded-full" />
+              </div>
+
+              <div className="p-4 sm:p-5">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-16 h-16 bg-slate-200 rounded-xl flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-slate-200 rounded w-3/4" />
+                    <div className="h-3 bg-slate-200 rounded w-full" />
+                  </div>
+                </div>
+
+                <div className="h-8 bg-slate-200 rounded-lg w-full mb-3" />
+
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <div className="h-3 bg-slate-200 rounded w-1/3" />
+                  <div className="h-7 bg-slate-200 rounded w-2/3" />
+                </div>
+              </div>
+
+              {/* ✅ Skeleton footer adaptif */}
+              <div className={cn("grid border-t-2 border-slate-100", skeletonGridCols)}>
+                <div className={cn("h-16 bg-slate-50", (canEdit || canDelete) && "border-r border-slate-100")} />
+                {canEdit && <div className={cn("h-16 bg-slate-50", canDelete && "border-r border-slate-100")} />}
+                {canDelete && <div className="h-16 bg-slate-50" />}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : products.length === 0 ? (
         <EmptyState
           isFilterActive={isFilterActive}
+          canCreate={canCreate}
           onReset={handleResetFilters}
           onCreate={openCreateModal}
-          canCreate={canCreate}
         />
       ) : (
         <div className={cn("transition-opacity", isPlaceholderData && "opacity-60")}>
-          {/* Responsive Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             {products.map((item) => (
               <ProductCustomerCard
                 key={item.id}
                 item={item}
-                isAdmin={isAdmin}
+                canEdit={canEdit}
+                canDelete={canDelete}
                 onDetail={() => openDetailModal(item)}
                 onEdit={() => openEditModal(item)}
                 onDelete={() => handleDelete(item)}
@@ -627,7 +669,6 @@ const ProductCustomerPage = () => {
             ))}
           </div>
 
-          {/* Pagination */}
           {lastPage > 1 && (
             <div className="flex items-center justify-center gap-1 sm:gap-1.5 mt-6 pb-4 flex-wrap">
               <button
@@ -709,7 +750,7 @@ const ProductCustomerPage = () => {
       )}
 
       {/* ========================================== */}
-      {/* FLOATING ACTION BUTTON */}
+      {/* FAB - HANYA untuk admin                    */}
       {/* ========================================== */}
       {canCreate && (
         <button
@@ -736,69 +777,32 @@ const ProductCustomerPage = () => {
 };
 
 // ==========================================
-// LOADING SKELETON
+// EMPTY STATE (Adaptive by role)
 // ==========================================
-const LoadingSkeleton = () => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-    {[...Array(8)].map((_, i) => (
-      <div key={i} className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden animate-pulse">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
-          <div className="h-6 w-20 bg-slate-200 rounded-full" />
-          <div className="h-4 w-14 bg-slate-200 rounded-full" />
-        </div>
-
-        {/* Body */}
-        <div className="p-4 sm:p-5">
-          {/* Photo + Info */}
-          <div className="flex items-start gap-3 mb-4">
-            <div className="w-16 h-16 bg-slate-200 rounded-xl flex-shrink-0" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 bg-slate-200 rounded w-3/4" />
-              <div className="h-3 bg-slate-200 rounded w-full" />
-            </div>
-          </div>
-
-          {/* Customer badge */}
-          <div className="h-8 bg-slate-200 rounded-lg w-full mb-3" />
-
-          {/* Harga */}
-          <div className="pt-3 border-t border-slate-100 space-y-2">
-            <div className="h-3 bg-slate-200 rounded w-1/3" />
-            <div className="h-7 bg-slate-200 rounded w-2/3" />
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="grid grid-cols-3 border-t-2 border-slate-100">
-          <div className="h-16 bg-slate-50 border-r border-slate-100" />
-          <div className="h-16 bg-slate-50 border-r border-slate-100" />
-          <div className="h-16 bg-slate-50" />
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
-// ==========================================
-// EMPTY STATE
-// ==========================================
-const EmptyState = ({ isFilterActive, onReset, onCreate, canCreate }) => (
+const EmptyState = ({ isFilterActive, canCreate, onReset, onCreate }) => (
   <div className="bg-white rounded-2xl border border-slate-200/60 p-8 sm:p-12 text-center shadow-sm">
     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mx-auto mb-4">
       {isFilterActive ? (
         <Filter className="w-10 h-10 text-slate-400" />
-      ) : (
+      ) : canCreate ? (
         <Sparkles className="w-10 h-10 text-slate-400" />
+      ) : (
+        <Lock className="w-10 h-10 text-slate-400" />
       )}
     </div>
     <p className="text-slate-900 font-bold text-lg">
-      {isFilterActive ? "Tidak ada produk yang cocok" : "Belum ada produk customer"}
+      {isFilterActive
+        ? "Tidak ada produk yang cocok"
+        : canCreate
+        ? "Belum ada produk customer"
+        : "Belum ada produk customer tersedia"}
     </p>
     <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
       {isFilterActive
         ? "Coba ubah kata kunci pencarian atau reset filter untuk melihat semua data"
-        : "Mulai dengan menambahkan produk customer baru untuk harga khusus pesanan"}
+        : canCreate
+        ? "Mulai dengan menambahkan produk customer baru untuk harga khusus pesanan"
+        : "Hubungi admin untuk menambahkan produk customer baru"}
     </p>
     {isFilterActive ? (
       <button
@@ -808,17 +812,15 @@ const EmptyState = ({ isFilterActive, onReset, onCreate, canCreate }) => (
         <X size={14} />
         Reset Filter
       </button>
-    ) : (
-      canCreate && (
-        <button
-          onClick={onCreate}
-          className="mt-4 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-sky-500 to-cyan-600 hover:from-sky-600 hover:to-cyan-700 rounded-lg transition-all inline-flex items-center gap-2 shadow-md shadow-sky-500/20 hover:shadow-lg"
-        >
-          <Plus size={16} strokeWidth={2.5} />
-          Tambah Produk Pertama
-        </button>
-      )
-    )}
+    ) : canCreate ? (
+      <button
+        onClick={onCreate}
+        className="mt-4 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-sky-500 to-cyan-600 hover:from-sky-600 hover:to-cyan-700 rounded-lg transition-all inline-flex items-center gap-2 shadow-md shadow-sky-500/20 hover:shadow-lg"
+      >
+        <Plus size={16} strokeWidth={2.5} />
+        Tambah Produk Pertama
+      </button>
+    ) : null}
   </div>
 );
 

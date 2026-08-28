@@ -16,7 +16,6 @@ import {
 } from './hooks/useProductCustoms';
 import { cn } from '../../lib/utils';
 
-// ✅ FIX: Gunakan VITE_APP_URL untuk fallback, bukan VITE_ASSET_URL (yang mungkin mengandung /api)
 const APP_URL = import.meta.env.VITE_APP_URL || 'https://www.jayarubberseal.com';
 const WA_NUMBER = '6281287951140';
 
@@ -27,9 +26,8 @@ const formatRupiah = (value) =>
     minimumFractionDigits: 0,
   }).format(value || 0);
 
-// ✅ FIX: Helper resolusi gambar yang aman dari bug duplikasi "/api/"
 const resolveImage = (url, path) => {
-  if (url) return url; // Backend sudah mengirim URL lengkap yang benar
+  if (url) return url;
   if (path) {
     const cleanPath = path.startsWith('products/') ? path : `products/${path}`;
     return `${APP_URL}/storage/${cleanPath}`;
@@ -37,9 +35,6 @@ const resolveImage = (url, path) => {
   return null;
 };
 
-/* ==========================================
-   SKIP NAVIGATION
-   ========================================== */
 const SkipNavigation = () => (
   <a
     href="#main-content"
@@ -49,9 +44,6 @@ const SkipNavigation = () => (
   </a>
 );
 
-/* ==========================================
-   PRODUCT CUSTOM DETAIL MODAL
-   ========================================== */
 const ProductCustomDetailModal = ({ product, onClose }) => {
   const { data: detail, isLoading } = useProductCustomDetail(product?.id, {
     enabled: !!product?.id,
@@ -81,10 +73,6 @@ const ProductCustomDetailModal = ({ product, onClose }) => {
   }, [product?.id]);
 
   if (!product) return null;
-
-  const qtyToko = Number(data?.qty_toko) || 0;
-  const qtyBengkel = Number(data?.qty_bengkel) || 0;
-  const totalQty = qtyToko + qtyBengkel;
 
   const fotoUrls = [
     resolveImage(data?.foto_depan_url, data?.foto_depan),
@@ -164,20 +152,6 @@ const ProductCustomDetailModal = ({ product, onClose }) => {
                   </div>
                 )}
 
-                {/* Price & Stock Cards */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 text-center">
-                    <p className="text-xs text-purple-600 font-medium mb-1 uppercase tracking-wide">Harga Custom</p>
-                    <p className="text-xl font-bold text-purple-700">{formatRupiah(data?.harga)}</p>
-                  </div>
-                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
-                    <p className="text-xs text-blue-600 font-medium mb-1 uppercase tracking-wide">Total Stok</p>
-                    <p className={cn("text-xl font-bold", totalQty < 20 ? "text-red-600" : "text-blue-700")}>
-                      {totalQty} Unit
-                    </p>
-                  </div>
-                </div>
-
                 {/* Detail Items */}
                 <div className="space-y-3">
                   <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
@@ -192,39 +166,6 @@ const ProductCustomDetailModal = ({ product, onClose }) => {
                       </p>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                      <div className="p-2 bg-amber-100 rounded-lg flex-shrink-0">
-                        <Wallet className="w-4 h-4 text-amber-600" />
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">Stok Toko</p>
-                        <p className="text-sm font-bold text-slate-900">{qtyToko} Unit</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                      <div className="p-2 bg-indigo-100 rounded-lg flex-shrink-0">
-                        <Wallet className="w-4 h-4 text-indigo-600" />
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">Stok Bengkel</p>
-                        <p className="text-sm font-bold text-slate-900">{qtyBengkel} Unit</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {data?.keterangan && (
-                    <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-                      <div className="p-2 bg-slate-200 rounded-lg flex-shrink-0">
-                        <Ruler className="w-4 h-4 text-slate-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide mb-0.5">Keterangan</p>
-                        <p className="text-sm text-slate-900 break-words">{data.keterangan}</p>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </>
             )}

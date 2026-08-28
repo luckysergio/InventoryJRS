@@ -14,7 +14,7 @@ import {
   formatProductName,
   getInvoiceNumber,
   normalizeDetails,
-  PESANAN_STATUS_MAP, // ✅ FIXED: Pakai PESANAN_STATUS_MAP (bukan STATUS_MAP)
+  PESANAN_STATUS_MAP,
 } from "./utils/pesananUtils";
 import { cn } from "../../../lib/utils";
 import PesananForm from "./PesananForm";
@@ -22,9 +22,6 @@ import PesananDetail from "./PesananDetail";
 import PembayaranPesananModal from "./PembayaranPesananModal";
 import InvoiceSimplePrint from "../../../components/InvoiceSimplePrint";
 
-// ==========================================
-// HELPER: Cek akses kelola pesanan (admin + admin_toko)
-// ==========================================
 const useCanManagePesanan = () => {
   const isAdmin = useIsAdmin();
   const user = useAuthStore((s) => s.user);
@@ -32,15 +29,11 @@ const useCanManagePesanan = () => {
   return isAdmin || isAdminToko;
 };
 
-// ==========================================
-// HELPER: Cek apakah pesanan punya detail aktif yang belum lunas
-// ==========================================
 const hasActiveUnpaidDetails = (pesanan) => {
   const details = normalizeDetails(pesanan.details || []);
   return details.some((d) => {
     const sisa = Number(d.sisa_tagihan) || 0;
     const statusId = Number(d.status_transaksi_id);
-    // ✅ Pakai PESANAN_STATUS_MAP
     return sisa > 0
       && statusId !== PESANAN_STATUS_MAP.SELESAI
       && statusId !== PESANAN_STATUS_MAP.DIBATALKAN;

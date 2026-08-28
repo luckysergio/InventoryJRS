@@ -75,7 +75,7 @@ const formatRupiahDisplay = (value) => {
 const unformatRupiah = (str) => parseInt(String(str || "").replace(/\D/g, ""), 10) || 0;
 
 // ==========================================
-// SEARCHABLE DISTRIBUTOR DROPDOWN (Cyan Theme)
+// SEARCHABLE DISTRIBUTOR DROPDOWN
 // ==========================================
 const SearchableDistributorDropdown = ({
   distributors,
@@ -89,7 +89,6 @@ const SearchableDistributorDropdown = ({
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Filter & sort
   const filtered = useMemo(() => {
     const sorted = [...distributors].sort((a, b) =>
       (a.label || "").toLowerCase().localeCompare((b.label || "").toLowerCase())
@@ -99,7 +98,6 @@ const SearchableDistributorDropdown = ({
     return sorted.filter((d) => d.label?.toLowerCase().includes(s));
   }, [distributors, search]);
 
-  // Close on click outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -111,14 +109,12 @@ const SearchableDistributorDropdown = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Focus input when open
   useEffect(() => {
     if (isOpen && inputRef.current && !disabled) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen, disabled]);
 
-  // Close on Escape
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === "Escape" && isOpen) {
@@ -134,7 +130,6 @@ const SearchableDistributorDropdown = ({
 
   const selected = distributors.find((d) => String(d.value) === String(selectedValue));
 
-  // Disabled state
   if (disabled) {
     return (
       <div className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-600 text-sm flex items-center gap-2">
@@ -146,7 +141,6 @@ const SearchableDistributorDropdown = ({
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Trigger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -170,10 +164,8 @@ const SearchableDistributorDropdown = ({
         )}
       </button>
 
-      {/* Dropdown Panel */}
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden flex flex-col animate-fadeIn">
-          {/* Search Bar (sticky) */}
           <div className="p-2 border-b border-slate-100 sticky top-0 bg-white">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -202,7 +194,6 @@ const SearchableDistributorDropdown = ({
             </div>
           </div>
 
-          {/* Options List */}
           <div className="overflow-y-auto flex-1 max-h-56">
             {filtered.length === 0 ? (
               <div className="p-6 text-center">
@@ -257,7 +248,6 @@ const SearchableDistributorDropdown = ({
             )}
           </div>
 
-          {/* Footer: Tambah Distributor Baru */}
           {onCreateNew && (
             <button
               type="button"
@@ -298,6 +288,8 @@ const DistributorProductForm = () => {
   });
   const [newInputs, setNewInputs] = useState({ jenis: "", type: "", bahan: "" });
   const [fotos, setFotos] = useState({ depan: null, samping: null, atas: null });
+  // ✅ FIX: Track foto lama (dari server) yang dihapus user saat edit
+  const [removedFotos, setRemovedFotos] = useState({ depan: false, samping: false, atas: false });
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [isInitialized, setIsInitialized] = useState(false);
@@ -323,7 +315,6 @@ const DistributorProductForm = () => {
   const activeJenisId = isNewJenis ? null : (form.jenis_id || null);
   const { data: typesOptions = [], isLoading: loadingTypes } = useTypesDropdown(activeJenisId);
 
-  // Reset form saat modal open/close
   useEffect(() => {
     if (!isOpen) {
       setIsInitialized(false);
@@ -346,6 +337,8 @@ const DistributorProductForm = () => {
         samping: selectedItem.foto_samping_url || (selectedItem.foto_samping ? `${ASSET_URL}/storage/${selectedItem.foto_samping}` : null),
         atas: selectedItem.foto_atas_url || (selectedItem.foto_atas ? `${ASSET_URL}/storage/${selectedItem.foto_atas}` : null),
       });
+      // ✅ Reset flag hapus foto saat modal dibuka
+      setRemovedFotos({ depan: false, samping: false, atas: false });
       setNewInputs({ jenis: "", type: "", bahan: "" });
       setErrors({});
       setTouched({});
@@ -356,6 +349,7 @@ const DistributorProductForm = () => {
         keterangan: "", distributor_id: "", harga_beli: "", harga_umum: "",
       });
       setFotos({ depan: null, samping: null, atas: null });
+      setRemovedFotos({ depan: false, samping: false, atas: false });
       setNewInputs({ jenis: "", type: "", bahan: "" });
       setErrors({});
       setTouched({});
@@ -363,14 +357,12 @@ const DistributorProductForm = () => {
     }
   }, [isEdit, isCreate, selectedItem, modals.edit, modals.create]);
 
-  // Set initialized setelah types dimuat (edit mode)
   useEffect(() => {
     if (isEdit && !loadingTypes && !isInitialized) {
       setIsInitialized(true);
     }
   }, [isEdit, loadingTypes, isInitialized]);
 
-  // Auto-reset type jika jenis berubah
   useEffect(() => {
     if (!isInitialized || loadingTypes) return;
     if (isNewJenis || isNewType) return;
@@ -382,7 +374,6 @@ const DistributorProductForm = () => {
     }
   }, [form.jenis_id, form.type_id, typesOptions, loadingTypes, isInitialized, isNewJenis, isNewType]);
 
-  // Live kode preview
   const kodePreview = useMemo(() => {
     const jNama = isNewJenis
       ? newInputs.jenis
@@ -408,7 +399,6 @@ const DistributorProductForm = () => {
     jenisOptions, typesOptions, bahansOptions, distributorsData,
   ]);
 
-  // Validation
   const validate = () => {
     const newErrors = {};
     if (!form.distributor_id && !isCreatingNewDistributor) {
@@ -449,6 +439,16 @@ const DistributorProductForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // ✅ FIX: Hapus foto — deteksi apakah foto lama (URL) atau preview baru (File)
+  const handleRemoveFoto = (field) => {
+    const current = fotos[field];
+    if (typeof current === "string" && current) {
+      // Foto lama dari server → kirim sinyal remove ke backend
+      setRemovedFotos((prev) => ({ ...prev, [field]: true }));
+    }
+    setFotos((prev) => ({ ...prev, [field]: null }));
+  };
+
   const handleFileChange = (e, field) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -461,6 +461,10 @@ const DistributorProductForm = () => {
       return;
     }
     setFotos((prev) => ({ ...prev, [field]: file }));
+    // ✅ FIX: Jika user memilih file baru, batalkan flag "hapus foto" untuk field ini
+    setRemovedFotos((prev) => ({ ...prev, [field]: false }));
+    // Reset input agar bisa memilih file yang sama kembali
+    e.target.value = "";
   };
 
   const handleCreateNewDistributor = async () => {
@@ -517,9 +521,15 @@ const DistributorProductForm = () => {
       formData.append("bahan_id", form.bahan_id);
     }
 
-    if (fotos.depan instanceof File) formData.append("foto_depan", fotos.depan);
-    if (fotos.samping instanceof File) formData.append("foto_samping", fotos.samping);
-    if (fotos.atas instanceof File) formData.append("foto_atas", fotos.atas);
+    // ✅ FIX: Kirim file baru ATAU flag hapus foto (sinkron dengan backend)
+    ["depan", "samping", "atas"].forEach((field) => {
+      const foto = fotos[field];
+      if (foto instanceof File) {
+        formData.append(`foto_${field}`, foto);
+      } else if (isEdit && removedFotos[field]) {
+        formData.append(`remove_foto_${field}`, "1");
+      }
+    });
 
     try {
       if (isEdit) {
@@ -574,6 +584,7 @@ const DistributorProductForm = () => {
   const renderFotoInput = (label, field) => {
     const foto = fotos[field];
     const preview = foto instanceof File ? URL.createObjectURL(foto) : foto;
+    const showRemoveIndicator = removedFotos[field] && !(foto instanceof File);
     return (
       <div className="space-y-1.5">
         <label className="block text-xs font-medium text-slate-600 text-center">{label}</label>
@@ -593,8 +604,9 @@ const DistributorProductForm = () => {
             {preview && (
               <button
                 type="button"
-                onClick={() => setFotos((prev) => ({ ...prev, [field]: null }))}
+                onClick={() => handleRemoveFoto(field)}
                 className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm hover:bg-red-600 transition"
+                title="Hapus foto"
               >
                 ×
               </button>
@@ -616,6 +628,10 @@ const DistributorProductForm = () => {
               <Camera size={9} /> Kamera
             </button>
           </div>
+          {/* ✅ FIX: Indikator foto akan dihapus saat disimpan */}
+          {showRemoveIndicator && (
+            <p className="text-[10px] text-red-500 text-center">Akan dihapus saat disimpan</p>
+          )}
         </div>
         <input
           type="file"
@@ -704,7 +720,6 @@ const DistributorProductForm = () => {
               </p>
             )}
 
-            {/* Create New Distributor Panel */}
             {isCreatingNewDistributor && (
               <div className="mt-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200 space-y-3 animate-fadeIn">
                 <p className="text-xs font-semibold text-cyan-800 flex items-center gap-1.5">
@@ -805,7 +820,6 @@ const DistributorProductForm = () => {
 
           {/* Master Data Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* JENIS */}
             <FormField label="Jenis" required error={errors.jenis_id} touched={touched.jenis_id}>
               <select
                 value={form.jenis_id}
@@ -837,7 +851,6 @@ const DistributorProductForm = () => {
               )}
             </FormField>
 
-            {/* TYPE */}
             <FormField
               label={`Tipe ${isNewJenis ? "Baru *" : "*"}`}
               required
@@ -905,7 +918,6 @@ const DistributorProductForm = () => {
               )}
             </FormField>
 
-            {/* BAHAN */}
             <FormField label="Bahan" error={errors.bahan_id} touched={touched.bahan_id}>
               <select
                 value={form.bahan_id}
@@ -935,7 +947,6 @@ const DistributorProductForm = () => {
               )}
             </FormField>
 
-            {/* UKURAN */}
             <FormField label="Ukuran" required error={errors.ukuran} touched={touched.ukuran}>
               <input
                 type="text"

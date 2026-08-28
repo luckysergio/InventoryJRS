@@ -4,12 +4,13 @@ import {
   Truck, Pencil, Trash2, Plus, Search, X, RefreshCw,
   ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
   Tag, Image as ImageIcon, Eye, Filter, Package, Warehouse,
-  TrendingUp, AlertTriangle, CheckCircle2,
+  TrendingUp, AlertTriangle, CheckCircle2, Lock,
 } from "lucide-react";
 import { useDistributorProducts, useDeleteDistributorProduct } from "../../../hooks/useDistributorProducts";
 import { useDistributorsDropdown } from "../../../hooks/useMasterData";
 import { useDistributorProductFilters, useDistributorProductModals } from "../../../lib/zustand/distributorProductStore";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
+import { useUserRole } from "../../../lib/zustand/authStore";
 import { cn } from "../../../lib/utils";
 import DistributorProductForm from "./DistributorProductForm";
 import DistributorProductDetail from "./DistributorProductDetail";
@@ -19,6 +20,20 @@ const formatRupiah = (value) =>
   new Intl.NumberFormat("id-ID", {
     style: "currency", currency: "IDR", minimumFractionDigits: 0,
   }).format(value || 0);
+
+// ==========================================
+// MATRIKS AKSES PRODUK DISTRIBUTOR
+// ==========================================
+// | Role         | Detail | Create | Edit | Delete |
+// |--------------|:------:|:------:|:----:|:------:|
+// | admin        |   ✅   |   ✅   |  ✅  |   ✅   |
+// | admin_toko   |   ✅   |   ❌   |  ❌  |   ❌   |
+// | operator     |   ✅   |   ❌   |  ❌  |   ❌   |
+// | user         |   ✅   |   ❌   |  ❌  |   ❌   |
+// ==========================================
+const canCreateDistributorProduct = (role) => role === "admin";
+const canEditDistributorProduct = (role) => role === "admin";
+const canDeleteDistributorProduct = (role) => role === "admin";
 
 // ==========================================
 // HELPERS
@@ -319,7 +334,10 @@ const SearchableSelect = ({
   );
 };
 
-const DistributorProductCard = ({ item, onDetail, onEdit, onDelete }) => {
+// ==========================================
+// DISTRIBUTOR PRODUCT CARD (Adaptive by role)
+// ==========================================
+const DistributorProductCard = ({ item, canEdit, canDelete, onDetail, onEdit, onDelete }) => {
   const qtyToko = Number(item.qty_toko) || 0;
   const qtyBengkel = Number(item.qty_bengkel) || 0;
   const totalQty = qtyToko + qtyBengkel;
@@ -335,6 +353,13 @@ const DistributorProductCard = ({ item, onDetail, onEdit, onDelete }) => {
     stockInfo.color === "amber" ? "from-amber-400 to-orange-500" :
     "from-red-400 to-rose-500";
 
+  // ✅ Grid dinamis berdasarkan akses user
+  const actionCount = 1 + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
+  const gridCols =
+    actionCount === 3 ? "grid-cols-3" :
+    actionCount === 2 ? "grid-cols-2" :
+    "grid-cols-1";
+
   return (
     <div
       className={cn(
@@ -343,7 +368,6 @@ const DistributorProductCard = ({ item, onDetail, onEdit, onDelete }) => {
         "hover:shadow-lg hover:-translate-y-0.5"
       )}
     >
-
       <div className="flex-1 p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <div
@@ -460,10 +484,20 @@ const DistributorProductCard = ({ item, onDetail, onEdit, onDelete }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 border-t-2 border-slate-100 bg-gradient-to-b from-slate-50/50 to-white">
+      {/* ========================================== */}
+      {/* ACTION BUTTONS - DYNAMIC GRID BY ROLE      */}
+      {/* ========================================== */}
+      <div className={cn(
+        "grid border-t-2 border-slate-100 bg-gradient-to-b from-slate-50/50 to-white",
+        gridCols
+      )}>
+        {/* DETAIL - Blue (always available) */}
         <button
           onClick={onDetail}
-          className="group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-blue-50 active:scale-95 transition-all duration-200 border-r border-slate-100"
+          className={cn(
+            "group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-blue-50 active:scale-95 transition-all duration-200",
+            (canEdit || canDelete) && "border-r border-slate-100"
+          )}
           title="Detail Product"
         >
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-100 group-hover/btn:bg-blue-500 flex items-center justify-center transition-all duration-200 shadow-sm group-hover/btn:shadow-md group-hover/btn:scale-110">
@@ -474,31 +508,40 @@ const DistributorProductCard = ({ item, onDetail, onEdit, onDelete }) => {
           </span>
         </button>
 
-        <button
-          onClick={onEdit}
-          className="group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-indigo-50 active:scale-95 transition-all duration-200 border-r border-slate-100"
-          title="Edit Product"
-        >
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-100 group-hover/btn:bg-indigo-500 flex items-center justify-center transition-all duration-200 shadow-sm group-hover/btn:shadow-md group-hover/btn:scale-110">
-            <Pencil size={16} className="text-indigo-600 group-hover/btn:text-white transition-colors" strokeWidth={2.5} />
-          </div>
-          <span className="text-[9px] sm:text-[10px] font-bold text-indigo-700 group-hover/btn:text-indigo-800 uppercase tracking-wide">
-            Edit
-          </span>
-        </button>
+        {/* EDIT - Indigo (ADMIN ONLY) */}
+        {canEdit && (
+          <button
+            onClick={onEdit}
+            className={cn(
+              "group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-indigo-50 active:scale-95 transition-all duration-200",
+              canDelete && "border-r border-slate-100"
+            )}
+            title="Edit Product"
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-100 group-hover/btn:bg-indigo-500 flex items-center justify-center transition-all duration-200 shadow-sm group-hover/btn:shadow-md group-hover/btn:scale-110">
+              <Pencil size={16} className="text-indigo-600 group-hover/btn:text-white transition-colors" strokeWidth={2.5} />
+            </div>
+            <span className="text-[9px] sm:text-[10px] font-bold text-indigo-700 group-hover/btn:text-indigo-800 uppercase tracking-wide">
+              Edit
+            </span>
+          </button>
+        )}
 
-        <button
-          onClick={onDelete}
-          className="group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-red-50 active:scale-95 transition-all duration-200"
-          title="Hapus Product"
-        >
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-100 group-hover/btn:bg-red-500 flex items-center justify-center transition-all duration-200 shadow-sm group-hover/btn:shadow-md group-hover/btn:scale-110">
-            <Trash2 size={16} className="text-red-600 group-hover/btn:text-white transition-colors" strokeWidth={2.5} />
-          </div>
-          <span className="text-[9px] sm:text-[10px] font-bold text-red-700 group-hover/btn:text-red-800 uppercase tracking-wide">
-            Hapus
-          </span>
-        </button>
+        {/* DELETE - Red (ADMIN ONLY) */}
+        {canDelete && (
+          <button
+            onClick={onDelete}
+            className="group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-red-50 active:scale-95 transition-all duration-200"
+            title="Hapus Product"
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-100 group-hover/btn:bg-red-500 flex items-center justify-center transition-all duration-200 shadow-sm group-hover/btn:shadow-md group-hover/btn:scale-110">
+              <Trash2 size={16} className="text-red-600 group-hover/btn:text-white transition-colors" strokeWidth={2.5} />
+            </div>
+            <span className="text-[9px] sm:text-[10px] font-bold text-red-700 group-hover/btn:text-red-800 uppercase tracking-wide">
+              Hapus
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -515,6 +558,12 @@ const DistributorProductPage = () => {
 
   const { openCreateModal, openEditModal, openDetailModal } = useDistributorProductModals();
   const { danger, success, info, warning } = useConfirmDialog();
+
+  // ✅ Ambil role user untuk kontrol akses
+  const role = useUserRole();
+  const canCreate = canCreateDistributorProduct(role);
+  const canEdit = canEditDistributorProduct(role);
+  const canDelete = canDeleteDistributorProduct(role);
 
   const [searchInput, setSearchInput] = useState(filters.search);
 
@@ -541,6 +590,12 @@ const DistributorProductPage = () => {
   };
 
   const handleDelete = async (item) => {
+    // ✅ Defense in depth: cek akses sebelum action
+    if (!canDelete) {
+      await info("Akses Ditolak", "Hanya admin yang dapat menghapus product distributor");
+      return;
+    }
+
     const confirmed = await danger(
       "Hapus Product?",
       `Apakah Anda yakin ingin menghapus "${item.kode}"? Tindakan ini tidak dapat dibatalkan.`
@@ -563,21 +618,6 @@ const DistributorProductPage = () => {
   const lastPage = meta.last_page || 1;
   const total = meta.total || 0;
 
-  const stats = useMemo(() => {
-    const uniqueDistributors = new Set(
-      products.map((p) => p.distributor?.id).filter(Boolean)
-    ).size;
-    const lowStock = products.filter(p => {
-      const t = (Number(p.qty_toko) || 0) + (Number(p.qty_bengkel) || 0);
-      return t > 0 && t <= 20;
-    }).length;
-    const outStock = products.filter(p => {
-      const t = (Number(p.qty_toko) || 0) + (Number(p.qty_bengkel) || 0);
-      return t === 0;
-    }).length;
-    return { uniqueDistributors, lowStock, outStock };
-  }, [products]);
-
   const paginationNumbers = useMemo(() => {
     const max = 5, pages = [];
     let start = Math.max(1, currentPage - Math.floor(max / 2));
@@ -586,6 +626,13 @@ const DistributorProductPage = () => {
     for (let i = start; i <= end; i++) pages.push(i);
     return pages;
   }, [currentPage, lastPage]);
+
+  // ✅ Skeleton adaptif berdasarkan jumlah tombol yang tampil
+  const skeletonActionCount = 1 + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
+  const skeletonGridCols =
+    skeletonActionCount === 3 ? "grid-cols-3" :
+    skeletonActionCount === 2 ? "grid-cols-2" :
+    "grid-cols-1";
 
   return (
     <div className="space-y-4 pb-20">
@@ -660,10 +707,53 @@ const DistributorProductPage = () => {
       </div>
 
       {isLoading ? (
-        <LoadingSkeleton />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden animate-pulse">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
+                <div className="h-6 w-20 bg-slate-200 rounded-full" />
+                <div className="h-4 w-12 bg-slate-200 rounded-full" />
+              </div>
+
+              <div className="p-4 sm:p-5">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-16 h-16 bg-slate-200 rounded-xl flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-slate-200 rounded w-3/4" />
+                    <div className="h-3 bg-slate-200 rounded w-full" />
+                  </div>
+                </div>
+
+                <div className="h-8 bg-slate-200 rounded-lg w-full mb-3" />
+
+                <div className="pt-3 border-t border-slate-100 space-y-2 mb-3">
+                  <div className="h-3 bg-slate-200 rounded w-1/3" />
+                  <div className="h-7 bg-slate-200 rounded w-2/3" />
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <div className="h-3 bg-slate-200 rounded w-1/2" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="h-12 bg-slate-200 rounded-lg" />
+                    <div className="h-12 bg-slate-200 rounded-lg" />
+                  </div>
+                  <div className="h-2 bg-slate-200 rounded-full w-full" />
+                </div>
+              </div>
+
+              {/* ✅ Skeleton footer adaptif */}
+              <div className={cn("grid border-t-2 border-slate-100", skeletonGridCols)}>
+                <div className={cn("h-16 bg-slate-50", (canEdit || canDelete) && "border-r border-slate-100")} />
+                {canEdit && <div className={cn("h-16 bg-slate-50", canDelete && "border-r border-slate-100")} />}
+                {canDelete && <div className="h-16 bg-slate-50" />}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : products.length === 0 ? (
         <EmptyState
           isFilterActive={isFilterActive}
+          canCreate={canCreate}
           onReset={handleResetFilters}
           onCreate={openCreateModal}
         />
@@ -674,6 +764,8 @@ const DistributorProductPage = () => {
               <DistributorProductCard
                 key={item.id}
                 item={item}
+                canEdit={canEdit}
+                canDelete={canDelete}
                 onDetail={() => openDetailModal(item)}
                 onEdit={() => openEditModal(item)}
                 onDelete={() => handleDelete(item)}
@@ -762,23 +854,25 @@ const DistributorProductPage = () => {
       )}
 
       {/* ========================================== */}
-      {/* FLOATING ACTION BUTTON */}
+      {/* FAB - HANYA untuk admin                    */}
       {/* ========================================== */}
-      <button
-        onClick={openCreateModal}
-        className="fixed bottom-6 right-6 z-40 group"
-        title="Tambah Product Distributor"
-        aria-label="Tambah product distributor baru"
-      >
-        <span className="absolute inset-0 rounded-full bg-cyan-500 animate-ping opacity-20 group-hover:opacity-0 transition-opacity duration-500" />
-        <div className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-cyan-500 to-sky-600 hover:from-cyan-600 hover:to-sky-700 text-white rounded-full shadow-2xl shadow-cyan-500/40 hover:shadow-cyan-500/60 transition-all duration-300 active:scale-95 hover:scale-110">
-          <Plus className="w-6 h-6" strokeWidth={2.5} />
-        </div>
-        <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
-          Tambah Product
-          <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-900" />
-        </div>
-      </button>
+      {canCreate && (
+        <button
+          onClick={openCreateModal}
+          className="fixed bottom-6 right-6 z-40 group"
+          title="Tambah Product Distributor"
+          aria-label="Tambah product distributor baru"
+        >
+          <span className="absolute inset-0 rounded-full bg-cyan-500 animate-ping opacity-20 group-hover:opacity-0 transition-opacity duration-500" />
+          <div className="relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-cyan-500 to-sky-600 hover:from-cyan-600 hover:to-sky-700 text-white rounded-full shadow-2xl shadow-cyan-500/40 hover:shadow-cyan-500/60 transition-all duration-300 active:scale-95 hover:scale-110">
+            <Plus className="w-6 h-6" strokeWidth={2.5} />
+          </div>
+          <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+            Tambah Product
+            <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-900" />
+          </div>
+        </button>
+      )}
 
       <DistributorProductForm />
       <DistributorProductDetail />
@@ -786,70 +880,33 @@ const DistributorProductPage = () => {
   );
 };
 
-const LoadingSkeleton = () => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-    {[...Array(8)].map((_, i) => (
-      <div key={i} className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden animate-pulse">
-        <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
-          <div className="h-6 w-20 bg-slate-200 rounded-full" />
-          <div className="h-4 w-12 bg-slate-200 rounded-full" />
-        </div>
-
-        <div className="p-4 sm:p-5">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="w-16 h-16 bg-slate-200 rounded-xl flex-shrink-0" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 bg-slate-200 rounded w-3/4" />
-              <div className="h-3 bg-slate-200 rounded w-full" />
-            </div>
-          </div>
-
-          <div className="h-8 bg-slate-200 rounded-lg w-full mb-3" />
-
-          <div className="pt-3 border-t border-slate-100 space-y-2 mb-3">
-            <div className="h-3 bg-slate-200 rounded w-1/3" />
-            <div className="h-7 bg-slate-200 rounded w-2/3" />
-          </div>
-
-          <div className="pt-3 border-t border-slate-100 space-y-2">
-            <div className="h-3 bg-slate-200 rounded w-1/2" />
-            <div className="grid grid-cols-2 gap-2">
-              <div className="h-12 bg-slate-200 rounded-lg" />
-              <div className="h-12 bg-slate-200 rounded-lg" />
-            </div>
-            <div className="h-2 bg-slate-200 rounded-full w-full" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 border-t-2 border-slate-100">
-          <div className="h-16 bg-slate-50 border-r border-slate-100" />
-          <div className="h-16 bg-slate-50 border-r border-slate-100" />
-          <div className="h-16 bg-slate-50" />
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
 // ==========================================
-// EMPTY STATE
+// EMPTY STATE (Adaptive by role)
 // ==========================================
-const EmptyState = ({ isFilterActive, onReset, onCreate }) => (
+const EmptyState = ({ isFilterActive, canCreate, onReset, onCreate }) => (
   <div className="bg-white rounded-2xl border border-slate-200/60 p-8 sm:p-12 text-center shadow-sm">
     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mx-auto mb-4">
       {isFilterActive ? (
         <X className="w-10 h-10 text-slate-400" />
-      ) : (
+      ) : canCreate ? (
         <Truck className="w-10 h-10 text-slate-400" />
+      ) : (
+        <Lock className="w-10 h-10 text-slate-400" />
       )}
     </div>
     <p className="text-slate-900 font-bold text-lg">
-      {isFilterActive ? "Tidak ada product yang cocok" : "Belum ada data product distributor"}
+      {isFilterActive
+        ? "Tidak ada product yang cocok"
+        : canCreate
+        ? "Belum ada data product distributor"
+        : "Belum ada product distributor tersedia"}
     </p>
     <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
       {isFilterActive
         ? "Coba ubah filter pencarian atau reset filter untuk melihat semua data"
-        : "Mulai dengan menambahkan product distributor baru untuk katalog supplier"}
+        : canCreate
+        ? "Mulai dengan menambahkan product distributor baru untuk katalog supplier"
+        : "Hubungi admin untuk menambahkan product distributor baru"}
     </p>
     {isFilterActive ? (
       <button
@@ -859,7 +916,7 @@ const EmptyState = ({ isFilterActive, onReset, onCreate }) => (
         <X size={14} />
         Reset Filter
       </button>
-    ) : (
+    ) : canCreate ? (
       <button
         onClick={onCreate}
         className="mt-4 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-sky-600 hover:from-cyan-600 hover:to-sky-700 rounded-lg transition-all inline-flex items-center gap-2 shadow-md shadow-cyan-500/20 hover:shadow-lg"
@@ -867,7 +924,7 @@ const EmptyState = ({ isFilterActive, onReset, onCreate }) => (
         <Plus size={16} strokeWidth={2.5} />
         Tambah Product Pertama
       </button>
-    )}
+    ) : null}
   </div>
 );
 

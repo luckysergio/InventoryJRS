@@ -16,7 +16,9 @@ import CustomerTagihanDetailModal from "./CustomerTagihanDetailModal";
 import CustomerPembayaranModal from "./CustomerPembayaranModal";
 import { formatRupiah, formatTanggal, formatProductName } from "../transaksidaily/utils/transaksiUtils";
 
-const canCreateCustomer = (role) => ["admin", "admin_toko", "operator"].includes(role);
+const canCreateCustomer = (role) => ["admin", "admin_toko"].includes(role);
+const canEditCustomer = (role) => role === "admin";
+const canDeleteCustomer = (role) => role === "admin";
 
 const getTagihanLevel = (total) => {
   if (total === 0) return { level: "lunas", color: "emerald", label: "Lunas" };
@@ -25,9 +27,14 @@ const getTagihanLevel = (total) => {
   return { level: "high", color: "red", label: "Besar" };
 };
 
-const getTagihanPercentage = (total, max = 5000000) => Math.min(100, (total / max) * 100);
+const getTagihanPercentage = (total, max = 20000000) => Math.min(100, (total / max) * 100);
 
-const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHarian, onTagihanPesanan, onPrint, isPrinting }) => {
+const CustomerCard = ({
+  item, canEdit, canDelete,
+  onDetail, onEdit, onDelete,
+  onTagihanHarian, onTagihanPesanan,
+  onPrint, isPrinting,
+}) => {
   const tH = Number(item.tagihan_harian_belum_lunas) || 0;
   const tP = Number(item.tagihan_pesanan_belum_lunas) || 0;
   const totalTagihan = tH + tP;
@@ -35,15 +42,14 @@ const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHari
   const tagihanInfo = getTagihanLevel(totalTagihan);
   const tagihanPercent = getTagihanPercentage(totalTagihan);
 
-  const avatarGradient = hasTag
-    ? "from-orange-500 to-red-600"
-    : "from-emerald-500 to-teal-600";
-
   const barGradient = hasTag
     ? tagihanInfo.color === "red" ? "from-red-400 to-rose-500" :
       tagihanInfo.color === "orange" ? "from-orange-400 to-red-500" :
       "from-amber-400 to-orange-500"
     : "from-emerald-400 to-teal-500";
+
+  const actionCount = 2 + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
+  const gridCols = actionCount === 4 ? "grid-cols-4" : "grid-cols-2";
 
   return (
     <div
@@ -55,7 +61,6 @@ const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHari
     >
       <div className="flex-1 p-4 sm:p-5">
         <div className="flex items-start gap-3">
-
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-tight line-clamp-2">
               {item.name}
@@ -117,16 +122,14 @@ const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHari
               </p>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 {hasTag ? (
-                  <>
-                    <span className={cn(
-                      "text-2xl sm:text-3xl font-black bg-gradient-to-r bg-clip-text text-transparent",
-                      tagihanInfo.color === "red" ? "from-red-600 to-rose-600" :
-                      tagihanInfo.color === "orange" ? "from-orange-600 to-red-600" :
-                      "from-amber-600 to-orange-600"
-                    )}>
-                      {formatRupiah(totalTagihan)}
-                    </span>
-                  </>
+                  <span className={cn(
+                    "text-2xl sm:text-3xl font-black bg-gradient-to-r bg-clip-text text-transparent",
+                    tagihanInfo.color === "red" ? "from-red-600 to-rose-600" :
+                    tagihanInfo.color === "orange" ? "from-orange-600 to-red-600" :
+                    "from-amber-600 to-orange-600"
+                  )}>
+                    {formatRupiah(totalTagihan)}
+                  </span>
                 ) : (
                   <span className="text-xl sm:text-2xl font-black bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
                     LUNAS
@@ -136,7 +139,6 @@ const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHari
             </div>
           </div>
 
-          {/* Progress Bar - hanya untuk yang punya tagihan */}
           {hasTag && (
             <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
               <div
@@ -151,11 +153,12 @@ const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHari
         </div>
       </div>
 
+      {/* ACTION BUTTONS */}
       <div className={cn(
         "grid border-t-2 border-slate-100 bg-gradient-to-b from-slate-50/50 to-white",
-        isAdmin ? "grid-cols-4" : "grid-cols-2"
+        gridCols
       )}>
-        {/* DETAIL - Blue (always available) */}
+        {/* DETAIL */}
         <button
           onClick={() => onDetail(item)}
           className="group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-blue-50 active:scale-95 transition-all duration-200 border-r border-slate-100"
@@ -169,12 +172,13 @@ const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHari
           </span>
         </button>
 
-        {/* PRINT - Orange (always available if has tagihan) */}
+        {/* PRINT */}
         <button
           onClick={() => hasTag && onPrint(item)}
           disabled={!hasTag || isPrinting}
           className={cn(
-            "group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 transition-all duration-200 border-r border-slate-100",
+            "group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 transition-all duration-200",
+            (canEdit || canDelete) && "border-r border-slate-100",
             !hasTag || isPrinting
               ? "cursor-not-allowed opacity-50"
               : "hover:bg-orange-50 active:scale-95"
@@ -201,8 +205,8 @@ const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHari
           </span>
         </button>
 
-        {/* EDIT - Indigo (admin only) */}
-        {isAdmin && (
+        {/* EDIT (ADMIN ONLY) */}
+        {canEdit && (
           <button
             onClick={() => onEdit(item)}
             className="group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-indigo-50 active:scale-95 transition-all duration-200 border-r border-slate-100"
@@ -217,8 +221,8 @@ const CustomerCard = ({ item, isAdmin, onDetail, onEdit, onDelete, onTagihanHari
           </button>
         )}
 
-        {/* DELETE - Red (admin only) */}
-        {isAdmin && (
+        {/* DELETE (ADMIN ONLY) */}
+        {canDelete && (
           <button
             onClick={() => onDelete(item)}
             className="group/btn flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 px-2 hover:bg-red-50 active:scale-95 transition-all duration-200"
@@ -243,8 +247,10 @@ const CustomerPage = () => {
   const { danger, success, info, warning } = useConfirmDialog();
 
   const role = useUserRole();
-  const isAdmin = useIsAdmin();
+
   const canCreate = canCreateCustomer(role);
+  const canEdit = canEditCustomer(role);
+  const canDelete = canDeleteCustomer(role);
 
   const [searchInput, setSearchInput] = useState(filters.search);
   const [printingCustomerId, setPrintingCustomerId] = useState(null);
@@ -252,7 +258,6 @@ const CustomerPage = () => {
   const { data, isLoading, isFetching, isPlaceholderData, refetch } = useCustomers(getQueryParams());
   const deleteMut = useDeleteCustomer();
 
-  // Debounced search
   const [debounceTimer, setDebounceTimer] = useState(null);
   const handleSearchChange = useCallback((val) => {
     setSearchInput(val);
@@ -270,10 +275,8 @@ const CustomerPage = () => {
   const customers = data?.customers || [];
   const meta = data?.meta || {};
   const lastPage = meta.last_page || 1;
-  const total = meta.total || 0;
   const isFilterActive = hasActiveSearch();
 
-  // Sort: dengan tagihan duluan, lalu alfabetis
   const sortedCustomers = useMemo(() => {
     const withTag = [], withoutTag = [];
     customers.forEach((c) => {
@@ -284,24 +287,10 @@ const CustomerPage = () => {
     withTag.sort((a, b) => {
       const totalA = (Number(a.tagihan_harian_belum_lunas) || 0) + (Number(a.tagihan_pesanan_belum_lunas) || 0);
       const totalB = (Number(b.tagihan_harian_belum_lunas) || 0) + (Number(b.tagihan_pesanan_belum_lunas) || 0);
-      return totalB - totalA; // Sort by total tagihan descending
+      return totalB - totalA;
     });
     withoutTag.sort((a, b) => a.name.localeCompare(b.name));
     return [...withTag, ...withoutTag];
-  }, [customers]);
-
-  // Statistik ringkas
-  const stats = useMemo(() => {
-    const withTagihan = customers.filter(c => {
-      const h = Number(c.tagihan_harian_belum_lunas) || 0;
-      const p = Number(c.tagihan_pesanan_belum_lunas) || 0;
-      return h > 0 || p > 0;
-    }).length;
-    const lunas = customers.length - withTagihan;
-    const totalTagihan = customers.reduce((sum, c) => {
-      return sum + (Number(c.tagihan_harian_belum_lunas) || 0) + (Number(c.tagihan_pesanan_belum_lunas) || 0);
-    }, 0);
-    return { withTagihan, lunas, totalTagihan };
   }, [customers]);
 
   const paginationNumbers = useMemo(() => {
@@ -314,6 +303,11 @@ const CustomerPage = () => {
   }, [currentPage, lastPage]);
 
   const handleDelete = async (customer) => {
+    if (!canDelete) {
+      await info("Akses Ditolak", "Hanya admin yang dapat menghapus customer");
+      return;
+    }
+
     const totalTagihan = (Number(customer.tagihan_harian_belum_lunas) || 0) + (Number(customer.tagihan_pesanan_belum_lunas) || 0);
 
     if (totalTagihan > 0) {
@@ -514,6 +508,9 @@ const CustomerPage = () => {
     }
   };
 
+  const skeletonActionCount = 2 + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
+  const skeletonGridCols = skeletonActionCount === 4 ? "grid-cols-4" : "grid-cols-2";
+
   return (
     <div className="space-y-4 pb-20">
       <div className="sticky top-4 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-2 pb-3 bg-white/80 backdrop-blur-lg border-b border-slate-200/60">
@@ -550,7 +547,6 @@ const CustomerPage = () => {
               <span>Refresh</span>
             </button>
           </div>
-
         </div>
       </div>
 
@@ -558,13 +554,11 @@ const CustomerPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
           {[...Array(8)].map((_, i) => (
             <div key={i} className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden animate-pulse">
-              {/* Header */}
               <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
                 <div className="h-6 w-24 bg-slate-200 rounded-full" />
                 <div className="h-4 w-12 bg-slate-200 rounded-full" />
               </div>
 
-              {/* Body */}
               <div className="p-4">
                 <div className="flex items-start gap-3">
                   <div className="w-14 h-14 bg-slate-200 rounded-xl flex-shrink-0" />
@@ -586,12 +580,11 @@ const CustomerPage = () => {
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="grid grid-cols-4 border-t-2 border-slate-100">
+              <div className={cn("grid border-t-2 border-slate-100", skeletonGridCols)}>
                 <div className="h-16 bg-slate-50 border-r border-slate-100" />
-                <div className="h-16 bg-slate-50 border-r border-slate-100" />
-                <div className="h-16 bg-slate-50 border-r border-slate-100" />
-                <div className="h-16 bg-slate-50" />
+                <div className={cn("h-16 bg-slate-50", (canEdit || canDelete) && "border-r border-slate-100")} />
+                {canEdit && <div className="h-16 bg-slate-50 border-r border-slate-100" />}
+                {canDelete && <div className="h-16 bg-slate-50" />}
               </div>
             </div>
           ))}
@@ -638,13 +631,13 @@ const CustomerPage = () => {
           "transition-opacity",
           isPlaceholderData && "opacity-60"
         )}>
-          {/* Responsive Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             {sortedCustomers.map((item) => (
               <CustomerCard
                 key={item.id}
                 item={item}
-                isAdmin={isAdmin}
+                canEdit={canEdit}
+                canDelete={canDelete}
                 onDetail={openDetailModal}
                 onEdit={openEditModal}
                 onDelete={handleDelete}
@@ -656,7 +649,6 @@ const CustomerPage = () => {
             ))}
           </div>
 
-          {/* Pagination */}
           {lastPage > 1 && (
             <div className="flex items-center justify-center gap-1 sm:gap-1.5 mt-6 pb-4 flex-wrap">
               <button

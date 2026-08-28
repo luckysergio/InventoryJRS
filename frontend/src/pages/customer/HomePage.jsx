@@ -14,11 +14,10 @@ import Section from './components/Section';
 import { useBestSellerProducts } from './hooks/usePublicProducts';
 import { cn } from '../../lib/utils';
 
-// ✅ FIX: Gunakan VITE_APP_URL untuk fallback gambar, bukan VITE_ASSET_URL (yang mungkin mengandung /api)
 const APP_URL = import.meta.env.VITE_APP_URL || 'https://www.jayarubberseal.com';
 
 const resolveImage = (url, path) => {
-  if (url) return url; // Backend sudah mengirim URL lengkap (https://.../storage/products/...)
+  if (url) return url;
   if (path) return `${APP_URL}/storage/${path}`;
   return null;
 };
@@ -79,9 +78,6 @@ const SkipNavigation = () => (
   </a>
 );
 
-/* ==========================================
-   ✅ PUBLIC PRODUCT DETAIL MODAL
-   ========================================== */
 const ProductDetailModal = ({ product, onClose }) => {
   const handleEscKey = useCallback((e) => {
     if (e.key === 'Escape' && product) onClose();
@@ -99,10 +95,6 @@ const ProductDetailModal = ({ product, onClose }) => {
   }, [product, handleEscKey]);
 
   if (!product) return null;
-
-  const qtyToko = Number(product.qty_toko) || 0;
-  const qtyBengkel = Number(product.qty_bengkel) || 0;
-  const totalQty = qtyToko + qtyBengkel;
 
   const fotoUrls = [
     resolveImage(product.foto_depan_url, product.foto_depan),
@@ -151,18 +143,6 @@ const ProductDetailModal = ({ product, onClose }) => {
               </div>
             )}
 
-            {/* Price & Stock Cards */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 text-center">
-                <p className="text-xs text-emerald-600 font-medium mb-1 uppercase tracking-wide">Harga Umum</p>
-                <p className="text-xl font-bold text-emerald-700">{formatRupiah(product.harga_umum)}</p>
-              </div>
-              <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
-                <p className="text-xs text-blue-600 font-medium mb-1 uppercase tracking-wide">Total Stok</p>
-                <p className={cn("text-xl font-bold", totalQty < 20 ? "text-red-600" : "text-blue-700")}>{totalQty} Unit</p>
-              </div>
-            </div>
-
             {/* Detail Items */}
             <div className="space-y-3">
               <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
@@ -174,33 +154,6 @@ const ProductDetailModal = ({ product, onClose }) => {
                   </p>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                  <div className="p-2 bg-amber-100 rounded-lg flex-shrink-0"><Warehouse className="w-4 h-4 text-amber-600" /></div>
-                  <div>
-                    <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">Stok Toko</p>
-                    <p className="text-sm font-bold text-slate-900">{qtyToko} Unit</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                  <div className="p-2 bg-indigo-100 rounded-lg flex-shrink-0"><Warehouse className="w-4 h-4 text-indigo-600" /></div>
-                  <div>
-                    <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">Stok Bengkel</p>
-                    <p className="text-sm font-bold text-slate-900">{qtyBengkel} Unit</p>
-                  </div>
-                </div>
-              </div>
-
-              {product.keterangan && (
-                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-                  <div className="p-2 bg-slate-200 rounded-lg flex-shrink-0"><Calendar className="w-4 h-4 text-slate-600" /></div>
-                  <div className="flex-1">
-                    <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide mb-0.5">Keterangan</p>
-                    <p className="text-sm text-slate-900 break-words">{product.keterangan}</p>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -225,9 +178,6 @@ const ProductDetailModal = ({ product, onClose }) => {
   );
 };
 
-/* ==========================================
-   HERO SECTION
-   ========================================== */
 const HeroSection = () => {
   const [logoFailed, setLogoFailed] = useState(false);
 
@@ -351,9 +301,6 @@ const HeroSection = () => {
   );
 };
 
-/* ==========================================
-   STATS SECTION
-   ========================================== */
 const StatsSection = () => (
   <section className="py-10 sm:py-12 bg-white border-y border-slate-100" aria-label="Statistik perusahaan">
     <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -375,9 +322,6 @@ const StatsSection = () => (
   </section>
 );
 
-/* ==========================================
-   FEATURES SECTION
-   ========================================== */
 const FeaturesSection = () => (
   <Section id="features" title="Mengapa Memilih Jaya Rubber Seal?" subtitle="Keunggulan Kami" background="light">
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -398,9 +342,6 @@ const FeaturesSection = () => (
   </Section>
 );
 
-/* ==========================================
-   CATEGORIES SECTION
-   ========================================== */
 const CategoriesSection = () => (
   <Section id="categories" title="Jelajahi Produk Kami" subtitle="Temukan yang Anda Butuhkan" background="white">
     <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
@@ -408,7 +349,7 @@ const CategoriesSection = () => (
         const IconComponent = cat.icon;
         return (
           <Link 
-            key={cat.name} // ✅ FIX: Gunakan cat.name (unik) sebagai key, bukan cat.path (yang duplikat)
+            key={cat.name}
             to={cat.path} 
             className="group relative overflow-hidden rounded-3xl bg-white shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2" 
             data-aos="zoom-in" 

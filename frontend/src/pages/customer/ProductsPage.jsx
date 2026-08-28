@@ -46,9 +46,6 @@ const SkipNavigation = () => (
   </a>
 );
 
-/* ==========================================
-   PRODUCT DETAIL MODAL
-   ========================================== */
 const ProductDetailModal = ({ product, onClose }) => {
   const { data: detail, isLoading } = useProductDetail(product?.id, {
     enabled: !!product?.id,
@@ -78,10 +75,6 @@ const ProductDetailModal = ({ product, onClose }) => {
   }, [product?.id]);
 
   if (!product) return null;
-
-  const qtyToko = Number(data?.qty_toko) || 0;
-  const qtyBengkel = Number(data?.qty_bengkel) || 0;
-  const totalQty = qtyToko + qtyBengkel;
 
   const fotoUrls = [
     resolveImage(data?.foto_depan_url, data?.foto_depan),
@@ -161,20 +154,6 @@ const ProductDetailModal = ({ product, onClose }) => {
                   </div>
                 )}
 
-                {/* Price & Stock Cards */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 text-center">
-                    <p className="text-xs text-emerald-600 font-medium mb-1 uppercase tracking-wide">Harga Umum</p>
-                    <p className="text-xl font-bold text-emerald-700">{formatRupiah(data?.harga_umum)}</p>
-                  </div>
-                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
-                    <p className="text-xs text-blue-600 font-medium mb-1 uppercase tracking-wide">Total Stok</p>
-                    <p className={cn("text-xl font-bold", totalQty < 20 ? "text-red-600" : "text-blue-700")}>
-                      {totalQty} Unit
-                    </p>
-                  </div>
-                </div>
-
                 {/* Detail Items */}
                 <div className="space-y-3">
                   <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
@@ -189,39 +168,6 @@ const ProductDetailModal = ({ product, onClose }) => {
                       </p>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                      <div className="p-2 bg-amber-100 rounded-lg flex-shrink-0">
-                        <Warehouse className="w-4 h-4 text-amber-600" />
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">Stok Toko</p>
-                        <p className="text-sm font-bold text-slate-900">{qtyToko} Unit</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                      <div className="p-2 bg-indigo-100 rounded-lg flex-shrink-0">
-                        <Warehouse className="w-4 h-4 text-indigo-600" />
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">Stok Bengkel</p>
-                        <p className="text-sm font-bold text-slate-900">{qtyBengkel} Unit</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {data?.keterangan && (
-                    <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-                      <div className="p-2 bg-slate-200 rounded-lg flex-shrink-0">
-                        <Ruler className="w-4 h-4 text-slate-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wide mb-0.5">Keterangan</p>
-                        <p className="text-sm text-slate-900 break-words">{data.keterangan}</p>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </>
             )}
@@ -253,9 +199,6 @@ const ProductDetailModal = ({ product, onClose }) => {
   );
 };
 
-/* ==========================================
-   PRODUCT CARD
-   ========================================== */
 const ProductCard = ({ product, index, onSelect }) => {
   const imageUrl = resolveImage(product.foto_depan_url, product.foto_depan);
   const productName = product.jenis?.nama || product.kode || 'Produk Rubber Seal';

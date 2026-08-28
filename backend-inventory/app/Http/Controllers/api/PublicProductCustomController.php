@@ -25,6 +25,8 @@ class PublicProductCustomController extends Controller
             $result = $this->publicProductCustomerService->getList(
                 search: $search,
                 customerId: $customerId,
+                jenisId: $request->input('jenis_id') ? (int) $request->input('jenis_id') : null,
+                typeId: $request->input('type_id') ? (int) $request->input('type_id') : null,
                 perPage: $perPage,
                 page: $page,
             );

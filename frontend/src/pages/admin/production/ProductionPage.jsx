@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Clock, Play, Package } from 'lucide-react';
+import { Plus, Clock, Play, Package, Lock } from 'lucide-react';
 import {
   useProductions,
   usePesananProduksi,
@@ -14,6 +14,20 @@ import PesananCard from './PesananCard';
 import ProductionForm from './ProductionForm';
 import ProductionUploadFotoModal from './ProductionUploadFotoModal';
 import PesananCreationModal from './PesananCreationModal';
+
+// ==========================================
+// MATRIKS AKSES PRODUKSI
+// ==========================================
+// | Role         | View | Create | Update Status | Selesai | Delete |
+// |--------------|:----:|:------:|:-------------:|:-------:|:------:|
+// | admin        |  ✅  |   ✅   |      ✅       |   ✅    |   ✅   |
+// | operator     |  ✅  |   ✅   |      ✅       |   ✅    |   ❌   |
+// | admin_toko   |  ✅  |   ❌   |      ❌       |   ❌    |   ❌   |
+// | user         |  ✅  |   ❌   |      ❌       |   ❌    |   ❌   |
+// ==========================================
+const canCreateProduction = (role) => ["admin", "operator"].includes(role);
+const canUpdateProductionStatus = (role) => ["admin", "operator"].includes(role);
+const canDeleteProduction = (role) => role === "admin";
 
 // ==========================================
 // UTILITY
@@ -57,22 +71,22 @@ const CardSkeleton = () => (
 // ==========================================
 const ProductionPage = () => {
   const role = useUserRole();
-  const isAdmin = role === 'admin';
-  const canOperate = role === 'admin' || role === 'operator';
+
+  // ✅ Explicit access flags based on role
+  const canCreate = canCreateProduction(role);
+  const canUpdate = canUpdateProductionStatus(role);
+  const canDelete = canDeleteProduction(role);
 
   const { openCreateModal } = useProductionModals();
   const updateStatusMut = useUpdateProductionStatus();
   const deleteMut = useDeleteProduction();
   const { danger, success, info, warning } = useConfirmDialog();
 
-  // Local state
   const [selectedPesanan, setSelectedPesanan] = useState(null);
 
-  // ✅ NEW: Track which production IDs are currently being processed
-  // Digunakan untuk disable button + show spinner per card
+  // Track which production IDs are currently being processed
   const [processingIds, setProcessingIds] = useState(new Set());
 
-  // Helper to manage processing state
   const setProcessing = (id, isProcessing) => {
     setProcessingIds((prev) => {
       const next = new Set(prev);
@@ -82,7 +96,7 @@ const ProductionPage = () => {
     });
   };
 
-  // Data fetching via React Query
+  // Data fetching
   const {
     data: prodData,
     isLoading: loadingProd,
@@ -101,13 +115,19 @@ const ProductionPage = () => {
   }), [productions]);
 
   // ==========================================
-  // HANDLERS (dengan loading state + pre-check)
+  // HANDLERS (dengan defense in depth)
   // ==========================================
 
   /**
    * Update status (mulai / batal) dengan loading indicator
    */
   const handleUpdateStatus = async (id, status) => {
+    // ✅ Defense in depth: cek akses sebelum action
+    if (!canUpdate) {
+      await info("Akses Ditolak", "Hanya admin dan operator yang dapat mengubah status produksi");
+      return;
+    }
+
     const statusLabel = {
       produksi: 'Produksi',
       batal: 'Batal',
@@ -119,7 +139,6 @@ const ProductionPage = () => {
     );
     if (!confirmed) return;
 
-    // ✅ Set loading state
     setProcessing(id, true);
 
     try {
@@ -131,21 +150,23 @@ const ProductionPage = () => {
         error.response?.data?.message || 'Terjadi kesalahan saat mengubah status.'
       );
     } finally {
-      // ✅ Clear loading state (even if error)
       setProcessing(id, false);
     }
   };
 
   /**
    * Handle selesai dengan PRE-CHECK foto di frontend.
-   * ✅ AVOID 422 error dengan cek foto sebelum submit.
    */
   const handleSelesaiWithUpload = async (production) => {
+    // ✅ Defense in depth: cek akses sebelum action
+    if (!canUpdate) {
+      await info("Akses Ditolak", "Hanya admin dan operator yang dapat menyelesaikan produksi");
+      return;
+    }
+
     const product = production.product;
     const hasPhotos = hasAllProductPhotos(product);
 
-    // ✅ PRE-CHECK: Jika foto belum lengkap, tawarkan upload LANGSUNG
-    // Tidak perlu submit dulu untuk trigger 422
     if (!hasPhotos) {
       const confirmed = await warning(
         'Lengkapi Foto Produk',
@@ -161,14 +182,12 @@ const ProductionPage = () => {
       return;
     }
 
-    // Foto lengkap, konfirmasi dulu
     const confirmed = await warning(
       'Selesaikan Produksi?',
       `Produksi "${product?.kode || ''}" akan diselesaikan dan stok diperbarui. Lanjutkan?`
     );
     if (!confirmed) return;
 
-    // ✅ Set loading state
     setProcessing(production.id, true);
 
     try {
@@ -180,7 +199,6 @@ const ProductionPage = () => {
     } catch (error) {
       const errorMsg = error.response?.data?.message || '';
 
-      // Fallback: backend tetap reject karena foto (edge case: foto dihapus dari DB)
       if (error.response?.status === 422 && errorMsg.toLowerCase().includes('foto')) {
         const confirmedUpload = await warning(
           'Lengkapi Foto Produk',
@@ -199,7 +217,6 @@ const ProductionPage = () => {
         );
       }
     } finally {
-      // ✅ Clear loading state
       setProcessing(production.id, false);
     }
   };
@@ -208,6 +225,12 @@ const ProductionPage = () => {
    * Delete production dengan loading indicator
    */
   const handleDelete = async (production) => {
+    // ✅ Defense in depth: cek akses sebelum action
+    if (!canDelete) {
+      await info("Akses Ditolak", "Hanya admin yang dapat menghapus produksi");
+      return;
+    }
+
     const productCode = production.product?.kode || '';
 
     const confirmed = await danger(
@@ -216,7 +239,6 @@ const ProductionPage = () => {
     );
     if (!confirmed) return;
 
-    // ✅ Set loading state
     setProcessing(production.id, true);
 
     try {
@@ -228,7 +250,6 @@ const ProductionPage = () => {
         error.response?.data?.message || 'Terjadi kesalahan saat menghapus produksi.'
       );
     } finally {
-      // ✅ Clear loading state
       setProcessing(production.id, false);
     }
   };
@@ -240,7 +261,6 @@ const ProductionPage = () => {
 
   return (
     <div className="space-y-6 pb-20">
-      {/* LOADING STATE */}
       {isLoading ? (
         <div className="space-y-6">
           <div>
@@ -252,8 +272,8 @@ const ProductionPage = () => {
         </div>
       ) : (
         <>
-          {/* PESANAN MENUNGGU PRODUKSI */}
-          {pesanan.length > 0 && (
+          {/* PESANAN MENUNGGU PRODUKSI - Hanya tampil jika user bisa create */}
+          {pesanan.length > 0 && canCreate && (
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg shadow-sm shadow-amber-500/30">
@@ -297,6 +317,8 @@ const ProductionPage = () => {
                     key={p.id}
                     production={p}
                     isProcessing={processingIds.has(p.id)}
+                    canUpdate={canUpdate}
+                    canDelete={canDelete}
                     onUpdateStatus={handleUpdateStatus}
                     onDelete={handleDelete}
                     onSelesaiWithUpload={handleSelesaiWithUpload}
@@ -324,6 +346,8 @@ const ProductionPage = () => {
                     key={p.id}
                     production={p}
                     isProcessing={processingIds.has(p.id)}
+                    canUpdate={canUpdate}
+                    canDelete={canDelete}
                     onUpdateStatus={handleUpdateStatus}
                     onDelete={handleDelete}
                     onSelesaiWithUpload={handleSelesaiWithUpload}
@@ -333,17 +357,83 @@ const ProductionPage = () => {
             </section>
           )}
 
-          {/* EMPTY STATE */}
+          {/* SELESAI */}
+          {grouped.selesai.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg shadow-sm">
+                  <Package className="w-4 h-4 text-white" />
+                </div>
+                <h2 className="text-base font-bold text-slate-900">Selesai</h2>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                  {grouped.selesai.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {grouped.selesai.map((p) => (
+                  <ProductionCard
+                    key={p.id}
+                    production={p}
+                    isProcessing={processingIds.has(p.id)}
+                    canUpdate={canUpdate}
+                    canDelete={canDelete}
+                    onUpdateStatus={handleUpdateStatus}
+                    onDelete={handleDelete}
+                    onSelesaiWithUpload={handleSelesaiWithUpload}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* BATAL */}
+          {grouped.batal.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-2 bg-gradient-to-br from-red-500 to-rose-600 rounded-lg shadow-sm">
+                  <Lock className="w-4 h-4 text-white" />
+                </div>
+                <h2 className="text-base font-bold text-slate-900">Dibatalkan</h2>
+                <span className="text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
+                  {grouped.batal.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {grouped.batal.map((p) => (
+                  <ProductionCard
+                    key={p.id}
+                    production={p}
+                    isProcessing={processingIds.has(p.id)}
+                    canUpdate={canUpdate}
+                    canDelete={canDelete}
+                    onUpdateStatus={handleUpdateStatus}
+                    onDelete={handleDelete}
+                    onSelesaiWithUpload={handleSelesaiWithUpload}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* EMPTY STATE (Adaptive by role) */}
           {pesanan.length === 0 && productions.length === 0 && (
             <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
               <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                <Package className="w-10 h-10 text-slate-400" />
+                {canCreate ? (
+                  <Package className="w-10 h-10 text-slate-400" />
+                ) : (
+                  <Lock className="w-10 h-10 text-slate-400" />
+                )}
               </div>
-              <p className="text-slate-900 font-semibold text-lg">Belum Ada Produksi</p>
-              <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
-                Buat produksi inventory baru atau tunggu pesanan dari customer
+              <p className="text-slate-900 font-semibold text-lg">
+                {canCreate ? "Belum Ada Produksi" : "Belum Ada Produksi Tersedia"}
               </p>
-              {canOperate && (
+              <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
+                {canCreate
+                  ? "Buat produksi inventory baru atau tunggu pesanan dari customer"
+                  : "Hubungi admin atau operator untuk memulai produksi baru"}
+              </p>
+              {canCreate && (
                 <button
                   onClick={openCreateModal}
                   className="mt-4 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors inline-flex items-center gap-2"
@@ -357,8 +447,7 @@ const ProductionPage = () => {
         </>
       )}
 
-      {/* FAB - Add Production */}
-      {canOperate && (
+      {canCreate && (
         <button
           onClick={openCreateModal}
           className="fixed bottom-6 right-6 z-40 group"

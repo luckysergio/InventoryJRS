@@ -48,12 +48,6 @@ class ProductService
     private const IMAGE_QUALITY = 80;
     private const IMAGE_FORMAT = 'webp';
 
-    /*
-    |--------------------------------------------------------------------------
-    | READ OPERATIONS
-    |--------------------------------------------------------------------------
-    */
-
     public function getList(
         ?string $search = null,
         ?int $jenisId = null,
@@ -74,6 +68,8 @@ class ProductService
                 'products.type_id',
                 'products.bahan_id',
                 'products.foto_depan',
+                'products.foto_samping',
+                'products.foto_atas',
                 'products.created_at',
                 'products.updated_at',
             ])

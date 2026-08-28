@@ -24,30 +24,24 @@ export const useAuthStore = create(
         const state = get();
         if (state.isLoggingOut) return;
 
-        // ✅ Set flag DULU sebagai guard
         set({ isLoggingOut: true });
 
-        // Destroy Echo via dynamic import (avoid circular dependency)
         import('../websocket')
           .then(({ destroyEcho }) => {
             try {
               destroyEcho();
             } catch (e) {
-              // ignore
             }
           })
           .catch(() => {
-            // module not found - ignore
           });
 
-        // Clear auth state (jangan reset isLoggingOut di sini!)
         set({
           user: null,
           token: null,
           isAuthenticated: false,
         });
 
-        // ✅ Reset flag di next tick agar tidak block future logout
         setTimeout(() => {
           set({ isLoggingOut: false });
         }, 100);
@@ -74,7 +68,6 @@ export const useAuthStore = create(
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
-        // ❌ JANGAN persist isLoggingOut
       }),
     }
   )
@@ -97,3 +90,8 @@ export const useUserRole = () =>
 
 export const useIsAdmin = () =>
   useAuthStore((s) => s.user?.role === 'admin');
+
+export const useIsAdminToko = () => useAuthStore((state) => {
+  const role = state.user?.role;
+  return role === 'admin_toko' || role === 'toko';
+});
